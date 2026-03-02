@@ -17,9 +17,9 @@ const divisions = [
     id: "minerals",
     title: "Minerals Division",
     icon: Mountain,
-    color: "from-amber-700/20 to-amber-900/10",
-    accent: "text-amber-600 dark:text-amber-400",
-    accentBg: "bg-amber-600/10",
+    color: "from-stone-700/20 to-stone-900/10",
+    accent: "text-stone-600 dark:text-stone-400",
+    accentBg: "bg-stone-600/10",
     description:
       "Sourcing premium grade bulk minerals from established global mining operations for the heavy industry sector.",
     products: [
@@ -89,9 +89,9 @@ const divisions = [
     id: "petrochemicals",
     title: "Petrochemicals",
     icon: Droplets,
-    color: "from-violet-700/20 to-violet-900/10",
-    accent: "text-violet-600 dark:text-violet-400",
-    accentBg: "bg-violet-600/10",
+    color: "from-slate-700/20 to-slate-900/10",
+    accent: "text-slate-600 dark:text-slate-400",
+    accentBg: "bg-slate-600/10",
     description:
       "Distributing essential chemical derivatives foundational to infrastructure development and manufacturing.",
     products: [
@@ -113,9 +113,9 @@ const divisions = [
     id: "fertilizers",
     title: "Fertilizers",
     icon: Sprout,
-    color: "from-emerald-700/20 to-emerald-900/10",
-    accent: "text-emerald-600 dark:text-emerald-400",
-    accentBg: "bg-emerald-600/10",
+    color: "from-teal-700/20 to-teal-900/10",
+    accent: "text-teal-700 dark:text-teal-400",
+    accentBg: "bg-teal-700/10",
     description:
       "Supplying essential agricultural inputs to support global food security and sustainable farming practices.",
     products: [

@@ -64,11 +64,11 @@ const features = [
 ];
 
 const divisions = [
-  { icon: Mountain, name: "Minerals", products: "Iron Ore, Bauxite, Manganese Ore", color: "text-amber-600 dark:text-amber-400" },
-  { icon: Gem, name: "Metals", products: "Copper Cathodes, Aluminium", color: "text-sky-600 dark:text-sky-400" },
-  { icon: Flame, name: "Energy Products", products: "ULSD, HSGO, LPG", color: "text-orange-600 dark:text-orange-400" },
-  { icon: Droplets, name: "Petrochemicals", products: "Bitumen, Petcoke, Sulphur", color: "text-violet-600 dark:text-violet-400" },
-  { icon: Sprout, name: "Fertilizers", products: "NPK", color: "text-emerald-600 dark:text-emerald-400" },
+  { icon: Mountain, name: "Minerals", products: "Iron Ore, Bauxite, Manganese Ore", color: "text-stone-600 dark:text-stone-400" },
+  { icon: Gem, name: "Metals", products: "Copper Cathodes, Aluminium", color: "text-sky-700 dark:text-sky-400" },
+  { icon: Flame, name: "Energy Products", products: "ULSD, HSGO, LPG", color: "text-red-800 dark:text-red-400" },
+  { icon: Droplets, name: "Petrochemicals", products: "Bitumen, Petcoke, Sulphur", color: "text-slate-600 dark:text-slate-400" },
+  { icon: Sprout, name: "Fertilizers", products: "NPK", color: "text-teal-700 dark:text-teal-400" },
 ];
 
 const stats = [

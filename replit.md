@@ -8,7 +8,7 @@ Bullex is a standalone blockchain-backed trade management platform for Bullfrog 
 - **Backend**: Express.js with TypeScript
 - **Database**: PostgreSQL with Drizzle ORM
 - **Blockchain**: Custom SHA-256 blockchain implementation for trade verification
-- **Theme**: Deep Navy Blue & Gold institutional finance look, dark navy sidebar with gold accents
+- **Theme**: LSE.com-inspired colour scheme — deep burgundy/maroon (#990000) primary, institutional blue (#0084be) accent, dark charcoal sidebar, clean white cards
 
 ## Routes
 - `/` - Home page (explains Bullex platform, features, workflow, commodity divisions, tokenization)
