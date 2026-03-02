@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, real, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, real, doublePrecision, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -69,10 +69,10 @@ export const trades = pgTable("trades", {
   tradeRef: text("trade_ref").notNull().unique(),
   commodity: text("commodity").notNull(),
   commodityCategory: text("commodity_category").notNull(),
-  quantity: real("quantity").notNull(),
+  quantity: doublePrecision("quantity").notNull(),
   unit: text("unit").notNull().default("MT"),
-  pricePerUnit: real("price_per_unit").notNull(),
-  totalValue: real("total_value").notNull(),
+  pricePerUnit: doublePrecision("price_per_unit").notNull(),
+  totalValue: doublePrecision("total_value").notNull(),
   currency: text("currency").notNull().default("USD"),
   buyerName: text("buyer_name").notNull(),
   sellerName: text("seller_name").notNull(),

@@ -173,7 +173,7 @@ export default function Trading() {
         pricePerUnit: "", currency: "USD", buyerName: "", sellerName: "Bullfrog Group",
         origin: "", destination: "", incoterm: "CIF",
       });
-      toast({ title: "Trade Executed", description: "Trade recorded and verified on the Bullex blockchain." });
+      toast({ title: "Pre-Deal Created", description: "Trade initiated at Pre-Deal stage. Complete mandatory documents and advance to Deal to record on blockchain." });
     },
     onError: (error: Error) => {
       toast({ title: "Trade Failed", description: error.message, variant: "destructive" });
@@ -185,9 +185,14 @@ export default function Trading() {
       const res = await apiRequest("PATCH", `/api/trades/${id}/status`, { status });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data: any, variables: { id: string; status: string }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/trades"] });
-      toast({ title: "Stage Advanced", description: "Trade has progressed to the next stage." });
+      queryClient.invalidateQueries({ queryKey: ["/api/blocks"] });
+      if (variables.status === "deal") {
+        toast({ title: "Registered on Chain", description: "Block mined and trade recorded on the Bullex blockchain. Advanced to Deal stage." });
+      } else {
+        toast({ title: "Stage Advanced", description: "Trade has progressed to the next stage." });
+      }
     },
     onError: (error: Error) => {
       toast({ title: "Advance Failed", description: error.message, variant: "destructive" });
@@ -468,7 +473,7 @@ export default function Trading() {
                   </div>
                 )}
                 <Button type="submit" className="w-full rounded-none h-12 text-sm font-bold uppercase tracking-wider" disabled={createTrade.isPending} data-testid="button-submit-trade">
-                  {createTrade.isPending ? "Mining Block..." : "Execute & Record on Chain"}
+                  {createTrade.isPending ? "Creating Pre-Deal..." : "Initiate Pre-Deal Trade"}
                 </Button>
               </form>
             </CardContent>
@@ -553,22 +558,29 @@ export default function Trading() {
                           </div>
 
                           <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-3 mt-6">Blockchain Record</h4>
-                          <div className="bg-primary/5 border border-primary/10 p-4 space-y-2 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-xs text-muted-foreground uppercase">Block #</span>
-                              <span className="font-mono font-bold">{trade.blockNumber || "Pending"}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-xs text-muted-foreground uppercase">Nonce</span>
-                              <span className="font-mono">{trade.nonce || "-"}</span>
-                            </div>
-                            {trade.blockchainHash && (
+                          {trade.blockchainHash ? (
+                            <div className="bg-primary/5 border border-primary/10 p-4 space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-xs text-muted-foreground uppercase">Block #</span>
+                                <span className="font-mono font-bold">{trade.blockNumber}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-xs text-muted-foreground uppercase">Nonce</span>
+                                <span className="font-mono">{trade.nonce}</span>
+                              </div>
                               <div>
                                 <span className="text-xs text-muted-foreground uppercase block mb-1">Trade Hash</span>
                                 <span className="font-mono text-xs text-primary break-all">{trade.blockchainHash}</span>
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          ) : (
+                            <div className="bg-muted/30 border border-border p-4 text-sm">
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Clock className="w-4 h-4" />
+                                <span>Pending — block will be mined when trade advances to Deal stage</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <div className="lg:col-span-2">
@@ -643,7 +655,11 @@ export default function Trading() {
                                           }}
                                           data-testid={`button-advance-${trade.id}`}
                                         >
-                                          {mandatoryComplete ? "Advance to Next Stage" : "Mandatory Docs Required"}
+                                          {!mandatoryComplete
+                                            ? "Mandatory Docs Required"
+                                            : trade.status === "pre_deal"
+                                            ? "Register on Chain & Advance"
+                                            : "Advance to Next Stage"}
                                         </Button>
                                       </div>
                                     )}

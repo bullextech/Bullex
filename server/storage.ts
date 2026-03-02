@@ -38,6 +38,8 @@ export interface IStorage {
   updateTradeStatus(id: string, status: string): Promise<Trade>;
   updateStageDocuments(id: string, stageDocuments: Record<string, boolean>): Promise<Trade>;
   createTrade(trade: any): Promise<Trade>;
+  createPreDealTrade(tradeInput: any): Promise<Trade>;
+  mintTradeBlock(tradeId: string, newStatus: string, generateTradeHashFn: Function, mineBlockFn: Function, genesisHash: string): Promise<Trade>;
 
   getBlocks(): Promise<Block[]>;
   getLatestBlock(): Promise<Block | undefined>;
@@ -126,8 +128,39 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async executeTrade(
-    tradeInput: any,
+  async createPreDealTrade(tradeInput: any): Promise<Trade> {
+    const year = new Date().getFullYear();
+    const hexSuffix = Math.random().toString(16).slice(2, 6).toUpperCase();
+    const tradeRef = `BFG-${year}-${hexSuffix}`;
+
+    const [trade] = await db.insert(trades).values({
+      tradeRef,
+      commodity: tradeInput.commodity,
+      commodityCategory: tradeInput.commodityCategory,
+      quantity: tradeInput.quantity,
+      unit: tradeInput.unit,
+      pricePerUnit: tradeInput.pricePerUnit,
+      totalValue: tradeInput.totalValue,
+      currency: tradeInput.currency,
+      buyerName: tradeInput.buyerName,
+      sellerName: tradeInput.sellerName,
+      origin: tradeInput.origin,
+      destination: tradeInput.destination,
+      incoterm: tradeInput.incoterm,
+      status: "pre_deal",
+      stageDocuments: {},
+      blockchainHash: null,
+      previousHash: null,
+      blockNumber: null,
+      nonce: null,
+    }).returning();
+
+    return trade;
+  }
+
+  async mintTradeBlock(
+    tradeId: string,
+    newStatus: string,
     generateTradeHashFn: Function,
     mineBlockFn: Function,
     genesisHash: string
@@ -137,48 +170,35 @@ export class DatabaseStorage implements IStorage {
       await client.query("BEGIN");
       const txDb = drizzle(client);
 
+      const [trade] = await txDb.select().from(trades).where(eq(trades.id, tradeId));
+      if (!trade) throw new Error("Trade not found");
+      if (trade.status !== "pre_deal") throw new Error("Trade is not in pre_deal stage");
+      if (trade.blockchainHash) throw new Error("Trade already has a blockchain record");
+
       const [latestBlock] = await txDb.select().from(blocks).orderBy(desc(blocks.blockNumber)).limit(1);
       const previousHash = latestBlock ? latestBlock.hash : genesisHash;
       const blockNumber = latestBlock ? latestBlock.blockNumber + 1 : 1;
       const timestamp = new Date().toISOString();
 
-      const year = new Date().getFullYear();
-      const hexSuffix = Math.random().toString(16).slice(2, 6).toUpperCase();
-      const tradeRef = `BFG-${year}-${hexSuffix}`;
-
       const tradeHash = generateTradeHashFn(
-        tradeRef,
-        tradeInput.commodity,
-        tradeInput.commodityCategory,
-        tradeInput.quantity,
-        tradeInput.pricePerUnit,
+        trade.tradeRef,
+        trade.commodity,
+        trade.commodityCategory,
+        trade.quantity,
+        trade.pricePerUnit,
         timestamp
       );
 
-      const tradeData = `${tradeRef}:${tradeInput.commodity}:${tradeInput.quantity}:${tradeInput.pricePerUnit}:${tradeHash}`;
+      const tradeData = `${trade.tradeRef}:${trade.commodity}:${trade.quantity}:${trade.pricePerUnit}:${tradeHash}`;
       const { hash: blockHash, nonce } = mineBlockFn(blockNumber, previousHash, timestamp, tradeData, 2);
 
-      const [trade] = await txDb.insert(trades).values({
-        tradeRef,
-        commodity: tradeInput.commodity,
-        commodityCategory: tradeInput.commodityCategory,
-        quantity: tradeInput.quantity,
-        unit: tradeInput.unit,
-        pricePerUnit: tradeInput.pricePerUnit,
-        totalValue: tradeInput.totalValue,
-        currency: tradeInput.currency,
-        buyerName: tradeInput.buyerName,
-        sellerName: tradeInput.sellerName,
-        origin: tradeInput.origin,
-        destination: tradeInput.destination,
-        incoterm: tradeInput.incoterm,
-        status: "pre_deal",
-        stageDocuments: {},
+      const [updated] = await txDb.update(trades).set({
         blockchainHash: tradeHash,
         previousHash,
         blockNumber,
         nonce,
-      }).returning();
+        status: newStatus,
+      }).where(eq(trades.id, tradeId)).returning();
 
       await txDb.insert(blocks).values({
         blockNumber,
@@ -191,7 +211,7 @@ export class DatabaseStorage implements IStorage {
       });
 
       await client.query("COMMIT");
-      return trade;
+      return updated;
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;

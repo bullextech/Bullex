@@ -114,60 +114,89 @@ export async function seedDatabase() {
   let previousHash = GENESIS_HASH;
   const tradeRefs: string[] = [];
 
+  let blockIdx = 0;
   for (let i = 0; i < seedTrades.length; i++) {
     const seed = seedTrades[i];
-    const blockNumber = i + 1;
     const timestamp = new Date(Date.now() - (seedTrades.length - i) * 86400000).toISOString();
     const year = new Date().getFullYear();
     const hexSuffix = Math.random().toString(16).slice(2, 6).toUpperCase();
     const tradeRef = `BFG-${year}-${hexSuffix}`;
     tradeRefs.push(tradeRef);
 
-    const tradeHash = generateTradeHash(
-      tradeRef,
-      seed.commodity,
-      seed.commodityCategory,
-      seed.quantity,
-      seed.pricePerUnit,
-      timestamp
-    );
+    const isPreDeal = seed.status === "pre_deal";
 
-    const tradeData = `${tradeRef}:${seed.commodity}:${seed.quantity}:${seed.pricePerUnit}:${tradeHash}`;
-    const { hash: blockHash, nonce } = mineBlock(blockNumber, previousHash, timestamp, tradeData, 2);
+    if (isPreDeal) {
+      await storage.createTrade({
+        tradeRef,
+        commodity: seed.commodity,
+        commodityCategory: seed.commodityCategory,
+        quantity: seed.quantity,
+        unit: seed.unit,
+        pricePerUnit: seed.pricePerUnit,
+        totalValue: seed.quantity * seed.pricePerUnit,
+        currency: seed.currency,
+        buyerName: seed.buyerName,
+        sellerName: seed.sellerName,
+        origin: seed.origin,
+        destination: seed.destination,
+        incoterm: seed.incoterm,
+        status: seed.status,
+        stageDocuments: (seed as any).stageDocuments || {},
+        blockchainHash: null,
+        previousHash: null,
+        blockNumber: null,
+        nonce: null,
+      });
+    } else {
+      blockIdx++;
+      const blockNumber = blockIdx;
 
-    await storage.createTrade({
-      tradeRef,
-      commodity: seed.commodity,
-      commodityCategory: seed.commodityCategory,
-      quantity: seed.quantity,
-      unit: seed.unit,
-      pricePerUnit: seed.pricePerUnit,
-      totalValue: seed.quantity * seed.pricePerUnit,
-      currency: seed.currency,
-      buyerName: seed.buyerName,
-      sellerName: seed.sellerName,
-      origin: seed.origin,
-      destination: seed.destination,
-      incoterm: seed.incoterm,
-      status: seed.status,
-      stageDocuments: (seed as any).stageDocuments || {},
-      blockchainHash: tradeHash,
-      previousHash,
-      blockNumber,
-      nonce,
-    });
+      const tradeHash = generateTradeHash(
+        tradeRef,
+        seed.commodity,
+        seed.commodityCategory,
+        seed.quantity,
+        seed.pricePerUnit,
+        timestamp
+      );
 
-    await storage.createBlock({
-      blockNumber,
-      hash: blockHash,
-      previousHash,
-      nonce,
-      tradeCount: 1,
-      verified: true,
-      timestamp: new Date(timestamp),
-    });
+      const tradeData = `${tradeRef}:${seed.commodity}:${seed.quantity}:${seed.pricePerUnit}:${tradeHash}`;
+      const { hash: blockHash, nonce } = mineBlock(blockNumber, previousHash, timestamp, tradeData, 2);
 
-    previousHash = blockHash;
+      await storage.createTrade({
+        tradeRef,
+        commodity: seed.commodity,
+        commodityCategory: seed.commodityCategory,
+        quantity: seed.quantity,
+        unit: seed.unit,
+        pricePerUnit: seed.pricePerUnit,
+        totalValue: seed.quantity * seed.pricePerUnit,
+        currency: seed.currency,
+        buyerName: seed.buyerName,
+        sellerName: seed.sellerName,
+        origin: seed.origin,
+        destination: seed.destination,
+        incoterm: seed.incoterm,
+        status: seed.status,
+        stageDocuments: (seed as any).stageDocuments || {},
+        blockchainHash: tradeHash,
+        previousHash,
+        blockNumber,
+        nonce,
+      });
+
+      await storage.createBlock({
+        blockNumber,
+        hash: blockHash,
+        previousHash,
+        nonce,
+        tradeCount: 1,
+        verified: true,
+        timestamp: new Date(timestamp),
+      });
+
+      previousHash = blockHash;
+    }
   }
 
   for (const doc of seedDocs) {

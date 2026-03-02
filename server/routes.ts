@@ -70,13 +70,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Quantity and price must be positive" });
       }
 
-      const result = await storage.executeTrade(
-        parsed.data,
-        generateTradeHash,
-        mineBlock,
-        GENESIS_HASH
-      );
-
+      const result = await storage.createPreDealTrade(parsed.data);
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to create trade" });
@@ -106,11 +100,17 @@ export async function registerRoutes(
       if (missingDocs.length > 0) {
         return res.status(409).json({ message: `Mandatory documents not confirmed for ${trade.status}: ${missingDocs.join(", ")}` });
       }
-      const updated = await storage.updateTradeStatus(id, status);
-      if (!updated) {
-        return res.status(500).json({ message: "Failed to update trade status" });
+
+      if (trade.status === "pre_deal" && status === "deal") {
+        const updated = await storage.mintTradeBlock(id, status, generateTradeHash, mineBlock, GENESIS_HASH);
+        res.json(updated);
+      } else {
+        const updated = await storage.updateTradeStatus(id, status);
+        if (!updated) {
+          return res.status(500).json({ message: "Failed to update trade status" });
+        }
+        res.json(updated);
       }
-      res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to update trade status" });
     }

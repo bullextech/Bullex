@@ -83,8 +83,8 @@ shared/
 - `GET /api/kyc` - List KYC applications
 - `POST /api/kyc` - Submit KYC application
 - `GET /api/trades` - List all trades (newest first)
-- `POST /api/trades` - Create a new trade (auto-mines blockchain block)
-- `PATCH /api/trades/:id/status` - Advance trade stage (sequential: pre_deal → deal → execution → final_payment)
+- `POST /api/trades` - Create a new pre-deal trade (no blockchain block yet)
+- `PATCH /api/trades/:id/status` - Advance trade stage (sequential: pre_deal → deal → execution → final_payment). Advancing from pre_deal to deal mines the blockchain block.
 - `PATCH /api/trades/:id/documents` - Toggle document confirmation (docKey, checked)
 - `GET /api/blocks` - List blockchain blocks (newest first)
 - `GET /api/documents` - List all documents
