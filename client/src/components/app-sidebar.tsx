@@ -20,6 +20,7 @@ import {
   Shield,
   Layers,
   Package,
+  Coins,
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 
@@ -27,6 +28,7 @@ const navItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Products", url: "/products", icon: Package },
+  { title: "Tokenization", url: "/tokenization", icon: Coins },
   { title: "KYC Registration", url: "/kyc", icon: UserCheck },
   { title: "Document Generator", url: "/documents", icon: FileText },
   { title: "Blockchain Trading", url: "/trading", icon: Link2 },
