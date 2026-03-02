@@ -30,29 +30,54 @@ import {
 } from "@/components/ui/table";
 import {
   Plus,
-  TrendingUp,
-  TrendingDown,
   Link2,
   CheckCircle2,
   Clock,
   Search,
+  Ship,
+  FileCheck,
+  Shield,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Trade } from "@shared/schema";
 
-export default function Trades() {
+const commodityCategories = [
+  { value: "minerals", label: "Minerals", items: ["Iron Ore", "Bauxite", "Manganese"] },
+  { value: "metals", label: "Metals", items: ["Copper Cathodes", "Aluminium Ingots"] },
+  { value: "energy", label: "Energy Products", items: ["ULSD", "HSGO", "LPG"] },
+  { value: "petrochemicals", label: "Petrochemicals", items: ["Bitumen", "Petcoke", "Sulphur"] },
+  { value: "fertilizers", label: "Fertilizers", items: ["NPK"] },
+];
+
+const statusConfig: Record<string, { icon: any; color: string }> = {
+  initiated: { icon: Clock, color: "text-status-away" },
+  lc_issued: { icon: FileCheck, color: "text-chart-2" },
+  in_transit: { icon: Ship, color: "text-chart-1" },
+  completed: { icon: CheckCircle2, color: "text-status-online" },
+};
+
+const statusLabel = (s: string) =>
+  s.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
+export default function Trading() {
   const [open, setOpen] = useState(false);
-  const [filter, setFilter] = useState<"all" | "buy" | "sell">("all");
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const { toast } = useToast();
 
-  const [formData, setFormData] = useState({
-    assetSymbol: "",
-    assetName: "",
-    type: "buy" as "buy" | "sell",
+  const [form, setForm] = useState({
+    commodityCategory: "",
+    commodity: "",
     quantity: "",
-    price: "",
+    unit: "MT",
+    pricePerUnit: "",
+    currency: "USD",
+    buyerName: "",
+    sellerName: "",
+    origin: "",
+    destination: "",
+    incoterm: "CIF",
   });
 
   const { data: trades, isLoading } = useQuery<Trade[]>({
@@ -60,71 +85,63 @@ export default function Trades() {
   });
 
   const createTrade = useMutation({
-    mutationFn: async (data: {
-      assetSymbol: string;
-      assetName: string;
-      type: "buy" | "sell";
-      quantity: number;
-      price: number;
-      total: number;
-    }) => {
+    mutationFn: async (data: any) => {
       const res = await apiRequest("POST", "/api/trades", data);
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trades"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
       queryClient.invalidateQueries({ queryKey: ["/api/blocks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       setOpen(false);
-      setFormData({
-        assetSymbol: "",
-        assetName: "",
-        type: "buy",
+      setForm({
+        commodityCategory: "",
+        commodity: "",
         quantity: "",
-        price: "",
+        unit: "MT",
+        pricePerUnit: "",
+        currency: "USD",
+        buyerName: "",
+        sellerName: "",
+        origin: "",
+        destination: "",
+        incoterm: "CIF",
       });
       toast({
         title: "Trade Executed",
-        description: "Your trade has been recorded and verified on the blockchain.",
+        description: "Trade recorded and verified on the Bullex blockchain.",
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Trade Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Trade Failed", description: error.message, variant: "destructive" });
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const qty = parseFloat(formData.quantity);
-    const price = parseFloat(formData.price);
-    if (!formData.assetSymbol || !formData.assetName || isNaN(qty) || isNaN(price)) {
-      toast({
-        title: "Invalid Input",
-        description: "Please fill in all fields with valid values.",
-        variant: "destructive",
-      });
+    const qty = parseFloat(form.quantity);
+    const price = parseFloat(form.pricePerUnit);
+    if (!form.commodity || !form.commodityCategory || isNaN(qty) || isNaN(price) ||
+        !form.buyerName || !form.sellerName || !form.origin || !form.destination) {
+      toast({ title: "Invalid Input", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
     createTrade.mutate({
-      assetSymbol: formData.assetSymbol.toUpperCase(),
-      assetName: formData.assetName,
-      type: formData.type,
+      ...form,
       quantity: qty,
-      price: price,
-      total: qty * price,
+      pricePerUnit: price,
+      totalValue: qty * price,
     });
   };
 
+  const selectedCategory = commodityCategories.find((c) => c.value === form.commodityCategory);
+
   const filteredTrades = trades
-    ?.filter((t) => filter === "all" || t.type === filter)
-    .filter(
-      (t) =>
-        t.assetSymbol.toLowerCase().includes(search.toLowerCase()) ||
-        t.assetName.toLowerCase().includes(search.toLowerCase())
+    ?.filter((t) => statusFilter === "all" || t.status === statusFilter)
+    .filter((t) =>
+      t.tradeRef.toLowerCase().includes(search.toLowerCase()) ||
+      t.commodity.toLowerCase().includes(search.toLowerCase()) ||
+      t.buyerName.toLowerCase().includes(search.toLowerCase())
     ) || [];
 
   if (isLoading) {
@@ -140,11 +157,11 @@ export default function Trades() {
     <div className="p-6 space-y-6 overflow-y-auto h-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-trades-title">
-            Trades
+          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-trading-title">
+            Blockchain Trading
           </h1>
           <p className="text-sm text-muted-foreground">
-            Manage and track all your trading activity
+            Execute and manage commodity trades with blockchain verification
           </p>
         </div>
 
@@ -155,103 +172,166 @@ export default function Trades() {
               New Trade
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Execute New Trade</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-primary" />
+                Execute New Trade
+              </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="symbol">Symbol</Label>
-                  <Input
-                    id="symbol"
-                    placeholder="BTC"
-                    value={formData.assetSymbol}
-                    onChange={(e) =>
-                      setFormData({ ...formData, assetSymbol: e.target.value })
-                    }
-                    data-testid="input-symbol"
-                  />
+                  <Label>Category *</Label>
+                  <Select
+                    value={form.commodityCategory}
+                    onValueChange={(v) => setForm({ ...form, commodityCategory: v, commodity: "" })}
+                  >
+                    <SelectTrigger data-testid="select-category">
+                      <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {commodityCategories.map((c) => (
+                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="name">Asset Name</Label>
-                  <Input
-                    id="name"
-                    placeholder="Bitcoin"
-                    value={formData.assetName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, assetName: e.target.value })
-                    }
-                    data-testid="input-asset-name"
-                  />
+                  <Label>Commodity *</Label>
+                  <Select
+                    value={form.commodity}
+                    onValueChange={(v) => setForm({ ...form, commodity: v })}
+                    disabled={!form.commodityCategory}
+                  >
+                    <SelectTrigger data-testid="select-commodity">
+                      <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedCategory?.items.map((item) => (
+                        <SelectItem key={item} value={item}>{item}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <Select
-                  value={formData.type}
-                  onValueChange={(v) =>
-                    setFormData({ ...formData, type: v as "buy" | "sell" })
-                  }
-                >
-                  <SelectTrigger data-testid="select-trade-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="buy">Buy</SelectItem>
-                    <SelectItem value="sell">Sell</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="quantity">Quantity</Label>
+                  <Label>Quantity *</Label>
                   <Input
-                    id="quantity"
                     type="number"
                     step="any"
-                    placeholder="0.00"
-                    value={formData.quantity}
-                    onChange={(e) =>
-                      setFormData({ ...formData, quantity: e.target.value })
-                    }
+                    placeholder="0"
+                    value={form.quantity}
+                    onChange={(e) => setForm({ ...form, quantity: e.target.value })}
                     data-testid="input-quantity"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price ($)</Label>
+                  <Label>Unit</Label>
+                  <Select value={form.unit} onValueChange={(v) => setForm({ ...form, unit: v })}>
+                    <SelectTrigger data-testid="select-unit">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MT">MT</SelectItem>
+                      <SelectItem value="BBL">BBL</SelectItem>
+                      <SelectItem value="KG">KG</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Price/Unit *</Label>
                   <Input
-                    id="price"
                     type="number"
                     step="any"
                     placeholder="0.00"
-                    value={formData.price}
-                    onChange={(e) =>
-                      setFormData({ ...formData, price: e.target.value })
-                    }
+                    value={form.pricePerUnit}
+                    onChange={(e) => setForm({ ...form, pricePerUnit: e.target.value })}
                     data-testid="input-price"
                   />
                 </div>
               </div>
-              {formData.quantity && formData.price && (
-                <div className="p-3 rounded-md bg-muted text-sm">
-                  <span className="text-muted-foreground">Total: </span>
-                  <span className="font-semibold">
-                    $
-                    {(
-                      parseFloat(formData.quantity || "0") *
-                      parseFloat(formData.price || "0")
-                    ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Buyer *</Label>
+                  <Input
+                    placeholder="Buyer company"
+                    value={form.buyerName}
+                    onChange={(e) => setForm({ ...form, buyerName: e.target.value })}
+                    data-testid="input-buyer"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Seller *</Label>
+                  <Input
+                    placeholder="Seller company"
+                    value={form.sellerName}
+                    onChange={(e) => setForm({ ...form, sellerName: e.target.value })}
+                    data-testid="input-seller"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Origin *</Label>
+                  <Input
+                    placeholder="e.g., Guinea"
+                    value={form.origin}
+                    onChange={(e) => setForm({ ...form, origin: e.target.value })}
+                    data-testid="input-origin"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Destination *</Label>
+                  <Input
+                    placeholder="e.g., China"
+                    value={form.destination}
+                    onChange={(e) => setForm({ ...form, destination: e.target.value })}
+                    data-testid="input-destination"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Incoterm</Label>
+                  <Select value={form.incoterm} onValueChange={(v) => setForm({ ...form, incoterm: v })}>
+                    <SelectTrigger data-testid="select-incoterm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CIF">CIF</SelectItem>
+                      <SelectItem value="FOB">FOB</SelectItem>
+                      <SelectItem value="CFR">CFR</SelectItem>
+                      <SelectItem value="DAP">DAP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Currency</Label>
+                  <Select value={form.currency} onValueChange={(v) => setForm({ ...form, currency: v })}>
+                    <SelectTrigger data-testid="select-currency">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value="EUR">EUR</SelectItem>
+                      <SelectItem value="GBP">GBP</SelectItem>
+                      <SelectItem value="AED">AED</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {form.quantity && form.pricePerUnit && (
+                <div className="p-3 rounded-md bg-muted text-sm flex items-center justify-between">
+                  <span className="text-muted-foreground">Total Value</span>
+                  <span className="font-mono font-semibold">
+                    {form.currency} {(parseFloat(form.quantity || "0") * parseFloat(form.pricePerUnit || "0")).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               )}
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={createTrade.isPending}
-                data-testid="button-submit-trade"
-              >
-                {createTrade.isPending ? "Processing..." : "Execute Trade"}
+              <Button type="submit" className="w-full" disabled={createTrade.isPending} data-testid="button-submit-trade">
+                {createTrade.isPending ? "Mining Block..." : "Execute & Record on Chain"}
               </Button>
             </form>
           </DialogContent>
@@ -260,31 +340,30 @@ export default function Trades() {
 
       <Card data-testid="card-trades-table">
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 space-y-0">
-          <CardTitle className="text-base font-semibold">Trade History</CardTitle>
+          <CardTitle className="text-base font-semibold">Trade Ledger</CardTitle>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <Input
-                placeholder="Search trades..."
-                className="pl-8 w-48"
+                placeholder="Search..."
+                className="pl-8 w-44"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 data-testid="input-search-trades"
               />
             </div>
-            <div className="flex items-center gap-1">
-              {(["all", "buy", "sell"] as const).map((f) => (
-                <Button
-                  key={f}
-                  size="sm"
-                  variant={filter === f ? "default" : "secondary"}
-                  onClick={() => setFilter(f)}
-                  data-testid={`button-filter-${f}`}
-                >
-                  {f.charAt(0).toUpperCase() + f.slice(1)}
-                </Button>
-              ))}
-            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-36" data-testid="select-status-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="initiated">Initiated</SelectItem>
+                <SelectItem value="lc_issued">LC Issued</SelectItem>
+                <SelectItem value="in_transit">In Transit</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent>
@@ -293,95 +372,77 @@ export default function Trades() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Asset</TableHead>
+                    <TableHead>Trade Ref</TableHead>
+                    <TableHead>Commodity</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Value</TableHead>
+                    <TableHead>Route</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Block</TableHead>
                     <TableHead>Hash</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTrades.map((trade) => (
-                    <TableRow key={trade.id} data-testid={`trade-table-row-${trade.id}`}>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          {trade.type === "buy" ? (
-                            <TrendingUp className="w-3.5 h-3.5 text-status-online" />
-                          ) : (
-                            <TrendingDown className="w-3.5 h-3.5 text-status-busy" />
-                          )}
-                          <Badge
-                            variant={trade.type === "buy" ? "default" : "secondary"}
-                            className="uppercase text-[10px]"
-                          >
-                            {trade.type}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <span className="font-medium text-sm">{trade.assetSymbol}</span>
-                          <span className="text-muted-foreground text-xs ml-1.5">
-                            {trade.assetName}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {trade.quantity.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        ${trade.price.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm font-medium">
-                        ${trade.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          {trade.status === "confirmed" ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-status-online" />
-                          ) : (
-                            <Clock className="w-3.5 h-3.5 text-status-away" />
-                          )}
-                          <span className="text-xs capitalize">{trade.status}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {trade.blockNumber ? (
-                          <Badge variant="secondary" className="font-mono text-[10px]">
-                            #{trade.blockNumber}
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {trade.blockchainHash ? (
-                          <div className="flex items-center gap-1">
-                            <Link2 className="w-3 h-3 text-muted-foreground" />
-                            <span className="font-mono text-[10px] text-muted-foreground">
-                              {trade.blockchainHash.slice(0, 10)}...
+                  {filteredTrades.map((trade) => {
+                    const sc = statusConfig[trade.status] || statusConfig.initiated;
+                    const StatusIcon = sc.icon;
+                    return (
+                      <TableRow key={trade.id} data-testid={`trade-row-${trade.id}`}>
+                        <TableCell>
+                          <span className="font-mono text-sm font-medium">{trade.tradeRef}</span>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <span className="text-sm">{trade.commodity}</span>
+                            <span className="text-xs text-muted-foreground ml-1.5">
+                              ({trade.commodityCategory})
                             </span>
                           </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {trade.quantity.toLocaleString()} {trade.unit}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm font-medium">
+                          {trade.currency} {trade.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-xs">{trade.origin} → {trade.destination}</span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <StatusIcon className={`w-3.5 h-3.5 ${sc.color}`} />
+                            <span className="text-xs">{statusLabel(trade.status)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {trade.blockNumber ? (
+                            <Badge variant="secondary" className="font-mono text-[10px]">
+                              #{trade.blockNumber}
+                            </Badge>
+                          ) : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {trade.blockchainHash ? (
+                            <div className="flex items-center gap-1">
+                              <Link2 className="w-3 h-3 text-muted-foreground" />
+                              <span className="font-mono text-[10px] text-muted-foreground">
+                                {trade.blockchainHash.slice(0, 8)}...
+                              </span>
+                            </div>
+                          ) : "-"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <TrendingUp className="w-12 h-12 mb-4 opacity-20" />
+              <Link2 className="w-12 h-12 mb-4 opacity-20" />
               <p className="text-sm font-medium">No trades found</p>
               <p className="text-xs">
-                {search || filter !== "all"
-                  ? "Try adjusting your filters"
-                  : "Click 'New Trade' to get started"}
+                {search || statusFilter !== "all" ? "Adjust your filters" : "Click 'New Trade' to execute your first trade"}
               </p>
             </div>
           )}

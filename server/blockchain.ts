@@ -16,14 +16,14 @@ export function generateBlockHash(
 }
 
 export function generateTradeHash(
-  tradeId: string,
-  assetSymbol: string,
-  type: string,
+  tradeRef: string,
+  commodity: string,
+  commodityCategory: string,
   quantity: number,
-  price: number,
+  pricePerUnit: number,
   timestamp: string
 ): string {
-  const data = `${tradeId}:${assetSymbol}:${type}:${quantity}:${price}:${timestamp}`;
+  const data = `${tradeRef}:${commodity}:${commodityCategory}:${quantity}:${pricePerUnit}:${timestamp}`;
   return computeHash(data);
 }
 

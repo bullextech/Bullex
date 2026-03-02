@@ -2,49 +2,130 @@ import { storage } from "./storage";
 import { generateTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 
 const seedTrades = [
-  { symbol: "BTC", name: "Bitcoin", type: "buy" as const, quantity: 1.5, price: 42350.00 },
-  { symbol: "ETH", name: "Ethereum", type: "buy" as const, quantity: 12.0, price: 2280.00 },
-  { symbol: "SOL", name: "Solana", type: "buy" as const, quantity: 85.0, price: 98.50 },
-  { symbol: "BTC", name: "Bitcoin", type: "sell" as const, quantity: 0.25, price: 44100.00 },
-  { symbol: "AVAX", name: "Avalanche", type: "buy" as const, quantity: 150.0, price: 35.20 },
-  { symbol: "ETH", name: "Ethereum", type: "buy" as const, quantity: 5.0, price: 2350.00 },
-  { symbol: "SOL", name: "Solana", type: "sell" as const, quantity: 20.0, price: 105.75 },
-  { symbol: "LINK", name: "Chainlink", type: "buy" as const, quantity: 200.0, price: 14.85 },
+  {
+    commodity: "Iron Ore",
+    commodityCategory: "minerals",
+    quantity: 50000,
+    unit: "MT",
+    pricePerUnit: 118.50,
+    currency: "USD",
+    buyerName: "Hunan Steel Corp",
+    sellerName: "Bullfrog Group",
+    origin: "Guinea",
+    destination: "China",
+    incoterm: "CIF",
+    status: "completed",
+  },
+  {
+    commodity: "Copper Cathodes",
+    commodityCategory: "metals",
+    quantity: 5000,
+    unit: "MT",
+    pricePerUnit: 8450.00,
+    currency: "USD",
+    buyerName: "Emirates Metals FZE",
+    sellerName: "Bullfrog Group",
+    origin: "Zambia",
+    destination: "UAE",
+    incoterm: "FOB",
+    status: "in_transit",
+  },
+  {
+    commodity: "ULSD",
+    commodityCategory: "energy",
+    quantity: 30000,
+    unit: "MT",
+    pricePerUnit: 685.00,
+    currency: "USD",
+    buyerName: "PetroAsia Trading",
+    sellerName: "Bullfrog Group",
+    origin: "Singapore",
+    destination: "Vietnam",
+    incoterm: "CIF",
+    status: "lc_issued",
+  },
+  {
+    commodity: "Bitumen",
+    commodityCategory: "petrochemicals",
+    quantity: 15000,
+    unit: "MT",
+    pricePerUnit: 320.00,
+    currency: "USD",
+    buyerName: "Mumbai Roads Authority",
+    sellerName: "Bullfrog Group",
+    origin: "Iran",
+    destination: "India",
+    incoterm: "CFR",
+    status: "completed",
+  },
+  {
+    commodity: "Bauxite",
+    commodityCategory: "minerals",
+    quantity: 75000,
+    unit: "MT",
+    pricePerUnit: 52.00,
+    currency: "USD",
+    buyerName: "Shandong Aluminium",
+    sellerName: "Bullfrog Group",
+    origin: "Guinea",
+    destination: "China",
+    incoterm: "FOB",
+    status: "initiated",
+  },
+];
+
+const seedDocs = [
+  { docType: "SCO", title: "SCO - Iron Ore 50,000 MT Guinea-China", tradeIndex: 0, status: "final" },
+  { docType: "FCO", title: "FCO - Iron Ore 50,000 MT Guinea-China", tradeIndex: 0, status: "final" },
+  { docType: "SPA", title: "SPA - Iron Ore Supply Agreement", tradeIndex: 0, status: "final" },
+  { docType: "ICPO", title: "ICPO - Copper Cathodes 5,000 MT", tradeIndex: 1, status: "final" },
+  { docType: "LOI", title: "LOI - ULSD Supply Vietnam", tradeIndex: 2, status: "draft" },
+  { docType: "SCO", title: "SCO - Bauxite 75,000 MT Guinea-China", tradeIndex: 4, status: "draft" },
 ];
 
 export async function seedDatabase() {
   const existingTrades = await storage.getTrades();
-  if (existingTrades.length > 0) {
-    return;
-  }
+  if (existingTrades.length > 0) return;
 
   let previousHash = GENESIS_HASH;
-  let blockNumber = 0;
+  const tradeRefs: string[] = [];
 
-  for (const seed of seedTrades) {
-    blockNumber++;
-    const timestamp = new Date(Date.now() - (seedTrades.length - blockNumber) * 3600000).toISOString();
+  for (let i = 0; i < seedTrades.length; i++) {
+    const seed = seedTrades[i];
+    const blockNumber = i + 1;
+    const timestamp = new Date(Date.now() - (seedTrades.length - i) * 86400000).toISOString();
+    const year = new Date().getFullYear();
+    const hexSuffix = Math.random().toString(16).slice(2, 6).toUpperCase();
+    const tradeRef = `BFG-${year}-${hexSuffix}`;
+    tradeRefs.push(tradeRef);
 
     const tradeHash = generateTradeHash(
-      `seed-${blockNumber}`,
-      seed.symbol,
-      seed.type,
+      tradeRef,
+      seed.commodity,
+      seed.commodityCategory,
       seed.quantity,
-      seed.price,
+      seed.pricePerUnit,
       timestamp
     );
 
-    const tradeData = `${seed.symbol}:${seed.type}:${seed.quantity}:${seed.price}:${tradeHash}`;
+    const tradeData = `${tradeRef}:${seed.commodity}:${seed.quantity}:${seed.pricePerUnit}:${tradeHash}`;
     const { hash: blockHash, nonce } = mineBlock(blockNumber, previousHash, timestamp, tradeData, 2);
 
     await storage.createTrade({
-      assetSymbol: seed.symbol,
-      assetName: seed.name,
-      type: seed.type,
+      tradeRef,
+      commodity: seed.commodity,
+      commodityCategory: seed.commodityCategory,
       quantity: seed.quantity,
-      price: seed.price,
-      total: seed.quantity * seed.price,
-      status: "confirmed",
+      unit: seed.unit,
+      pricePerUnit: seed.pricePerUnit,
+      totalValue: seed.quantity * seed.pricePerUnit,
+      currency: seed.currency,
+      buyerName: seed.buyerName,
+      sellerName: seed.sellerName,
+      origin: seed.origin,
+      destination: seed.destination,
+      incoterm: seed.incoterm,
+      status: seed.status,
       blockchainHash: tradeHash,
       previousHash,
       blockNumber,
@@ -58,31 +139,38 @@ export async function seedDatabase() {
       nonce,
       tradeCount: 1,
       verified: true,
+      timestamp: new Date(timestamp),
     });
-
-    if (seed.type === "buy") {
-      await storage.upsertAsset({
-        symbol: seed.symbol,
-        name: seed.name,
-        quantity: seed.quantity,
-        avgBuyPrice: seed.price,
-        currentPrice: seed.price * (1 + (Math.random() * 0.1 - 0.03)),
-        change24h: parseFloat((Math.random() * 8 - 2).toFixed(2)),
-      });
-    } else {
-      const existing = await storage.getAssetBySymbol(seed.symbol);
-      if (existing) {
-        const newQty = Math.max(0, existing.quantity - seed.quantity);
-        await storage.updateAsset(existing.id, {
-          quantity: newQty,
-          currentPrice: seed.price * (1 + (Math.random() * 0.1 - 0.03)),
-          change24h: parseFloat((Math.random() * 8 - 2).toFixed(2)),
-        });
-      }
-    }
 
     previousHash = blockHash;
   }
 
-  console.log(`Seeded ${seedTrades.length} trades with blockchain verification`);
+  for (const doc of seedDocs) {
+    await storage.createDocument({
+      docType: doc.docType,
+      title: doc.title,
+      tradeRef: tradeRefs[doc.tradeIndex],
+      status: doc.status,
+    });
+  }
+
+  await storage.createKycApplication({
+    companyName: "Emirates Metals FZE",
+    registeredAddress: "Jebel Ali Free Zone, Dubai, UAE",
+    businessAddress: "JAFZA One Tower, Office 2105",
+    contactPerson: "Ahmed Al-Rashid",
+    contactTitle: "Managing Director",
+    phone: "+971 4 881 2200",
+    email: "a.rashid@emiratesmetals.ae",
+    website: "https://emiratesmetals.ae",
+    dateOfIncorporation: "15/03/2018",
+    countryOfIncorporation: "United Arab Emirates",
+    countryOfOperation: "UAE, GCC",
+    businessRegNumber: "JAFZA-2018-45721",
+    taxId: "TRN-100456789",
+    businessType: "Trader",
+    businessDescription: "International metals and minerals trading",
+  });
+
+  console.log(`Seeded ${seedTrades.length} trades, ${seedDocs.length} documents, and 1 KYC application`);
 }

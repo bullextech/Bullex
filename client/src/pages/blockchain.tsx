@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   Shield,
   Hash,
-  Clock,
   Layers,
   ArrowRight,
 } from "lucide-react";
@@ -38,9 +37,7 @@ function BlockCard({ block, trades }: { block: Block; trades: Trade[] }) {
           </div>
           <div className="flex-1 min-w-0 text-left">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-sm">
-                Block #{block.blockNumber}
-              </span>
+              <span className="font-semibold text-sm">Block #{block.blockNumber}</span>
               {block.verified && (
                 <Badge variant="default" className="text-[10px]">
                   <CheckCircle2 className="w-3 h-3 mr-0.5" />
@@ -49,10 +46,16 @@ function BlockCard({ block, trades }: { block: Block; trades: Trade[] }) {
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {block.tradeCount} transaction{block.tradeCount !== 1 ? "s" : ""}{" "}
-              &middot; {formattedDate}
+              {block.tradeCount} transaction{block.tradeCount !== 1 ? "s" : ""} &middot; {formattedDate}
             </p>
           </div>
+          {blockTrades.length > 0 && (
+            <div className="text-right flex-shrink-0 hidden sm:block">
+              <span className="text-xs font-mono text-muted-foreground">
+                {blockTrades[0]?.tradeRef}
+              </span>
+            </div>
+          )}
         </div>
       </AccordionTrigger>
       <AccordionContent className="px-4 pb-4 pt-3">
@@ -89,7 +92,6 @@ function BlockCard({ block, trades }: { block: Block; trades: Trade[] }) {
               <p className="font-medium">{block.tradeCount}</p>
             </div>
           </div>
-
           {blockTrades.length > 0 && (
             <div>
               <p className="text-xs font-medium mb-2">Transactions in Block</p>
@@ -97,24 +99,24 @@ function BlockCard({ block, trades }: { block: Block; trades: Trade[] }) {
                 {blockTrades.map((trade) => (
                   <div
                     key={trade.id}
-                    className="flex items-center justify-between gap-2 p-2.5 rounded-md bg-muted text-xs"
+                    className="p-2.5 rounded-md bg-muted text-xs space-y-1"
                     data-testid={`block-trade-${trade.id}`}
                   >
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={trade.type === "buy" ? "default" : "secondary"}
-                        className="text-[10px] uppercase"
-                      >
-                        {trade.type}
-                      </Badge>
-                      <span className="font-medium">{trade.assetSymbol}</span>
-                      <span className="text-muted-foreground">
-                        {trade.quantity} @ ${trade.price.toLocaleString()}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-medium">{trade.tradeRef}</span>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {trade.commodityCategory}
+                        </Badge>
+                      </div>
+                      <span className="font-mono font-medium">
+                        {trade.currency} {trade.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </span>
                     </div>
-                    <span className="font-mono font-medium">
-                      ${trade.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </span>
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span>{trade.commodity} &middot; {trade.quantity} {trade.unit}</span>
+                      <span>{trade.origin} → {trade.destination}</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -130,7 +132,6 @@ export default function Blockchain() {
   const { data: blocks, isLoading: blocksLoading } = useQuery<Block[]>({
     queryKey: ["/api/blocks"],
   });
-
   const { data: trades, isLoading: tradesLoading } = useQuery<Trade[]>({
     queryKey: ["/api/trades"],
   });
@@ -152,19 +153,17 @@ export default function Blockchain() {
   }
 
   const totalBlocks = blocks?.length || 0;
-  const totalTransactions = blocks
-    ? blocks.reduce((sum, b) => sum + b.tradeCount, 0)
-    : 0;
+  const totalTxns = blocks?.reduce((s, b) => s + b.tradeCount, 0) || 0;
   const verifiedBlocks = blocks?.filter((b) => b.verified).length || 0;
 
   return (
     <div className="p-6 space-y-6 overflow-y-auto h-full">
       <div>
         <h1 className="text-2xl font-bold tracking-tight" data-testid="text-blockchain-title">
-          Blockchain Ledger
+          Bullex Blockchain Ledger
         </h1>
         <p className="text-sm text-muted-foreground">
-          Immutable record of all verified transactions
+          Immutable, SHA-256 verified record of all trade transactions
         </p>
       </div>
 
@@ -180,28 +179,26 @@ export default function Blockchain() {
             </div>
           </CardContent>
         </Card>
-        <Card data-testid="stat-total-transactions">
+        <Card data-testid="stat-total-txns">
           <CardContent className="pt-5 flex items-center gap-3">
             <div className="w-10 h-10 rounded-md bg-chart-2/10 flex items-center justify-center">
               <Link2 className="w-5 h-5 text-chart-2" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Transactions</p>
-              <p className="text-xl font-bold">{totalTransactions}</p>
+              <p className="text-xl font-bold">{totalTxns}</p>
             </div>
           </CardContent>
         </Card>
-        <Card data-testid="stat-verified">
+        <Card data-testid="stat-chain-integrity">
           <CardContent className="pt-5 flex items-center gap-3">
             <div className="w-10 h-10 rounded-md bg-status-online/10 flex items-center justify-center">
               <Shield className="w-5 h-5 text-status-online" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Verified</p>
+              <p className="text-xs text-muted-foreground">Chain Integrity</p>
               <p className="text-xl font-bold">
-                {totalBlocks > 0
-                  ? `${((verifiedBlocks / totalBlocks) * 100).toFixed(0)}%`
-                  : "N/A"}
+                {totalBlocks > 0 ? `${((verifiedBlocks / totalBlocks) * 100).toFixed(0)}% Valid` : "N/A"}
               </p>
             </div>
           </CardContent>
@@ -222,11 +219,7 @@ export default function Blockchain() {
           {blocks && blocks.length > 0 ? (
             <Accordion type="single" collapsible>
               {blocks.map((block) => (
-                <BlockCard
-                  key={block.id}
-                  block={block}
-                  trades={trades || []}
-                />
+                <BlockCard key={block.id} block={block} trades={trades || []} />
               ))}
             </Accordion>
           ) : (

@@ -9,16 +9,20 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
-import Trades from "@/pages/trades";
-import Portfolio from "@/pages/portfolio";
+import KYC from "@/pages/kyc";
+import DocumentGenerator from "@/pages/document-generator";
+import Trading from "@/pages/trades";
+import Vault from "@/pages/vault";
 import Blockchain from "@/pages/blockchain";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/trades" component={Trades} />
-      <Route path="/portfolio" component={Portfolio} />
+      <Route path="/kyc" component={KYC} />
+      <Route path="/documents" component={DocumentGenerator} />
+      <Route path="/trading" component={Trading} />
+      <Route path="/vault" component={Vault} />
       <Route path="/blockchain" component={Blockchain} />
       <Route component={NotFound} />
     </Switch>

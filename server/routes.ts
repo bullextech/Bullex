@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTradeSchema } from "@shared/schema";
+import { insertTradeSchema, insertKycSchema, insertDocumentSchema } from "@shared/schema";
 import { generateTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { seedDatabase } from "./seed";
 
@@ -12,12 +12,25 @@ export async function registerRoutes(
 
   seedDatabase().catch((err) => console.error("Seed error:", err));
 
-  app.get("/api/assets", async (_req, res) => {
+  app.get("/api/kyc", async (_req, res) => {
     try {
-      const result = await storage.getAssets();
+      const result = await storage.getKycApplications();
       res.json(result);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch assets" });
+      res.status(500).json({ message: "Failed to fetch KYC applications" });
+    }
+  });
+
+  app.post("/api/kyc", async (req, res) => {
+    try {
+      const parsed = insertKycSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.message });
+      }
+      const result = await storage.createKycApplication(parsed.data);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to create KYC application" });
     }
   });
 
@@ -37,23 +50,13 @@ export async function registerRoutes(
         return res.status(400).json({ message: parsed.error.message });
       }
 
-      const { assetSymbol, assetName, type, quantity, price, total } = parsed.data;
-
-      if (quantity <= 0 || price <= 0) {
+      const { quantity, pricePerUnit } = parsed.data;
+      if (quantity <= 0 || pricePerUnit <= 0) {
         return res.status(400).json({ message: "Quantity and price must be positive" });
       }
 
-      if (type === "sell") {
-        const existing = await storage.getAssetBySymbol(assetSymbol);
-        if (!existing || existing.quantity < quantity) {
-          return res.status(400).json({
-            message: `Insufficient holdings. You have ${existing?.quantity || 0} ${assetSymbol} but tried to sell ${quantity}.`,
-          });
-        }
-      }
-
       const result = await storage.executeTrade(
-        { assetSymbol, assetName, type, quantity, price, total },
+        parsed.data,
         generateTradeHash,
         mineBlock,
         GENESIS_HASH
@@ -71,6 +74,31 @@ export async function registerRoutes(
       res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch blocks" });
+    }
+  });
+
+  app.get("/api/documents", async (_req, res) => {
+    try {
+      const result = await storage.getDocuments();
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  app.post("/api/documents", async (req, res) => {
+    try {
+      const parsed = insertDocumentSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.message });
+      }
+      const result = await storage.createDocument({
+        ...parsed.data,
+        status: "draft",
+      });
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to create document" });
     }
   });
 
