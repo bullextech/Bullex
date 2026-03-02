@@ -11,6 +11,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import {
+  Home,
   LayoutDashboard,
   UserCheck,
   FileText,
@@ -23,7 +24,8 @@ import {
 import { useLocation, Link } from "wouter";
 
 const navItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Home", url: "/", icon: Home },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Products", url: "/products", icon: Package },
   { title: "KYC Registration", url: "/kyc", icon: UserCheck },
   { title: "Document Generator", url: "/documents", icon: FileText },

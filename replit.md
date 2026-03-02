@@ -10,7 +10,18 @@ Bullex is a standalone blockchain-backed trade management platform for Bullfrog 
 - **Blockchain**: Custom SHA-256 blockchain implementation for trade verification
 - **Theme**: Emerald/green branding matching Bullfrog Group, dark sidebar
 
+## Routes
+- `/` - Home page (explains Bullex platform, features, workflow, commodity divisions)
+- `/dashboard` - Dashboard (trade volume, chain status, recent trades, stats)
+- `/products` - Commodity Divisions (5 divisions with detailed product listings)
+- `/kyc` - KYC Registration (10-section institutional form)
+- `/documents` - Document Generator
+- `/trading` - Blockchain Trading
+- `/vault` - Document Vault
+- `/blockchain` - Blockchain Ledger
+
 ## Key Features
+- **Home**: Landing page explaining Bullex — platform overview, 6 feature cards, 4-step workflow, commodity divisions preview, institutional trading section
 - **Dashboard**: Trade volume, chain status, recent trades, KYC/document stats
 - **Products**: Commodity Divisions page matching bullfrog-group.replit.app (5 divisions: Minerals, Metals, Energy Products, Petrochemicals, Fertilizers with detailed product descriptions)
 - **KYC Registration**: 10-section institutional KYC form matching bullfrog-group.replit.app (Company Details, Business Activity, Beneficial Owners, Management Structure, Financial Info, Banking, HR, Compliance, Documents, Signatory)
@@ -38,10 +49,11 @@ Bullex is a standalone blockchain-backed trade management platform for Bullfrog 
 ```
 client/src/
   components/
-    app-sidebar.tsx      - Navigation sidebar (7 items)
+    app-sidebar.tsx      - Navigation sidebar (8 items)
     theme-provider.tsx   - Dark/light theme context
     theme-toggle.tsx     - Theme toggle button
   pages/
+    home.tsx             - Landing page explaining Bullex platform
     dashboard.tsx        - Main dashboard view
     products.tsx         - Commodity Divisions page (5 divisions, 13 products)
     kyc.tsx              - 10-section KYC registration form

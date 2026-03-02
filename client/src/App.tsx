@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import NotFound from "@/pages/not-found";
+import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
 import KYC from "@/pages/kyc";
 import DocumentGenerator from "@/pages/document-generator";
@@ -19,7 +20,8 @@ import Products from "@/pages/products";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
+      <Route path="/" component={Home} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/products" component={Products} />
       <Route path="/kyc" component={KYC} />
       <Route path="/documents" component={DocumentGenerator} />
