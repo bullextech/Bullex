@@ -21,6 +21,7 @@ import {
   Layers,
   Package,
   Coins,
+  Mail,
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 
@@ -34,6 +35,7 @@ const navItems = [
   { title: "Blockchain Trading", url: "/trading", icon: Link2 },
   { title: "Document Vault", url: "/vault", icon: FolderOpen },
   { title: "Blockchain Ledger", url: "/blockchain", icon: Layers },
+  { title: "Contact", url: "/contact", icon: Mail },
 ];
 
 export function AppSidebar() {

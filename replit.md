@@ -19,6 +19,7 @@ Bullex is a standalone blockchain-backed trade management platform for Bullfrog 
 - `/trading` - Blockchain Trading
 - `/vault` - Document Vault
 - `/blockchain` - Blockchain Ledger
+- `/contact` - Contact page (Dubai, trade@bullex.tech, +971585416399)
 
 ## Key Features
 - **Home**: Landing page explaining Bullex — platform overview, 6 feature cards, 4-step workflow, commodity divisions preview, commodity tokenization section (BFG-20 standard, 4-step flow, sample tokens), institutional trading section

@@ -17,6 +17,7 @@ import Vault from "@/pages/vault";
 import Blockchain from "@/pages/blockchain";
 import Products from "@/pages/products";
 import Tokenization from "@/pages/tokenization";
+import Contact from "@/pages/contact";
 
 function Router() {
   return (
@@ -30,6 +31,7 @@ function Router() {
       <Route path="/trading" component={Trading} />
       <Route path="/vault" component={Vault} />
       <Route path="/blockchain" component={Blockchain} />
+      <Route path="/contact" component={Contact} />
       <Route component={NotFound} />
     </Switch>
   );
