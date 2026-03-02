@@ -34,6 +34,8 @@ export interface IStorage {
   createKycApplication(kyc: InsertKyc): Promise<KycApplication>;
 
   getTrades(): Promise<Trade[]>;
+  getTradeById(id: string): Promise<Trade | undefined>;
+  updateTradeStatus(id: string, status: string): Promise<Trade>;
   createTrade(trade: any): Promise<Trade>;
 
   getBlocks(): Promise<Block[]>;
@@ -78,6 +80,16 @@ export class DatabaseStorage implements IStorage {
 
   async getTrades(): Promise<Trade[]> {
     return db.select().from(trades).orderBy(desc(trades.createdAt));
+  }
+
+  async getTradeById(id: string): Promise<Trade | undefined> {
+    const [trade] = await db.select().from(trades).where(eq(trades.id, id));
+    return trade;
+  }
+
+  async updateTradeStatus(id: string, status: string): Promise<Trade> {
+    const [updated] = await db.update(trades).set({ status }).where(eq(trades.id, id)).returning();
+    return updated;
   }
 
   async createTrade(trade: any): Promise<Trade> {

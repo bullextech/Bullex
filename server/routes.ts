@@ -68,6 +68,33 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/trades/:id/status", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const statusFlow = ["initiated", "lc_issued", "in_transit", "completed"];
+      if (!status || !statusFlow.includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      const trade = await storage.getTradeById(id);
+      if (!trade) {
+        return res.status(404).json({ message: "Trade not found" });
+      }
+      const currentIdx = statusFlow.indexOf(trade.status);
+      const nextIdx = statusFlow.indexOf(status);
+      if (nextIdx !== currentIdx + 1) {
+        return res.status(409).json({ message: `Cannot transition from ${trade.status} to ${status}. Next valid status: ${statusFlow[currentIdx + 1] || "none"}` });
+      }
+      const updated = await storage.updateTradeStatus(id, status);
+      if (!updated) {
+        return res.status(500).json({ message: "Failed to update trade status" });
+      }
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update trade status" });
+    }
+  });
+
   app.get("/api/blocks", async (_req, res) => {
     try {
       const result = await storage.getBlocks();
