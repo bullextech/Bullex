@@ -1,50 +1,66 @@
 # Bullex - Blockchain-Backed Trade Management
 
 ## Overview
-Bullex is a professional trade management application with blockchain-backed transaction verification. Every trade is recorded on a simulated blockchain ledger with SHA-256 hashing, proof-of-work mining, and immutable block chains for full transparency.
+Bullex is a standalone blockchain-backed trade management platform for Bullfrog Group (bullfrog-group.replit.app). It features KYC client onboarding, automated trade document generation, blockchain-verified commodity trading, and a document vault.
 
 ## Architecture
 - **Frontend**: React + TypeScript with Vite, Tailwind CSS, shadcn/ui components
 - **Backend**: Express.js with TypeScript
 - **Database**: PostgreSQL with Drizzle ORM
 - **Blockchain**: Custom SHA-256 blockchain implementation for trade verification
+- **Theme**: Emerald/green branding matching Bullfrog Group, dark sidebar
 
 ## Key Features
-- **Dashboard**: Portfolio overview, recent trades, blockchain stats
-- **Trade Management**: Create buy/sell trades with blockchain verification
-- **Portfolio**: Asset holdings, allocation, P&L tracking
-- **Blockchain Ledger**: Block explorer with transaction details, hashes, verification status
+- **Dashboard**: Trade volume, chain status, recent trades, KYC/document stats
+- **KYC Registration**: 10-section institutional KYC form matching bullfrog-group.replit.app (Company Details, Business Activity, Beneficial Owners, Management Structure, Financial Info, Banking, HR, Compliance, Documents, Signatory)
+- **Blockchain Trading**: Commodity trade execution with blockchain verification (Minerals, Metals, Energy Products, Petrochemicals, Fertilizers)
+- **Document Generator**: Generate SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL linked to trades
+- **Document Vault**: Grouped document storage with trade linking and blockchain hash display
+- **Blockchain Ledger**: Block explorer with accordion-based block details, transaction drill-down
 - **Dark/Light Mode**: Theme toggle with persistence
+
+## Commodity Categories
+- Minerals: Iron Ore, Bauxite, Manganese
+- Metals: Copper Cathodes, Aluminium Ingots
+- Energy Products: ULSD, HSGO, LPG
+- Petrochemicals: Bitumen, Petcoke, Sulphur
+- Fertilizers: NPK
 
 ## Data Model
 - `users` - User accounts
-- `assets` - Portfolio asset holdings (symbol, quantity, avg price, current price)
-- `trades` - Trade records (buy/sell with blockchain hash, block number)
+- `kyc_applications` - 10-section KYC form data (company details, banking, compliance, signatory)
+- `trades` - Commodity trades (tradeRef BFG-YYYY-XXXX, buyer/seller, origin/destination, incoterm, blockchain hash)
 - `blocks` - Blockchain blocks (hash, previous hash, nonce, verification)
+- `documents` - Trade documents (SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL)
 
 ## Project Structure
 ```
 client/src/
   components/
-    app-sidebar.tsx      - Navigation sidebar
+    app-sidebar.tsx      - Navigation sidebar (6 items)
     theme-provider.tsx   - Dark/light theme context
     theme-toggle.tsx     - Theme toggle button
   pages/
     dashboard.tsx        - Main dashboard view
-    trades.tsx           - Trade management & history
-    portfolio.tsx        - Asset portfolio view
+    kyc.tsx              - 10-section KYC registration form
+    trades.tsx           - Commodity trade management
+    document-generator.tsx - Document type selector with trade linking
+    vault.tsx            - Document vault grouped by type
     blockchain.tsx       - Blockchain ledger explorer
 server/
   blockchain.ts          - SHA-256 hashing & proof-of-work mining
   routes.ts              - API endpoints
-  storage.ts             - Database operations (Drizzle ORM)
-  seed.ts                - Database seeding with sample trades
+  storage.ts             - Database operations with transactional trade execution
+  seed.ts                - Database seeding with sample commodity trades
 shared/
   schema.ts              - Drizzle schema definitions & Zod validators
 ```
 
 ## API Endpoints
-- `GET /api/assets` - List portfolio assets
+- `GET /api/kyc` - List KYC applications
+- `POST /api/kyc` - Submit KYC application
 - `GET /api/trades` - List all trades (newest first)
 - `POST /api/trades` - Create a new trade (auto-mines blockchain block)
 - `GET /api/blocks` - List blockchain blocks (newest first)
+- `GET /api/documents` - List all documents
+- `POST /api/documents` - Generate a new document
