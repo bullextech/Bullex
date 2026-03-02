@@ -42,9 +42,17 @@ Bullex is a standalone blockchain-backed trade management platform for Bullfrog 
 ## Data Model
 - `users` - User accounts
 - `kyc_applications` - 10-section KYC form data (company details, banking, compliance, signatory)
-- `trades` - Commodity trades (tradeRef BFG-YYYY-XXXX, buyer/seller, origin/destination, incoterm, blockchain hash)
+- `trades` - Commodity trades (tradeRef BFG-YYYY-XXXX, buyer/seller, origin/destination, incoterm, blockchain hash, stageDocuments JSONB for document gating)
 - `blocks` - Blockchain blocks (hash, previous hash, nonce, verification)
 - `documents` - Trade documents (SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL)
+
+## Trade Pipeline (Document-Gated)
+Trade flow: `pre_deal` → `deal` → `execution` → `final_payment`
+Each stage has mandatory (M) and optional (O) documents. All mandatory docs must be confirmed before advancing.
+- **Pre-Deal**: KYC Registration (M), ICPO/Deal Recap (M), LOI (O), FCO (O)
+- **Deal**: SPA (M), LC Draft (M), LC Copy (M), CPA (O), Performance Guarantee (O)
+- **Execution**: COA (M), COW (M), COO (M), BL (M), Beneficiary Cert (M), Sight Draft (M), Commercial Invoice (M), plus optional loading/insurance docs
+- **Final Payment**: COA/COW at Discharge Port (O), Final Invoice (O), Copy of Email (O)
 
 ## Project Structure
 ```
@@ -76,6 +84,8 @@ shared/
 - `POST /api/kyc` - Submit KYC application
 - `GET /api/trades` - List all trades (newest first)
 - `POST /api/trades` - Create a new trade (auto-mines blockchain block)
+- `PATCH /api/trades/:id/status` - Advance trade stage (sequential: pre_deal → deal → execution → final_payment)
+- `PATCH /api/trades/:id/documents` - Toggle document confirmation (docKey, checked)
 - `GET /api/blocks` - List blockchain blocks (newest first)
 - `GET /api/documents` - List all documents
 - `POST /api/documents` - Generate a new document

@@ -14,7 +14,13 @@ const seedTrades = [
     origin: "Guinea",
     destination: "China",
     incoterm: "CIF",
-    status: "completed",
+    status: "final_payment",
+    stageDocuments: {
+      kyc_registration: true, icpo_deal_recap: true, loi: true, fco: true,
+      spa: true, cpa: true, lc_draft: true, lc_copy: true, performance_guarantee: true,
+      coa: true, cow: true, coo: true, bl: true, beneficiary_cert: true, sight_draft: true, commercial_invoice: true,
+      coa_disport: true, cow_disport: true, final_invoice: true,
+    },
   },
   {
     commodity: "Copper Cathodes",
@@ -28,7 +34,12 @@ const seedTrades = [
     origin: "Zambia",
     destination: "UAE",
     incoterm: "FOB",
-    status: "in_transit",
+    status: "execution",
+    stageDocuments: {
+      kyc_registration: true, icpo_deal_recap: true, fco: true,
+      spa: true, lc_draft: true, lc_copy: true,
+      coa: true, cow: true,
+    },
   },
   {
     commodity: "ULSD",
@@ -42,7 +53,11 @@ const seedTrades = [
     origin: "Singapore",
     destination: "Vietnam",
     incoterm: "CIF",
-    status: "lc_issued",
+    status: "deal",
+    stageDocuments: {
+      kyc_registration: true, icpo_deal_recap: true, loi: true,
+      spa: true,
+    },
   },
   {
     commodity: "Bitumen",
@@ -56,7 +71,13 @@ const seedTrades = [
     origin: "Iran",
     destination: "India",
     incoterm: "CFR",
-    status: "completed",
+    status: "final_payment",
+    stageDocuments: {
+      kyc_registration: true, icpo_deal_recap: true, fco: true,
+      spa: true, lc_draft: true, lc_copy: true,
+      coa: true, cow: true, coo: true, bl: true, beneficiary_cert: true, sight_draft: true, commercial_invoice: true,
+      cow_disport: true, final_invoice: true,
+    },
   },
   {
     commodity: "Bauxite",
@@ -70,7 +91,10 @@ const seedTrades = [
     origin: "Guinea",
     destination: "China",
     incoterm: "FOB",
-    status: "initiated",
+    status: "pre_deal",
+    stageDocuments: {
+      kyc_registration: true,
+    },
   },
 ];
 
@@ -126,6 +150,7 @@ export async function seedDatabase() {
       destination: seed.destination,
       incoterm: seed.incoterm,
       status: seed.status,
+      stageDocuments: (seed as any).stageDocuments || {},
       blockchainHash: tradeHash,
       previousHash,
       blockNumber,

@@ -79,7 +79,8 @@ export const trades = pgTable("trades", {
   origin: text("origin").notNull(),
   destination: text("destination").notNull(),
   incoterm: text("incoterm").notNull().default("CIF"),
-  status: text("status").notNull().default("initiated"),
+  status: text("status").notNull().default("pre_deal"),
+  stageDocuments: jsonb("stage_documents").default({}),
   blockchainHash: text("blockchain_hash"),
   previousHash: text("previous_hash"),
   blockNumber: integer("block_number"),
@@ -128,6 +129,7 @@ export const insertTradeSchema = createInsertSchema(trades).omit({
   nonce: true,
   createdAt: true,
   status: true,
+  stageDocuments: true,
 });
 
 export const insertBlockSchema = createInsertSchema(blocks).omit({ id: true });

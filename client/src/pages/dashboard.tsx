@@ -54,11 +54,11 @@ function StatCard({
 
 const statusIcon = (status: string) => {
   switch (status) {
-    case "completed":
+    case "final_payment":
       return <CheckCircle2 className="w-3.5 h-3.5 text-status-online" />;
-    case "in_transit":
-    case "lc_issued":
-    case "initiated":
+    case "execution":
+    case "deal":
+    case "pre_deal":
       return <Clock className="w-3.5 h-3.5 text-status-away" />;
     default:
       return <AlertCircle className="w-3.5 h-3.5 text-muted-foreground" />;
@@ -109,7 +109,7 @@ export default function Dashboard() {
   const totalTrades = trades?.length || 0;
   const latestBlock = blocks && blocks.length > 0 ? blocks[0] : null;
   const totalVolume = trades?.reduce((s, t) => s + t.totalValue, 0) || 0;
-  const activeTrades = trades?.filter((t) => t.status !== "completed").length || 0;
+  const activeTrades = trades?.filter((t) => t.status !== "final_payment").length || 0;
   const recentTrades = trades?.slice(0, 6) || [];
 
   return (

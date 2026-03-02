@@ -36,6 +36,7 @@ export interface IStorage {
   getTrades(): Promise<Trade[]>;
   getTradeById(id: string): Promise<Trade | undefined>;
   updateTradeStatus(id: string, status: string): Promise<Trade>;
+  updateStageDocuments(id: string, stageDocuments: Record<string, boolean>): Promise<Trade>;
   createTrade(trade: any): Promise<Trade>;
 
   getBlocks(): Promise<Block[]>;
@@ -89,6 +90,11 @@ export class DatabaseStorage implements IStorage {
 
   async updateTradeStatus(id: string, status: string): Promise<Trade> {
     const [updated] = await db.update(trades).set({ status }).where(eq(trades.id, id)).returning();
+    return updated;
+  }
+
+  async updateStageDocuments(id: string, stageDocuments: Record<string, boolean>): Promise<Trade> {
+    const [updated] = await db.update(trades).set({ stageDocuments }).where(eq(trades.id, id)).returning();
     return updated;
   }
 
@@ -166,7 +172,8 @@ export class DatabaseStorage implements IStorage {
         origin: tradeInput.origin,
         destination: tradeInput.destination,
         incoterm: tradeInput.incoterm,
-        status: "initiated",
+        status: "pre_deal",
+        stageDocuments: {},
         blockchainHash: tradeHash,
         previousHash,
         blockNumber,

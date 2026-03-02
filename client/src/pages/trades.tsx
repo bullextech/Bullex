@@ -15,28 +15,100 @@ import {
 } from "@/components/ui/select";
 import {
   Plus,
-  Link2,
   CheckCircle2,
   Clock,
   Search,
-  Ship,
-  FileCheck,
   Shield,
-  Layers,
   Hash,
   ChevronDown,
   ChevronUp,
   MapPin,
-  Building2,
   Mail,
   ArrowRight,
-  Boxes,
   TrendingUp,
   Globe,
+  FileText,
+  Lock,
+  Unlock,
+  Handshake,
+  Ship,
+  CreditCard,
+  FileCheck,
+  ClipboardCheck,
+  Circle,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Trade, Block } from "@shared/schema";
+
+const stageDefinitions = [
+  {
+    key: "pre_deal",
+    label: "Pre-Deal Stage",
+    icon: ClipboardCheck,
+    color: "text-sky-600",
+    bgColor: "bg-sky-600",
+    description: "Identification of participants, product details, pricing, and initial documentation.",
+    documents: [
+      { key: "kyc_registration", label: "KYC Registration", mandatory: true },
+      { key: "loi", label: "Letter of Intent (LOI)", mandatory: false },
+      { key: "fco", label: "Full Corporate Offer (FCO)", mandatory: false },
+      { key: "icpo_deal_recap", label: "ICPO / Deal Recap", mandatory: true },
+    ],
+  },
+  {
+    key: "deal",
+    label: "Deal Stage",
+    icon: Handshake,
+    color: "text-primary",
+    bgColor: "bg-primary",
+    description: "Confirmation of agreements, LC issuance, and performance guarantees.",
+    documents: [
+      { key: "spa", label: "Sale & Purchase Agreement (SPA)", mandatory: true },
+      { key: "cpa", label: "Commission & Protection Agreement (CPA)", mandatory: false },
+      { key: "lc_draft", label: "LC Draft Confirmation", mandatory: true },
+      { key: "lc_copy", label: "LC Copy", mandatory: true },
+      { key: "performance_guarantee", label: "Performance Guarantee", mandatory: false },
+    ],
+  },
+  {
+    key: "execution",
+    label: "Execution Stage / Finance",
+    icon: Ship,
+    color: "text-orange-600",
+    bgColor: "bg-orange-600",
+    description: "Loading operations, quality/weight certification, shipping documents, and financial instruments.",
+    documents: [
+      { key: "analysis_agency", label: "Analysis Agency Appointment at Loading Port", mandatory: false },
+      { key: "stevedoring_agency", label: "Stevedoring Agency at Loading Port", mandatory: false },
+      { key: "daily_loading_report", label: "Daily Loading Report", mandatory: false },
+      { key: "coa", label: "Certificate of Quality (COA)", mandatory: true },
+      { key: "cow", label: "Certificate of Weight (COW)", mandatory: true },
+      { key: "coo", label: "Certificate of Origin (COO)", mandatory: true },
+      { key: "bl", label: "Bills of Lading (BL)", mandatory: true },
+      { key: "beneficiary_cert", label: "Beneficiary Certificate", mandatory: true },
+      { key: "certificate_insurance", label: "Certificate of Insurance", mandatory: false },
+      { key: "sight_draft", label: "Sight Draft", mandatory: true },
+      { key: "commercial_invoice", label: "Commercial Invoice", mandatory: true },
+    ],
+  },
+  {
+    key: "final_payment",
+    label: "Final Payment",
+    icon: CreditCard,
+    color: "text-emerald-600",
+    bgColor: "bg-emerald-600",
+    description: "Discharge port certificates, final invoicing, and payment confirmation.",
+    documents: [
+      { key: "coa_disport", label: "COA at Discharge Port", mandatory: false },
+      { key: "cow_disport", label: "COW at Discharge Port", mandatory: false },
+      { key: "final_invoice", label: "Final Commercial Invoice", mandatory: false },
+      { key: "copy_of_email", label: "Copy of Email to Buyer (if applicable)", mandatory: false },
+    ],
+  },
+];
+
+const statusFlow = stageDefinitions.map((s) => s.key);
 
 const commodityCategories = [
   { value: "minerals", label: "Minerals", items: ["Iron Ore", "Bauxite", "Manganese"] },
@@ -46,14 +118,9 @@ const commodityCategories = [
   { value: "fertilizers", label: "Fertilizers", items: ["NPK"] },
 ];
 
-const statusConfig: Record<string, { icon: any; color: string; label: string }> = {
-  initiated: { icon: Clock, color: "text-orange-500", label: "Initiated" },
-  lc_issued: { icon: FileCheck, color: "text-sky-500", label: "LC Issued" },
-  in_transit: { icon: Ship, color: "text-blue-600", label: "In Transit" },
-  completed: { icon: CheckCircle2, color: "text-emerald-500", label: "Completed" },
-};
-
-const statusFlow = ["initiated", "lc_issued", "in_transit", "completed"];
+function getStageLabel(status: string) {
+  return stageDefinitions.find((s) => s.key === status)?.label || status;
+}
 
 export default function Trading() {
   const [expandedTrade, setExpandedTrade] = useState<string | null>(null);
@@ -102,22 +169,11 @@ export default function Trading() {
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       setShowNewTrade(false);
       setForm({
-        commodityCategory: "",
-        commodity: "",
-        quantity: "",
-        unit: "MT",
-        pricePerUnit: "",
-        currency: "USD",
-        buyerName: "",
-        sellerName: "Bullfrog Group",
-        origin: "",
-        destination: "",
-        incoterm: "CIF",
+        commodityCategory: "", commodity: "", quantity: "", unit: "MT",
+        pricePerUnit: "", currency: "USD", buyerName: "", sellerName: "Bullfrog Group",
+        origin: "", destination: "", incoterm: "CIF",
       });
-      toast({
-        title: "Trade Executed",
-        description: "Trade recorded and verified on the Bullex blockchain.",
-      });
+      toast({ title: "Trade Executed", description: "Trade recorded and verified on the Bullex blockchain." });
     },
     onError: (error: Error) => {
       toast({ title: "Trade Failed", description: error.message, variant: "destructive" });
@@ -131,7 +187,20 @@ export default function Trading() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trades"] });
-      toast({ title: "Status Updated", description: "Trade status has been updated." });
+      toast({ title: "Stage Advanced", description: "Trade has progressed to the next stage." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Advance Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const toggleDocument = useMutation({
+    mutationFn: async ({ id, docKey, checked }: { id: string; docKey: string; checked: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/trades/${id}/documents`, { docKey, checked });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trades"] });
     },
     onError: (error: Error) => {
       toast({ title: "Update Failed", description: error.message, variant: "destructive" });
@@ -147,12 +216,7 @@ export default function Trading() {
       toast({ title: "Invalid Input", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
-    createTrade.mutate({
-      ...form,
-      quantity: qty,
-      pricePerUnit: price,
-      totalValue: qty * price,
-    });
+    createTrade.mutate({ ...form, quantity: qty, pricePerUnit: price, totalValue: qty * price });
   };
 
   const handleSupplySubmit = (e: React.FormEvent) => {
@@ -161,10 +225,7 @@ export default function Trading() {
       toast({ title: "Missing Fields", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
-    toast({
-      title: "Inquiry Submitted",
-      description: "A member of our trading desk will contact you shortly.",
-    });
+    toast({ title: "Inquiry Submitted", description: "A member of our trading desk will contact you shortly." });
     setSupplyForm({ companyName: "", email: "", commodity: "", message: "" });
   };
 
@@ -180,8 +241,21 @@ export default function Trading() {
 
   const totalBlocks = blocks?.length || 0;
   const totalTrades = trades?.length || 0;
-  const activeTrades = trades?.filter((t) => t.status !== "completed").length || 0;
+  const activeTrades = trades?.filter((t) => t.status !== "final_payment").length || 0;
   const chainValid = blocks?.every((b) => b.verified) ?? true;
+
+  function isStageMandatoryComplete(trade: Trade, stageKey: string): boolean {
+    const stage = stageDefinitions.find((s) => s.key === stageKey);
+    if (!stage) return false;
+    const docs = (trade.stageDocuments as Record<string, boolean>) || {};
+    return stage.documents.filter((d) => d.mandatory).every((d) => docs[d.key] === true);
+  }
+
+  function canAdvance(trade: Trade): boolean {
+    const currentIdx = statusFlow.indexOf(trade.status);
+    if (currentIdx >= statusFlow.length - 1) return false;
+    return isStageMandatoryComplete(trade, trade.status);
+  }
 
   if (isLoading) {
     return (
@@ -208,7 +282,7 @@ export default function Trading() {
                 Blockchain Trading
               </h1>
               <p className="text-white/70 text-lg leading-relaxed">
-                Execute and manage commodity trades with real-time blockchain verification. Every transaction is cryptographically hashed and immutably recorded on the Bullex chain.
+                Document-gated blockchain trading platform. Every stage requires mandatory documents to be confirmed before advancing — ensuring transparency, compliance, and immutable verification.
               </p>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
@@ -235,14 +309,48 @@ export default function Trading() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-10">
+          <h2 className="text-xl font-serif font-bold text-primary mb-4" data-testid="text-how-it-works">Document-Gated Blockchain</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-0">
+            {stageDefinitions.map((stage, idx) => {
+              const Icon = stage.icon;
+              const mandatoryCount = stage.documents.filter((d) => d.mandatory).length;
+              const totalDocs = stage.documents.length;
+              return (
+                <div key={stage.key} className="relative" data-testid={`stage-card-${stage.key}`}>
+                  <div className={`p-5 border border-border bg-card h-full ${idx === 0 ? "" : "border-l-0"}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`w-7 h-7 rounded-full ${stage.bgColor} text-white flex items-center justify-center text-xs font-bold`}>
+                        {idx + 1}
+                      </div>
+                      <Icon className={`w-4 h-4 ${stage.color}`} />
+                    </div>
+                    <h3 className="text-sm font-bold text-foreground mb-1">{stage.label}</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed mb-3">{stage.description}</p>
+                    <div className="flex gap-2">
+                      <Badge variant="secondary" className="text-[10px] rounded-none">{mandatoryCount} Mandatory</Badge>
+                      <Badge variant="outline" className="text-[10px] rounded-none">{totalDocs - mandatoryCount} Optional</Badge>
+                    </div>
+                  </div>
+                  {idx < stageDefinitions.length - 1 && (
+                    <div className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10">
+                      <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-2xl font-serif font-bold text-foreground" data-testid="text-trade-ledger">
               Trade Ledger
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              All trades are blockchain-verified and immutably recorded
+              All trades are blockchain-verified with document-gated stage progression
             </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
@@ -257,22 +365,17 @@ export default function Trading() {
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-36 h-10 rounded-none border-border" data-testid="select-status-filter">
+              <SelectTrigger className="w-40 h-10 rounded-none border-border" data-testid="select-status-filter">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="initiated">Initiated</SelectItem>
-                <SelectItem value="lc_issued">LC Issued</SelectItem>
-                <SelectItem value="in_transit">In Transit</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="all">All Stages</SelectItem>
+                {stageDefinitions.map((s) => (
+                  <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            <Button
-              onClick={() => setShowNewTrade(!showNewTrade)}
-              className="rounded-none h-10"
-              data-testid="button-new-trade"
-            >
+            <Button onClick={() => setShowNewTrade(!showNewTrade)} className="rounded-none h-10" data-testid="button-new-trade">
               <Plus className="w-4 h-4 mr-2" />
               New Trade
             </Button>
@@ -290,148 +393,69 @@ export default function Trading() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Category *</label>
-                    <Select
-                      value={form.commodityCategory}
-                      onValueChange={(v) => setForm({ ...form, commodityCategory: v, commodity: "" })}
-                    >
-                      <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-category">
-                        <SelectValue placeholder="Select category..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {commodityCategories.map((c) => (
-                          <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                        ))}
-                      </SelectContent>
+                    <Select value={form.commodityCategory} onValueChange={(v) => setForm({ ...form, commodityCategory: v, commodity: "" })}>
+                      <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-category"><SelectValue placeholder="Select category..." /></SelectTrigger>
+                      <SelectContent>{commodityCategories.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}</SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Commodity *</label>
-                    <Select
-                      value={form.commodity}
-                      onValueChange={(v) => setForm({ ...form, commodity: v })}
-                      disabled={!form.commodityCategory}
-                    >
-                      <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-commodity">
-                        <SelectValue placeholder="Select commodity..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {selectedCategory?.items.map((item) => (
-                          <SelectItem key={item} value={item}>{item}</SelectItem>
-                        ))}
-                      </SelectContent>
+                    <Select value={form.commodity} onValueChange={(v) => setForm({ ...form, commodity: v })} disabled={!form.commodityCategory}>
+                      <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-commodity"><SelectValue placeholder="Select commodity..." /></SelectTrigger>
+                      <SelectContent>{selectedCategory?.items.map((item) => (<SelectItem key={item} value={item}>{item}</SelectItem>))}</SelectContent>
                     </Select>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Quantity *</label>
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="0"
-                      className="rounded-none h-11 border-border"
-                      value={form.quantity}
-                      onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-                      data-testid="input-quantity"
-                    />
+                    <Input type="number" step="any" placeholder="0" className="rounded-none h-11 border-border" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} data-testid="input-quantity" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Unit</label>
                     <Select value={form.unit} onValueChange={(v) => setForm({ ...form, unit: v })}>
-                      <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-unit">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="MT">MT</SelectItem>
-                        <SelectItem value="BBL">BBL</SelectItem>
-                        <SelectItem value="KG">KG</SelectItem>
-                      </SelectContent>
+                      <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-unit"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="MT">MT</SelectItem><SelectItem value="BBL">BBL</SelectItem><SelectItem value="KG">KG</SelectItem></SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Price/Unit (USD) *</label>
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="0.00"
-                      className="rounded-none h-11 border-border"
-                      value={form.pricePerUnit}
-                      onChange={(e) => setForm({ ...form, pricePerUnit: e.target.value })}
-                      data-testid="input-price"
-                    />
+                    <Input type="number" step="any" placeholder="0.00" className="rounded-none h-11 border-border" value={form.pricePerUnit} onChange={(e) => setForm({ ...form, pricePerUnit: e.target.value })} data-testid="input-price" />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Buyer *</label>
-                    <Input
-                      placeholder="Buyer company"
-                      className="rounded-none h-11 border-border"
-                      value={form.buyerName}
-                      onChange={(e) => setForm({ ...form, buyerName: e.target.value })}
-                      data-testid="input-buyer"
-                    />
+                    <Input placeholder="Buyer company" className="rounded-none h-11 border-border" value={form.buyerName} onChange={(e) => setForm({ ...form, buyerName: e.target.value })} data-testid="input-buyer" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Seller</label>
-                    <Input
-                      placeholder="Seller company"
-                      className="rounded-none h-11 border-border"
-                      value={form.sellerName}
-                      onChange={(e) => setForm({ ...form, sellerName: e.target.value })}
-                      data-testid="input-seller"
-                    />
+                    <Input placeholder="Seller company" className="rounded-none h-11 border-border" value={form.sellerName} onChange={(e) => setForm({ ...form, sellerName: e.target.value })} data-testid="input-seller" />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Origin *</label>
-                    <Input
-                      placeholder="e.g., Guinea"
-                      className="rounded-none h-11 border-border"
-                      value={form.origin}
-                      onChange={(e) => setForm({ ...form, origin: e.target.value })}
-                      data-testid="input-origin"
-                    />
+                    <Input placeholder="e.g., Guinea" className="rounded-none h-11 border-border" value={form.origin} onChange={(e) => setForm({ ...form, origin: e.target.value })} data-testid="input-origin" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Destination *</label>
-                    <Input
-                      placeholder="e.g., China"
-                      className="rounded-none h-11 border-border"
-                      value={form.destination}
-                      onChange={(e) => setForm({ ...form, destination: e.target.value })}
-                      data-testid="input-destination"
-                    />
+                    <Input placeholder="e.g., China" className="rounded-none h-11 border-border" value={form.destination} onChange={(e) => setForm({ ...form, destination: e.target.value })} data-testid="input-destination" />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Incoterm</label>
                     <Select value={form.incoterm} onValueChange={(v) => setForm({ ...form, incoterm: v })}>
-                      <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-incoterm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CIF">CIF</SelectItem>
-                        <SelectItem value="FOB">FOB</SelectItem>
-                        <SelectItem value="CFR">CFR</SelectItem>
-                        <SelectItem value="DAP">DAP</SelectItem>
-                      </SelectContent>
+                      <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-incoterm"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="CIF">CIF</SelectItem><SelectItem value="FOB">FOB</SelectItem><SelectItem value="CFR">CFR</SelectItem><SelectItem value="DAP">DAP</SelectItem></SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Currency</label>
                     <Select value={form.currency} onValueChange={(v) => setForm({ ...form, currency: v })}>
-                      <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-currency">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="USD">USD</SelectItem>
-                        <SelectItem value="EUR">EUR</SelectItem>
-                        <SelectItem value="GBP">GBP</SelectItem>
-                        <SelectItem value="AED">AED</SelectItem>
-                      </SelectContent>
+                      <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-currency"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="EUR">EUR</SelectItem><SelectItem value="GBP">GBP</SelectItem><SelectItem value="AED">AED</SelectItem></SelectContent>
                     </Select>
                   </div>
                 </div>
@@ -458,17 +482,17 @@ export default function Trading() {
             <div className="col-span-1 text-right">Qty</div>
             <div className="col-span-2 text-right">Value</div>
             <div className="col-span-2">Route</div>
-            <div className="col-span-1">Status</div>
-            <div className="col-span-1">Block</div>
+            <div className="col-span-2">Stage</div>
             <div className="col-span-1"></div>
           </div>
 
           {filteredTrades.length > 0 ? (
             filteredTrades.map((trade) => {
-              const sc = statusConfig[trade.status] || statusConfig.initiated;
-              const StatusIcon = sc.icon;
               const isExpanded = expandedTrade === trade.id;
-              const currentStatusIdx = statusFlow.indexOf(trade.status);
+              const currentStageIdx = statusFlow.indexOf(trade.status);
+              const currentStage = stageDefinitions[currentStageIdx] || stageDefinitions[0];
+              const StageIcon = currentStage.icon;
+              const docs = (trade.stageDocuments as Record<string, boolean>) || {};
 
               return (
                 <div key={trade.id} className="border-b border-border last:border-b-0" data-testid={`trade-row-${trade.id}`}>
@@ -487,150 +511,188 @@ export default function Trading() {
                     <div className="col-span-1 text-right font-mono text-sm">
                       {trade.quantity.toLocaleString()} {trade.unit}
                     </div>
-                    <div className="col-span-2 text-right">
-                      <div className="font-mono text-sm font-bold">
-                        {trade.currency} {trade.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </div>
+                    <div className="col-span-2 text-right font-mono text-sm font-bold">
+                      {trade.currency} {trade.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </div>
                     <div className="col-span-2">
                       <span className="text-sm">{trade.origin} <ArrowRight className="w-3 h-3 inline mx-1" /> {trade.destination}</span>
                     </div>
-                    <div className="col-span-1">
+                    <div className="col-span-2">
                       <div className="flex items-center gap-1.5">
-                        <StatusIcon className={`w-3.5 h-3.5 ${sc.color}`} />
-                        <span className="text-xs font-bold uppercase">{sc.label}</span>
+                        <StageIcon className={`w-3.5 h-3.5 ${currentStage.color}`} />
+                        <span className={`text-xs font-bold ${currentStage.color}`}>{currentStage.label}</span>
                       </div>
                     </div>
-                    <div className="col-span-1">
-                      {trade.blockNumber ? (
-                        <Badge variant="secondary" className="font-mono text-xs rounded-none">
-                          #{trade.blockNumber}
-                        </Badge>
-                      ) : "-"}
-                    </div>
                     <div className="col-span-1 flex justify-end">
-                      {isExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                      )}
+                      {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                     </div>
                   </button>
 
                   {isExpanded && (
-                    <div className="border-t border-border bg-muted/20 px-5 py-6" data-testid={`trade-detail-${trade.id}`}>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="border-t border-border bg-muted/10" data-testid={`trade-detail-${trade.id}`}>
+                      <div className="px-5 py-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div>
                           <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4">Trade Details</h4>
-                          <div className="space-y-3">
-                            <div className="flex justify-between py-2 border-b border-border/50">
-                              <span className="text-sm text-muted-foreground">Trade Reference</span>
-                              <span className="font-mono text-sm font-bold">{trade.tradeRef}</span>
-                            </div>
-                            <div className="flex justify-between py-2 border-b border-border/50">
-                              <span className="text-sm text-muted-foreground">Commodity</span>
-                              <span className="text-sm font-medium">{trade.commodity} ({trade.commodityCategory})</span>
-                            </div>
-                            <div className="flex justify-between py-2 border-b border-border/50">
-                              <span className="text-sm text-muted-foreground">Quantity</span>
-                              <span className="font-mono text-sm">{trade.quantity.toLocaleString()} {trade.unit}</span>
-                            </div>
-                            <div className="flex justify-between py-2 border-b border-border/50">
-                              <span className="text-sm text-muted-foreground">Price Per Unit</span>
-                              <span className="font-mono text-sm">{trade.currency} {trade.pricePerUnit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                            </div>
-                            <div className="flex justify-between py-2 border-b border-border/50">
-                              <span className="text-sm text-muted-foreground">Total Value</span>
-                              <span className="font-mono text-sm font-bold text-primary">
-                                {trade.currency} {trade.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                              </span>
-                            </div>
-                            <div className="flex justify-between py-2 border-b border-border/50">
-                              <span className="text-sm text-muted-foreground">Buyer</span>
-                              <span className="text-sm font-medium">{trade.buyerName}</span>
-                            </div>
-                            <div className="flex justify-between py-2 border-b border-border/50">
-                              <span className="text-sm text-muted-foreground">Seller</span>
-                              <span className="text-sm font-medium">{trade.sellerName}</span>
-                            </div>
-                            <div className="flex justify-between py-2 border-b border-border/50">
-                              <span className="text-sm text-muted-foreground">Route</span>
-                              <span className="text-sm">{trade.origin} → {trade.destination}</span>
-                            </div>
-                            <div className="flex justify-between py-2">
-                              <span className="text-sm text-muted-foreground">Incoterm</span>
-                              <span className="text-sm font-bold">{trade.incoterm}</span>
-                            </div>
+                          <div className="space-y-2">
+                            {[
+                              ["Trade Reference", trade.tradeRef],
+                              ["Commodity", `${trade.commodity} (${trade.commodityCategory})`],
+                              ["Quantity", `${trade.quantity.toLocaleString()} ${trade.unit}`],
+                              ["Price/Unit", `${trade.currency} ${trade.pricePerUnit.toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
+                              ["Total Value", `${trade.currency} ${trade.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
+                              ["Buyer", trade.buyerName],
+                              ["Seller", trade.sellerName],
+                              ["Route", `${trade.origin} → ${trade.destination}`],
+                              ["Incoterm", trade.incoterm],
+                            ].map(([label, value]) => (
+                              <div key={label} className="flex justify-between py-1.5 border-b border-border/30 text-sm">
+                                <span className="text-muted-foreground">{label}</span>
+                                <span className={`font-medium ${label === "Total Value" ? "text-primary font-bold font-mono" : label === "Trade Reference" ? "font-mono font-bold" : ""}`}>{value}</span>
+                              </div>
+                            ))}
                           </div>
-                        </div>
 
-                        <div>
-                          <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4">Blockchain Record</h4>
-                          <div className="bg-primary/5 border border-primary/10 p-4 space-y-3 mb-6">
+                          <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-3 mt-6">Blockchain Record</h4>
+                          <div className="bg-primary/5 border border-primary/10 p-4 space-y-2 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-xs text-muted-foreground uppercase tracking-wider">Block #</span>
-                              <span className="font-mono text-sm font-bold">{trade.blockNumber || "Pending"}</span>
+                              <span className="text-xs text-muted-foreground uppercase">Block #</span>
+                              <span className="font-mono font-bold">{trade.blockNumber || "Pending"}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-xs text-muted-foreground uppercase tracking-wider">Nonce</span>
-                              <span className="font-mono text-sm">{trade.nonce || "-"}</span>
+                              <span className="text-xs text-muted-foreground uppercase">Nonce</span>
+                              <span className="font-mono">{trade.nonce || "-"}</span>
                             </div>
                             {trade.blockchainHash && (
                               <div>
-                                <span className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">Trade Hash</span>
+                                <span className="text-xs text-muted-foreground uppercase block mb-1">Trade Hash</span>
                                 <span className="font-mono text-xs text-primary break-all">{trade.blockchainHash}</span>
                               </div>
                             )}
-                            {trade.previousHash && (
-                              <div>
-                                <span className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">Previous Hash</span>
-                                <span className="font-mono text-xs text-muted-foreground break-all">{trade.previousHash}</span>
-                              </div>
-                            )}
+                          </div>
+                        </div>
+
+                        <div className="lg:col-span-2">
+                          <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4">
+                            Document-Gated Pipeline
+                          </h4>
+
+                          <div className="flex items-center gap-1 mb-6">
+                            {stageDefinitions.map((stage, idx) => {
+                              const isComplete = idx < currentStageIdx;
+                              const isCurrent = idx === currentStageIdx;
+                              return (
+                                <div key={stage.key} className="flex items-center gap-1 flex-1">
+                                  <div className={`flex-1 h-2 rounded-full ${isComplete ? stage.bgColor : isCurrent ? `${stage.bgColor}/40` : "bg-muted"}`} />
+                                  {idx < stageDefinitions.length - 1 && <div className="w-1" />}
+                                </div>
+                              );
+                            })}
                           </div>
 
-                          <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4">Status Pipeline</h4>
-                          <div className="space-y-2">
-                            {statusFlow.map((s, idx) => {
-                              const cfg = statusConfig[s];
-                              const Icon = cfg.icon;
-                              const isActive = idx <= currentStatusIdx;
-                              const isCurrent = s === trade.status;
-                              const isNext = idx === currentStatusIdx + 1;
+                          <div className="space-y-4">
+                            {stageDefinitions.map((stage, stageIdx) => {
+                              const Icon = stage.icon;
+                              const isComplete = stageIdx < currentStageIdx;
+                              const isCurrent = stageIdx === currentStageIdx;
+                              const isFuture = stageIdx > currentStageIdx;
+                              const mandatoryDocs = stage.documents.filter((d) => d.mandatory);
+                              const mandatoryComplete = mandatoryDocs.every((d) => docs[d.key] === true);
+                              const completedDocs = stage.documents.filter((d) => docs[d.key] === true).length;
 
                               return (
                                 <div
-                                  key={s}
-                                  className={`flex items-center justify-between p-3 border transition-colors ${
-                                    isCurrent ? "border-primary/30 bg-primary/5" : isActive ? "border-border bg-muted/30" : "border-border/50 bg-transparent"
+                                  key={stage.key}
+                                  className={`border p-4 transition-all ${
+                                    isCurrent
+                                      ? "border-primary/30 bg-card"
+                                      : isComplete
+                                      ? "border-border bg-muted/20"
+                                      : "border-border/40 bg-transparent opacity-50"
                                   }`}
+                                  data-testid={`pipeline-stage-${stage.key}`}
                                 >
-                                  <div className="flex items-center gap-3">
-                                    <Icon className={`w-4 h-4 ${isActive ? cfg.color : "text-muted-foreground/30"}`} />
-                                    <span className={`text-sm font-medium ${isActive ? "" : "text-muted-foreground/50"}`}>
-                                      {cfg.label}
-                                    </span>
+                                  <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-3">
+                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${isComplete ? "bg-emerald-600" : isCurrent ? stage.bgColor : "bg-muted-foreground/30"}`}>
+                                        {isComplete ? <CheckCircle2 className="w-4 h-4" /> : stageIdx + 1}
+                                      </div>
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-sm font-bold">{stage.label}</span>
+                                          {isCurrent && <Badge className="text-[10px] rounded-none">Current</Badge>}
+                                          {isComplete && <Badge variant="secondary" className="text-[10px] rounded-none bg-emerald-600/10 text-emerald-700">Complete</Badge>}
+                                        </div>
+                                        <span className="text-xs text-muted-foreground">{completedDocs}/{stage.documents.length} documents confirmed</span>
+                                      </div>
+                                    </div>
                                     {isCurrent && (
-                                      <Badge variant="secondary" className="text-[10px] rounded-none">Current</Badge>
+                                      <div className="flex items-center gap-2">
+                                        {mandatoryComplete ? (
+                                          <Unlock className="w-4 h-4 text-emerald-600" />
+                                        ) : (
+                                          <Lock className="w-4 h-4 text-muted-foreground" />
+                                        )}
+                                        <Button
+                                          size="sm"
+                                          className="rounded-none text-xs h-8"
+                                          disabled={!canAdvance(trade) || updateStatus.isPending}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const nextStatus = statusFlow[currentStageIdx + 1];
+                                            if (nextStatus) updateStatus.mutate({ id: trade.id, status: nextStatus });
+                                          }}
+                                          data-testid={`button-advance-${trade.id}`}
+                                        >
+                                          {mandatoryComplete ? "Advance to Next Stage" : "Mandatory Docs Required"}
+                                        </Button>
+                                      </div>
                                     )}
                                   </div>
-                                  {isNext && trade.status !== "completed" && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="text-xs rounded-none h-7"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        updateStatus.mutate({ id: trade.id, status: s });
-                                      }}
-                                      disabled={updateStatus.isPending}
-                                      data-testid={`button-advance-${trade.id}-${s}`}
-                                    >
-                                      Advance
-                                    </Button>
-                                  )}
-                                  {isActive && !isCurrent && (
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+
+                                  {(isCurrent || isComplete) && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1 mt-2">
+                                      {stage.documents.map((doc) => {
+                                        const isChecked = docs[doc.key] === true;
+                                        return (
+                                          <label
+                                            key={doc.key}
+                                            className={`flex items-center gap-2.5 p-2 rounded cursor-pointer transition-colors hover:bg-muted/50 ${
+                                              isFuture ? "pointer-events-none" : ""
+                                            }`}
+                                            data-testid={`doc-${trade.id}-${doc.key}`}
+                                          >
+                                            <button
+                                              type="button"
+                                              className="flex-shrink-0"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                toggleDocument.mutate({ id: trade.id, docKey: doc.key, checked: !isChecked });
+                                              }}
+                                              disabled={isFuture}
+                                              data-testid={`checkbox-${trade.id}-${doc.key}`}
+                                            >
+                                              {isChecked ? (
+                                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                              ) : (
+                                                <Circle className="w-4 h-4 text-muted-foreground/40" />
+                                              )}
+                                            </button>
+                                            <span className={`text-xs flex-1 ${isChecked ? "text-foreground" : "text-muted-foreground"}`}>
+                                              {doc.label}
+                                            </span>
+                                            <Badge
+                                              variant={doc.mandatory ? "default" : "outline"}
+                                              className={`text-[9px] rounded-none px-1.5 py-0 ${
+                                                doc.mandatory ? "bg-primary/10 text-primary border-primary/20" : ""
+                                              }`}
+                                            >
+                                              {doc.mandatory ? "M" : "O"}
+                                            </Badge>
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
                                   )}
                                 </div>
                               );
@@ -645,7 +707,7 @@ export default function Trading() {
             })
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <Layers className="w-12 h-12 mb-4 opacity-20" />
+              <FileText className="w-12 h-12 mb-4 opacity-20" />
               <p className="text-sm font-medium">No trades found</p>
               <p className="text-xs mt-1">
                 {search || statusFilter !== "all" ? "Adjust your filters" : "Click 'New Trade' to execute your first trade"}
@@ -666,18 +728,14 @@ export default function Trading() {
               </p>
               <div className="space-y-8">
                 <div className="flex items-center gap-4">
-                  <div className="bg-white/10 p-3 rounded-sm">
-                    <MapPin className="h-6 w-6 text-white/80" />
-                  </div>
+                  <div className="bg-white/10 p-3 rounded-sm"><MapPin className="h-6 w-6 text-white/80" /></div>
                   <div>
                     <div className="font-bold text-sm uppercase tracking-wider mb-1">Headquarters</div>
                     <div className="text-white/70 text-sm">Dubai, United Arab Emirates</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="bg-white/10 p-3 rounded-sm">
-                    <Mail className="h-6 w-6 text-white/80" />
-                  </div>
+                  <div className="bg-white/10 p-3 rounded-sm"><Mail className="h-6 w-6 text-white/80" /></div>
                   <div>
                     <div className="font-bold text-sm uppercase tracking-wider mb-1">Direct Desk</div>
                     <div className="text-white/70 text-sm">trade@bullex.tech</div>
@@ -692,34 +750,16 @@ export default function Trading() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Company Name *</label>
-                    <Input
-                      className="border-border rounded-none h-12 focus-visible:ring-primary"
-                      placeholder="Corporate Entity"
-                      value={supplyForm.companyName}
-                      onChange={(e) => setSupplyForm({ ...supplyForm, companyName: e.target.value })}
-                      data-testid="supply-input-company"
-                    />
+                    <Input className="border-border rounded-none h-12 focus-visible:ring-primary" placeholder="Corporate Entity" value={supplyForm.companyName} onChange={(e) => setSupplyForm({ ...supplyForm, companyName: e.target.value })} data-testid="supply-input-company" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Contact Email *</label>
-                    <Input
-                      type="email"
-                      className="border-border rounded-none h-12 focus-visible:ring-primary"
-                      placeholder="email@company.com"
-                      value={supplyForm.email}
-                      onChange={(e) => setSupplyForm({ ...supplyForm, email: e.target.value })}
-                      data-testid="supply-input-email"
-                    />
+                    <Input type="email" className="border-border rounded-none h-12 focus-visible:ring-primary" placeholder="email@company.com" value={supplyForm.email} onChange={(e) => setSupplyForm({ ...supplyForm, email: e.target.value })} data-testid="supply-input-email" />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-wider text-primary">Commodity Category *</label>
-                  <select
-                    className="flex h-12 w-full border border-border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded-none"
-                    value={supplyForm.commodity}
-                    onChange={(e) => setSupplyForm({ ...supplyForm, commodity: e.target.value })}
-                    data-testid="supply-select-commodity"
-                  >
+                  <select className="flex h-12 w-full border border-border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded-none" value={supplyForm.commodity} onChange={(e) => setSupplyForm({ ...supplyForm, commodity: e.target.value })} data-testid="supply-select-commodity">
                     <option value="">Select category...</option>
                     <option value="minerals">Minerals (Iron Ore, Bauxite, Manganese)</option>
                     <option value="metals">Metals (Copper, Aluminium)</option>
@@ -730,21 +770,9 @@ export default function Trading() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-wider text-primary">Target Specifications & Volume</label>
-                  <Textarea
-                    className="border-border rounded-none min-h-[120px] resize-none focus-visible:ring-primary"
-                    placeholder="Please include target volume, destination port (CIF/FOB), and specific grades required."
-                    value={supplyForm.message}
-                    onChange={(e) => setSupplyForm({ ...supplyForm, message: e.target.value })}
-                    data-testid="supply-input-specs"
-                  />
+                  <Textarea className="border-border rounded-none min-h-[120px] resize-none focus-visible:ring-primary" placeholder="Please include target volume, destination port (CIF/FOB), and specific grades required." value={supplyForm.message} onChange={(e) => setSupplyForm({ ...supplyForm, message: e.target.value })} data-testid="supply-input-specs" />
                 </div>
-                <Button
-                  type="submit"
-                  className="w-full rounded-none h-12 text-sm font-bold uppercase tracking-wider"
-                  data-testid="button-submit-supply"
-                >
-                  Submit to Trading Desk
-                </Button>
+                <Button type="submit" className="w-full rounded-none h-12 text-sm font-bold uppercase tracking-wider" data-testid="button-submit-supply">Submit to Trading Desk</Button>
                 <p className="text-xs text-muted-foreground text-center">
                   By submitting this inquiry, you confirm your authority to initiate trade dialogue on behalf of your organization.
                 </p>
@@ -757,15 +785,20 @@ export default function Trading() {
       <section className="py-16 lg:py-24 bg-muted/30 border-t border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-2xl md:text-3xl font-serif font-bold text-primary mb-4">
-              Why Blockchain Trading
-            </h2>
+            <h2 className="text-2xl md:text-3xl font-serif font-bold text-primary mb-4">Why Document-Gated Blockchain</h2>
             <div className="w-24 h-1 bg-primary mx-auto mb-6"></div>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Every trade on Bullex is powered by our proprietary blockchain, ensuring institutional-grade transparency and immutability.
+              Bullex enforces mandatory document compliance at every stage. No trade advances without verified documentation — ensuring institutional-grade integrity.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-card p-8 border border-border" data-testid="card-feature-gating">
+              <Lock className="h-8 w-8 text-primary mb-4" />
+              <h3 className="text-lg font-serif font-bold text-primary mb-3">Document Gating</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Each trade stage is locked until all mandatory documents are confirmed. KYC, SPA, LC, Bills of Lading, and Certificates of Quality/Weight gate progression through the deal lifecycle.
+              </p>
+            </div>
             <div className="bg-card p-8 border border-border" data-testid="card-feature-immutability">
               <Hash className="h-8 w-8 text-primary mb-4" />
               <h3 className="text-lg font-serif font-bold text-primary mb-3">Cryptographic Integrity</h3>
@@ -773,18 +806,11 @@ export default function Trading() {
                 Every trade block is SHA-256 hashed and chained to the previous record, creating a fully auditable and tamper-proof ledger visible to all counterparties.
               </p>
             </div>
-            <div className="bg-card p-8 border border-border" data-testid="card-feature-efficiency">
-              <TrendingUp className="h-8 w-8 text-primary mb-4" />
-              <h3 className="text-lg font-serif font-bold text-primary mb-3">Operational Efficiency</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                Automated block mining, trade reference generation, and real-time status tracking eliminate manual processes and accelerate settlement cycles.
-              </p>
-            </div>
             <div className="bg-card p-8 border border-border" data-testid="card-feature-transparency">
               <Globe className="h-8 w-8 text-primary mb-4" />
-              <h3 className="text-lg font-serif font-bold text-primary mb-3">Data Transparency</h3>
+              <h3 className="text-lg font-serif font-bold text-primary mb-3">Full Transparency</h3>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                Cryptographic verification ensures that trade data — quantities, values, counterparties, and shipping details — cannot be altered once recorded on the chain.
+                Complete visibility across Pre-Deal, Deal, Execution, and Final Payment stages. All counterparties see document status, trade data, and blockchain verification in real-time.
               </p>
             </div>
           </div>

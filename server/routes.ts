@@ -5,6 +5,21 @@ import { insertTradeSchema, insertKycSchema, insertDocumentSchema } from "@share
 import { generateTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { seedDatabase } from "./seed";
 
+const stageMandatoryDocs: Record<string, string[]> = {
+  pre_deal: ["kyc_registration", "icpo_deal_recap"],
+  deal: ["spa", "lc_draft", "lc_copy"],
+  execution: ["coa", "cow", "coo", "bl", "beneficiary_cert", "sight_draft", "commercial_invoice"],
+  final_payment: [],
+};
+
+const allValidDocKeys = new Set([
+  "kyc_registration", "loi", "fco", "icpo_deal_recap",
+  "spa", "cpa", "lc_draft", "lc_copy", "performance_guarantee",
+  "analysis_agency", "stevedoring_agency", "daily_loading_report",
+  "coa", "cow", "coo", "bl", "beneficiary_cert", "certificate_insurance", "sight_draft", "commercial_invoice",
+  "coa_disport", "cow_disport", "final_invoice", "copy_of_email",
+]);
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -72,7 +87,7 @@ export async function registerRoutes(
     try {
       const { id } = req.params;
       const { status } = req.body;
-      const statusFlow = ["initiated", "lc_issued", "in_transit", "completed"];
+      const statusFlow = ["pre_deal", "deal", "execution", "final_payment"];
       if (!status || !statusFlow.includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
       }
@@ -85,6 +100,12 @@ export async function registerRoutes(
       if (nextIdx !== currentIdx + 1) {
         return res.status(409).json({ message: `Cannot transition from ${trade.status} to ${status}. Next valid status: ${statusFlow[currentIdx + 1] || "none"}` });
       }
+      const docs = (trade.stageDocuments as Record<string, boolean>) || {};
+      const mandatoryForCurrentStage = stageMandatoryDocs[trade.status] || [];
+      const missingDocs = mandatoryForCurrentStage.filter((d) => docs[d] !== true);
+      if (missingDocs.length > 0) {
+        return res.status(409).json({ message: `Mandatory documents not confirmed for ${trade.status}: ${missingDocs.join(", ")}` });
+      }
       const updated = await storage.updateTradeStatus(id, status);
       if (!updated) {
         return res.status(500).json({ message: "Failed to update trade status" });
@@ -92,6 +113,29 @@ export async function registerRoutes(
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to update trade status" });
+    }
+  });
+
+  app.patch("/api/trades/:id/documents", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { docKey, checked } = req.body;
+      if (!docKey || typeof checked !== "boolean") {
+        return res.status(400).json({ message: "Invalid request body" });
+      }
+      if (!allValidDocKeys.has(docKey)) {
+        return res.status(400).json({ message: `Invalid document key: ${docKey}` });
+      }
+      const trade = await storage.getTradeById(id);
+      if (!trade) {
+        return res.status(404).json({ message: "Trade not found" });
+      }
+      const current = (trade.stageDocuments as Record<string, boolean>) || {};
+      current[docKey] = checked;
+      const updated = await storage.updateStageDocuments(id, current);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update documents" });
     }
   });
 
