@@ -14,11 +14,13 @@ import DocumentGenerator from "@/pages/document-generator";
 import Trading from "@/pages/trades";
 import Vault from "@/pages/vault";
 import Blockchain from "@/pages/blockchain";
+import Products from "@/pages/products";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/products" component={Products} />
       <Route path="/kyc" component={KYC} />
       <Route path="/documents" component={DocumentGenerator} />
       <Route path="/trading" component={Trading} />

@@ -12,6 +12,7 @@ Bullex is a standalone blockchain-backed trade management platform for Bullfrog 
 
 ## Key Features
 - **Dashboard**: Trade volume, chain status, recent trades, KYC/document stats
+- **Products**: Commodity Divisions page matching bullfrog-group.replit.app (5 divisions: Minerals, Metals, Energy Products, Petrochemicals, Fertilizers with detailed product descriptions)
 - **KYC Registration**: 10-section institutional KYC form matching bullfrog-group.replit.app (Company Details, Business Activity, Beneficial Owners, Management Structure, Financial Info, Banking, HR, Compliance, Documents, Signatory)
 - **Blockchain Trading**: Commodity trade execution with blockchain verification (Minerals, Metals, Energy Products, Petrochemicals, Fertilizers)
 - **Document Generator**: Generate SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL linked to trades
@@ -37,11 +38,12 @@ Bullex is a standalone blockchain-backed trade management platform for Bullfrog 
 ```
 client/src/
   components/
-    app-sidebar.tsx      - Navigation sidebar (6 items)
+    app-sidebar.tsx      - Navigation sidebar (7 items)
     theme-provider.tsx   - Dark/light theme context
     theme-toggle.tsx     - Theme toggle button
   pages/
     dashboard.tsx        - Main dashboard view
+    products.tsx         - Commodity Divisions page (5 divisions, 13 products)
     kyc.tsx              - 10-section KYC registration form
     trades.tsx           - Commodity trade management
     document-generator.tsx - Document type selector with trade linking
