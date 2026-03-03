@@ -61,6 +61,7 @@ export interface IStorage {
   createKycDocument(doc: InsertKycDocument): Promise<KycDocument>;
   deleteKycDocument(id: string): Promise<void>;
 
+  getAllTradeDocuments(): Promise<TradeDocument[]>;
   getTradeDocuments(tradeId: string): Promise<TradeDocument[]>;
   getTradeDocumentById(id: string): Promise<TradeDocument | undefined>;
   createTradeDocument(doc: InsertTradeDocument): Promise<TradeDocument>;
@@ -176,6 +177,10 @@ export class DatabaseStorage implements IStorage {
 
   async deleteKycDocument(id: string): Promise<void> {
     await db.delete(kycDocuments).where(eq(kycDocuments.id, id));
+  }
+
+  async getAllTradeDocuments(): Promise<TradeDocument[]> {
+    return db.select().from(tradeDocuments).orderBy(desc(tradeDocuments.uploadedAt));
   }
 
   async getTradeDocuments(tradeId: string): Promise<TradeDocument[]> {

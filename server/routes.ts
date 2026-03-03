@@ -313,6 +313,15 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/trade-documents", async (_req, res) => {
+    try {
+      const result = await storage.getAllTradeDocuments();
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch trade documents" });
+    }
+  });
+
   app.get("/api/trades/:tradeId/files", async (req, res) => {
     try {
       const result = await storage.getTradeDocuments(req.params.tradeId);
@@ -352,6 +361,24 @@ export async function registerRoutes(
       res.json(doc);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to upload trade document" });
+    }
+  });
+
+  app.get("/api/trade-documents/:id/view", async (req, res) => {
+    try {
+      const doc = await storage.getTradeDocumentById(req.params.id);
+      if (!doc) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      const filePath = path.join(tradeUploadsDir, doc.storedName);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ message: "File not found on disk" });
+      }
+      res.setHeader("Content-Disposition", `inline; filename="${doc.originalName}"`);
+      res.setHeader("Content-Type", doc.mimeType);
+      res.sendFile(filePath);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to view document" });
     }
   });
 

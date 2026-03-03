@@ -29,7 +29,7 @@ Bullex is a standalone blockchain-backed trade management platform for Bullfrog 
 - **KYC Registration**: 10-section institutional KYC form matching bullfrog-group.replit.app (Company Details, Business Activity, Beneficial Owners, Management Structure, Financial Info, Banking, HR, Compliance, Documents, Signatory)
 - **Blockchain Trading**: Commodity trade execution with blockchain verification (Minerals, Metals, Energy Products, Petrochemicals, Fertilizers)
 - **Document Generator**: Generate SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL linked to trades
-- **Document Vault**: Grouped document storage with trade linking and blockchain hash display
+- **Document Vault**: Shows all documents uploaded through blockchain trading pipeline, grouped by trade then by stage (Pre-Deal/Deal/Execution/Final Payment), with search, stage filter buttons, View (inline) and Download buttons, hero stats
 - **Blockchain Ledger**: Block explorer with accordion-based block details, transaction drill-down
 - **Dark/Light Mode**: Theme toggle with persistence
 
@@ -99,5 +99,7 @@ shared/
 - `DELETE /api/kyc-documents/:id` - Delete a KYC document
 - `GET /api/trades/:tradeId/files` - List uploaded documents for a trade
 - `POST /api/trades/:tradeId/files/upload` - Upload a trade document (multipart form: file, documentKey). Auto-confirms the document checkbox.
-- `GET /api/trade-documents/:id/download` - Download a trade document
+- `GET /api/trade-documents` - List ALL trade documents (for vault page)
+- `GET /api/trade-documents/:id/view` - View a trade document inline in browser
+- `GET /api/trade-documents/:id/download` - Download a trade document as attachment
 - `DELETE /api/trade-documents/:id` - Delete a trade document (auto-unchecks if no remaining files for that key)
