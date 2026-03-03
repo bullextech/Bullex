@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,10 +36,15 @@ import {
   FileCheck,
   ClipboardCheck,
   Circle,
+  Upload,
+  Download,
+  Trash2,
+  Loader2,
+  Paperclip,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Trade, Block } from "@shared/schema";
+import type { Trade, Block, TradeDocument } from "@shared/schema";
 
 const stageDefinitions = [
   {
@@ -127,6 +132,8 @@ export default function Trading() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showNewTrade, setShowNewTrade] = useState(false);
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const { toast } = useToast();
 
   const [form, setForm] = useState({
@@ -156,6 +163,17 @@ export default function Trading() {
 
   const { data: blocks } = useQuery<Block[]>({
     queryKey: ["/api/blocks"],
+  });
+
+  const { data: tradeFiles } = useQuery<TradeDocument[]>({
+    queryKey: ["/api/trades", expandedTrade, "files"],
+    queryFn: async () => {
+      if (!expandedTrade) return [];
+      const res = await fetch(`/api/trades/${expandedTrade}/files`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!expandedTrade,
   });
 
   const createTrade = useMutation({
@@ -209,6 +227,44 @@ export default function Trading() {
     },
     onError: (error: Error) => {
       toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const uploadTradeDoc = useMutation({
+    mutationFn: async ({ tradeId, documentKey, file }: { tradeId: string; documentKey: string; file: File }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("documentKey", documentKey);
+      const res = await fetch(`/api/trades/${tradeId}/files/upload`, { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Upload failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trades"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trades", expandedTrade, "files"] });
+      toast({ title: "Document Uploaded", description: "File uploaded and document confirmed." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
+    },
+    onSettled: () => setUploadingKey(null),
+  });
+
+  const deleteTradeDoc = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/trade-documents/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trades"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trades", expandedTrade, "files"] });
+      toast({ title: "Document Removed", description: "File deleted." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -666,46 +722,123 @@ export default function Trading() {
                                   </div>
 
                                   {(isCurrent || isComplete) && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1 mt-2">
+                                    <div className="space-y-1 mt-2">
                                       {stage.documents.map((doc) => {
                                         const isChecked = docs[doc.key] === true;
+                                        const docFiles = tradeFiles?.filter((f) => f.documentKey === doc.key) || [];
+                                        const isUploadingThis = uploadingKey === `${trade.id}-${doc.key}`;
+                                        const refKey = `${trade.id}-${doc.key}`;
                                         return (
-                                          <label
-                                            key={doc.key}
-                                            className={`flex items-center gap-2.5 p-2 rounded cursor-pointer transition-colors hover:bg-muted/50 ${
-                                              isFuture ? "pointer-events-none" : ""
-                                            }`}
-                                            data-testid={`doc-${trade.id}-${doc.key}`}
-                                          >
-                                            <button
-                                              type="button"
-                                              className="flex-shrink-0"
-                                              onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                toggleDocument.mutate({ id: trade.id, docKey: doc.key, checked: !isChecked });
-                                              }}
-                                              disabled={isFuture}
-                                              data-testid={`checkbox-${trade.id}-${doc.key}`}
-                                            >
-                                              {isChecked ? (
-                                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                              ) : (
-                                                <Circle className="w-4 h-4 text-muted-foreground/40" />
+                                          <div key={doc.key} className="rounded border border-border/40 overflow-hidden" data-testid={`doc-${trade.id}-${doc.key}`}>
+                                            <div className={`flex items-center gap-2 p-2 ${isFuture ? "opacity-50" : ""}`}>
+                                              <button
+                                                type="button"
+                                                className="flex-shrink-0"
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
+                                                  toggleDocument.mutate({ id: trade.id, docKey: doc.key, checked: !isChecked });
+                                                }}
+                                                disabled={isFuture}
+                                                data-testid={`checkbox-${trade.id}-${doc.key}`}
+                                              >
+                                                {isChecked ? (
+                                                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                                ) : (
+                                                  <Circle className="w-4 h-4 text-muted-foreground/40" />
+                                                )}
+                                              </button>
+                                              <span className={`text-xs flex-1 ${isChecked ? "text-foreground" : "text-muted-foreground"}`}>
+                                                {doc.label}
+                                              </span>
+                                              {docFiles.length > 0 && (
+                                                <Badge variant="secondary" className="text-[9px] rounded-none bg-emerald-600/10 text-emerald-700 px-1.5 py-0">
+                                                  <Paperclip className="w-2.5 h-2.5 mr-0.5" />
+                                                  {docFiles.length}
+                                                </Badge>
                                               )}
-                                            </button>
-                                            <span className={`text-xs flex-1 ${isChecked ? "text-foreground" : "text-muted-foreground"}`}>
-                                              {doc.label}
-                                            </span>
-                                            <Badge
-                                              variant={doc.mandatory ? "default" : "outline"}
-                                              className={`text-[9px] rounded-none px-1.5 py-0 ${
-                                                doc.mandatory ? "bg-primary/10 text-primary border-primary/20" : ""
-                                              }`}
-                                            >
-                                              {doc.mandatory ? "M" : "O"}
-                                            </Badge>
-                                          </label>
+                                              <Badge
+                                                variant={doc.mandatory ? "default" : "outline"}
+                                                className={`text-[9px] rounded-none px-1.5 py-0 ${
+                                                  doc.mandatory ? "bg-primary/10 text-primary border-primary/20" : ""
+                                                }`}
+                                              >
+                                                {doc.mandatory ? "M" : "O"}
+                                              </Badge>
+                                              {!isFuture && (
+                                                <>
+                                                  <input
+                                                    type="file"
+                                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                                                    className="hidden"
+                                                    ref={(el) => { fileInputRefs.current[refKey] = el; }}
+                                                    onChange={(e) => {
+                                                      const file = e.target.files?.[0];
+                                                      if (file) {
+                                                        setUploadingKey(refKey);
+                                                        uploadTradeDoc.mutate({ tradeId: trade.id, documentKey: doc.key, file });
+                                                      }
+                                                      e.target.value = "";
+                                                    }}
+                                                    data-testid={`input-file-${trade.id}-${doc.key}`}
+                                                  />
+                                                  <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 px-2 text-[10px]"
+                                                    disabled={isUploadingThis}
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      fileInputRefs.current[refKey]?.click();
+                                                    }}
+                                                    data-testid={`btn-upload-${trade.id}-${doc.key}`}
+                                                  >
+                                                    {isUploadingThis ? (
+                                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                                    ) : (
+                                                      <><Upload className="w-3 h-3 mr-1" />Upload</>
+                                                    )}
+                                                  </Button>
+                                                </>
+                                              )}
+                                            </div>
+                                            {docFiles.length > 0 && (
+                                              <div className="border-t border-border/30 bg-muted/20 px-2 py-1 space-y-0.5">
+                                                {docFiles.map((f) => (
+                                                  <div key={f.id} className="flex items-center justify-between text-[10px] gap-1" data-testid={`trade-file-${f.id}`}>
+                                                    <span className="text-muted-foreground truncate flex-1">
+                                                      <Paperclip className="w-2.5 h-2.5 inline mr-1" />
+                                                      {f.originalName} <span className="opacity-50">({(f.size / 1024).toFixed(0)} KB)</span>
+                                                    </span>
+                                                    <div className="flex items-center gap-0.5 flex-shrink-0">
+                                                      <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-5 w-5 p-0"
+                                                        onClick={(e) => { e.stopPropagation(); window.open(`/api/trade-documents/${f.id}/download`, "_blank"); }}
+                                                        data-testid={`btn-download-trade-${f.id}`}
+                                                      >
+                                                        <Download className="w-2.5 h-2.5" />
+                                                      </Button>
+                                                      <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-5 w-5 p-0 text-destructive hover:text-destructive"
+                                                        onClick={(e) => { e.stopPropagation(); deleteTradeDoc.mutate(f.id); }}
+                                                        disabled={deleteTradeDoc.isPending}
+                                                        data-testid={`btn-delete-trade-${f.id}`}
+                                                      >
+                                                        <Trash2 className="w-2.5 h-2.5" />
+                                                      </Button>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
                                         );
                                       })}
                                     </div>

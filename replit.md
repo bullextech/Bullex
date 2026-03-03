@@ -44,6 +44,7 @@ Bullex is a standalone blockchain-backed trade management platform for Bullfrog 
 - `users` - User accounts
 - `kyc_applications` - 10-section KYC form data (company details, banking, compliance, signatory)
 - `kyc_documents` - Uploaded KYC document files (documentType, originalName, storedName, mimeType, size). Files stored in uploads/kyc/ directory.
+- `trade_documents` - Uploaded trade pipeline document files (tradeId, documentKey, originalName, storedName, mimeType, size). Files stored in uploads/trades/. Uploading auto-confirms the document checkbox; deleting last file for a key auto-unchecks it.
 - `trades` - Commodity trades (tradeRef BFG-YYYY-XXXX, buyer/seller, origin/destination, incoterm, blockchain hash, stageDocuments JSONB for document gating)
 - `blocks` - Blockchain blocks (hash, previous hash, nonce, verification)
 - `documents` - Trade documents (SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL)
@@ -96,3 +97,7 @@ shared/
 - `POST /api/kyc-documents/upload` - Upload a KYC document (multipart form: file, documentType, optional kycApplicationId). Max 10MB, accepted: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX
 - `GET /api/kyc-documents/:id/download` - Download a KYC document
 - `DELETE /api/kyc-documents/:id` - Delete a KYC document
+- `GET /api/trades/:tradeId/files` - List uploaded documents for a trade
+- `POST /api/trades/:tradeId/files/upload` - Upload a trade document (multipart form: file, documentKey). Auto-confirms the document checkbox.
+- `GET /api/trade-documents/:id/download` - Download a trade document
+- `DELETE /api/trade-documents/:id` - Delete a trade document (auto-unchecks if no remaining files for that key)

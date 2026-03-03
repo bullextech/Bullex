@@ -8,31 +8,37 @@ import { insertTradeSchema, insertKycSchema, insertDocumentSchema } from "@share
 import { generateTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { seedDatabase } from "./seed";
 
-const uploadsDir = path.join(process.cwd(), "uploads", "kyc");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+const kycUploadsDir = path.join(process.cwd(), "uploads", "kyc");
+const tradeUploadsDir = path.join(process.cwd(), "uploads", "trades");
+if (!fs.existsSync(kycUploadsDir)) fs.mkdirSync(kycUploadsDir, { recursive: true });
+if (!fs.existsSync(tradeUploadsDir)) fs.mkdirSync(tradeUploadsDir, { recursive: true });
+
+const allowedExts = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx", ".xls", ".xlsx"];
+
+function createUploader(destDir: string, prefix: string) {
+  return multer({
+    storage: multer.diskStorage({
+      destination: (_req, _file, cb) => cb(null, destDir),
+      filename: (_req, file, cb) => {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        const ext = path.extname(file.originalname);
+        cb(null, `${prefix}-${uniqueSuffix}${ext}`);
+      },
+    }),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (allowedExts.includes(ext)) {
+        cb(null, true);
+      } else {
+        cb(new Error("File type not allowed. Accepted: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX"));
+      }
+    },
+  });
 }
 
-const kycUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadsDir),
-    filename: (_req, file, cb) => {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      const ext = path.extname(file.originalname);
-      cb(null, `kyc-${uniqueSuffix}${ext}`);
-    },
-  }),
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const allowed = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx", ".xls", ".xlsx"];
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error("File type not allowed. Accepted: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX"));
-    }
-  },
-});
+const kycUpload = createUploader(kycUploadsDir, "kyc");
+const tradeUpload = createUploader(tradeUploadsDir, "trade");
 
 const VALID_KYC_DOC_TYPES = [
   "certificate_of_incorporation",
@@ -277,7 +283,7 @@ export async function registerRoutes(
       if (!doc) {
         return res.status(404).json({ message: "Document not found" });
       }
-      const filePath = path.join(uploadsDir, doc.storedName);
+      const filePath = path.join(kycUploadsDir, doc.storedName);
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({ message: "File not found on disk" });
       }
@@ -296,7 +302,7 @@ export async function registerRoutes(
       if (!doc) {
         return res.status(404).json({ message: "Document not found" });
       }
-      const filePath = path.join(uploadsDir, doc.storedName);
+      const filePath = path.join(kycUploadsDir, doc.storedName);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
@@ -304,6 +310,93 @@ export async function registerRoutes(
       res.json({ message: "Document deleted" });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to delete document" });
+    }
+  });
+
+  app.get("/api/trades/:tradeId/files", async (req, res) => {
+    try {
+      const result = await storage.getTradeDocuments(req.params.tradeId);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch trade documents" });
+    }
+  });
+
+  app.post("/api/trades/:tradeId/files/upload", tradeUpload.single("file"), async (req, res) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      const { documentKey } = req.body;
+      if (!documentKey || !allValidDocKeys.has(documentKey)) {
+        fs.unlinkSync(file.path);
+        return res.status(400).json({ message: "Invalid document key" });
+      }
+      const trade = await storage.getTradeById(req.params.tradeId);
+      if (!trade) {
+        fs.unlinkSync(file.path);
+        return res.status(404).json({ message: "Trade not found" });
+      }
+      const doc = await storage.createTradeDocument({
+        tradeId: req.params.tradeId,
+        documentKey,
+        originalName: file.originalname,
+        storedName: file.filename,
+        mimeType: file.mimetype,
+        size: file.size,
+      });
+      const current = (trade.stageDocuments as Record<string, boolean>) || {};
+      current[documentKey] = true;
+      await storage.updateStageDocuments(trade.id, current);
+      res.json(doc);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to upload trade document" });
+    }
+  });
+
+  app.get("/api/trade-documents/:id/download", async (req, res) => {
+    try {
+      const doc = await storage.getTradeDocumentById(req.params.id);
+      if (!doc) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      const filePath = path.join(tradeUploadsDir, doc.storedName);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ message: "File not found on disk" });
+      }
+      res.setHeader("Content-Disposition", `attachment; filename="${doc.originalName}"`);
+      res.setHeader("Content-Type", doc.mimeType);
+      res.sendFile(filePath);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to download document" });
+    }
+  });
+
+  app.delete("/api/trade-documents/:id", async (req, res) => {
+    try {
+      const doc = await storage.getTradeDocumentById(req.params.id);
+      if (!doc) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      const filePath = path.join(tradeUploadsDir, doc.storedName);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      await storage.deleteTradeDocument(doc.id);
+      const trade = await storage.getTradeById(doc.tradeId);
+      if (trade) {
+        const current = (trade.stageDocuments as Record<string, boolean>) || {};
+        const remaining = await storage.getTradeDocuments(doc.tradeId);
+        const hasOtherForKey = remaining.some((d) => d.documentKey === doc.documentKey);
+        if (!hasOtherForKey) {
+          current[doc.documentKey] = false;
+          await storage.updateStageDocuments(doc.tradeId, current);
+        }
+      }
+      res.json({ message: "Document deleted" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to delete trade document" });
     }
   });
 

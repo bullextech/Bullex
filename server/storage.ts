@@ -5,6 +5,7 @@ import {
   users,
   kycApplications,
   kycDocuments,
+  tradeDocuments,
   trades,
   blocks,
   documents,
@@ -20,6 +21,8 @@ import {
   type InsertDocument,
   type KycDocument,
   type InsertKycDocument,
+  type TradeDocument,
+  type InsertTradeDocument,
 } from "@shared/schema";
 
 const pool = new pg.Pool({
@@ -57,6 +60,11 @@ export interface IStorage {
   getKycDocumentsByApplicationId(kycApplicationId: string): Promise<KycDocument[]>;
   createKycDocument(doc: InsertKycDocument): Promise<KycDocument>;
   deleteKycDocument(id: string): Promise<void>;
+
+  getTradeDocuments(tradeId: string): Promise<TradeDocument[]>;
+  getTradeDocumentById(id: string): Promise<TradeDocument | undefined>;
+  createTradeDocument(doc: InsertTradeDocument): Promise<TradeDocument>;
+  deleteTradeDocument(id: string): Promise<void>;
 
   executeTrade(
     tradeInput: any,
@@ -168,6 +176,24 @@ export class DatabaseStorage implements IStorage {
 
   async deleteKycDocument(id: string): Promise<void> {
     await db.delete(kycDocuments).where(eq(kycDocuments.id, id));
+  }
+
+  async getTradeDocuments(tradeId: string): Promise<TradeDocument[]> {
+    return db.select().from(tradeDocuments).where(eq(tradeDocuments.tradeId, tradeId)).orderBy(desc(tradeDocuments.uploadedAt));
+  }
+
+  async getTradeDocumentById(id: string): Promise<TradeDocument | undefined> {
+    const [doc] = await db.select().from(tradeDocuments).where(eq(tradeDocuments.id, id));
+    return doc;
+  }
+
+  async createTradeDocument(doc: InsertTradeDocument): Promise<TradeDocument> {
+    const [created] = await db.insert(tradeDocuments).values(doc).returning();
+    return created;
+  }
+
+  async deleteTradeDocument(id: string): Promise<void> {
+    await db.delete(tradeDocuments).where(eq(tradeDocuments.id, id));
   }
 
   async createPreDealTrade(tradeInput: any): Promise<Trade> {

@@ -126,6 +126,22 @@ export const insertKycDocumentSchema = createInsertSchema(kycDocuments).omit({
   uploadedAt: true,
 });
 
+export const tradeDocuments = pgTable("trade_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tradeId: varchar("trade_id").notNull(),
+  documentKey: text("document_key").notNull(),
+  originalName: text("original_name").notNull(),
+  storedName: text("stored_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+});
+
+export const insertTradeDocumentSchema = createInsertSchema(tradeDocuments).omit({
+  id: true,
+  uploadedAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -169,3 +185,5 @@ export type Document = typeof documents.$inferSelect;
 export type InsertDocument = z.infer<typeof insertDocumentSchema>;
 export type KycDocument = typeof kycDocuments.$inferSelect;
 export type InsertKycDocument = z.infer<typeof insertKycDocumentSchema>;
+export type TradeDocument = typeof tradeDocuments.$inferSelect;
+export type InsertTradeDocument = z.infer<typeof insertTradeDocumentSchema>;
