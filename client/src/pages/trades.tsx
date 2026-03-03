@@ -245,6 +245,7 @@ export default function Trading() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trades"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trades", expandedTrade, "files"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trade-documents"] });
       toast({ title: "Document Uploaded", description: "File uploaded and document confirmed." });
     },
     onError: (error: Error) => {
@@ -261,6 +262,7 @@ export default function Trading() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trades"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trades", expandedTrade, "files"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trade-documents"] });
       toast({ title: "Document Removed", description: "File deleted." });
     },
     onError: (error: Error) => {
@@ -721,128 +723,121 @@ export default function Trading() {
                                     )}
                                   </div>
 
-                                  {(isCurrent || isComplete) && (
-                                    <div className="space-y-1 mt-2">
-                                      {stage.documents.map((doc) => {
-                                        const isChecked = docs[doc.key] === true;
-                                        const docFiles = tradeFiles?.filter((f) => f.documentKey === doc.key) || [];
-                                        const isUploadingThis = uploadingKey === `${trade.id}-${doc.key}`;
-                                        const refKey = `${trade.id}-${doc.key}`;
-                                        return (
-                                          <div key={doc.key} className="rounded border border-border/40 overflow-hidden" data-testid={`doc-${trade.id}-${doc.key}`}>
-                                            <div className={`flex items-center gap-2 p-2 ${isFuture ? "opacity-50" : ""}`}>
-                                              <button
-                                                type="button"
-                                                className="flex-shrink-0"
-                                                onClick={(e) => {
-                                                  e.preventDefault();
-                                                  e.stopPropagation();
-                                                  toggleDocument.mutate({ id: trade.id, docKey: doc.key, checked: !isChecked });
-                                                }}
-                                                disabled={isFuture}
-                                                data-testid={`checkbox-${trade.id}-${doc.key}`}
-                                              >
-                                                {isChecked ? (
-                                                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                                ) : (
-                                                  <Circle className="w-4 h-4 text-muted-foreground/40" />
-                                                )}
-                                              </button>
-                                              <span className={`text-xs flex-1 ${isChecked ? "text-foreground" : "text-muted-foreground"}`}>
-                                                {doc.label}
-                                              </span>
-                                              {docFiles.length > 0 && (
-                                                <Badge variant="secondary" className="text-[9px] rounded-none bg-emerald-600/10 text-emerald-700 px-1.5 py-0">
-                                                  <Paperclip className="w-2.5 h-2.5 mr-0.5" />
-                                                  {docFiles.length}
-                                                </Badge>
+                                  <div className="space-y-1 mt-2">
+                                    {stage.documents.map((doc) => {
+                                      const isChecked = docs[doc.key] === true;
+                                      const docFiles = tradeFiles?.filter((f) => f.documentKey === doc.key) || [];
+                                      const isUploadingThis = uploadingKey === `${trade.id}-${doc.key}`;
+                                      const refKey = `${trade.id}-${doc.key}`;
+                                      return (
+                                        <div key={doc.key} className="rounded border border-border/40 overflow-hidden" data-testid={`doc-${trade.id}-${doc.key}`}>
+                                          <div className="flex items-center gap-2 p-2">
+                                            <button
+                                              type="button"
+                                              className="flex-shrink-0"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                toggleDocument.mutate({ id: trade.id, docKey: doc.key, checked: !isChecked });
+                                              }}
+                                              data-testid={`checkbox-${trade.id}-${doc.key}`}
+                                            >
+                                              {isChecked ? (
+                                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                              ) : (
+                                                <Circle className="w-4 h-4 text-muted-foreground/40" />
                                               )}
-                                              <Badge
-                                                variant={doc.mandatory ? "default" : "outline"}
-                                                className={`text-[9px] rounded-none px-1.5 py-0 ${
-                                                  doc.mandatory ? "bg-primary/10 text-primary border-primary/20" : ""
-                                                }`}
-                                              >
-                                                {doc.mandatory ? "M" : "O"}
-                                              </Badge>
-                                              {!isFuture && (
-                                                <>
-                                                  <input
-                                                    type="file"
-                                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
-                                                    className="hidden"
-                                                    ref={(el) => { fileInputRefs.current[refKey] = el; }}
-                                                    onChange={(e) => {
-                                                      const file = e.target.files?.[0];
-                                                      if (file) {
-                                                        setUploadingKey(refKey);
-                                                        uploadTradeDoc.mutate({ tradeId: trade.id, documentKey: doc.key, file });
-                                                      }
-                                                      e.target.value = "";
-                                                    }}
-                                                    data-testid={`input-file-${trade.id}-${doc.key}`}
-                                                  />
-                                                  <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-6 px-2 text-[10px]"
-                                                    disabled={isUploadingThis}
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      fileInputRefs.current[refKey]?.click();
-                                                    }}
-                                                    data-testid={`btn-upload-${trade.id}-${doc.key}`}
-                                                  >
-                                                    {isUploadingThis ? (
-                                                      <Loader2 className="w-3 h-3 animate-spin" />
-                                                    ) : (
-                                                      <><Upload className="w-3 h-3 mr-1" />Upload</>
-                                                    )}
-                                                  </Button>
-                                                </>
-                                              )}
-                                            </div>
+                                            </button>
+                                            <span className={`text-xs flex-1 ${isChecked ? "text-foreground" : "text-muted-foreground"}`}>
+                                              {doc.label}
+                                            </span>
                                             {docFiles.length > 0 && (
-                                              <div className="border-t border-border/30 bg-muted/20 px-2 py-1 space-y-0.5">
-                                                {docFiles.map((f) => (
-                                                  <div key={f.id} className="flex items-center justify-between text-[10px] gap-1" data-testid={`trade-file-${f.id}`}>
-                                                    <span className="text-muted-foreground truncate flex-1">
-                                                      <Paperclip className="w-2.5 h-2.5 inline mr-1" />
-                                                      {f.originalName} <span className="opacity-50">({(f.size / 1024).toFixed(0)} KB)</span>
-                                                    </span>
-                                                    <div className="flex items-center gap-0.5 flex-shrink-0">
-                                                      <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-5 w-5 p-0"
-                                                        onClick={(e) => { e.stopPropagation(); window.open(`/api/trade-documents/${f.id}/download`, "_blank"); }}
-                                                        data-testid={`btn-download-trade-${f.id}`}
-                                                      >
-                                                        <Download className="w-2.5 h-2.5" />
-                                                      </Button>
-                                                      <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-5 w-5 p-0 text-destructive hover:text-destructive"
-                                                        onClick={(e) => { e.stopPropagation(); deleteTradeDoc.mutate(f.id); }}
-                                                        disabled={deleteTradeDoc.isPending}
-                                                        data-testid={`btn-delete-trade-${f.id}`}
-                                                      >
-                                                        <Trash2 className="w-2.5 h-2.5" />
-                                                      </Button>
-                                                    </div>
-                                                  </div>
-                                                ))}
-                                              </div>
+                                              <Badge variant="secondary" className="text-[9px] rounded-none bg-emerald-600/10 text-emerald-700 px-1.5 py-0">
+                                                <Paperclip className="w-2.5 h-2.5 mr-0.5" />
+                                                {docFiles.length}
+                                              </Badge>
                                             )}
+                                            <Badge
+                                              variant={doc.mandatory ? "default" : "outline"}
+                                              className={`text-[9px] rounded-none px-1.5 py-0 ${
+                                                doc.mandatory ? "bg-primary/10 text-primary border-primary/20" : ""
+                                              }`}
+                                            >
+                                              {doc.mandatory ? "M" : "O"}
+                                            </Badge>
+                                            <input
+                                              type="file"
+                                              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                                              className="hidden"
+                                              ref={(el) => { fileInputRefs.current[refKey] = el; }}
+                                              onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                  setUploadingKey(refKey);
+                                                  uploadTradeDoc.mutate({ tradeId: trade.id, documentKey: doc.key, file });
+                                                }
+                                                e.target.value = "";
+                                              }}
+                                              data-testid={`input-file-${trade.id}-${doc.key}`}
+                                            />
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 px-2 text-[10px]"
+                                              disabled={isUploadingThis}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                fileInputRefs.current[refKey]?.click();
+                                              }}
+                                              data-testid={`btn-upload-${trade.id}-${doc.key}`}
+                                            >
+                                              {isUploadingThis ? (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                              ) : (
+                                                <><Upload className="w-3 h-3 mr-1" />Upload</>
+                                              )}
+                                            </Button>
                                           </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
+                                          {docFiles.length > 0 && (
+                                            <div className="border-t border-border/30 bg-muted/20 px-2 py-1 space-y-0.5">
+                                              {docFiles.map((f) => (
+                                                <div key={f.id} className="flex items-center justify-between text-[10px] gap-1" data-testid={`trade-file-${f.id}`}>
+                                                  <span className="text-muted-foreground truncate flex-1">
+                                                    <Paperclip className="w-2.5 h-2.5 inline mr-1" />
+                                                    {f.originalName} <span className="opacity-50">({(f.size / 1024).toFixed(0)} KB)</span>
+                                                  </span>
+                                                  <div className="flex items-center gap-0.5 flex-shrink-0">
+                                                    <Button
+                                                      type="button"
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      className="h-5 w-5 p-0"
+                                                      onClick={(e) => { e.stopPropagation(); window.open(`/api/trade-documents/${f.id}/download`, "_blank"); }}
+                                                      data-testid={`btn-download-trade-${f.id}`}
+                                                    >
+                                                      <Download className="w-2.5 h-2.5" />
+                                                    </Button>
+                                                    <Button
+                                                      type="button"
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      className="h-5 w-5 p-0 text-destructive hover:text-destructive"
+                                                      onClick={(e) => { e.stopPropagation(); deleteTradeDoc.mutate(f.id); }}
+                                                      disabled={deleteTradeDoc.isPending}
+                                                      data-testid={`btn-delete-trade-${f.id}`}
+                                                    >
+                                                      <Trash2 className="w-2.5 h-2.5" />
+                                                    </Button>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
                               );
                             })}
