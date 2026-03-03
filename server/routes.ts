@@ -36,6 +36,27 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/kyc/:id/status", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, reviewNotes } = req.body;
+      if (!status || !["approved", "rejected", "pending"].includes(status)) {
+        return res.status(400).json({ message: "Invalid status. Must be: approved, rejected, or pending" });
+      }
+      if (reviewNotes !== undefined && (typeof reviewNotes !== "string" || reviewNotes.length > 2000)) {
+        return res.status(400).json({ message: "Review notes must be a string under 2000 characters" });
+      }
+      const kyc = await storage.getKycApplicationById(id);
+      if (!kyc) {
+        return res.status(404).json({ message: "KYC application not found" });
+      }
+      const updated = await storage.updateKycStatus(id, status, reviewNotes);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update KYC status" });
+    }
+  });
+
   app.post("/api/kyc", async (req, res) => {
     try {
       const parsed = insertKycSchema.safeParse(req.body);

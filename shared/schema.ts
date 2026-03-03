@@ -61,6 +61,7 @@ export const kycApplications = pgTable("kyc_applications", {
   signatoryCompany: text("signatory_company"),
   signatoryPlaceDate: text("signatory_place_date"),
   status: text("status").notNull().default("pending"),
+  reviewNotes: text("review_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -117,6 +118,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export const insertKycSchema = createInsertSchema(kycApplications).omit({
   id: true,
   status: true,
+  reviewNotes: true,
   createdAt: true,
 });
 

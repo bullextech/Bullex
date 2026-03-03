@@ -18,6 +18,7 @@ import Blockchain from "@/pages/blockchain";
 import Products from "@/pages/products";
 import Tokenization from "@/pages/tokenization";
 import Contact from "@/pages/contact";
+import KycAdmin from "@/pages/kyc-admin";
 
 function Router() {
   return (
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/products" component={Products} />
       <Route path="/tokenization" component={Tokenization} />
       <Route path="/kyc" component={KYC} />
+      <Route path="/kyc-admin" component={KycAdmin} />
       <Route path="/documents" component={DocumentGenerator} />
       <Route path="/trading" component={Trading} />
       <Route path="/vault" component={Vault} />

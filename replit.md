@@ -15,6 +15,7 @@ Bullex is a standalone blockchain-backed trade management platform for Bullfrog 
 - `/dashboard` - Dashboard (trade volume, chain status, recent trades, stats)
 - `/products` - Commodity Divisions (5 divisions with detailed product listings)
 - `/kyc` - KYC Registration (10-section institutional form)
+- `/kyc-admin` - KYC Administration (approve/reject applications)
 - `/documents` - Document Generator
 - `/trading` - Blockchain Trading
 - `/vault` - Document Vault
@@ -82,6 +83,7 @@ shared/
 ## API Endpoints
 - `GET /api/kyc` - List KYC applications
 - `POST /api/kyc` - Submit KYC application
+- `PATCH /api/kyc/:id/status` - Approve/reject KYC application (status: approved, rejected, pending; optional reviewNotes)
 - `GET /api/trades` - List all trades (newest first)
 - `POST /api/trades` - Create a new pre-deal trade (no blockchain block yet)
 - `PATCH /api/trades/:id/status` - Advance trade stage (sequential: pre_deal → deal → execution → final_payment). Advancing from pre_deal to deal mines the blockchain block.

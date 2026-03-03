@@ -31,7 +31,9 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
 
   getKycApplications(): Promise<KycApplication[]>;
+  getKycApplicationById(id: string): Promise<KycApplication | undefined>;
   createKycApplication(kyc: InsertKyc): Promise<KycApplication>;
+  updateKycStatus(id: string, status: string, reviewNotes?: string): Promise<KycApplication>;
 
   getTrades(): Promise<Trade[]>;
   getTradeById(id: string): Promise<Trade | undefined>;
@@ -76,9 +78,21 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(kycApplications).orderBy(desc(kycApplications.createdAt));
   }
 
+  async getKycApplicationById(id: string): Promise<KycApplication | undefined> {
+    const [kyc] = await db.select().from(kycApplications).where(eq(kycApplications.id, id));
+    return kyc;
+  }
+
   async createKycApplication(kyc: InsertKyc): Promise<KycApplication> {
     const [created] = await db.insert(kycApplications).values(kyc).returning();
     return created;
+  }
+
+  async updateKycStatus(id: string, status: string, reviewNotes?: string): Promise<KycApplication> {
+    const updates: any = { status };
+    if (reviewNotes !== undefined) updates.reviewNotes = reviewNotes;
+    const [updated] = await db.update(kycApplications).set(updates).where(eq(kycApplications.id, id)).returning();
+    return updated;
   }
 
   async getTrades(): Promise<Trade[]> {
