@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,10 +28,14 @@ import {
   Scale,
   FileText,
   PenTool,
+  Upload,
+  Download,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { KycApplication } from "@shared/schema";
+import type { KycApplication, KycDocument } from "@shared/schema";
 
 const sections = [
   "Company Details",
@@ -49,6 +53,18 @@ const sections = [
 const sectionIcons = [
   Building2, Briefcase, Users, Users, BarChart3,
   Landmark, Users, Scale, FileText, PenTool,
+];
+
+const kycDocList = [
+  { label: "Certificate of Incorporation", type: "certificate_of_incorporation" },
+  { label: "Memorandum & Articles of Association", type: "memorandum_articles" },
+  { label: "Business Registration No.", type: "business_registration" },
+  { label: "Company Registration", type: "company_registration" },
+  { label: "Board Resolution / Power of Attorney", type: "board_resolution_poa" },
+  { label: "Passport Copy of Authorized Signatory", type: "passport_copy" },
+  { label: "Latest Audited Financial Statements", type: "audited_financial_statements" },
+  { label: "Bank Reference Letter", type: "bank_reference_letter" },
+  { label: "Proof of Address (utility bill / bank statement)", type: "proof_of_address" },
 ];
 
 const emptyForm = {
@@ -107,10 +123,57 @@ export default function KYC() {
   const [activeTab, setActiveTab] = useState(0);
   const { toast } = useToast();
   const [form, setForm] = useState({ ...emptyForm });
+  const [uploadingType, setUploadingType] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const { data: kycs, isLoading } = useQuery<KycApplication[]>({
     queryKey: ["/api/kyc"],
   });
+
+  const { data: kycDocs } = useQuery<KycDocument[]>({
+    queryKey: ["/api/kyc-documents"],
+  });
+
+  const uploadDoc = useMutation({
+    mutationFn: async ({ file, documentType }: { file: File; documentType: string }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("documentType", documentType);
+      const res = await fetch("/api/kyc-documents/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Upload failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc-documents"] });
+      toast({ title: "Document Uploaded", description: "File has been uploaded successfully." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
+    },
+    onSettled: () => setUploadingType(null),
+  });
+
+  const deleteDoc = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/kyc-documents/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc-documents"] });
+      toast({ title: "Document Removed", description: "File has been deleted." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleFileSelect = (documentType: string, file: File) => {
+    setUploadingType(documentType);
+    uploadDoc.mutate({ file, documentType });
+  };
 
   const submitKyc = useMutation({
     mutationFn: async (data: typeof form) => {
@@ -572,25 +635,89 @@ export default function KYC() {
               </h3>
               <div className="mt-6 space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  The following documents are required to complete KYC verification. Please upload or send separately:
+                  Upload the following documents to complete KYC verification. Accepted formats: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX (max 10MB each).
                 </p>
-                <div className="space-y-2">
-                  {[
-                    "Certificate of Incorporation",
-                    "Memorandum & Articles of Association",
-                    "Business Registration No.",
-                    "Company Registration",
-                    "Board Resolution / Power of Attorney",
-                    "Passport Copy of Authorized Signatory",
-                    "Latest Audited Financial Statements",
-                    "Bank Reference Letter",
-                    "Proof of Address (utility bill / bank statement)",
-                  ].map((doc) => (
-                    <div key={doc} className="flex items-center gap-3 p-3 rounded-md bg-muted text-sm">
-                      <FileCheck className="w-4 h-4 text-primary flex-shrink-0" />
-                      <span>{doc}</span>
-                    </div>
-                  ))}
+                <div className="space-y-3">
+                  {kycDocList.map((docDef) => {
+                    const uploaded = kycDocs?.filter((d) => d.documentType === docDef.type) || [];
+                    const isUploading = uploadingType === docDef.type;
+                    return (
+                      <div key={docDef.type} className="rounded-lg border border-border bg-muted/30 overflow-hidden" data-testid={`kyc-doc-row-${docDef.type}`}>
+                        <div className="flex items-center justify-between p-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <FileCheck className={`w-4 h-4 flex-shrink-0 ${uploaded.length > 0 ? "text-green-600" : "text-muted-foreground"}`} />
+                            <span className="text-sm font-medium truncate">{docDef.label}</span>
+                            {uploaded.length > 0 && (
+                              <Badge variant="default" className="text-[10px] bg-green-600 hover:bg-green-700 flex-shrink-0">
+                                <CheckCircle2 className="w-3 h-3 mr-0.5" />
+                                {uploaded.length} uploaded
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex-shrink-0 ml-2">
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                              className="hidden"
+                              ref={(el) => { fileInputRefs.current[docDef.type] = el; }}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleFileSelect(docDef.type, file);
+                                e.target.value = "";
+                              }}
+                              data-testid={`input-file-${docDef.type}`}
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={uploaded.length > 0 ? "outline" : "default"}
+                              disabled={isUploading}
+                              onClick={() => fileInputRefs.current[docDef.type]?.click()}
+                              data-testid={`btn-upload-${docDef.type}`}
+                            >
+                              {isUploading ? (
+                                <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Uploading...</>
+                              ) : (
+                                <><Upload className="w-3.5 h-3.5 mr-1.5" /> {uploaded.length > 0 ? "Upload Another" : "Upload"}</>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                        {uploaded.length > 0 && (
+                          <div className="border-t border-border bg-background px-3 py-2 space-y-1.5">
+                            {uploaded.map((file) => (
+                              <div key={file.id} className="flex items-center justify-between text-xs gap-2" data-testid={`kyc-file-${file.id}`}>
+                                <span className="text-muted-foreground truncate flex-1">{file.originalName} <span className="text-muted-foreground/60">({(file.size / 1024).toFixed(0)} KB)</span></span>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => window.open(`/api/kyc-documents/${file.id}/download`, "_blank")}
+                                    data-testid={`btn-download-${file.id}`}
+                                  >
+                                    <Download className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                    onClick={() => deleteDoc.mutate(file.id)}
+                                    disabled={deleteDoc.isPending}
+                                    data-testid={`btn-delete-${file.id}`}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="space-y-2 mt-4">
                   <Label className={labelClass}>Additional Notes / Document Submission Details</Label>

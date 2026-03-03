@@ -1,9 +1,50 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { storage } from "./storage";
 import { insertTradeSchema, insertKycSchema, insertDocumentSchema } from "@shared/schema";
 import { generateTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { seedDatabase } from "./seed";
+
+const uploadsDir = path.join(process.cwd(), "uploads", "kyc");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const kycUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const ext = path.extname(file.originalname);
+      cb(null, `kyc-${uniqueSuffix}${ext}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx", ".xls", ".xlsx"];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error("File type not allowed. Accepted: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX"));
+    }
+  },
+});
+
+const VALID_KYC_DOC_TYPES = [
+  "certificate_of_incorporation",
+  "memorandum_articles",
+  "business_registration",
+  "company_registration",
+  "board_resolution_poa",
+  "passport_copy",
+  "audited_financial_statements",
+  "bank_reference_letter",
+  "proof_of_address",
+];
 
 const stageMandatoryDocs: Record<string, string[]> = {
   pre_deal: ["kyc_registration", "icpo_deal_recap"],
@@ -191,6 +232,78 @@ export async function registerRoutes(
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to create document" });
+    }
+  });
+
+  app.get("/api/kyc-documents", async (req, res) => {
+    try {
+      const { documentType } = req.query;
+      const result = await storage.getKycDocuments(documentType as string | undefined);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch KYC documents" });
+    }
+  });
+
+  app.post("/api/kyc-documents/upload", kycUpload.single("file"), async (req, res) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      const { documentType, kycApplicationId } = req.body;
+      if (!documentType || !VALID_KYC_DOC_TYPES.includes(documentType)) {
+        fs.unlinkSync(file.path);
+        return res.status(400).json({ message: "Invalid document type" });
+      }
+      const doc = await storage.createKycDocument({
+        kycApplicationId: kycApplicationId || null,
+        documentType,
+        originalName: file.originalname,
+        storedName: file.filename,
+        mimeType: file.mimetype,
+        size: file.size,
+      });
+      res.json(doc);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to upload document" });
+    }
+  });
+
+  app.get("/api/kyc-documents/:id/download", async (req, res) => {
+    try {
+      const docs = await storage.getKycDocuments();
+      const doc = docs.find((d) => d.id === req.params.id);
+      if (!doc) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      const filePath = path.join(uploadsDir, doc.storedName);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ message: "File not found on disk" });
+      }
+      res.setHeader("Content-Disposition", `attachment; filename="${doc.originalName}"`);
+      res.setHeader("Content-Type", doc.mimeType);
+      res.sendFile(filePath);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to download document" });
+    }
+  });
+
+  app.delete("/api/kyc-documents/:id", async (req, res) => {
+    try {
+      const docs = await storage.getKycDocuments();
+      const doc = docs.find((d) => d.id === req.params.id);
+      if (!doc) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      const filePath = path.join(uploadsDir, doc.storedName);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      await storage.deleteKycDocument(doc.id);
+      res.json({ message: "Document deleted" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to delete document" });
     }
   });
 

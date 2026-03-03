@@ -43,6 +43,7 @@ Bullex is a standalone blockchain-backed trade management platform for Bullfrog 
 ## Data Model
 - `users` - User accounts
 - `kyc_applications` - 10-section KYC form data (company details, banking, compliance, signatory)
+- `kyc_documents` - Uploaded KYC document files (documentType, originalName, storedName, mimeType, size). Files stored in uploads/kyc/ directory.
 - `trades` - Commodity trades (tradeRef BFG-YYYY-XXXX, buyer/seller, origin/destination, incoterm, blockchain hash, stageDocuments JSONB for document gating)
 - `blocks` - Blockchain blocks (hash, previous hash, nonce, verification)
 - `documents` - Trade documents (SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL)
@@ -91,3 +92,7 @@ shared/
 - `GET /api/blocks` - List blockchain blocks (newest first)
 - `GET /api/documents` - List all documents
 - `POST /api/documents` - Generate a new document
+- `GET /api/kyc-documents` - List uploaded KYC documents (optional ?documentType= filter)
+- `POST /api/kyc-documents/upload` - Upload a KYC document (multipart form: file, documentType, optional kycApplicationId). Max 10MB, accepted: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX
+- `GET /api/kyc-documents/:id/download` - Download a KYC document
+- `DELETE /api/kyc-documents/:id` - Delete a KYC document
