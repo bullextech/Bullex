@@ -72,6 +72,10 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  app.get("/api/health", (_req, res) => {
+    res.status(200).json({ status: "ok" });
+  });
+
   seedDatabase().catch((err) => console.error("Seed error:", err));
 
   app.get("/api/kyc", async (_req, res) => {
