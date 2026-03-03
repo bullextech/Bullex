@@ -2,6 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import fs from "fs";
+import path from "path";
 
 const app = express();
 const httpServer = createServer(app);
@@ -11,6 +13,20 @@ declare module "http" {
     rawBody: unknown;
   }
 }
+
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
+app.get("/", (_req, res, next) => {
+  if (process.env.NODE_ENV === "production") {
+    const indexPath = path.resolve(__dirname, "public", "index.html");
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+  }
+  next();
+});
 
 app.use(
   express.json({

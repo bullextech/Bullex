@@ -53,10 +53,12 @@ const seedTrades = [
     origin: "Singapore",
     destination: "Vietnam",
     incoterm: "CIF",
-    status: "deal",
+    status: "final_payment",
     stageDocuments: {
       kyc_registration: true, icpo_deal_recap: true, loi: true,
-      spa: true,
+      spa: true, lc_draft: true, lc_copy: true,
+      coa: true, cow: true, coo: true, bl: true, beneficiary_cert: true, sight_draft: true, commercial_invoice: true,
+      coa_disport: true,
     },
   },
   {
@@ -91,9 +93,10 @@ const seedTrades = [
     origin: "Guinea",
     destination: "China",
     incoterm: "FOB",
-    status: "pre_deal",
+    status: "initiated",
     stageDocuments: {
-      kyc_registration: true,
+      kyc_registration: true, icpo_deal_recap: true,
+      spa: true,
     },
   },
 ];
@@ -107,9 +110,40 @@ const seedDocs = [
   { docType: "SCO", title: "SCO - Bauxite 75,000 MT Guinea-China", tradeIndex: 4, status: "draft" },
 ];
 
+const validStatuses = new Set(["pre_deal", "initiated", "deal", "execution", "final_payment"]);
+const statusOrder = ["pre_deal", "initiated", "deal", "execution", "final_payment"];
+
+async function migrateExistingTrades() {
+  const existingTrades = await storage.getTrades();
+  if (existingTrades.length === 0) return;
+
+  const commodityToSeed: Record<string, typeof seedTrades[0]> = {};
+  for (const seed of seedTrades) {
+    commodityToSeed[seed.commodity] = seed;
+  }
+
+  for (const trade of existingTrades) {
+    const seed = commodityToSeed[trade.commodity];
+    if (!seed) continue;
+
+    const hasLegacyStatus = !validStatuses.has(trade.status);
+    const currentIdx = statusOrder.indexOf(trade.status);
+    const targetIdx = statusOrder.indexOf(seed.status);
+
+    if (hasLegacyStatus || targetIdx > currentIdx) {
+      await storage.updateTradeStatus(trade.id, seed.status);
+      const seedDocs = seed.stageDocuments as Record<string, boolean>;
+      await storage.updateStageDocuments(trade.id, seedDocs);
+    }
+  }
+}
+
 export async function seedDatabase() {
   const existingTrades = await storage.getTrades();
-  if (existingTrades.length > 0) return;
+  if (existingTrades.length > 0) {
+    await migrateExistingTrades();
+    return;
+  }
 
   let previousHash = GENESIS_HASH;
   const tradeRefs: string[] = [];
@@ -123,7 +157,7 @@ export async function seedDatabase() {
     const tradeRef = `BFG-${year}-${hexSuffix}`;
     tradeRefs.push(tradeRef);
 
-    const isPreDeal = seed.status === "pre_deal";
+    const isPreDeal = seed.status === "pre_deal" || seed.status === "initiated";
 
     if (isPreDeal) {
       await storage.createTrade({
