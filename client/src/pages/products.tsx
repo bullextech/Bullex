@@ -21,7 +21,7 @@ const divisions = [
     accent: "text-stone-600 dark:text-stone-400",
     accentBg: "bg-stone-600/10",
     description:
-      "Sourcing premium grade bulk minerals from established global mining operations for the heavy industry sector.",
+      "Tokenised access to premium grade bulk minerals from established global mining operations — enabling fractional ownership and transparent settlement for retail and institutional investors.",
     products: [
       {
         name: "Iron Ore",
@@ -45,7 +45,7 @@ const divisions = [
     accent: "text-sky-600 dark:text-sky-400",
     accentBg: "bg-sky-600/10",
     description:
-      "Supplying high-purity refined metals to manufacturing, construction, and technology sectors globally.",
+      "1:1 asset-backed tokens representing high-purity refined metals — providing investors with liquid, fractional exposure to manufacturing, construction, and technology sector commodities.",
     products: [
       {
         name: "Copper Cathodes",
@@ -65,7 +65,7 @@ const divisions = [
     accent: "text-orange-600 dark:text-orange-400",
     accentBg: "bg-orange-600/10",
     description:
-      "Delivering crucial energy products with precision logistics to power global commercial and industrial operations.",
+      "Tokenised energy commodities backed 1:1 by physical assets — delivering transparent pricing, fractional access, and blockchain-verified custody for global investors.",
     products: [
       {
         name: "ULSD 10ppm",
@@ -93,7 +93,7 @@ const divisions = [
     accent: "text-slate-600 dark:text-slate-400",
     accentBg: "bg-slate-600/10",
     description:
-      "Distributing essential chemical derivatives foundational to infrastructure development and manufacturing.",
+      "Asset-backed petrochemical tokens enabling fractional ownership of essential chemical derivatives foundational to infrastructure development and manufacturing.",
     products: [
       {
         name: "Bitumen",
@@ -117,7 +117,7 @@ const divisions = [
     accent: "text-teal-700 dark:text-teal-400",
     accentBg: "bg-teal-700/10",
     description:
-      "Supplying essential agricultural inputs to support global food security and sustainable farming practices.",
+      "Tokenised agricultural inputs supporting global food security — offering investors fractional access to sustainable farming commodities with transparent, blockchain-verified settlement.",
     products: [
       {
         name: "NPK",
@@ -141,8 +141,9 @@ export default function Products() {
             </h1>
             <div className="w-20 h-1 bg-primary-foreground/40 mb-6" />
             <p className="text-lg text-primary-foreground/80 font-light leading-relaxed">
-              Our comprehensive portfolio spans five core divisions, delivering
-              essential resources to industrial consumers worldwide.
+              Our comprehensive portfolio spans five core commodity divisions, each available
+              as 1:1 asset-backed tokens — enabling fractional ownership, transparent settlement,
+              and liquid access for retail and institutional investors.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 mt-8">
@@ -170,7 +171,7 @@ export default function Products() {
               </div>
               <div>
                 <p className="text-xl font-bold">5</p>
-                <p className="text-xs text-muted-foreground">Trading Divisions</p>
+                <p className="text-xs text-muted-foreground">Asset Divisions</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-4 rounded-md bg-card border border-border" data-testid="stat-commodities">
@@ -181,7 +182,7 @@ export default function Products() {
                 <p className="text-xl font-bold">
                   {divisions.reduce((s, d) => s + d.products.length, 0)}
                 </p>
-                <p className="text-xs text-muted-foreground">Active Commodities</p>
+                <p className="text-xs text-muted-foreground">Tokenized Commodities</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-4 rounded-md bg-card border border-border" data-testid="stat-blockchain">
@@ -190,7 +191,7 @@ export default function Products() {
               </div>
               <div>
                 <p className="text-xl font-bold">100%</p>
-                <p className="text-xs text-muted-foreground">Blockchain Verified</p>
+                <p className="text-xs text-muted-foreground">Asset-Backed Tokens</p>
               </div>
             </div>
           </div>

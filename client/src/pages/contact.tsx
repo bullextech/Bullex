@@ -30,8 +30,8 @@ export default function Contact() {
             </h1>
             <div className="w-20 h-1 bg-primary-foreground/40 mb-6" />
             <p className="text-lg text-primary-foreground/80 font-light leading-relaxed">
-              Get in touch with the Bullex trade management team for inquiries,
-              onboarding, and partnership opportunities.
+              Get in touch with the BullEx team for tokenisation inquiries,
+              investor onboarding, and partnership opportunities.
             </p>
           </div>
         </div>
@@ -59,11 +59,11 @@ export default function Contact() {
                 </div>
                 <h3 className="text-sm font-semibold mb-1">Email</h3>
                 <a
-                  href="mailto:trade@bullex.tech"
+                  href="mailto:team@bullex.tech"
                   className="text-sm text-primary hover:underline"
                   data-testid="link-email"
                 >
-                  trade@bullex.tech
+                  team@bullex.tech
                 </a>
               </CardContent>
             </Card>
@@ -92,11 +92,11 @@ export default function Contact() {
               </h2>
               <div className="w-12 h-0.5 bg-primary mb-6" />
               <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                Our Dubai headquarters serves as the central hub for Bullex trade
-                operations, covering commodity trading across Asia, the Middle East,
-                and Africa. From this strategic location, we manage the full trade
-                lifecycle — from client onboarding and KYC verification to blockchain-backed
-                trade execution and document management.
+                Our Dubai headquarters serves as the central hub for BullEx
+                tokenisation operations, covering commodity-backed digital assets across Asia,
+                the Middle East, and Africa. From this strategic location, we manage the full
+                tokenisation lifecycle — from producer onboarding and asset verification to
+                smart contract issuance and investor settlement.
               </p>
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
@@ -132,7 +132,7 @@ export default function Contact() {
                   </div>
                   <div>
                     <p className="text-sm font-medium">Platform</p>
-                    <p className="text-xs text-muted-foreground">Bullex Trade Management — Bullfrog Group Proprietary</p>
+                    <p className="text-xs text-muted-foreground">BullEx Tokenisation Platform</p>
                   </div>
                 </div>
               </div>
@@ -146,24 +146,24 @@ export default function Contact() {
               <div className="space-y-3">
                 {[
                   {
-                    title: "Trade Inquiries",
-                    desc: "Commodity sourcing, pricing, and trade execution across Minerals, Metals, Energy Products, Petrochemicals, and Fertilizers.",
+                    title: "Tokenisation & Investment",
+                    desc: "Fractional ownership inquiries, commodity-backed token issuance, and investment opportunities across Minerals, Metals, Energy Products, Petrochemicals, and Fertilizers.",
                   },
                   {
-                    title: "KYC & Onboarding",
-                    desc: "New client registration, institutional KYC submission, and account verification for trading partners.",
+                    title: "KYC & Investor Onboarding",
+                    desc: "Retail and institutional investor registration, KYC/AML verification, and account setup for token trading.",
                   },
                   {
-                    title: "Documentation",
-                    desc: "Trade document requests including SCO, FCO, ICPO, SPA, LOI, POP, POF, and BCL generation.",
+                    title: "Documentation & Compliance",
+                    desc: "Trade document requests including SCO, FCO, ICPO, SPA, LOI, POP, POF, and BCL generation for asset-backed tokens.",
                   },
                   {
-                    title: "Blockchain & Tokenization",
-                    desc: "Inquiries about the Bullex blockchain, BFG-20 token standard, and commodity tokenization.",
+                    title: "Blockchain & Smart Contracts",
+                    desc: "Inquiries about the BullEx blockchain, BFG-20 token standard, smart contract issuance, and transparent settlement.",
                   },
                   {
-                    title: "Partnerships",
-                    desc: "Strategic partnerships, joint ventures, and institutional collaboration opportunities.",
+                    title: "Partnerships & Licensing",
+                    desc: "Strategic partnerships, institutional collaboration, white-label licensing, and joint venture opportunities.",
                   },
                 ].map((item) => (
                   <Card key={item.title} className="border" data-testid={`card-inquiry-${item.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
@@ -184,16 +184,16 @@ export default function Contact() {
       <div className="bg-muted/30 border-t border-border py-10 px-6">
         <div className="max-w-5xl mx-auto text-center">
           <p className="text-sm text-muted-foreground mb-2">
-            For urgent trade matters, contact us directly at
+            For inquiries, partnerships, or investment, contact us at
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <a
-              href="mailto:trade@bullex.tech"
+              href="mailto:team@bullex.tech"
               className="text-sm font-medium text-primary hover:underline flex items-center gap-1.5"
               data-testid="link-footer-email"
             >
               <Mail className="w-3.5 h-3.5" />
-              trade@bullex.tech
+              team@bullex.tech
             </a>
             <span className="text-muted-foreground">|</span>
             <a
@@ -206,7 +206,7 @@ export default function Contact() {
             </a>
           </div>
           <p className="text-[10px] text-muted-foreground mt-6">
-            Bullfrog Group Proprietary System — All Rights Reserved
+            BullEx — Tokenisation of Real-World Commodities
           </p>
         </div>
       </div>

@@ -1,7 +1,7 @@
-# Bullex - Blockchain-Backed Trade Management
+# BullEx — Tokenisation of Real-World Commodities
 
 ## Overview
-Bullex is a standalone blockchain-backed trade management platform for Bullfrog Group (bullfrog-group.replit.app). It features KYC client onboarding, automated trade document generation, blockchain-verified commodity trading, and a document vault.
+BullEx is a blockchain-backed platform for tokenising real-world commodities (Gold, Copper, Iron Ore, Bauxite and more). It enables fractional ownership of physical commodities using audited, 1:1 asset-backed tokens built for retail and institutional investors seeking direct exposure with instant settlement and clear proof-of-reserve. The platform integrates producers, custodians, auditors, freight and buyers through a unified system with KYC onboarding, smart-contract-based settlement, and a document vault.
 
 ## Architecture
 - **Frontend**: React + TypeScript with Vite, Tailwind CSS, shadcn/ui components
@@ -20,10 +20,10 @@ Bullex is a standalone blockchain-backed trade management platform for Bullfrog 
 - `/trading` - Blockchain Trading
 - `/vault` - Document Vault
 - `/blockchain` - Blockchain Ledger
-- `/contact` - Contact page (Dubai, trade@bullex.tech, +971585416399)
+- `/contact` - Contact page (Dubai, team@bullex.tech, +971585416399)
 
 ## Key Features
-- **Home**: Landing page explaining Bullex — platform overview, 6 feature cards, 4-step workflow, commodity divisions preview, commodity tokenization section (BFG-20 standard, 4-step flow, sample tokens), institutional trading section
+- **Home**: Landing page — tokenisation positioning, 6 feature cards (1:1 Asset Backing, Fractional Access, Transparent Settlement, Blockchain Provenance, KYC Compliance, Regulatory Alignment), 5-step workflow (Producer → Auditors → Smart Contract → Investors → Profits), commodity divisions, tokenomics section, investment snapshot (USD 20M ask)
 - **Dashboard**: Trade volume, chain status, recent trades, KYC/document stats
 - **Products**: Commodity Divisions page matching bullfrog-group.replit.app (5 divisions: Minerals, Metals, Energy Products, Petrochemicals, Fertilizers with detailed product descriptions)
 - **KYC Registration**: 10-section institutional KYC form matching bullfrog-group.replit.app (Company Details, Business Activity, Beneficial Owners, Management Structure, Financial Info, Banking, HR, Compliance, Documents, Signatory)
