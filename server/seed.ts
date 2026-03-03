@@ -93,10 +93,12 @@ const seedTrades = [
     origin: "Guinea",
     destination: "China",
     incoterm: "FOB",
-    status: "initiated",
+    status: "final_payment",
     stageDocuments: {
       kyc_registration: true, icpo_deal_recap: true,
-      spa: true,
+      spa: true, lc_draft: true, lc_copy: true,
+      coa: true, cow: true, coo: true, bl: true,
+      beneficiary_cert: true, sight_draft: true, commercial_invoice: true,
     },
   },
 ];
