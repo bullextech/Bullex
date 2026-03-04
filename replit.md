@@ -68,7 +68,14 @@ Trade flow: `pre_deal` → `deal` → `execution` → `final_payment`
 Each stage has mandatory (M) and optional (O) documents. All mandatory docs must be confirmed before advancing.
 
 ## Sidebar Order
-Home, Admin, Dashboard, Products, KYC Registration, Document Generator, Blockchain Trading, Document Vault, Blockchain Ledger, Tokenisation, Investor, Contact
+Home, Dashboard, Products, Platform, Investor, Contact
+
+## Platform Page (/platform)
+7 tool boxes: KYC Registration, Document Generator, Blockchain Trading, Document Vault, Blockchain Ledger, Tokenisation, Admin
+Client KYC Registration link (/kyc-register) with Copy + Share buttons
+
+## Standalone Routes (outside app shell)
+- `/kyc-register` - Standalone client KYC registration (no sidebar/nav)
 
 ## Project Structure
 ```
