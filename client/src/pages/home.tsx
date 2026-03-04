@@ -480,7 +480,7 @@ export default function Home() {
             </div>
 
             <div className="p-10 lg:p-16 bg-card text-foreground border-l border-border">
-              <h3 className="text-2xl font-bold text-primary mb-8 tracking-tight">Request Supply</h3>
+              <h3 className="text-2xl font-bold text-primary mb-8 tracking-tight">Request Trade</h3>
               <form onSubmit={handleSupplySubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
