@@ -88,9 +88,7 @@ export default function Home() {
         <div className="max-w-5xl mx-auto relative z-10">
           <div className="max-w-3xl">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-lg bg-primary-foreground/10 border border-primary-foreground/20 flex items-center justify-center">
-                <Shield className="w-6 h-6" />
-              </div>
+              <img src="/bullex-logo.png" alt="BullEx" className="w-12 h-12 rounded-lg object-contain" />
               <div>
                 <Badge variant="secondary" className="text-[10px] uppercase tracking-widest bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20">
                   Bullex Commodity Trading Platform
