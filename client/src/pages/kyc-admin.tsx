@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -30,15 +30,41 @@ import {
   Users,
   FileText,
   AlertTriangle,
+  Link2,
+  Layers,
+  TrendingUp,
+  ArrowRight,
+  AlertCircle,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { KycApplication } from "@shared/schema";
+import { Link } from "wouter";
+import type { KycApplication, Trade, Block, Document } from "@shared/schema";
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   pending: { label: "Pending Review", color: "text-amber-600", bg: "bg-amber-600/10 border-amber-600/20 text-amber-700", icon: Clock },
   approved: { label: "Approved", color: "text-emerald-600", bg: "bg-emerald-600/10 border-emerald-600/20 text-emerald-700", icon: CheckCircle2 },
   rejected: { label: "Rejected", color: "text-red-600", bg: "bg-red-600/10 border-red-600/20 text-red-700", icon: XCircle },
+};
+
+const tradeStatusIcon = (status: string) => {
+  switch (status) {
+    case "final_payment":
+      return <CheckCircle2 className="w-3.5 h-3.5 text-status-online" />;
+    case "execution":
+    case "deal":
+    case "pre_deal":
+      return <Clock className="w-3.5 h-3.5 text-status-away" />;
+    default:
+      return <AlertCircle className="w-3.5 h-3.5 text-muted-foreground" />;
+  }
+};
+
+const tradeStatusLabel = (status: string) => {
+  return status
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 };
 
 export default function KycAdmin() {
@@ -48,9 +74,20 @@ export default function KycAdmin() {
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
-  const { data: applications, isLoading } = useQuery<KycApplication[]>({
+  const { data: applications, isLoading: kycLoading } = useQuery<KycApplication[]>({
     queryKey: ["/api/kyc"],
   });
+  const { data: trades, isLoading: tl } = useQuery<Trade[]>({
+    queryKey: ["/api/trades"],
+  });
+  const { data: blocks, isLoading: bl } = useQuery<Block[]>({
+    queryKey: ["/api/blocks"],
+  });
+  const { data: docs, isLoading: dl } = useQuery<Document[]>({
+    queryKey: ["/api/documents"],
+  });
+
+  const isLoading = kycLoading || tl || bl || dl;
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status, notes }: { id: string; status: string; notes?: string }) => {
@@ -67,6 +104,20 @@ export default function KycAdmin() {
     },
   });
 
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <Skeleton className="h-32 rounded-md" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-[90px] rounded-md" />
+          ))}
+        </div>
+        <Skeleton className="h-[500px] rounded-md" />
+      </div>
+    );
+  }
+
   const filtered = applications
     ?.filter((a) => statusFilter === "all" || a.status === statusFilter)
     .filter((a) =>
@@ -80,14 +131,11 @@ export default function KycAdmin() {
   const approvedCount = applications?.filter((a) => a.status === "approved").length || 0;
   const rejectedCount = applications?.filter((a) => a.status === "rejected").length || 0;
 
-  if (isLoading) {
-    return (
-      <div className="p-6 space-y-6">
-        <Skeleton className="h-32 rounded-md" />
-        <Skeleton className="h-[500px] rounded-md" />
-      </div>
-    );
-  }
+  const totalTrades = trades?.length || 0;
+  const latestBlock = blocks && blocks.length > 0 ? blocks[0] : null;
+  const totalVolume = trades?.reduce((s, t) => s + t.totalValue, 0) || 0;
+  const activeTrades = trades?.filter((t) => t.status !== "final_payment").length || 0;
+  const recentTrades = trades?.slice(0, 5) || [];
 
   return (
     <div className="overflow-y-auto h-full">
@@ -102,10 +150,10 @@ export default function KycAdmin() {
                 <span className="text-xs font-bold uppercase tracking-widest text-white/60">Administration</span>
               </div>
               <h1 className="text-3xl md:text-4xl font-serif font-bold mb-4" data-testid="text-kyc-admin-title">
-                KYC Administration
+                Admin Dashboard
               </h1>
               <p className="text-white/70 text-lg leading-relaxed">
-                Review, approve, or reject institutional KYC applications. Ensure compliance with Bullfrog Group onboarding standards before granting platform access.
+                Overview of trading activity, blockchain status, and KYC application management.
               </p>
             </div>
             <div className="grid grid-cols-3 gap-3 lg:gap-4">
@@ -127,10 +175,179 @@ export default function KycAdmin() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <Card data-testid="stat-trades">
+            <CardContent className="pt-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Link2 className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Trades</p>
+                  <p className="text-xl font-bold">{totalTrades}</p>
+                  <p className="text-[11px] text-muted-foreground">{activeTrades} active</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card data-testid="stat-volume">
+            <CardContent className="pt-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Trade Volume</p>
+                  <p className="text-xl font-bold">${totalVolume.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <p className="text-[11px] text-muted-foreground">All-time</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card data-testid="stat-blocks">
+            <CardContent className="pt-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Layers className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Chain Blocks</p>
+                  <p className="text-xl font-bold">{latestBlock ? latestBlock.blockNumber.toString() : "0"}</p>
+                  <p className="text-[11px] text-muted-foreground">100% verified</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card data-testid="stat-docs">
+            <CardContent className="pt-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Documents</p>
+                  <p className="text-xl font-bold">{(docs?.length || 0)}</p>
+                  <p className="text-[11px] text-muted-foreground">{applications?.length || 0} KYC applications</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+          <Card className="lg:col-span-2" data-testid="card-recent-trades">
+            <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0">
+              <CardTitle className="text-base font-semibold">Recent Trades</CardTitle>
+              <Link href="/trading">
+                <Button variant="ghost" size="sm" data-testid="link-all-trades">
+                  View All
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent>
+              {recentTrades.length > 0 ? (
+                <div className="space-y-0">
+                  {recentTrades.map((trade) => (
+                    <div
+                      key={trade.id}
+                      className="flex items-center justify-between gap-3 py-3 border-b last:border-b-0"
+                      data-testid={`trade-row-${trade.id}`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Link2 className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium font-mono">{trade.tradeRef}</span>
+                            <Badge variant="secondary" className="text-[10px]">{trade.commodityCategory}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {trade.commodity} &middot; {trade.origin} to {trade.destination}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <div className="text-right">
+                          <p className="text-sm font-medium font-mono">
+                            ${trade.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">{trade.quantity} {trade.unit}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {tradeStatusIcon(trade.status)}
+                          <span className="text-[10px]">{tradeStatusLabel(trade.status)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                  <Link2 className="w-10 h-10 mb-3 opacity-20" />
+                  <p className="text-sm">No trades yet</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-chain-status">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Shield className="w-4 h-4 text-primary" />
+                Chain Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Bullex Chain</span>
+                <Badge className="text-[10px]">Live</Badge>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Total Blocks</span>
+                <span className="font-mono font-medium">{latestBlock?.blockNumber || 0}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Chain Integrity</span>
+                <span className="text-status-online font-medium">Valid</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Active Trades</span>
+                <span className="font-mono font-medium">{activeTrades}</span>
+              </div>
+              {blocks && blocks.length > 0 && (
+                <div className="pt-2 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Recent Blocks</p>
+                  {blocks.slice(0, 3).map((block) => {
+                    const blockTrade = trades?.find((t) => t.blockNumber === block.blockNumber);
+                    return (
+                      <div key={block.id} className="p-2.5 rounded-md bg-muted space-y-1" data-testid={`block-preview-${block.blockNumber}`}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-mono font-medium">#{block.blockNumber}</span>
+                          <span className="text-[10px] font-mono text-muted-foreground">
+                            {block.hash.slice(0, 8)}...{block.hash.slice(-4)}
+                          </span>
+                        </div>
+                        {blockTrade && (
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                            <span>{blockTrade.tradeRef}</span>
+                            <span>{tradeStatusLabel(blockTrade.status)}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-2xl font-serif font-bold text-foreground" data-testid="text-applications-heading">
-              Applications
+              KYC Applications
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               {applications?.length || 0} total applications

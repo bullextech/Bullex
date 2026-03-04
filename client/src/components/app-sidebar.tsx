@@ -31,7 +31,6 @@ import { useLocation, Link } from "wouter";
 const navItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Admin", url: "/kyc-admin", icon: ShieldCheck },
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Products", url: "/products", icon: Package },
   { title: "Platform", url: "/platform", icon: Wrench },
   { title: "Investor", url: "/investor", icon: Users },
@@ -51,7 +50,7 @@ export function AppSidebar() {
             </div>
             <div>
               <h1 className="text-base font-bold tracking-tight">BULLEX</h1>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Trading Platform</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Tokenisation &bull; Commodities &bull; Custody</p>
             </div>
           </div>
         </Link>
@@ -84,7 +83,7 @@ export function AppSidebar() {
           <span>Blockchain Active</span>
         </div>
         <div className="text-[10px] text-muted-foreground opacity-60">
-          Bullex Trading Platform
+          Bullex &mdash; Tokenisation of Real-World Commodities
         </div>
       </SidebarFooter>
     </Sidebar>
