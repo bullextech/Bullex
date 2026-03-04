@@ -8,7 +8,7 @@ BullEx is a blockchain-backed platform for tokenising real-world commodities (Go
 - **Backend**: Express.js with TypeScript
 - **Database**: PostgreSQL with Drizzle ORM
 - **Blockchain**: Custom SHA-256 blockchain implementation for trade verification
-- **Theme**: Dark navy + gold/amber colour scheme — deep navy (#071026) background, gold (#da8b2b) primary, dark navy cards (#0f1b2b), blue-gray (#9fb0c7) muted text, matching the BullEx whitepaper design
+- **Theme**: LSE.com-inspired colour scheme — deep burgundy/maroon (#990000) primary, institutional blue (#0084be) accent, dark charcoal sidebar, clean white cards
 
 ## Routes
 - `/` - Home page (explains Bullex platform, features, workflow, commodity divisions, tokenization)
