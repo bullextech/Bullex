@@ -96,7 +96,7 @@ export default function Home() {
               </div>
               <div>
                 <Badge variant="secondary" className="text-[10px] uppercase tracking-widest bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20">
-                  Investor Whitepaper • 2025
+                  Trading Platform
                 </Badge>
               </div>
             </div>
@@ -104,13 +104,10 @@ export default function Home() {
               className="text-4xl md:text-5xl font-bold mb-4 tracking-tight leading-tight"
               data-testid="text-home-title"
             >
-              Tokenising Real-World
+              Bullex Trading
               <br />
-              Commodities
+              Platform
             </h1>
-            <p className="text-lg text-primary-foreground/60 font-medium mb-2">
-              Liquidity • Transparency • Access
-            </p>
             <div className="w-20 h-1 bg-primary-foreground/40 mb-6" />
             <p className="text-lg md:text-xl text-primary-foreground/80 font-light leading-relaxed mb-8 max-w-2xl">
               Bullex enables fractional ownership of physical commodities through
