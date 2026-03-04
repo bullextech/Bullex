@@ -1,7 +1,7 @@
-# Bullex - Blockchain-Backed Trade Management
+# Bullex - Tokenisation of Real-World Commodities
 
 ## Overview
-Bullex is a standalone blockchain-backed trade management platform for Bullfrog Group (bullfrog-group.replit.app). It features KYC client onboarding, automated trade document generation, blockchain-verified commodity trading, and a document vault.
+Bullex is a proprietary platform of Bullfrog Group — a blockchain-backed commodity tokenisation platform enabling fractional ownership, 1:1 asset-backed tokens, transparent settlement, and investor access (retail & institutional) to physical commodity markets.
 
 ## Architecture
 - **Frontend**: React + TypeScript with Vite, Tailwind CSS, shadcn/ui components
@@ -10,27 +10,36 @@ Bullex is a standalone blockchain-backed trade management platform for Bullfrog 
 - **Blockchain**: Custom SHA-256 blockchain implementation for trade verification
 - **Theme**: LSE.com-inspired colour scheme — deep burgundy/maroon (#990000) primary, institutional blue (#0084be) accent, dark charcoal sidebar, clean white cards
 
+## Branding
+- **Position**: "Tokenisation of Real-World Commodities"
+- **Sidebar tagline**: "Tokenisation • Commodities • Custody"
+- **Contact email**: team@bullex.tech
+- **Global footer**: "Bullex is a proprietary platform of Bullfrog Group." (visible on every page via App.tsx)
+- **Logo**: Shield icon (lucide-react) in primary color
+
 ## Routes
-- `/` - Home page (explains Bullex platform, features, workflow, commodity divisions, tokenization)
+- `/` - Home page (whitepaper-aligned: tokenisation, fractional ownership, 5-step process, quick stats, tokenomics)
 - `/dashboard` - Dashboard (trade volume, chain status, recent trades, stats)
-- `/products` - Commodity Divisions (5 divisions with detailed product listings)
+- `/products` - Commodity Divisions (5 divisions with tokenisation-focused descriptions)
+- `/tokenization` - Tokenisation page (BFG-20 tokens, 5-step process, tokenomics, revenue model, fund allocation)
 - `/kyc` - KYC Registration (10-section institutional form)
 - `/kyc-admin` - KYC Administration (approve/reject applications)
 - `/documents` - Document Generator
 - `/trading` - Blockchain Trading
 - `/vault` - Document Vault
 - `/blockchain` - Blockchain Ledger
-- `/contact` - Contact page (Dubai, trade@bullex.tech, +971585416399)
+- `/contact` - Contact page (Dubai, team@bullex.tech, +971585416399)
 
 ## Key Features
-- **Home**: Landing page explaining Bullex — platform overview, 6 feature cards, 4-step workflow, commodity divisions preview, commodity tokenization section (BFG-20 standard, 4-step flow, sample tokens), institutional trading section
+- **Home**: Whitepaper-aligned landing — "Tokenising Real-World Commodities", 6 feature cards (1:1 Asset Backing, Fractional Access, Transparent Settlement, Blockchain Trading, KYC & Compliance, Automated Docs), 5-step process (Producer Lists → Auditors Validate → Smart Contract Issues → Investors Buy → Profits Redistributed), Quick Stats (USD 20M ask, 5 Divisions, Year 3 breakeven), tokenomics section
+- **Tokenisation**: Full token registry with 12 BFG-20 tokens, 5-step process, tokenomics (revenue streams: issuance 0.5-1%, trading 0.25-0.5%, custody, licensing; fund allocation: Tech 40%, Sourcing 30%, Compliance 20%, Marketing 10%)
 - **Dashboard**: Trade volume, chain status, recent trades, KYC/document stats
-- **Products**: Commodity Divisions page matching bullfrog-group.replit.app (5 divisions: Minerals, Metals, Energy Products, Petrochemicals, Fertilizers with detailed product descriptions)
-- **KYC Registration**: 10-section institutional KYC form matching bullfrog-group.replit.app (Company Details, Business Activity, Beneficial Owners, Management Structure, Financial Info, Banking, HR, Compliance, Documents, Signatory)
-- **Blockchain Trading**: Commodity trade execution with blockchain verification (Minerals, Metals, Energy Products, Petrochemicals, Fertilizers)
+- **Products**: Commodity Divisions with tokenisation-focused descriptions (5 divisions: Minerals, Metals, Energy Products, Petrochemicals, Fertilizers)
+- **KYC Registration**: 10-section institutional KYC form
+- **Blockchain Trading**: Commodity trade execution with blockchain verification
 - **Document Generator**: Generate SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL linked to trades
-- **Document Vault**: Shows all documents uploaded through blockchain trading pipeline, grouped by trade then by stage (Pre-Deal/Deal/Execution/Final Payment), with search, stage filter buttons, View (inline) and Download buttons, hero stats
-- **Blockchain Ledger**: Block explorer with accordion-based block details, transaction drill-down
+- **Document Vault**: All documents uploaded through blockchain trading pipeline
+- **Blockchain Ledger**: Block explorer with accordion-based block details
 - **Dark/Light Mode**: Theme toggle with persistence
 
 ## Commodity Categories
@@ -61,18 +70,20 @@ Each stage has mandatory (M) and optional (O) documents. All mandatory docs must
 ```
 client/src/
   components/
-    app-sidebar.tsx      - Navigation sidebar (8 items)
+    app-sidebar.tsx      - Navigation sidebar with Shield logo
     theme-provider.tsx   - Dark/light theme context
     theme-toggle.tsx     - Theme toggle button
   pages/
-    home.tsx             - Landing page explaining Bullex platform
+    home.tsx             - Whitepaper-aligned landing page
     dashboard.tsx        - Main dashboard view
     products.tsx         - Commodity Divisions page (5 divisions, 13 products)
+    tokenization.tsx     - Token registry, tokenomics, revenue model
     kyc.tsx              - 10-section KYC registration form
     trades.tsx           - Commodity trade management
     document-generator.tsx - Document type selector with trade linking
     vault.tsx            - Document vault grouped by type
     blockchain.tsx       - Blockchain ledger explorer
+    contact.tsx          - Contact page
 server/
   blockchain.ts          - SHA-256 hashing & proof-of-work mining
   routes.ts              - API endpoints
@@ -85,21 +96,21 @@ shared/
 ## API Endpoints
 - `GET /api/kyc` - List KYC applications
 - `POST /api/kyc` - Submit KYC application
-- `PATCH /api/kyc/:id/status` - Approve/reject KYC application (status: approved, rejected, pending; optional reviewNotes)
+- `PATCH /api/kyc/:id/status` - Approve/reject KYC application
 - `GET /api/trades` - List all trades (newest first)
-- `POST /api/trades` - Create a new pre-deal trade (no blockchain block yet)
-- `PATCH /api/trades/:id/status` - Advance trade stage (sequential: pre_deal → deal → execution → final_payment). Advancing from pre_deal to deal mines the blockchain block.
-- `PATCH /api/trades/:id/documents` - Toggle document confirmation (docKey, checked)
+- `POST /api/trades` - Create a new pre-deal trade
+- `PATCH /api/trades/:id/status` - Advance trade stage
+- `PATCH /api/trades/:id/documents` - Toggle document confirmation
 - `GET /api/blocks` - List blockchain blocks (newest first)
 - `GET /api/documents` - List all documents
 - `POST /api/documents` - Generate a new document
-- `GET /api/kyc-documents` - List uploaded KYC documents (optional ?documentType= filter)
-- `POST /api/kyc-documents/upload` - Upload a KYC document (multipart form: file, documentType, optional kycApplicationId). Max 10MB, accepted: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX
+- `GET /api/kyc-documents` - List uploaded KYC documents
+- `POST /api/kyc-documents/upload` - Upload a KYC document
 - `GET /api/kyc-documents/:id/download` - Download a KYC document
 - `DELETE /api/kyc-documents/:id` - Delete a KYC document
 - `GET /api/trades/:tradeId/files` - List uploaded documents for a trade
-- `POST /api/trades/:tradeId/files/upload` - Upload a trade document (multipart form: file, documentKey). Auto-confirms the document checkbox.
+- `POST /api/trades/:tradeId/files/upload` - Upload a trade document
 - `GET /api/trade-documents` - List ALL trade documents (for vault page)
-- `GET /api/trade-documents/:id/view` - View a trade document inline in browser
-- `GET /api/trade-documents/:id/download` - Download a trade document as attachment
-- `DELETE /api/trade-documents/:id` - Delete a trade document (auto-unchecks if no remaining files for that key)
+- `GET /api/trade-documents/:id/view` - View a trade document inline
+- `GET /api/trade-documents/:id/download` - Download a trade document
+- `DELETE /api/trade-documents/:id` - Delete a trade document

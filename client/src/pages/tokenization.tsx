@@ -295,14 +295,14 @@ export default function Tokenization() {
               className="text-3xl md:text-4xl font-bold mb-4 tracking-tight"
               data-testid="text-tokenization-title"
             >
-              Commodity Tokenization
+              Tokenisation of Real-World Commodities
             </h1>
             <div className="w-20 h-1 bg-primary-foreground/40 mb-6" />
             <p className="text-lg text-primary-foreground/80 font-light leading-relaxed">
-              Every commodity traded on the Bullex platform is represented as a
-              blockchain-backed digital token. Each token is pegged 1:1 to physical
-              commodity units, verified through SHA-256 proof-of-work mining on the
-              Bullex chain.
+              Bullex enables fractional ownership of physical commodities through
+              1:1 asset-backed BFG-20 tokens. Retail and institutional investors
+              gain direct exposure to verified commodity assets with transparent
+              blockchain settlement and full auditability.
             </p>
           </div>
         </div>
@@ -328,7 +328,7 @@ export default function Tokenization() {
                 <p className="text-xl font-bold">
                   ${(totalTokenizedValue / 1_000_000).toFixed(1)}M
                 </p>
-                <p className="text-[10px] text-muted-foreground">Tokenized Value</p>
+                <p className="text-[10px] text-muted-foreground">Tokenised Value</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-4 rounded-md bg-muted/50 border border-border" data-testid="stat-active-tokens">
@@ -358,36 +358,42 @@ export default function Tokenization() {
       <div className="bg-muted/30 border-b border-border py-12 px-6">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-xl font-bold tracking-tight mb-2" data-testid="text-how-tokenization">
-            How Tokenization Works
+            How Tokenisation Works
           </h2>
           <p className="text-sm text-muted-foreground mb-8 max-w-2xl">
-            The Bullex tokenization engine converts physical commodity trades into verifiable digital tokens on our proprietary blockchain.
+            From physical commodity to investable digital token — a five-step process with full blockchain verification.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {[
               {
                 step: "01",
                 icon: FileText,
-                title: "Trade Initiation",
-                desc: "A commodity trade is executed on the Bullex platform with full counterparty details, quantity, and pricing.",
+                title: "Producer Lists",
+                desc: "Commodity producers list verified physical assets with full provenance, specifications, and quantity details.",
               },
               {
                 step: "02",
-                icon: Coins,
-                title: "Token Minting",
-                desc: "Digital tokens are minted at a 1:1 ratio to physical commodity units. Each token carries the trade's metadata.",
+                icon: Shield,
+                title: "Auditors Validate",
+                desc: "Independent auditors verify commodity existence, quality, and storage before token issuance approval.",
               },
               {
                 step: "03",
-                icon: Hash,
-                title: "Block Mining",
-                desc: "The transaction is mined into the Bullex blockchain using SHA-256 proof-of-work with difficulty-2 consensus.",
+                icon: Coins,
+                title: "Smart Contract Issues",
+                desc: "BFG-20 tokens are minted at a 1:1 ratio, recorded on the Bullex blockchain via SHA-256 proof-of-work.",
               },
               {
                 step: "04",
-                icon: Shield,
-                title: "Verification",
-                desc: "Each token is immutably linked to its blockchain block, providing tamper-proof provenance and audit trail.",
+                icon: Hash,
+                title: "Investors Buy",
+                desc: "Retail and institutional investors acquire fractional or whole token positions in verified commodity assets.",
+              },
+              {
+                step: "05",
+                icon: Globe,
+                title: "Profits Redistributed",
+                desc: "Upon sale or settlement, profits are distributed proportionally to token holders via on-chain settlement.",
               },
             ].map((item) => {
               const Icon = item.icon;
@@ -485,21 +491,79 @@ export default function Tokenization() {
         </div>
       </div>
 
+      <div className="bg-card border-y border-border py-12 px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex items-center gap-2 mb-4">
+            <Badge variant="secondary" className="text-[10px] uppercase tracking-widest">
+              Tokenomics
+            </Badge>
+          </div>
+          <h2 className="text-xl font-bold tracking-tight mb-2">
+            Revenue Model & Fund Allocation
+          </h2>
+          <p className="text-sm text-muted-foreground mb-8 max-w-2xl">
+            Bullex generates sustainable revenue through multiple fee streams across the token lifecycle.
+          </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div>
+              <h3 className="text-sm font-semibold mb-4">Revenue Streams</h3>
+              <div className="space-y-3">
+                {[
+                  { label: "Token Issuance Fee", value: "0.5–1%", desc: "of asset value at minting" },
+                  { label: "Secondary Trading Fee", value: "0.25–0.5%", desc: "per transaction" },
+                  { label: "Custody & Storage", value: "Variable", desc: "ongoing asset custody fees" },
+                  { label: "Technology Licensing", value: "Recurring", desc: "platform licensing revenue" },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center justify-between p-3 rounded-md bg-muted/50 border border-border">
+                    <div>
+                      <p className="text-sm font-medium">{item.label}</p>
+                      <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                    </div>
+                    <span className="text-sm font-bold text-primary">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold mb-4">Fund Allocation</h3>
+              <div className="space-y-3">
+                {[
+                  { label: "Technology Development", pct: "40%", color: "bg-primary" },
+                  { label: "Commodity Sourcing", pct: "30%", color: "bg-primary/70" },
+                  { label: "Compliance & Legal", pct: "20%", color: "bg-primary/50" },
+                  { label: "Marketing & Growth", pct: "10%", color: "bg-primary/30" },
+                ].map((item) => (
+                  <div key={item.label} className="p-3 rounded-md bg-muted/50 border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium">{item.label}</p>
+                      <span className="text-sm font-bold text-primary">{item.pct}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted">
+                      <div className={`h-full rounded-full ${item.color}`} style={{ width: item.pct }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-muted/30 border-t border-border py-12 px-6">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-xl font-bold tracking-tight mb-2">
             Token Standard: BFG-20
           </h2>
           <p className="text-sm text-muted-foreground mb-8 max-w-2xl">
-            All Bullex commodity tokens conform to the BFG-20 token standard — Bullex's
-            proprietary specification for commodity-backed digital assets.
+            All Bullex commodity tokens conform to the BFG-20 token standard — designed
+            for investor access, fractional ownership, and transparent commodity-backed asset management.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               {
                 icon: Lock,
                 title: "1:1 Physical Backing",
-                desc: "Every token is backed by a verified physical commodity unit. No fractional reserve — full commodity collateralization.",
+                desc: "Every token is backed by a verified physical commodity unit. No fractional reserve — full collateralisation for investor confidence.",
               },
               {
                 icon: Shield,
@@ -508,8 +572,8 @@ export default function Tokenization() {
               },
               {
                 icon: Globe,
-                title: "Cross-Border Settlement",
-                desc: "Tokens facilitate instant settlement across Asia, Middle East, and Africa without intermediary banking delays.",
+                title: "Global Investor Access",
+                desc: "Tokens enable cross-border investment and settlement across Asia, Middle East, and Africa — open to retail and institutional investors.",
               },
               {
                 icon: Layers,
@@ -519,12 +583,12 @@ export default function Tokenization() {
               {
                 icon: FileText,
                 title: "Document Linkage",
-                desc: "Each tokenized trade automatically generates linked documentation — SCO, FCO, ICPO, SPA, and more.",
+                desc: "Each tokenised trade automatically generates linked documentation — SCO, FCO, ICPO, SPA, and more.",
               },
               {
                 icon: CheckCircle2,
-                title: "Compliance Ready",
-                desc: "Tokens are issued only against KYC-verified counterparties, ensuring regulatory alignment across all jurisdictions.",
+                title: "Investor Compliance",
+                desc: "Tokens are issued only to KYC-verified investors, ensuring full regulatory alignment and investor protection across all jurisdictions.",
               },
             ].map((item) => {
               const Icon = item.icon;

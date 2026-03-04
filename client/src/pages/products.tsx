@@ -21,7 +21,7 @@ const divisions = [
     accent: "text-stone-600 dark:text-stone-400",
     accentBg: "bg-stone-600/10",
     description:
-      "Sourcing premium grade bulk minerals from established global mining operations for the heavy industry sector.",
+      "Tokenised premium-grade bulk minerals sourced from established global mining operations — available for fractional investment via BFG-20 tokens.",
     products: [
       {
         name: "Iron Ore",
@@ -45,7 +45,7 @@ const divisions = [
     accent: "text-sky-600 dark:text-sky-400",
     accentBg: "bg-sky-600/10",
     description:
-      "Supplying high-purity refined metals to manufacturing, construction, and technology sectors globally.",
+      "Tokenised high-purity refined metals for manufacturing, construction, and technology sectors — enabling fractional ownership of verified physical metal assets.",
     products: [
       {
         name: "Copper Cathodes",
@@ -65,7 +65,7 @@ const divisions = [
     accent: "text-orange-600 dark:text-orange-400",
     accentBg: "bg-orange-600/10",
     description:
-      "Delivering crucial energy products with precision logistics to power global commercial and industrial operations.",
+      "Tokenised energy products with precision logistics — offering investors exposure to fuel and gas assets that power global commercial and industrial operations.",
     products: [
       {
         name: "ULSD 10ppm",
@@ -93,7 +93,7 @@ const divisions = [
     accent: "text-slate-600 dark:text-slate-400",
     accentBg: "bg-slate-600/10",
     description:
-      "Distributing essential chemical derivatives foundational to infrastructure development and manufacturing.",
+      "Tokenised chemical derivatives foundational to infrastructure development and manufacturing — backed 1:1 by physical inventory.",
     products: [
       {
         name: "Bitumen",
@@ -117,7 +117,7 @@ const divisions = [
     accent: "text-teal-700 dark:text-teal-400",
     accentBg: "bg-teal-700/10",
     description:
-      "Supplying essential agricultural inputs to support global food security and sustainable farming practices.",
+      "Tokenised agricultural inputs supporting global food security — enabling investor participation in fertilizer commodity markets.",
     products: [
       {
         name: "NPK",
@@ -141,8 +141,8 @@ export default function Products() {
             </h1>
             <div className="w-20 h-1 bg-primary-foreground/40 mb-6" />
             <p className="text-lg text-primary-foreground/80 font-light leading-relaxed">
-              Our comprehensive portfolio spans five core divisions, delivering
-              essential resources to industrial consumers worldwide.
+              Our tokenised commodity portfolio spans five core divisions — each asset
+              backed 1:1 by verified physical inventory and available for fractional investment.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 mt-8">
@@ -189,8 +189,8 @@ export default function Products() {
                 <Shield className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-xl font-bold">100%</p>
-                <p className="text-xs text-muted-foreground">Blockchain Verified</p>
+                <p className="text-xl font-bold">1:1</p>
+                <p className="text-xs text-muted-foreground">Asset-Backed Tokens</p>
               </div>
             </div>
           </div>

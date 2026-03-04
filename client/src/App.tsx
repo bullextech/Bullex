@@ -60,6 +60,11 @@ function App() {
                 <main className="flex-1 overflow-hidden">
                   <Router />
                 </main>
+                <footer className="border-t border-border bg-muted/30 px-4 py-2 text-center">
+                  <p className="text-[10px] text-muted-foreground" data-testid="text-global-footer">
+                    Bullex is a proprietary platform of Bullfrog Group.
+                  </p>
+                </footer>
               </div>
             </div>
           </SidebarProvider>

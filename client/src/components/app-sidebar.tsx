@@ -30,7 +30,7 @@ const navItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Products", url: "/products", icon: Package },
-  { title: "Tokenization", url: "/tokenization", icon: Coins },
+  { title: "Tokenisation", url: "/tokenization", icon: Coins },
   { title: "KYC Registration", url: "/kyc", icon: UserCheck },
   { title: "KYC Admin", url: "/kyc-admin", icon: ShieldCheck },
   { title: "Document Generator", url: "/documents", icon: FileText },
@@ -53,7 +53,7 @@ export function AppSidebar() {
             </div>
             <div>
               <h1 className="text-base font-bold tracking-tight">BULLEX</h1>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Commodity Trading Platform</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Tokenisation &bull; Commodities &bull; Custody</p>
             </div>
           </div>
         </Link>
@@ -86,7 +86,7 @@ export function AppSidebar() {
           <span>Blockchain Active</span>
         </div>
         <div className="text-[10px] text-muted-foreground opacity-60">
-          Bullex Commodity Trading Platform
+          Tokenisation of Real-World Commodities
         </div>
       </SidebarFooter>
     </Sidebar>
