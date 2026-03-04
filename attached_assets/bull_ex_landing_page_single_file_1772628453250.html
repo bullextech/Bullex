@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BullEx — Tokenisation of Real-World Commodities</title>
+  <meta name="description" content="BullEx: tokenising copper, gold, iron ore, bauxite — unlocking liquidity for retail & institutional investors." />
+  <style>
+    :root{--bg:#071026;--card:#0f1b2b;--accent:#da8b2b;--accent-2:#b8864b;--muted:#9fb0c7;--glass:rgba(255,255,255,0.04)}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,Segoe UI,Roboto,system-ui,-apple-system,Helvetica,Arial;line-height:1.45;background:linear-gradient(180deg,#041226 0%, #081028 100%);color:#e6f0fb}
+    .container{max-width:1100px;margin:0 auto;padding:28px}
+    header{display:flex;align-items:center;justify-content:space-between;padding:12px 0}
+    .brand{display:flex;align-items:center;gap:14px}
+    .logo{width:56px;height:56px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#081026}
+    .nav{display:flex;gap:18px;align-items:center}
+    a.cta{background:var(--accent);color:#081026;padding:10px 16px;border-radius:8px;font-weight:600;text-decoration:none}
+
+    /* Hero */
+    .hero{display:grid;grid-template-columns:1fr 420px;gap:28px;align-items:center;margin-top:36px}
+    .eyebrow{color:var(--muted);font-weight:600;font-size:13px}
+    h1{font-size:36px;margin:10px 0;color:#fff}
+    p.lead{color:var(--muted);font-size:16px;margin:0 0 18px}
+    .hero-ctas{display:flex;gap:12px}
+    .card{background:var(--card);padding:18px;border-radius:12px;box-shadow:0 6px 30px rgba(1,8,20,0.6)}
+
+    /* Features */
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:22px}
+    .feature{background:var(--glass);padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+    .feature h4{margin:6px 0;color:#fff}
+    .muted{color:var(--muted)}
+
+    /* Tokenomics & charts */
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}
+
+    /* Roadmap & team */
+    .roadmap{display:flex;flex-direction:column;gap:12px}
+    .step{display:flex;gap:12px;align-items:flex-start}
+    .dot{width:12px;height:12px;border-radius:50%;background:var(--accent)}
+
+    footer{border-top:1px solid rgba(255,255,255,0.03);margin-top:48px;padding:22px 0;color:var(--muted)}
+
+    /* Responsive */
+    @media (max-width:900px){
+      .hero{grid-template-columns:1fr;}
+      .grid3{grid-template-columns:1fr}
+      .two-col{grid-template-columns:1fr}
+      .nav{display:none}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo">BEx</div>
+        <div>
+          <div style="font-weight:700;font-size:16px">BullEx</div>
+          <div style="font-size:12px;color:var(--muted)">Tokenisation • Commodities • Custody</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="#platform" class="muted">Platform</a>
+        <a href="#tokenomics" class="muted">Tokenomics</a>
+        <a href="#roadmap" class="muted">Roadmap</a>
+        <a href="#team" class="muted">Team</a>
+        <a class="cta" href="#contact">Get in touch</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div>
+        <div class="eyebrow">INVESTOR WHITEPAPER • 2025</div>
+        <h1>Tokenising Real-World Commodities — <br/> Liquidity • Transparency • Access</h1>
+        <p class="lead">BullEx enables fractional ownership of physical commodities (Gold, Copper, Iron Ore, Bauxite) using audited, 1:1 asset-backed tokens. Built for retail & institutional investors seeking direct exposure with instant settlement and clear proof-of-reserve.</p>
+        <div class="hero-ctas">
+          <a href="/mnt/data/BullEx_Whitepaper_Designed.pdf" class="cta">Download Whitepaper (PDF)</a>
+          <a href="/mnt/data/BullEx_Whitepaper_Designed.docx" style="background:transparent;border:1px solid rgba(255,255,255,0.06);padding:10px 14px;border-radius:8px;color:var(--muted);text-decoration:none">Download DOCX</a>
+        </div>
+
+        <div class="grid3" style="margin-top:22px">
+          <div class="feature card">
+            <h4>1:1 Asset Backing</h4>
+            <div class="muted">Every BullEx token is backed by physical commodity stored with audited custodians.</div>
+          </div>
+          <div class="feature card">
+            <h4>Fractional Access</h4>
+            <div class="muted">Invest from small amounts — diversify across commodities without large capital.</div>
+          </div>
+          <div class="feature card">
+            <h4>Transparent Settlement</h4>
+            <div class="muted">Smart contracts automate funding, settlement and profit distribution with full audit trails.</div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="card" style="min-height:320px">
+        <h3 style="margin-top:0">Quick Stats</h3>
+        <p class="muted">Investment Ask: <strong>USD 20M</strong></p>
+        <p class="muted">Primary Commodities: <strong>Gold, Copper, Iron Ore, Bauxite</strong></p>
+        <p class="muted">Projected Breakeven: <strong>Year 3</strong></p>
+        <div style="margin-top:16px">
+          <div style="background:rgba(255,255,255,0.03);padding:10px;border-radius:8px">
+            <div style="font-size:13px;color:var(--muted)">Latest Whitepaper</div>
+            <div style="font-weight:700;margin-top:6px">BullEx Whitepaper v1.0</div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section id="platform" class="card" style="margin-top:26px;padding:20px">
+      <h2 style="margin-top:0">Platform Overview</h2>
+      <p class="muted">BullEx integrates producers, custodians, auditors, freight and buyers through a unified platform. Trades that meet due diligence are tokenised via smart contracts that represent commodity rights. Investors can buy, trade and redeem tokens on BullEx or withdraw fiat/physical upon redemption rules being satisfied.</p>
+
+      <div class="two-col" style="margin-top:12px">
+        <div class="card">
+          <h3 style="margin-top:0">How it works</h3>
+          <ol class="muted">
+            <li>Producer lists commodity and submits documentation for due diligence.</li>
+            <li>Independent auditors validate quantity & quality; custodians issue warehouse receipts.</li>
+            <li>Smart contract issues BullEx tokens (1:1) and opens subscription round.</li>
+            <li>Investors buy tokens — funds are released on milestones; shipping & delivery tracked.</li>
+            <li>Profits redistributed automatically; tokens redeemable for fiat or physical delivery.</li>
+          </ol>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">Security & Compliance</h3>
+          <p class="muted">KYC/AML enforced, proof-of-reserve audits, insured custody and regulatory-first rollout in target jurisdictions. Smart contracts are audited by third-party security firms before production deployment.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="tokenomics" style="margin-top:22px">
+      <div class="card">
+        <h2 style="margin-top:0">Tokenomics</h2>
+        <p class="muted">BullEx tokens are utility tokens representing claim on physical commodity units. Token supply is minted per trade and fully backed by reserved inventory. Token holders can:</p>
+        <ul class="muted">
+          <li>Earn profit share from trade settlements</li>
+          <li>Stake tokens for platform benefits</li>
+          <li>Redeem for physical delivery or fiat (subject to T&C)</li>
+        </ul>
+
+        <div class="two-col" style="margin-top:12px">
+          <div class="card">
+            <h4 style="margin-top:0">Revenue Streams</h4>
+            <ul class="muted">
+              <li>Issuance fees (0.5–1%)</li>
+              <li>Trading fees (0.25–0.5%)</li>
+              <li>Custody & storage fees</li>
+              <li>Licensing & institutional services</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4 style="margin-top:0">Fund Allocation</h4>
+            <p class="muted">Technology 40% • Sourcing 30% • Compliance 20% • Marketing 10%</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="roadmap" class="card" style="margin-top:22px">
+      <h2 style="margin-top:0">Roadmap</h2>
+      <div class="roadmap">
+        <div class="step"><div class="dot"></div><div><strong>2025</strong> – Pilot tokenisation: Gold; platform MVP & audits.</div></div>
+        <div class="step"><div class="dot"></div><div><strong>2026</strong> – Launch Copper & Iron Ore tokenisation; expand custodial partners.</div></div>
+        <div class="step"><div class="dot"></div><div><strong>2027</strong> – Add Bauxite & scale global partnerships.</div></div>
+        <div class="step"><div class="dot"></div><div><strong>2028</strong> – Institutional integrations & exchange listings.</div></div>
+        <div class="step"><div class="dot"></div><div><strong>2029</strong> – DeFi integration and advanced secondary market liquidity.</div></div>
+      </div>
+    </section>
+
+    <section id="team" class="card" style="margin-top:22px">
+      <h2 style="margin-top:0">Team & Advisors</h2>
+      <p class="muted">BullEx brings together commodity traders, blockchain engineers, legal & compliance, and custody experts. Advisors include strategic partners in mining and trade finance. (Full bios available upon request.)</p>
+    </section>
+
+    <section id="contact" class="card" style="margin-top:22px">
+      <h2 style="margin-top:0">Get in touch</h2>
+      <p class="muted">Interested in partnerships, custody, or investment? Email <strong>team@bullex.tech</strong> or use the contact form below to request a meeting.</p>
+      <form action="mailto:team@bullex.tech" method="post" enctype="text/plain">
+        <input type="text" name="name" placeholder="Full name" style="width:100%;padding:10px;margin:8px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#e6f0fb" />
+        <input type="email" name="email" placeholder="Email" style="width:100%;padding:10px;margin:8px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#e6f0fb" />
+        <textarea name="message" placeholder="How can we help?" style="width:100%;padding:12px;margin:8px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#e6f0fb;min-height:100px"></textarea>
+        <div style="display:flex;gap:10px"><button type="submit" class="cta">Send Message</button><a href="/mnt/data/Bullex_Investment_Proposal_Final.docx" style="display:inline-block;padding:10px 12px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);text-decoration:none">Download Investor Proposal</a></div>
+      </form>
+    </section>
+
+    <footer>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+        <div>© BullEx 2025 — Tokenisation of Real-World Commodities</div>
+        <div style="color:var(--muted)">Contact: team@bullex.tech</div>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
