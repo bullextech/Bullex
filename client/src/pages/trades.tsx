@@ -44,7 +44,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Trade, Block, TradeDocument } from "@shared/schema";
+import type { Trade, Block, TradeDocument, KycApplication } from "@shared/schema";
 
 const stageDefinitions = [
   {
@@ -164,6 +164,12 @@ export default function Trading() {
   const { data: blocks } = useQuery<Block[]>({
     queryKey: ["/api/blocks"],
   });
+
+  const { data: kycApplications } = useQuery<KycApplication[]>({
+    queryKey: ["/api/kyc"],
+  });
+
+  const approvedClients = kycApplications?.filter((a) => a.status === "approved") || [];
 
   const { data: tradeFiles } = useQuery<TradeDocument[]>({
     queryKey: ["/api/trades", expandedTrade, "files"],
@@ -489,11 +495,30 @@ export default function Trading() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Buyer *</label>
-                    <Input placeholder="Buyer company" className="rounded-none h-11 border-border" value={form.buyerName} onChange={(e) => setForm({ ...form, buyerName: e.target.value })} data-testid="input-buyer" />
+                    <Select value={form.buyerName} onValueChange={(v) => setForm({ ...form, buyerName: v })}>
+                      <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-buyer"><SelectValue placeholder="Select buyer..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Bullfrog Group">Bullfrog Group</SelectItem>
+                        {approvedClients.map((client) => (
+                          <SelectItem key={client.id} value={client.companyName}>{client.companyName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {approvedClients.length === 0 && (
+                      <p className="text-[10px] text-muted-foreground">No approved KYC clients yet. Approve clients in Admin to add them here.</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Seller</label>
-                    <Input placeholder="Seller company" className="rounded-none h-11 border-border" value={form.sellerName} onChange={(e) => setForm({ ...form, sellerName: e.target.value })} data-testid="input-seller" />
+                    <Select value={form.sellerName} onValueChange={(v) => setForm({ ...form, sellerName: v })}>
+                      <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-seller"><SelectValue placeholder="Select seller..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Bullfrog Group">Bullfrog Group</SelectItem>
+                        {approvedClients.map((client) => (
+                          <SelectItem key={client.id} value={client.companyName}>{client.companyName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
