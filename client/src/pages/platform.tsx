@@ -12,7 +12,6 @@ import {
   ArrowRight,
   Shield,
   Coins,
-  ShieldCheck,
   Copy,
   Check,
   ExternalLink,
@@ -67,14 +66,6 @@ const platformFeatures = [
       "Browse the full BFG-20 token registry — 12 commodity-backed tokens across five divisions with 1:1 physical backing, tokenomics, and revenue model details.",
     link: "/tokenization",
     linkText: "Token Registry",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Admin",
-    description:
-      "Review and manage KYC applications — approve or reject submissions, view applicant details, and oversee the institutional onboarding pipeline.",
-    link: "/kyc-admin",
-    linkText: "Open Admin",
   },
 ];
 
