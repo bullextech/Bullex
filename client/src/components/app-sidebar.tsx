@@ -30,7 +30,7 @@ const navItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Products", url: "/products", icon: Package },
-  { title: "Tokenization", url: "/tokenization", icon: Coins },
+  { title: "Tokenisation", url: "/tokenization", icon: Coins },
   { title: "KYC Registration", url: "/kyc", icon: UserCheck },
   { title: "KYC Admin", url: "/kyc-admin", icon: ShieldCheck },
   { title: "Document Generator", url: "/documents", icon: FileText },
