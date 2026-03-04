@@ -28,6 +28,7 @@ import { useLocation, Link } from "wouter";
 
 const navItems = [
   { title: "Home", url: "/", icon: Home },
+  { title: "KYC Admin", url: "/kyc-admin", icon: ShieldCheck },
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Products", url: "/products", icon: Package },
   { title: "KYC Registration", url: "/kyc", icon: UserCheck },
