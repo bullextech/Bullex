@@ -136,30 +136,6 @@ export default function Home() {
               commodity trades, client onboarding, and trade documentation
               across Bullfrog Group's global operations.
             </p>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/kyc-admin">
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  className="font-medium"
-                  data-testid="button-go-dashboard"
-                >
-                  Open Dashboard
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
-              <Link href="/products">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="font-medium border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
-                  data-testid="button-view-products"
-                >
-                  <Package className="w-4 h-4 mr-2" />
-                  View Products
-                </Button>
-              </Link>
-            </div>
           </div>
         </div>
       </div>
