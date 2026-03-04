@@ -123,7 +123,7 @@ export default function Platform() {
               variant="secondary"
               className="text-[10px] uppercase tracking-widest bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 mb-4"
             >
-              Tokenisation of Real-World Commodities
+              Bullex Trading Platform
             </Badge>
             <h1
               className="text-3xl md:text-4xl font-bold mb-4 tracking-tight"
@@ -133,8 +133,8 @@ export default function Platform() {
             </h1>
             <div className="w-20 h-1 bg-primary-foreground/40 mb-6" />
             <p className="text-lg text-primary-foreground/80 font-light leading-relaxed">
-              Access the full suite of Bullex tools — from investor onboarding
-              and token issuance to document management, custody, and blockchain verification.
+              Access the full suite of Bullex trading tools — from client onboarding
+              and trade execution to document management and blockchain verification.
             </p>
           </div>
         </div>
@@ -148,8 +148,8 @@ export default function Platform() {
                 <ExternalLink className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-semibold">Investor KYC Registration Link</p>
-                <p className="text-[10px] text-muted-foreground">Share this link with investors to begin KYC onboarding</p>
+                <p className="text-sm font-semibold">Client KYC Registration Link</p>
+                <p className="text-[10px] text-muted-foreground">Share this link with clients to begin onboarding</p>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-1 min-w-0 w-full sm:w-auto">

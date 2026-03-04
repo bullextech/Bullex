@@ -11,16 +11,17 @@ Bullex is a proprietary platform of Bullfrog Group — enabling fractional owner
 - **Theme**: LSE.com-inspired colour scheme — deep burgundy/maroon (#990000) primary, institutional blue (#0084be) accent, dark charcoal sidebar, clean white cards
 
 ## Branding
-- **Position**: "Tokenisation of Real-World Commodities" across all pages
-- **Sidebar tagline**: "Tokenisation • Commodities • Custody"
-- **Sidebar footer**: "Tokenisation of Real-World Commodities"
+- **Home page**: "Bullex Trading Platform" — commodity trading focused
+- **Sidebar tagline**: "Trading Platform"
+- **Sidebar footer**: "Bullex Trading Platform"
+- **Other pages** (tokenization, investor, dashboard, products, contact): Retain whitepaper tokenisation content
 - **Contact email**: team@bullex.tech
 - **Global footer**: "Bullex is a proprietary platform of Bullfrog Group." (visible on every page via App.tsx)
 - **Logo**: Shield icon (lucide-react) in primary color
 - **Key messaging**: Fractional ownership, 1:1 asset backing, liquidity, transparency, investor access
 
 ## Routes
-- `/` - Home page (whitepaper-aligned: investor whitepaper 2025, 5-step process, tokenomics, quick stats)
+- `/` - Home page (commodity trading platform: 4-step workflow, 6 features, commodity divisions, tokenization section)
 - `/dashboard` - Dashboard (trade volume, chain status, recent trades, stats)
 - `/products` - Tokenised Commodity Portfolio (5 divisions with BFG-20 token tags)
 - `/tokenization` - Tokenisation page (BFG-20 tokens, 5-step process, tokenomics, revenue model, fund allocation)
@@ -34,7 +35,7 @@ Bullex is a proprietary platform of Bullfrog Group — enabling fractional owner
 - `/contact` - Contact page (Dubai, team@bullex.tech, +971585416399)
 
 ## Key Features
-- **Home**: Whitepaper-aligned landing — "Tokenising Real-World Commodities", 6 feature cards (1:1 Asset Backing, Fractional Access, Transparent Settlement, Blockchain Trading, KYC, Compliance), 5-step process (Producer → Auditors → Smart Contract → Investors → Profits), tokenomics, fund allocation, Quick Stats (USD 20M ask, 5 Divisions, Year 3 breakeven)
+- **Home**: Commodity trading landing — "Bullex Trading Platform", 6 feature cards (Blockchain Trading, KYC, Docs, Vault, Ledger, Compliance), 4-step workflow (Onboarding → Trade → Docs → Verification), commodity divisions, tokenization section
 - **Tokenisation**: Full token registry with 12 BFG-20 tokens, 5-step process, tokenomics (revenue: issuance 0.5-1%, trading 0.25-0.5%, custody, licensing; fund allocation: Tech 40%, Sourcing 30%, Compliance 20%, Marketing 10%)
 - **Investor**: Investment thesis, revenue model, fund allocation, 4-step investment process
 - **Dashboard**: Trade volume, chain status, recent trades, KYC/document stats
