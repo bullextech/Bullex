@@ -496,11 +496,11 @@ export default function Home() {
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-4 h-4 text-primary-foreground/60 flex-shrink-0" />
-                <span className="text-sm text-primary-foreground/80">1:1 Asset-Backed Tokens</span>
+                <span className="text-sm text-primary-foreground/80">Fractional Ownership Access</span>
               </div>
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-4 h-4 text-primary-foreground/60 flex-shrink-0" />
-                <span className="text-sm text-primary-foreground/80">Fractional Ownership Access</span>
+                <span className="text-sm text-primary-foreground/80">1:1 Asset-Backed Tokens</span>
               </div>
               <div className="flex items-center gap-3">
                 <Globe className="w-4 h-4 text-primary-foreground/60 flex-shrink-0" />
@@ -516,13 +516,13 @@ export default function Home() {
             <p className="text-xs text-primary-foreground/40">
               Bullex — Tokenisation of Real-World Commodities
             </p>
-            <Link href="/dashboard">
+            <Link href="/tokenization">
               <Button
                 variant="secondary"
                 size="sm"
                 data-testid="button-footer-dashboard"
               >
-                Go to Dashboard
+                Explore Tokenisation
                 <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
               </Button>
             </Link>
