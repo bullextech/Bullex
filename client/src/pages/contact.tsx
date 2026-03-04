@@ -30,8 +30,8 @@ export default function Contact() {
             </h1>
             <div className="w-20 h-1 bg-primary-foreground/40 mb-6" />
             <p className="text-lg text-primary-foreground/80 font-light leading-relaxed">
-              Get in touch with the Bullex team for tokenisation inquiries,
-              investor onboarding, and partnership opportunities.
+              Get in touch with the Bullex trade management team for inquiries,
+              onboarding, and partnership opportunities.
             </p>
           </div>
         </div>
@@ -59,11 +59,11 @@ export default function Contact() {
                 </div>
                 <h3 className="text-sm font-semibold mb-1">Email</h3>
                 <a
-                  href="mailto:team@bullex.tech"
+                  href="mailto:trade@bullex.tech"
                   className="text-sm text-primary hover:underline"
                   data-testid="link-email"
                 >
-                  team@bullex.tech
+                  trade@bullex.tech
                 </a>
               </CardContent>
             </Card>
@@ -92,11 +92,11 @@ export default function Contact() {
               </h2>
               <div className="w-12 h-0.5 bg-primary mb-6" />
               <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                Our Dubai headquarters serves as the central hub for Bullex
-                tokenisation operations, bridging physical commodity markets with digital
-                finance across Asia, the Middle East, and Africa. From this strategic
-                location, we manage the full investment lifecycle — from investor onboarding
-                and KYC verification to token issuance and on-chain settlement.
+                Our Dubai headquarters serves as the central hub for Bullex trade
+                operations, covering commodity trading across Asia, the Middle East,
+                and Africa. From this strategic location, we manage the full trade
+                lifecycle — from client onboarding and KYC verification to blockchain-backed
+                trade execution and document management.
               </p>
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
@@ -132,7 +132,7 @@ export default function Contact() {
                   </div>
                   <div>
                     <p className="text-sm font-medium">Platform</p>
-                    <p className="text-xs text-muted-foreground">Tokenisation of Real-World Commodities</p>
+                    <p className="text-xs text-muted-foreground">Bullex Commodity Trading Platform</p>
                   </div>
                 </div>
               </div>
@@ -146,20 +146,20 @@ export default function Contact() {
               <div className="space-y-3">
                 {[
                   {
-                    title: "Tokenisation & Investment",
-                    desc: "Commodity-backed token inquiries, fractional ownership, and investment opportunities across Minerals, Metals, Energy, Petrochemicals, and Fertilizers.",
+                    title: "Trade Inquiries",
+                    desc: "Commodity sourcing, pricing, and trade execution across Minerals, Metals, Energy Products, Petrochemicals, and Fertilizers.",
                   },
                   {
-                    title: "Investor Onboarding & KYC",
-                    desc: "New investor registration, institutional KYC submission, and account verification for retail and institutional participants.",
+                    title: "KYC & Onboarding",
+                    desc: "New client registration, institutional KYC submission, and account verification for trading partners.",
                   },
                   {
                     title: "Documentation",
                     desc: "Trade document requests including SCO, FCO, ICPO, SPA, LOI, POP, POF, and BCL generation.",
                   },
                   {
-                    title: "Blockchain & Tokenisation",
-                    desc: "Inquiries about the Bullex blockchain, BFG-20 token standard, and commodity tokenisation.",
+                    title: "Blockchain & Tokenization",
+                    desc: "Inquiries about the Bullex blockchain, BFG-20 token standard, and commodity tokenization.",
                   },
                   {
                     title: "Partnerships",
@@ -188,12 +188,12 @@ export default function Contact() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <a
-              href="mailto:team@bullex.tech"
+              href="mailto:trade@bullex.tech"
               className="text-sm font-medium text-primary hover:underline flex items-center gap-1.5"
               data-testid="link-footer-email"
             >
               <Mail className="w-3.5 h-3.5" />
-              team@bullex.tech
+              trade@bullex.tech
             </a>
             <span className="text-muted-foreground">|</span>
             <a
@@ -206,7 +206,7 @@ export default function Contact() {
             </a>
           </div>
           <p className="text-[10px] text-muted-foreground mt-6">
-            Bullex — Tokenisation of Real-World Commodities
+            Bullex Commodity Trading Platform — All Rights Reserved
           </p>
         </div>
       </div>
