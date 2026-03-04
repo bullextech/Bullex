@@ -24,6 +24,7 @@ import {
   Coins,
   Mail,
   Users,
+  Wrench,
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 
@@ -32,11 +33,7 @@ const navItems = [
   { title: "Admin", url: "/kyc-admin", icon: ShieldCheck },
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Products", url: "/products", icon: Package },
-  { title: "KYC Registration", url: "/kyc", icon: UserCheck },
-  { title: "Document Generator", url: "/documents", icon: FileText },
-  { title: "Blockchain Trading", url: "/trading", icon: Link2 },
-  { title: "Document Vault", url: "/vault", icon: FolderOpen },
-  { title: "Blockchain Ledger", url: "/blockchain", icon: Layers },
+  { title: "Platform", url: "/platform", icon: Wrench },
   { title: "Tokenisation", url: "/tokenization", icon: Coins },
   { title: "Investor", url: "/investor", icon: Users },
   { title: "Contact", url: "/contact", icon: Mail },
