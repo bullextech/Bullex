@@ -10,6 +10,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 import {
   Home,
   LayoutDashboard,
@@ -25,8 +26,10 @@ import {
   Mail,
   Users,
   Wrench,
+  LogOut,
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 
 const navItems = [
   { title: "Home", url: "/", icon: Home },
@@ -39,6 +42,7 @@ const navItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const { authenticated, username, logout } = useAuth();
 
   return (
     <Sidebar>
@@ -50,7 +54,7 @@ export function AppSidebar() {
             </div>
             <div>
               <h1 className="text-base font-bold tracking-tight">BULLEX</h1>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Commodity Trading Platform</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Tokenisation • Commodities • Custody</p>
             </div>
           </div>
         </Link>
@@ -78,12 +82,29 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4 space-y-2">
+        {authenticated && (
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">
+              Signed in as <span className="font-medium text-foreground">{username}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={logout}
+              data-testid="button-logout"
+            >
+              <LogOut className="w-3 h-3 mr-1" />
+              Logout
+            </Button>
+          </div>
+        )}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <div className="w-2 h-2 rounded-full bg-status-online animate-pulse" />
           <span>Blockchain Active</span>
         </div>
         <div className="text-[10px] text-muted-foreground opacity-60">
-          Bullex Commodity Trading Platform
+          Bullex — Tokenisation of Real-World Commodities
         </div>
       </SidebarFooter>
     </Sidebar>

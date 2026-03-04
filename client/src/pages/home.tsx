@@ -29,59 +29,63 @@ import {
   TrendingUp,
   MapPin,
   Mail,
+  DollarSign,
+  BarChart3,
+  Users,
+  PieChart,
 } from "lucide-react";
 
 const features = [
   {
-    icon: Link2,
-    title: "Blockchain-Verified Trading",
+    icon: Lock,
+    title: "1:1 Asset Backing",
     description:
-      "Every commodity trade is recorded on our proprietary blockchain with SHA-256 proof-of-work consensus, ensuring tamper-proof transaction history and full auditability.",
-  },
-  {
-    icon: UserCheck,
-    title: "Institutional KYC Onboarding",
-    description:
-      "Comprehensive 10-section Know Your Customer process covering company details, beneficial ownership, compliance questionnaires, and authorized signatory verification.",
-  },
-  {
-    icon: FileText,
-    title: "Automated Document Generation",
-    description:
-      "Generate trade documents instantly — SCO, FCO, ICPO, SPA, LOI, POP, POF, and BCL — all linked to verified trades with blockchain-backed integrity.",
-  },
-  {
-    icon: FolderOpen,
-    title: "Secure Document Vault",
-    description:
-      "Centralized storage for all trade documentation, organized by type and trade reference, with blockchain hash verification for every document.",
+      "Every BFG-20 token is backed by a verified physical commodity unit — no fractional reserve, full collateralisation. Investors hold real exposure to tangible assets.",
   },
   {
     icon: Layers,
-    title: "Real-Time Blockchain Ledger",
+    title: "Fractional Access",
     description:
-      "Full block explorer with transaction drill-down, chain integrity validation, and cryptographic hash verification for complete transparency.",
+      "Retail and institutional investors can acquire fractional or whole positions in commodity assets, lowering barriers to entry for global commodity markets.",
   },
   {
-    icon: Lock,
-    title: "Compliance & Governance",
+    icon: Globe,
+    title: "Transparent Settlement",
     description:
-      "Built-in AML/CFT compliance frameworks, regulatory alignment, and institutional-grade audit trails meeting international trade finance standards.",
+      "On-chain settlement ensures every transaction is recorded immutably on the Bullex blockchain with SHA-256 proof-of-work — full auditability for all parties.",
+  },
+  {
+    icon: Link2,
+    title: "Blockchain-Verified Provenance",
+    description:
+      "Every commodity trade is recorded on our proprietary blockchain, ensuring tamper-proof transaction history and complete origin-to-destination tracking.",
+  },
+  {
+    icon: UserCheck,
+    title: "Institutional KYC & Compliance",
+    description:
+      "Comprehensive Know Your Customer onboarding covering company details, beneficial ownership, AML/CFT compliance, and authorized signatory verification.",
+  },
+  {
+    icon: Shield,
+    title: "Investor Protection",
+    description:
+      "Tokens are issued only to KYC-verified investors with built-in regulatory alignment, audit trails, and compliance frameworks meeting international standards.",
   },
 ];
 
 const divisions = [
-  { icon: Mountain, name: "Minerals", products: "Iron Ore, Bauxite, Manganese Ore", color: "text-stone-600 dark:text-stone-400" },
+  { icon: Mountain, name: "Minerals", products: "Iron Ore, Bauxite, Manganese", color: "text-stone-600 dark:text-stone-400" },
   { icon: Gem, name: "Metals", products: "Copper Cathodes, Aluminium", color: "text-sky-700 dark:text-sky-400" },
-  { icon: Flame, name: "Energy Products", products: "ULSD, HSGO, LPG", color: "text-red-800 dark:text-red-400" },
+  { icon: Flame, name: "Energy", products: "ULSD, HSGO, LPG", color: "text-red-800 dark:text-red-400" },
   { icon: Droplets, name: "Petrochemicals", products: "Bitumen, Petcoke, Sulphur", color: "text-slate-600 dark:text-slate-400" },
   { icon: Sprout, name: "Fertilizers", products: "NPK", color: "text-teal-700 dark:text-teal-400" },
 ];
 
 const stats = [
-  { value: "5", label: "Trading Divisions" },
-  { value: "13", label: "Active Commodities" },
-  { value: "12", label: "Tokenized Assets" },
+  { value: "5", label: "Asset Classes" },
+  { value: "12", label: "Tokenised Assets" },
+  { value: "1:1", label: "Physical Backing" },
   { value: "100%", label: "Blockchain Verified" },
 ];
 
@@ -118,7 +122,7 @@ export default function Home() {
               </div>
               <div>
                 <Badge variant="secondary" className="text-[10px] uppercase tracking-widest bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20">
-                  Commodity Trading Platform
+                  Investor Whitepaper • 2025
                 </Badge>
               </div>
             </div>
@@ -126,15 +130,19 @@ export default function Home() {
               className="text-4xl md:text-5xl font-bold mb-4 tracking-tight leading-tight"
               data-testid="text-home-title"
             >
-              Bullex Trading
+              Tokenising Real-World
               <br />
-              Platform
+              Commodities
             </h1>
+            <p className="text-lg text-primary-foreground/60 font-medium tracking-wide mb-4">
+              Liquidity • Transparency • Access
+            </p>
             <div className="w-20 h-1 bg-primary-foreground/40 mb-6" />
             <p className="text-lg md:text-xl text-primary-foreground/80 font-light leading-relaxed mb-8 max-w-2xl">
-              The institutional-grade, blockchain-backed platform for managing
-              commodity trades, client onboarding, and trade documentation
-              across Bullfrog Group's global operations.
+              Bullex enables fractional ownership of physical commodities through
+              1:1 asset-backed BFG-20 tokens. Retail and institutional investors gain
+              direct exposure to verified commodity assets with transparent blockchain
+              settlement and full auditability.
             </p>
           </div>
         </div>
@@ -161,10 +169,10 @@ export default function Home() {
             </h2>
             <div className="w-16 h-1 bg-primary mx-auto mb-4" />
             <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Bullex is a proprietary commodity trading system — purpose-built for
-              institutional commodity trading with blockchain verification at its core.
-              It streamlines the entire trade lifecycle from client onboarding through
-              document generation to final settlement.
+              Bullex is a blockchain-backed platform for the tokenisation of real-world
+              commodities. It bridges physical commodity markets with digital asset
+              infrastructure — enabling fractional ownership, transparent settlement,
+              and investor access across minerals, metals, energy, and petrochemicals.
             </p>
           </div>
 
@@ -195,63 +203,81 @@ export default function Home() {
             <h2 className="text-2xl font-bold tracking-tight mb-3">How Bullex Works</h2>
             <div className="w-16 h-1 bg-primary mx-auto mb-4" />
             <p className="text-sm text-muted-foreground max-w-xl mx-auto">
-              A streamlined workflow from client onboarding to blockchain-verified trade settlement.
+              From physical commodity to investable digital token — a five-step process with full blockchain verification.
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {[
               {
                 step: "01",
-                title: "Client Onboarding",
-                desc: "Complete institutional KYC with our comprehensive 10-section form covering company details, compliance, and signatory verification.",
+                icon: FileText,
+                title: "Producer Lists",
+                desc: "Commodity producers list verified physical assets with full provenance, specifications, and quantity details on the Bullex platform.",
                 link: "/platform",
-                linkText: "Start KYC",
+                linkText: "View Platform",
               },
               {
                 step: "02",
-                title: "Trade Execution",
-                desc: "Execute commodity trades across five divisions. Each trade is automatically mined into the blockchain with proof-of-work verification.",
+                icon: Shield,
+                title: "Auditors Validate",
+                desc: "Independent auditors verify commodity existence, quality, and storage conditions before token issuance is approved.",
                 link: "/platform",
-                linkText: "Execute Trade",
+                linkText: "Compliance",
               },
               {
                 step: "03",
-                title: "Document Generation",
-                desc: "Generate all required trade documents — SCO, FCO, ICPO, SPA, LOI, and more — linked directly to verified blockchain trades.",
-                link: "/platform",
-                linkText: "Generate Docs",
+                icon: Coins,
+                title: "Smart Contract Issues",
+                desc: "BFG-20 tokens are minted at a 1:1 ratio to the physical asset, recorded on the Bullex blockchain via SHA-256 proof-of-work.",
+                link: "/tokenization",
+                linkText: "Token Registry",
               },
               {
                 step: "04",
-                title: "Verification & Audit",
-                desc: "Every transaction is immutably recorded on the Bullex blockchain, providing a tamper-proof audit trail and real-time chain integrity.",
-                link: "/platform",
-                linkText: "View Ledger",
+                icon: Users,
+                title: "Investors Buy",
+                desc: "Retail and institutional investors acquire fractional or whole token positions in verified, audited commodity assets.",
+                link: "/investor",
+                linkText: "Investor Info",
               },
-            ].map((item) => (
-              <Card key={item.step} className="border relative overflow-hidden" data-testid={`card-step-${item.step}`}>
-                <CardContent className="p-5">
-                  <span className="text-4xl font-bold text-primary/10 absolute top-3 right-4">
-                    {item.step}
-                  </span>
-                  <div className="relative z-10">
-                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">
-                      Step {item.step}
-                    </p>
-                    <h3 className="text-sm font-semibold mb-2">{item.title}</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                      {item.desc}
-                    </p>
-                    <Link href={item.link}>
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" data-testid={`link-step-${item.step}`}>
-                        {item.linkText}
-                        <ArrowRight className="w-3 h-3 ml-1" />
-                      </Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+              {
+                step: "05",
+                icon: PieChart,
+                title: "Profits Redistributed",
+                desc: "Upon commodity sale or settlement, profits are distributed proportionally to token holders via on-chain settlement.",
+                link: "/tokenization",
+                linkText: "Tokenomics",
+              },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <Card key={item.step} className="border relative overflow-hidden" data-testid={`card-step-${item.step}`}>
+                  <CardContent className="p-5">
+                    <span className="text-4xl font-bold text-primary/10 absolute top-3 right-4">
+                      {item.step}
+                    </span>
+                    <div className="relative z-10">
+                      <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center mb-3">
+                        <Icon className="w-5 h-5 text-primary" />
+                      </div>
+                      <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">
+                        Step {item.step}
+                      </p>
+                      <h3 className="text-sm font-semibold mb-2">{item.title}</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+                        {item.desc}
+                      </p>
+                      <Link href={item.link}>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" data-testid={`link-step-${item.step}`}>
+                          {item.linkText}
+                          <ArrowRight className="w-3 h-3 ml-1" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -260,12 +286,12 @@ export default function Home() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-2xl font-bold tracking-tight mb-3" data-testid="text-commodity-divisions">
-              Commodity Divisions
+              Tokenised Commodity Divisions
             </h2>
             <div className="w-16 h-1 bg-primary mx-auto mb-4" />
             <p className="text-sm text-muted-foreground max-w-xl mx-auto">
-              Bullex manages trades across five core commodity divisions, operating
-              primarily in Asia, the Middle East, and Africa.
+              Bullex tokenises commodities across five core divisions — each asset backed
+              1:1 by physical goods, enabling fractional ownership and transparent settlement.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -294,7 +320,7 @@ export default function Home() {
           <div className="text-center mt-6">
             <Link href="/products">
               <Button variant="outline" size="sm" data-testid="link-all-products">
-                View All Products
+                View All Tokenised Assets
                 <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
               </Button>
             </Link>
@@ -302,7 +328,50 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="bg-muted/30 border-y border-border py-16 px-6">
+      <div className="bg-card border-y border-border py-12 px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-8">
+            <Badge variant="secondary" className="text-[10px] uppercase tracking-widest mb-4">
+              Investment Overview
+            </Badge>
+            <h2 className="text-2xl font-bold tracking-tight mb-3" data-testid="text-quick-stats">
+              Quick Stats
+            </h2>
+            <div className="w-16 h-1 bg-primary mx-auto mb-4" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+            <Card className="border" data-testid="stat-investment-ask">
+              <CardContent className="p-6 text-center">
+                <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <DollarSign className="w-5 h-5 text-primary" />
+                </div>
+                <p className="text-2xl font-bold text-primary">USD 20M</p>
+                <p className="text-xs text-muted-foreground mt-1">Investment Ask</p>
+              </CardContent>
+            </Card>
+            <Card className="border" data-testid="stat-primary-commodities">
+              <CardContent className="p-6 text-center">
+                <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                </div>
+                <p className="text-2xl font-bold text-primary">5 Divisions</p>
+                <p className="text-xs text-muted-foreground mt-1">Primary Commodities</p>
+              </CardContent>
+            </Card>
+            <Card className="border" data-testid="stat-breakeven">
+              <CardContent className="p-6 text-center">
+                <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                </div>
+                <p className="text-2xl font-bold text-primary">Year 3</p>
+                <p className="text-xs text-muted-foreground mt-1">Projected Breakeven</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-muted/30 border-b border-border py-16 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="flex flex-col lg:flex-row gap-12 items-start">
             <div className="lg:w-1/2">
@@ -318,21 +387,20 @@ export default function Home() {
                 className="text-2xl font-bold tracking-tight mb-3"
                 data-testid="text-tokenization-section"
               >
-                Commodity Tokenization
+                Commodity Tokenisation
               </h2>
               <div className="w-16 h-1 bg-primary mb-4" />
               <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                Every commodity traded on the Bullex platform is represented as a
+                Every commodity on the Bullex platform is represented as a
                 blockchain-backed digital token under the proprietary BFG-20 standard.
-                Each token is pegged 1:1 to physical commodity units — no fractional
-                reserve, full collateralization.
+                Each token is pegged 1:1 to a physical commodity unit — no fractional
+                reserve, full collateralisation for investor confidence.
               </p>
               <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                When a trade is executed, digital tokens are minted at the exact
+                When an asset is verified and listed, BFG-20 tokens are minted at the exact
                 quantity of the physical commodity and recorded on the Bullex blockchain
-                through SHA-256 proof-of-work mining. This creates an immutable,
-                verifiable link between the digital asset and the physical goods —
-                from origin to destination.
+                through SHA-256 proof-of-work mining. Investors acquire tokens representing
+                direct ownership of the underlying commodity — from origin to settlement.
               </p>
               <div className="grid grid-cols-2 gap-3 mb-6">
                 <div className="p-3 rounded-md bg-card border border-border">
@@ -362,31 +430,31 @@ export default function Home() {
             </div>
 
             <div className="lg:w-1/2 space-y-3">
-              <h3 className="text-sm font-semibold mb-3">How Tokenization Works</h3>
+              <h3 className="text-sm font-semibold mb-3">How Tokenisation Works</h3>
               {[
                 {
                   step: "01",
-                  icon: Link2,
-                  title: "Trade Execution",
-                  desc: "A commodity trade is initiated on Bullex with full counterparty details, quantity, pricing, and incoterms.",
+                  icon: FileText,
+                  title: "Asset Listing",
+                  desc: "Commodity producers list verified physical assets with provenance, specifications, and storage details on the Bullex platform.",
                 },
                 {
                   step: "02",
-                  icon: Coins,
-                  title: "Token Minting",
-                  desc: "Digital tokens are minted at a 1:1 ratio — each token represents exactly one unit of the physical commodity.",
+                  icon: Shield,
+                  title: "Audit & Validation",
+                  desc: "Independent auditors verify asset existence, quality, and storage before approving token issuance.",
                 },
                 {
                   step: "03",
-                  icon: Hash,
-                  title: "Blockchain Recording",
-                  desc: "The tokenized trade is mined into the Bullex blockchain via SHA-256 proof-of-work with difficulty-2 consensus.",
+                  icon: Coins,
+                  title: "Token Minting",
+                  desc: "BFG-20 tokens are minted at a 1:1 ratio — each token represents exactly one unit of the physical commodity.",
                 },
                 {
                   step: "04",
-                  icon: Shield,
-                  title: "Immutable Verification",
-                  desc: "Each token is permanently linked to its block, providing tamper-proof provenance and a complete audit trail.",
+                  icon: Hash,
+                  title: "Investor Settlement",
+                  desc: "Investors acquire tokens on-chain. Upon sale, profits are distributed proportionally to all token holders.",
                 },
               ].map((item) => {
                 const StepIcon = item.icon;
@@ -498,37 +566,37 @@ export default function Home() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="max-w-lg">
               <h2 className="text-2xl font-bold tracking-tight mb-3">
-                Built for Institutional Trading
+                Built for Investors
               </h2>
               <p className="text-primary-foreground/70 text-sm leading-relaxed">
-                Bullex is designed exclusively for institutional
-                commodity trading operations. Every feature — from KYC onboarding to
-                blockchain verification — is purpose-built for the demands of global
-                commodity markets.
+                Bullex is designed for both retail and institutional investors
+                seeking direct exposure to real-world commodity assets. Every feature —
+                from KYC onboarding to blockchain settlement — is purpose-built for
+                transparent, accessible commodity investment.
               </p>
             </div>
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-4 h-4 text-primary-foreground/60 flex-shrink-0" />
-                <span className="text-sm text-primary-foreground/80">SHA-256 Proof-of-Work Consensus</span>
+                <Lock className="w-4 h-4 text-primary-foreground/60 flex-shrink-0" />
+                <span className="text-sm text-primary-foreground/80">1:1 Asset-Backed Tokens</span>
               </div>
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-4 h-4 text-primary-foreground/60 flex-shrink-0" />
-                <span className="text-sm text-primary-foreground/80">Tamper-Proof Transaction Ledger</span>
+                <Layers className="w-4 h-4 text-primary-foreground/60 flex-shrink-0" />
+                <span className="text-sm text-primary-foreground/80">Fractional Ownership Access</span>
               </div>
               <div className="flex items-center gap-3">
                 <Globe className="w-4 h-4 text-primary-foreground/60 flex-shrink-0" />
                 <span className="text-sm text-primary-foreground/80">Asia, Middle East & Africa Coverage</span>
               </div>
               <div className="flex items-center gap-3">
-                <Zap className="w-4 h-4 text-primary-foreground/60 flex-shrink-0" />
-                <span className="text-sm text-primary-foreground/80">Real-Time Block Mining & Verification</span>
+                <CheckCircle2 className="w-4 h-4 text-primary-foreground/60 flex-shrink-0" />
+                <span className="text-sm text-primary-foreground/80">Transparent On-Chain Settlement</span>
               </div>
             </div>
           </div>
           <div className="mt-10 pt-8 border-t border-primary-foreground/10">
             <p className="text-xs text-primary-foreground/40">
-              Bullex Trading Platform — All Rights Reserved
+              Bullex — Tokenisation of Real-World Commodities — All Rights Reserved
             </p>
           </div>
         </div>

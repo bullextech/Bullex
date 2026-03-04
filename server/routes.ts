@@ -1,5 +1,6 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import session from "express-session";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -7,6 +8,13 @@ import { storage } from "./storage";
 import { insertTradeSchema, insertKycSchema, insertDocumentSchema } from "@shared/schema";
 import { generateTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { seedDatabase } from "./seed";
+
+declare module "express-session" {
+  interface SessionData {
+    authenticated: boolean;
+    username: string;
+  }
+}
 
 const kycUploadsDir = path.join(process.cwd(), "uploads", "kyc");
 const tradeUploadsDir = path.join(process.cwd(), "uploads", "trades");
@@ -67,13 +75,62 @@ const allValidDocKeys = new Set([
   "coa_disport", "cow_disport", "final_invoice", "copy_of_email",
 ]);
 
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (req.session && req.session.authenticated) {
+    return next();
+  }
+  res.status(401).json({ message: "Unauthorized" });
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
 
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || "bullex-dev-only",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        maxAge: 24 * 60 * 60 * 1000,
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+      },
+    })
+  );
+
   app.get("/api/health", (_req, res) => {
     res.status(200).json({ status: "ok" });
+  });
+
+  app.post("/api/auth/login", (req, res) => {
+    const { username, password } = req.body;
+    const adminUser = process.env.ADMIN_USERNAME;
+    const adminPass = process.env.ADMIN_PASSWORD;
+    if (!adminUser || !adminPass) {
+      return res.status(500).json({ message: "Admin credentials not configured" });
+    }
+    if (username === adminUser && password === adminPass) {
+      req.session.authenticated = true;
+      req.session.username = username;
+      return res.json({ authenticated: true, username });
+    }
+    res.status(401).json({ message: "Invalid username or password" });
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.json({ authenticated: false });
+    });
+  });
+
+  app.get("/api/auth/me", (req, res) => {
+    if (req.session && req.session.authenticated) {
+      return res.json({ authenticated: true, username: req.session.username });
+    }
+    res.json({ authenticated: false });
   });
 
   seedDatabase().catch((err) => console.error("Seed error:", err));
@@ -87,7 +144,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/kyc/:id/status", async (req, res) => {
+  app.patch("/api/kyc/:id/status", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { status, reviewNotes } = req.body;
@@ -130,7 +187,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/trades", async (req, res) => {
+  app.post("/api/trades", requireAuth, async (req, res) => {
     try {
       const parsed = insertTradeSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -149,7 +206,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/trades/:id/status", async (req, res) => {
+  app.patch("/api/trades/:id/status", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { status } = req.body;
@@ -188,7 +245,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/trades/:id/documents", async (req, res) => {
+  app.patch("/api/trades/:id/documents", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { docKey, checked } = req.body;
@@ -229,7 +286,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/documents", async (req, res) => {
+  app.post("/api/documents", requireAuth, async (req, res) => {
     try {
       const parsed = insertDocumentSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -299,7 +356,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/kyc-documents/:id", async (req, res) => {
+  app.delete("/api/kyc-documents/:id", requireAuth, async (req, res) => {
     try {
       const docs = await storage.getKycDocuments();
       const doc = docs.find((d) => d.id === req.params.id);

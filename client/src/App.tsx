@@ -7,6 +7,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { Skeleton } from "@/components/ui/skeleton";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
@@ -22,6 +24,26 @@ import KycAdmin from "@/pages/kyc-admin";
 import Investor from "@/pages/investor";
 import Platform from "@/pages/platform";
 import KycRegister from "@/pages/kyc-register";
+import Login from "@/pages/login";
+
+function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
+  const { authenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6">
+        <Skeleton className="h-8 w-72" />
+        <Skeleton className="h-[400px]" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <Login />;
+  }
+
+  return <Component />;
+}
 
 function Router() {
   return (
@@ -31,12 +53,12 @@ function Router() {
       <Route path="/products" component={Products} />
       <Route path="/tokenization" component={Tokenization} />
       <Route path="/kyc" component={KYC} />
-      <Route path="/kyc-admin" component={KycAdmin} />
-      <Route path="/documents" component={DocumentGenerator} />
-      <Route path="/trading" component={Trading} />
-      <Route path="/vault" component={Vault} />
-      <Route path="/blockchain" component={Blockchain} />
-      <Route path="/platform" component={Platform} />
+      <Route path="/kyc-admin">{() => <ProtectedRoute component={KycAdmin} />}</Route>
+      <Route path="/documents">{() => <ProtectedRoute component={DocumentGenerator} />}</Route>
+      <Route path="/trading">{() => <ProtectedRoute component={Trading} />}</Route>
+      <Route path="/vault">{() => <ProtectedRoute component={Vault} />}</Route>
+      <Route path="/blockchain">{() => <ProtectedRoute component={Blockchain} />}</Route>
+      <Route path="/platform">{() => <ProtectedRoute component={Platform} />}</Route>
       <Route path="/investor" component={Investor} />
       <Route path="/contact" component={Contact} />
       <Route component={NotFound} />
@@ -80,11 +102,13 @@ function App() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          {isKycRegister ? (
-            <KycRegister />
-          ) : (
-            <AppShell />
-          )}
+          <AuthProvider>
+            {isKycRegister ? (
+              <KycRegister />
+            ) : (
+              <AppShell />
+            )}
+          </AuthProvider>
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>

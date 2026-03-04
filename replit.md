@@ -8,35 +8,44 @@ Bullex is a proprietary platform of Bullfrog Group — enabling fractional owner
 - **Backend**: Express.js with TypeScript
 - **Database**: PostgreSQL with Drizzle ORM
 - **Blockchain**: Custom SHA-256 blockchain implementation for trade verification
+- **Authentication**: express-session with ADMIN_USERNAME/ADMIN_PASSWORD environment secrets
 - **Theme**: LSE.com-inspired colour scheme — deep burgundy/maroon (#990000) primary, institutional blue (#0084be) accent, dark charcoal sidebar, clean white cards
 
 ## Branding
-- **Home page**: "Bullex Trading Platform" — commodity trading focused
-- **Sidebar tagline**: "Trading Platform"
-- **Sidebar footer**: "Bullex Trading Platform"
-- **Other pages** (tokenization, investor, products, contact): Retain whitepaper tokenisation content
+- **Home page**: "Tokenising Real-World Commodities — Liquidity • Transparency • Access" — whitepaper-aligned
+- **Sidebar tagline**: "Tokenisation • Commodities • Custody"
+- **Sidebar footer**: "Bullex — Tokenisation of Real-World Commodities"
 - **Contact email**: team@bullex.tech
 - **Global footer**: "Bullex is a proprietary platform of Bullfrog Group." (visible on every page via App.tsx)
 - **Logo**: Shield icon (lucide-react) in primary color
-- **Key messaging**: Institutional commodity trading, blockchain verification, trade lifecycle management
+- **Key messaging**: Fractional ownership, 1:1 asset-backed tokens, liquidity, transparent settlement, investor access
+
+## Authentication
+- Protected routes: `/kyc-admin`, `/platform`, `/documents`, `/trading`, `/vault`, `/blockchain`
+- Public routes: `/`, `/products`, `/tokenization`, `/investor`, `/contact`, `/kyc-register`
+- Backend: express-session with ADMIN_USERNAME/ADMIN_PASSWORD secrets
+- Frontend: AuthProvider context with useAuth hook, ProtectedRoute component renders Login page inline
+- Login page: standalone card with username/password fields
+- Sidebar shows username + logout button when authenticated
 
 ## Routes
-- `/` - Home page (commodity trading: 4-step workflow, 6 features, commodity divisions, tokenization section)
+- `/` - Home page (whitepaper-aligned: 5-step tokenisation workflow, 6 features, Quick Stats, commodity divisions, tokenization section)
 - `/products` - Tokenised Commodity Portfolio (5 divisions with BFG-20 token tags)
 - `/tokenization` - Tokenisation page (BFG-20 tokens, 5-step process, tokenomics, revenue model, fund allocation)
 - `/investor` - Investor page (why invest, revenue model, fund allocation, how to invest)
 - `/kyc` - KYC Registration (10-section institutional form)
-- `/kyc-admin` - Admin Dashboard (trade stats, chain status, recent trades + KYC administration)
-- `/documents` - Document Generator
-- `/trading` - Blockchain Trading
-- `/vault` - Document Vault
-- `/blockchain` - Blockchain Ledger
+- `/kyc-admin` - Admin Dashboard (trade stats, chain status, recent trades + KYC administration) [PROTECTED]
+- `/platform` - Platform tools (KYC, Docs, Trading, Vault, Ledger, Tokenisation) [PROTECTED]
+- `/documents` - Document Generator [PROTECTED]
+- `/trading` - Blockchain Trading [PROTECTED]
+- `/vault` - Document Vault [PROTECTED]
+- `/blockchain` - Blockchain Ledger [PROTECTED]
 - `/contact` - Contact page (Dubai, team@bullex.tech, +971585416399)
-- `/dashboard` - Dashboard (legacy, content merged into Admin)
+- `/kyc-register` - Standalone client KYC registration (no sidebar/nav)
 
 ## Key Features
-- **Home**: Commodity trading landing — "Bullex Trading Platform", 6 feature cards (Blockchain Trading, KYC, Docs, Vault, Ledger, Compliance), 4-step workflow (Onboarding → Trade → Docs → Verification), commodity divisions, tokenization section
-- **Tokenisation**: Full token registry with 13 BFG-20 tokens, 5-step process (Producer → Auditors → Smart Contract → Investors → Profits), tokenomics (revenue: issuance 0.5-1%, trading 0.25-0.5%, custody, licensing; fund allocation: Tech 40%, Sourcing 30%, Compliance 20%, Marketing 10%)
+- **Home**: Whitepaper-aligned landing — "Tokenising Real-World Commodities", 6 features (1:1 Asset Backing, Fractional Access, Transparent Settlement, Blockchain Provenance, KYC & Compliance, Investor Protection), 5-step process (Producer → Auditors → Smart Contract → Investors → Profits), Quick Stats (USD 20M ask, 5 Divisions, Year 3 breakeven), commodity divisions, tokenization section, trade inquiry form
+- **Tokenisation**: Full token registry with 12 BFG-20 tokens, 5-step process, tokenomics (revenue: issuance 0.5-1%, trading 0.25-0.5%, custody, licensing; fund allocation: Tech 40%, Sourcing 30%, Compliance 20%, Marketing 10%)
 - **Investor**: Investment thesis, revenue model, fund allocation, 4-step investment process
 - **Admin Dashboard**: Trade volume, chain status, recent trades, KYC approve/reject
 - **Products**: Tokenised Commodity Portfolio (5 divisions with BFG-20 token badges)
@@ -85,8 +94,11 @@ client/src/
     app-sidebar.tsx      - Navigation sidebar with Shield logo
     theme-provider.tsx   - Dark/light theme context
     theme-toggle.tsx     - Theme toggle button
+  hooks/
+    use-auth.tsx         - AuthProvider context & useAuth hook
   pages/
     home.tsx             - Whitepaper-aligned landing page
+    login.tsx            - Admin login page
     dashboard.tsx        - Legacy dashboard view
     products.tsx         - Tokenised Commodity Portfolio (5 divisions, 13 products)
     tokenization.tsx     - Token registry, tokenomics, revenue model
@@ -100,7 +112,7 @@ client/src/
     kyc-admin.tsx        - Admin Dashboard (stats + KYC administration)
 server/
   blockchain.ts          - SHA-256 hashing & proof-of-work mining
-  routes.ts              - API endpoints
+  routes.ts              - API endpoints (includes auth endpoints + session middleware)
   storage.ts             - Database operations
   seed.ts                - Database seeding with sample commodity trades
 shared/
