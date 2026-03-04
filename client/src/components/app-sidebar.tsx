@@ -18,13 +18,13 @@ import {
   FileText,
   Link2,
   FolderOpen,
+  Shield,
   Layers,
   Package,
   Coins,
   Mail,
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
-import bullexLogo from "/bullex-logo.png";
 
 const navItems = [
   { title: "Home", url: "/", icon: Home },
@@ -48,7 +48,9 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <Link href="/" data-testid="link-home">
           <div className="flex items-center gap-3">
-            <img src={bullexLogo} alt="BullEx" className="w-9 h-9 rounded-md object-contain" />
+            <div className="w-9 h-9 rounded-md bg-primary flex items-center justify-center">
+              <Shield className="w-5 h-5 text-primary-foreground" />
+            </div>
             <div>
               <h1 className="text-base font-bold tracking-tight">BULLEX</h1>
               <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Commodity Trading Platform</p>
