@@ -109,7 +109,7 @@ export default function Home() {
             <p className="text-lg md:text-xl text-primary-foreground/80 font-light leading-relaxed mb-8 max-w-2xl">
               The institutional-grade, blockchain-backed platform for managing
               commodity trades, client onboarding, and trade documentation
-              across Bullex's global operations.
+              across Bullfrog Group's global operations.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link href="/dashboard">
