@@ -16,6 +16,7 @@ import {
   Copy,
   Check,
   ExternalLink,
+  Share2,
 } from "lucide-react";
 
 const platformFeatures = [
@@ -99,6 +100,20 @@ export default function Platform() {
     }
   };
 
+  const handleShareLink = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Bullex KYC Registration",
+          text: "Complete your KYC registration on the Bullex Trading Platform",
+          url: kycLink,
+        });
+      } catch {}
+    } else {
+      handleCopyLink();
+    }
+  };
+
   return (
     <div className="overflow-y-auto h-full">
       <div className="bg-primary text-primary-foreground py-16 px-6">
@@ -156,9 +171,18 @@ export default function Platform() {
                 ) : (
                   <>
                     <Copy className="w-3.5 h-3.5 mr-1.5" />
-                    Copy Link
+                    Copy
                   </>
                 )}
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleShareLink}
+                className="flex-shrink-0"
+                data-testid="button-share-kyc-link"
+              >
+                <Share2 className="w-3.5 h-3.5 mr-1.5" />
+                Share Link
               </Button>
             </div>
           </div>
