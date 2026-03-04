@@ -10,6 +10,7 @@ import {
   Factory,
   Truck,
   Shield,
+  Coins,
 } from "lucide-react";
 
 const divisions = [
@@ -21,19 +22,22 @@ const divisions = [
     accent: "text-stone-600 dark:text-stone-400",
     accentBg: "bg-stone-600/10",
     description:
-      "Sourcing premium grade bulk minerals from established global mining operations for the heavy industry sector.",
+      "Tokenised bulk mineral assets from established global mining operations — fractional ownership with full provenance tracking and blockchain verification.",
     products: [
       {
         name: "Iron Ore",
-        desc: "High-grade ferrous ore for steel manufacturing, available in various fines and lump specifications.",
+        token: "BFG-IRO",
+        desc: "High-grade ferrous ore for steel manufacturing, available in various fines and lump specifications. 1 token = 1 MT.",
       },
       {
         name: "Bauxite",
-        desc: "Premium aluminum ore essential for alumina production, sourced from top-tier global deposits.",
+        token: "BFG-BAU",
+        desc: "Premium aluminum ore essential for alumina production, sourced from top-tier global deposits. 1 token = 1 MT.",
       },
       {
         name: "Manganese Ore",
-        desc: "Crucial alloying agent for steelmaking, offering excellent metallurgical properties.",
+        token: "BFG-MNG",
+        desc: "Crucial alloying agent for steelmaking, offering excellent metallurgical properties. 1 token = 1 MT.",
       },
     ],
   },
@@ -45,15 +49,17 @@ const divisions = [
     accent: "text-sky-600 dark:text-sky-400",
     accentBg: "bg-sky-600/10",
     description:
-      "Supplying high-purity refined metals to manufacturing, construction, and technology sectors globally.",
+      "High-purity refined metal tokens backed 1:1 by LME-registered physical inventory — direct exposure to base metal markets for retail and institutional investors.",
     products: [
       {
         name: "Copper Cathodes",
-        desc: "Grade A refined copper (99.99% purity) standard LME registered, vital for electrical and industrial applications.",
+        token: "BFG-CPC",
+        desc: "Grade A refined copper (99.99% purity) standard LME registered, vital for electrical and industrial applications. 1 token = 1 MT.",
       },
       {
         name: "Aluminium",
-        desc: "High-quality primary aluminium ingots and alloys for diverse manufacturing requirements.",
+        token: "BFG-ALU",
+        desc: "High-quality primary aluminium ingots and alloys for diverse manufacturing requirements. 1 token = 1 MT.",
       },
     ],
   },
@@ -65,23 +71,27 @@ const divisions = [
     accent: "text-orange-600 dark:text-orange-400",
     accentBg: "bg-orange-600/10",
     description:
-      "Delivering crucial energy products with precision logistics to power global commercial and industrial operations.",
+      "Energy commodity tokens providing direct exposure to global fuel and gas markets — tokenised with 1:1 physical backing and transparent settlement.",
     products: [
       {
         name: "ULSD 10ppm",
-        desc: "Ultra-Low Sulfur Diesel meeting stringent environmental standards for modern transportation and industry.",
+        token: "BFG-ULS",
+        desc: "Ultra-Low Sulfur Diesel meeting stringent environmental standards for modern transportation and industry. 1 token = 1 BBL.",
       },
       {
         name: "ULSD 50ppm",
-        desc: "High-quality low sulfur diesel fuel optimized for various global market requirements.",
+        token: "BFG-ULS",
+        desc: "High-quality low sulfur diesel fuel optimized for various global market requirements. 1 token = 1 BBL.",
       },
       {
         name: "HSGO 20,000ppm",
-        desc: "High Sulfur Gas Oil suitable for power generation and industrial heating applications.",
+        token: "BFG-HSG",
+        desc: "High Sulfur Gas Oil suitable for power generation and industrial heating applications. 1 token = 1 BBL.",
       },
       {
         name: "LPG",
-        desc: "Liquefied Petroleum Gas providing clean, efficient energy for commercial and residential applications.",
+        token: "BFG-LPG",
+        desc: "Liquefied Petroleum Gas providing clean, efficient energy for commercial and residential applications. 1 token = 1 MT.",
       },
     ],
   },
@@ -93,19 +103,22 @@ const divisions = [
     accent: "text-slate-600 dark:text-slate-400",
     accentBg: "bg-slate-600/10",
     description:
-      "Distributing essential chemical derivatives foundational to infrastructure development and manufacturing.",
+      "Petrochemical derivative tokens for infrastructure development and manufacturing sectors — fractional positions with blockchain-verified provenance.",
     products: [
       {
         name: "Bitumen",
-        desc: "Various penetration and performance grades critical for road construction and waterproofing.",
+        token: "BFG-BIT",
+        desc: "Various penetration and performance grades critical for road construction and waterproofing. 1 token = 1 MT.",
       },
       {
         name: "Petcoke",
-        desc: "Petroleum coke utilized globally as an efficient energy source for cement and power generation.",
+        token: "BFG-PCK",
+        desc: "Petroleum coke utilized globally as an efficient energy source for cement and power generation. 1 token = 1 MT.",
       },
       {
         name: "Sulphur",
-        desc: "Industrial grade sulphur for fertilizer production, chemical manufacturing, and industrial processing.",
+        token: "BFG-SUL",
+        desc: "Industrial grade sulphur for fertilizer production, chemical manufacturing, and industrial processing. 1 token = 1 MT.",
       },
     ],
   },
@@ -117,11 +130,12 @@ const divisions = [
     accent: "text-teal-700 dark:text-teal-400",
     accentBg: "bg-teal-700/10",
     description:
-      "Supplying essential agricultural inputs to support global food security and sustainable farming practices.",
+      "Agricultural input tokens supporting global food security and sustainable farming — tokenised with full supply chain verification.",
     products: [
       {
         name: "NPK",
-        desc: "Compound fertilizer containing Nitrogen, Phosphorus, and Potassium — essential nutrients for crop growth and agricultural productivity.",
+        token: "BFG-NPK",
+        desc: "Compound fertilizer containing Nitrogen, Phosphorus, and Potassium — essential nutrients for crop growth and agricultural productivity. 1 token = 1 MT.",
       },
     ],
   },
@@ -137,12 +151,13 @@ export default function Products() {
               className="text-3xl md:text-4xl font-bold mb-4 tracking-tight"
               data-testid="text-products-title"
             >
-              Commodity Divisions
+              Tokenised Commodity Portfolio
             </h1>
             <div className="w-20 h-1 bg-primary-foreground/40 mb-6" />
             <p className="text-lg text-primary-foreground/80 font-light leading-relaxed">
-              Our comprehensive portfolio spans five core divisions, delivering
-              essential resources to industrial consumers worldwide.
+              Our tokenised commodity portfolio spans five core divisions — each asset
+              backed 1:1 by physical commodities, enabling fractional ownership and
+              transparent settlement for retail and institutional investors.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 mt-8">
@@ -170,18 +185,18 @@ export default function Products() {
               </div>
               <div>
                 <p className="text-xl font-bold">5</p>
-                <p className="text-xs text-muted-foreground">Trading Divisions</p>
+                <p className="text-xs text-muted-foreground">Commodity Divisions</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-4 rounded-md bg-card border border-border" data-testid="stat-commodities">
               <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
-                <Truck className="w-5 h-5 text-primary" />
+                <Coins className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <p className="text-xl font-bold">
                   {divisions.reduce((s, d) => s + d.products.length, 0)}
                 </p>
-                <p className="text-xs text-muted-foreground">Active Commodities</p>
+                <p className="text-xs text-muted-foreground">Tokenised Assets</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-4 rounded-md bg-card border border-border" data-testid="stat-blockchain">
@@ -189,8 +204,8 @@ export default function Products() {
                 <Shield className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-xl font-bold">100%</p>
-                <p className="text-xs text-muted-foreground">Blockchain Verified</p>
+                <p className="text-xl font-bold">1:1</p>
+                <p className="text-xs text-muted-foreground">Asset-Backed Tokens</p>
               </div>
             </div>
           </div>
@@ -219,7 +234,7 @@ export default function Products() {
                       {division.title.replace(" Division", "")}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {division.products.length} product{division.products.length !== 1 ? "s" : ""}
+                      {division.products.length} tokenised asset{division.products.length !== 1 ? "s" : ""}
                     </p>
                   </div>
                 </div>
@@ -247,8 +262,8 @@ export default function Products() {
                             <div>
                               <div className="flex items-center gap-2 mb-1">
                                 <h3 className="text-sm font-semibold">{product.name}</h3>
-                                <Badge variant="secondary" className="text-[10px]">
-                                  {division.title.replace(" Division", "")}
+                                <Badge variant="secondary" className="text-[10px] font-mono">
+                                  {product.token}
                                 </Badge>
                               </div>
                               <p className="text-xs text-muted-foreground leading-relaxed">

@@ -122,10 +122,10 @@ export default function Dashboard() {
             </Badge>
           </div>
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-dashboard-title">
-            Bullex Commodity Trading Platform
+            Tokenisation of Real-World Commodities
           </h1>
           <p className="text-sm text-muted-foreground">
-            Blockchain-powered trade execution, KYC onboarding, and document management
+            1:1 asset-backed tokens, fractional ownership, and transparent blockchain settlement
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

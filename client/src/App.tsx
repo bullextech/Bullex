@@ -19,6 +19,7 @@ import Products from "@/pages/products";
 import Tokenization from "@/pages/tokenization";
 import Contact from "@/pages/contact";
 import KycAdmin from "@/pages/kyc-admin";
+import Investor from "@/pages/investor";
 
 function Router() {
   return (
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/trading" component={Trading} />
       <Route path="/vault" component={Vault} />
       <Route path="/blockchain" component={Blockchain} />
+      <Route path="/investor" component={Investor} />
       <Route path="/contact" component={Contact} />
       <Route component={NotFound} />
     </Switch>

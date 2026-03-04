@@ -23,6 +23,7 @@ import {
   Package,
   Coins,
   Mail,
+  Users,
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 
@@ -37,6 +38,7 @@ const navItems = [
   { title: "Document Vault", url: "/vault", icon: FolderOpen },
   { title: "Blockchain Ledger", url: "/blockchain", icon: Layers },
   { title: "Tokenisation", url: "/tokenization", icon: Coins },
+  { title: "Investor", url: "/investor", icon: Users },
   { title: "Contact", url: "/contact", icon: Mail },
 ];
 
@@ -53,7 +55,7 @@ export function AppSidebar() {
             </div>
             <div>
               <h1 className="text-base font-bold tracking-tight">BULLEX</h1>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Commodity Trading Platform</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Tokenisation • Commodities • Custody</p>
             </div>
           </div>
         </Link>
@@ -86,7 +88,7 @@ export function AppSidebar() {
           <span>Blockchain Active</span>
         </div>
         <div className="text-[10px] text-muted-foreground opacity-60">
-          Bullex Commodity Trading Platform
+          Tokenisation of Real-World Commodities
         </div>
       </SidebarFooter>
     </Sidebar>

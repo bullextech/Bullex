@@ -1,7 +1,7 @@
-# Bullex - Commodity Trading Platform
+# Bullex - Tokenisation of Real-World Commodities
 
 ## Overview
-Bullex is a proprietary platform of Bullfrog Group — a blockchain-backed commodity trading platform for managing multi-stage trades (minerals, energy, metals, petrochemicals, fertilizers) with document uploads, blockchain verification, KYC registration, and a document vault.
+Bullex is a proprietary platform of Bullfrog Group — enabling fractional ownership of physical commodities through 1:1 asset-backed BFG-20 tokens. Built for retail and institutional investors seeking direct exposure to verified commodity assets with transparent blockchain settlement.
 
 ## Architecture
 - **Frontend**: React + TypeScript with Vite, Tailwind CSS, shadcn/ui components
@@ -11,33 +11,35 @@ Bullex is a proprietary platform of Bullfrog Group — a blockchain-backed commo
 - **Theme**: LSE.com-inspired colour scheme — deep burgundy/maroon (#990000) primary, institutional blue (#0084be) accent, dark charcoal sidebar, clean white cards
 
 ## Branding
-- **Position**: "Bullex Commodity Trading Platform" on all pages EXCEPT Tokenization page
-- **Tokenization page only**: "Tokenisation of Real-World Commodities" whitepaper content with 5-step process, tokenomics, revenue model, fund allocation
-- **Sidebar tagline**: "Commodity Trading Platform"
-- **Sidebar nav label**: "Tokenization" (American spelling in nav)
-- **Contact email**: trade@bullex.tech
+- **Position**: "Tokenisation of Real-World Commodities" across all pages
+- **Sidebar tagline**: "Tokenisation • Commodities • Custody"
+- **Sidebar footer**: "Tokenisation of Real-World Commodities"
+- **Contact email**: team@bullex.tech
 - **Global footer**: "Bullex is a proprietary platform of Bullfrog Group." (visible on every page via App.tsx)
 - **Logo**: Shield icon (lucide-react) in primary color
+- **Key messaging**: Fractional ownership, 1:1 asset backing, liquidity, transparency, investor access
 
 ## Routes
-- `/` - Home page (platform overview, features, 4-step workflow, commodity divisions, tokenization section)
+- `/` - Home page (whitepaper-aligned: investor whitepaper 2025, 5-step process, tokenomics, quick stats)
 - `/dashboard` - Dashboard (trade volume, chain status, recent trades, stats)
-- `/products` - Commodity Divisions (5 divisions with detailed product listings)
-- `/tokenization` - Tokenisation page (whitepaper-aligned: BFG-20 tokens, 5-step process, tokenomics, revenue model, fund allocation)
+- `/products` - Tokenised Commodity Portfolio (5 divisions with BFG-20 token tags)
+- `/tokenization` - Tokenisation page (BFG-20 tokens, 5-step process, tokenomics, revenue model, fund allocation)
+- `/investor` - Investor page (why invest, revenue model, fund allocation, how to invest)
 - `/kyc` - KYC Registration (10-section institutional form)
 - `/kyc-admin` - KYC Administration (approve/reject applications)
 - `/documents` - Document Generator
 - `/trading` - Blockchain Trading
 - `/vault` - Document Vault
 - `/blockchain` - Blockchain Ledger
-- `/contact` - Contact page (Dubai, trade@bullex.tech, +971585416399)
+- `/contact` - Contact page (Dubai, team@bullex.tech, +971585416399)
 
 ## Key Features
-- **Home**: Landing page — "Bullex Commodity Trading Platform", 6 feature cards, 4-step workflow (Client Onboarding → Trade Execution → Document Generation → Verification & Audit), commodity divisions, tokenization section with BFG-20 standard
-- **Tokenisation** (whitepaper-aligned): Full token registry with 12 BFG-20 tokens, 5-step process (Producer → Auditors → Smart Contract → Investors → Profits), tokenomics (revenue: issuance 0.5-1%, trading 0.25-0.5%, custody, licensing; fund allocation: Tech 40%, Sourcing 30%, Compliance 20%, Marketing 10%)
+- **Home**: Whitepaper-aligned landing — "Tokenising Real-World Commodities", 6 feature cards (1:1 Asset Backing, Fractional Access, Transparent Settlement, Blockchain Trading, KYC, Compliance), 5-step process (Producer → Auditors → Smart Contract → Investors → Profits), tokenomics, fund allocation, Quick Stats (USD 20M ask, 5 Divisions, Year 3 breakeven)
+- **Tokenisation**: Full token registry with 12 BFG-20 tokens, 5-step process, tokenomics (revenue: issuance 0.5-1%, trading 0.25-0.5%, custody, licensing; fund allocation: Tech 40%, Sourcing 30%, Compliance 20%, Marketing 10%)
+- **Investor**: Investment thesis, revenue model, fund allocation, 4-step investment process
 - **Dashboard**: Trade volume, chain status, recent trades, KYC/document stats
-- **Products**: Commodity Divisions (5 divisions: Minerals, Metals, Energy Products, Petrochemicals, Fertilizers)
-- **Contact**: trade@bullex.tech, trade inquiries, client onboarding, Dubai office
+- **Products**: Tokenised Commodity Portfolio (5 divisions with BFG-20 token badges)
+- **Contact**: team@bullex.tech, tokenisation inquiries, investor onboarding, Dubai office
 - **KYC Registration**: 10-section institutional KYC form
 - **Blockchain Trading**: Commodity trade execution with blockchain verification
 - **Document Generator**: Generate SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL linked to trades
@@ -65,6 +67,9 @@ Bullex is a proprietary platform of Bullfrog Group — a blockchain-backed commo
 Trade flow: `pre_deal` → `deal` → `execution` → `final_payment`
 Each stage has mandatory (M) and optional (O) documents. All mandatory docs must be confirmed before advancing.
 
+## Sidebar Order
+Home, Admin, Dashboard, Products, KYC Registration, Document Generator, Blockchain Trading, Document Vault, Blockchain Ledger, Tokenisation, Investor, Contact
+
 ## Project Structure
 ```
 client/src/
@@ -73,16 +78,18 @@ client/src/
     theme-provider.tsx   - Dark/light theme context
     theme-toggle.tsx     - Theme toggle button
   pages/
-    home.tsx             - Commodity Trading Platform landing page
+    home.tsx             - Whitepaper-aligned landing page
     dashboard.tsx        - Main dashboard view
-    products.tsx         - Commodity Divisions page (5 divisions, 13 products)
-    tokenization.tsx     - Whitepaper-aligned tokenisation page (token registry, tokenomics)
+    products.tsx         - Tokenised Commodity Portfolio (5 divisions, 13 products)
+    tokenization.tsx     - Token registry, tokenomics, revenue model
+    investor.tsx         - Investor information page
     kyc.tsx              - 10-section KYC registration form
     trades.tsx           - Commodity trade management
     document-generator.tsx - Document type selector with trade linking
     vault.tsx            - Document vault grouped by type
     blockchain.tsx       - Blockchain ledger explorer
     contact.tsx          - Contact page
+    kyc-admin.tsx        - KYC administration
 server/
   blockchain.ts          - SHA-256 hashing & proof-of-work mining
   routes.ts              - API endpoints
