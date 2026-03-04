@@ -30,13 +30,12 @@ const navItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Products", url: "/products", icon: Package },
-  { title: "Tokenisation", url: "/tokenization", icon: Coins },
   { title: "KYC Registration", url: "/kyc", icon: UserCheck },
-  { title: "KYC Admin", url: "/kyc-admin", icon: ShieldCheck },
   { title: "Document Generator", url: "/documents", icon: FileText },
   { title: "Blockchain Trading", url: "/trading", icon: Link2 },
   { title: "Document Vault", url: "/vault", icon: FolderOpen },
   { title: "Blockchain Ledger", url: "/blockchain", icon: Layers },
+  { title: "Tokenisation", url: "/tokenization", icon: Coins },
   { title: "Contact", url: "/contact", icon: Mail },
 ];
 
