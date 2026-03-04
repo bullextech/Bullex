@@ -30,10 +30,10 @@ import { useLocation, Link } from "wouter";
 
 const navItems = [
   { title: "Home", url: "/", icon: Home },
+  { title: "Admin", url: "/kyc-admin", icon: ShieldCheck },
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Products", url: "/products", icon: Package },
   { title: "Platform", url: "/platform", icon: Wrench },
-  { title: "Admin", url: "/kyc-admin", icon: ShieldCheck },
   { title: "Investor", url: "/investor", icon: Users },
   { title: "Contact", url: "/contact", icon: Mail },
 ];
