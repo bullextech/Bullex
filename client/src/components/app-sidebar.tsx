@@ -53,7 +53,7 @@ export function AppSidebar() {
             </div>
             <div>
               <h1 className="text-base font-bold tracking-tight">BULLEX</h1>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Trade Management</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Commodity Trading Platform</p>
             </div>
           </div>
         </Link>
@@ -86,7 +86,7 @@ export function AppSidebar() {
           <span>Blockchain Active</span>
         </div>
         <div className="text-[10px] text-muted-foreground opacity-60">
-          Bullfrog Group Proprietary
+          Bullex Commodity Trading Platform
         </div>
       </SidebarFooter>
     </Sidebar>

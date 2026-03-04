@@ -20,7 +20,7 @@ export default function Contact() {
               variant="secondary"
               className="text-[10px] uppercase tracking-widest bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 mb-4"
             >
-              Bullfrog Group
+              Bullex
             </Badge>
             <h1
               className="text-3xl md:text-4xl font-bold mb-4 tracking-tight"
@@ -132,7 +132,7 @@ export default function Contact() {
                   </div>
                   <div>
                     <p className="text-sm font-medium">Platform</p>
-                    <p className="text-xs text-muted-foreground">Bullex Trade Management — Bullfrog Group Proprietary</p>
+                    <p className="text-xs text-muted-foreground">Bullex Commodity Trading Platform</p>
                   </div>
                 </div>
               </div>
@@ -206,7 +206,7 @@ export default function Contact() {
             </a>
           </div>
           <p className="text-[10px] text-muted-foreground mt-6">
-            Bullfrog Group Proprietary System — All Rights Reserved
+            Bullex Commodity Trading Platform — All Rights Reserved
           </p>
         </div>
       </div>

@@ -118,11 +118,11 @@ export default function Dashboard() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="secondary" className="text-[10px] uppercase tracking-widest">
-              Proprietary
+              Bullex
             </Badge>
           </div>
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-dashboard-title">
-            Bullex Trade Management
+            Bullex Commodity Trading Platform
           </h1>
           <p className="text-sm text-muted-foreground">
             Blockchain-powered trade execution, KYC onboarding, and document management

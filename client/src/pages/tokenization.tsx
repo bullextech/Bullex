@@ -491,7 +491,7 @@ export default function Tokenization() {
             Token Standard: BFG-20
           </h2>
           <p className="text-sm text-muted-foreground mb-8 max-w-2xl">
-            All Bullex commodity tokens conform to the BFG-20 token standard — Bullfrog Group's
+            All Bullex commodity tokens conform to the BFG-20 token standard — Bullex's
             proprietary specification for commodity-backed digital assets.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

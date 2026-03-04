@@ -93,7 +93,7 @@ export default function Home() {
               </div>
               <div>
                 <Badge variant="secondary" className="text-[10px] uppercase tracking-widest bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20">
-                  Bullfrog Group Proprietary
+                  Bullex Commodity Trading Platform
                 </Badge>
               </div>
             </div>
@@ -101,15 +101,15 @@ export default function Home() {
               className="text-4xl md:text-5xl font-bold mb-4 tracking-tight leading-tight"
               data-testid="text-home-title"
             >
-              Bullex Trade
+              Bullex Commodity
               <br />
-              Management Platform
+              Trading Platform
             </h1>
             <div className="w-20 h-1 bg-primary-foreground/40 mb-6" />
             <p className="text-lg md:text-xl text-primary-foreground/80 font-light leading-relaxed mb-8 max-w-2xl">
               The institutional-grade, blockchain-backed platform for managing
               commodity trades, client onboarding, and trade documentation
-              across Bullfrog Group's global operations.
+              across Bullex's global operations.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link href="/dashboard">
@@ -160,7 +160,7 @@ export default function Home() {
             </h2>
             <div className="w-16 h-1 bg-primary mx-auto mb-4" />
             <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Bullex is Bullfrog Group's proprietary trade management system — purpose-built for
+              Bullex is a proprietary commodity trading system — purpose-built for
               institutional commodity trading with blockchain verification at its core.
               It streamlines the entire trade lifecycle from client onboarding through
               document generation to final settlement.
@@ -435,7 +435,7 @@ export default function Home() {
                 Built for Institutional Trading
               </h2>
               <p className="text-primary-foreground/70 text-sm leading-relaxed">
-                Bullex is designed exclusively for Bullfrog Group's institutional
+                Bullex is designed exclusively for institutional
                 commodity trading operations. Every feature — from KYC onboarding to
                 blockchain verification — is purpose-built for the demands of global
                 commodity markets.
@@ -462,7 +462,7 @@ export default function Home() {
           </div>
           <div className="mt-10 pt-8 border-t border-primary-foreground/10 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-xs text-primary-foreground/40">
-              Bullfrog Group Proprietary System — All Rights Reserved
+              Bullex Commodity Trading Platform — All Rights Reserved
             </p>
             <Link href="/dashboard">
               <Button
