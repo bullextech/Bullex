@@ -33,6 +33,7 @@ const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Products", url: "/products", icon: Package },
   { title: "Platform", url: "/platform", icon: Wrench },
+  { title: "Admin", url: "/kyc-admin", icon: ShieldCheck },
   { title: "Investor", url: "/investor", icon: Users },
   { title: "Contact", url: "/contact", icon: Mail },
 ];
