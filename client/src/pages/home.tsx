@@ -1,7 +1,11 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 import {
   Shield,
   Link2,
@@ -23,6 +27,8 @@ import {
   Coins,
   Hash,
   TrendingUp,
+  MapPin,
+  Mail,
 } from "lucide-react";
 
 const features = [
@@ -80,6 +86,24 @@ const stats = [
 ];
 
 export default function Home() {
+  const { toast } = useToast();
+  const [supplyForm, setSupplyForm] = useState({
+    companyName: "",
+    email: "",
+    commodity: "",
+    message: "",
+  });
+
+  const handleSupplySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supplyForm.companyName || !supplyForm.email || !supplyForm.commodity || !supplyForm.message) {
+      toast({ title: "Missing Fields", description: "Please fill in all required fields.", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Inquiry Submitted", description: "A member of our trading desk will contact you shortly." });
+    setSupplyForm({ companyName: "", email: "", commodity: "", message: "" });
+  };
+
   return (
     <div className="overflow-y-auto h-full">
       <div className="bg-primary text-primary-foreground py-20 px-6 relative overflow-hidden">
@@ -427,6 +451,71 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      <section className="bg-primary text-white" data-testid="section-initiate-trade">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2">
+            <div className="p-10 lg:p-16 flex flex-col justify-center">
+              <h2 className="text-3xl font-bold mb-4 tracking-tight">Initiate Trade</h2>
+              <div className="w-24 h-1 bg-white/30 mb-8"></div>
+              <p className="text-white/80 text-lg leading-relaxed mb-12">
+                Submit your commodity requirements directly to our trading desk. Our specialists will review your inquiry and respond with indicative pricing and availability within 24 hours.
+              </p>
+              <div className="space-y-8">
+                <div className="flex items-center gap-4">
+                  <div className="bg-white/10 p-3 rounded-sm"><MapPin className="h-6 w-6 text-white/80" /></div>
+                  <div>
+                    <div className="font-bold text-sm uppercase tracking-wider mb-1">Headquarters</div>
+                    <div className="text-white/70 text-sm">Dubai, United Arab Emirates</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="bg-white/10 p-3 rounded-sm"><Mail className="h-6 w-6 text-white/80" /></div>
+                  <div>
+                    <div className="font-bold text-sm uppercase tracking-wider mb-1">Direct Desk</div>
+                    <div className="text-white/70 text-sm">trade@bullex.tech</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-10 lg:p-16 bg-card text-foreground border-l border-border">
+              <h3 className="text-2xl font-bold text-primary mb-8 tracking-tight">Request Supply</h3>
+              <form onSubmit={handleSupplySubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-primary">Company Name *</label>
+                    <Input className="border-border rounded-none h-12 focus-visible:ring-primary" placeholder="Corporate Entity" value={supplyForm.companyName} onChange={(e) => setSupplyForm({ ...supplyForm, companyName: e.target.value })} data-testid="supply-input-company" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-primary">Contact Email *</label>
+                    <Input type="email" className="border-border rounded-none h-12 focus-visible:ring-primary" placeholder="email@company.com" value={supplyForm.email} onChange={(e) => setSupplyForm({ ...supplyForm, email: e.target.value })} data-testid="supply-input-email" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-primary">Commodity Category *</label>
+                  <select className="flex h-12 w-full border border-border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded-none" value={supplyForm.commodity} onChange={(e) => setSupplyForm({ ...supplyForm, commodity: e.target.value })} data-testid="supply-select-commodity">
+                    <option value="">Select category...</option>
+                    <option value="minerals">Minerals (Iron Ore, Bauxite, Manganese)</option>
+                    <option value="metals">Metals (Copper, Aluminium)</option>
+                    <option value="energy">Energy Products (ULSD, HSGO, LPG)</option>
+                    <option value="petchem">Petrochemicals (Bitumen, Petcoke, Sulphur)</option>
+                    <option value="fertilizers">Fertilizers (NPK)</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-primary">Target Specifications & Volume</label>
+                  <Textarea className="border-border rounded-none min-h-[120px] resize-none focus-visible:ring-primary" placeholder="Please include target volume, destination port (CIF/FOB), and specific grades required." value={supplyForm.message} onChange={(e) => setSupplyForm({ ...supplyForm, message: e.target.value })} data-testid="supply-input-specs" />
+                </div>
+                <Button type="submit" className="w-full rounded-none h-12 text-sm font-bold uppercase tracking-wider" data-testid="button-submit-supply">Submit to Trading Desk</Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  By submitting this inquiry, you confirm your authority to initiate trade dialogue on behalf of your organization.
+                </p>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <div className="bg-primary text-primary-foreground py-16 px-6">
         <div className="max-w-5xl mx-auto">
