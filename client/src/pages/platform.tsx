@@ -10,6 +10,8 @@ import {
   Layers,
   ArrowRight,
   Shield,
+  Coins,
+  ShieldCheck,
 } from "lucide-react";
 
 const platformFeatures = [
@@ -52,6 +54,22 @@ const platformFeatures = [
       "Full block explorer with transaction drill-down, chain integrity validation, and cryptographic hash verification — providing complete transparency across all trades.",
     link: "/blockchain",
     linkText: "View Ledger",
+  },
+  {
+    icon: Coins,
+    title: "Tokenisation",
+    description:
+      "Browse the full BFG-20 token registry — 12 commodity-backed tokens across five divisions with 1:1 physical backing, tokenomics, and revenue model details.",
+    link: "/tokenization",
+    linkText: "Token Registry",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Admin",
+    description:
+      "Review and manage KYC applications — approve or reject submissions, view applicant details, and oversee the institutional onboarding pipeline.",
+    link: "/kyc-admin",
+    linkText: "Open Admin",
   },
 ];
 
