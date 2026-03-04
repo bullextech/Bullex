@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,9 @@ import {
   Shield,
   Coins,
   ShieldCheck,
+  Copy,
+  Check,
+  ExternalLink,
 } from "lucide-react";
 
 const platformFeatures = [
@@ -74,6 +78,27 @@ const platformFeatures = [
 ];
 
 export default function Platform() {
+  const [copied, setCopied] = useState(false);
+
+  const kycLink = `${window.location.origin}/kyc`;
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(kycLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const textArea = document.createElement("textarea");
+      textArea.value = kycLink;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   return (
     <div className="overflow-y-auto h-full">
       <div className="bg-primary text-primary-foreground py-16 px-6">
@@ -96,6 +121,46 @@ export default function Platform() {
               Access the full suite of Bullex trading tools — from client onboarding
               and trade execution to document management and blockchain verification.
             </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-card border-b border-border py-6 px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+                <ExternalLink className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">Client KYC Registration Link</p>
+                <p className="text-[10px] text-muted-foreground">Share this link with clients to begin onboarding</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-1 min-w-0 w-full sm:w-auto">
+              <div className="flex-1 min-w-0 px-3 py-2 rounded-md bg-muted border border-border text-sm font-mono text-muted-foreground truncate" data-testid="text-kyc-link">
+                {kycLink}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyLink}
+                className="flex-shrink-0"
+                data-testid="button-copy-kyc-link"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 mr-1.5 text-green-600" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 mr-1.5" />
+                    Copy Link
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
