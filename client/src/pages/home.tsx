@@ -526,20 +526,10 @@ export default function Home() {
               </div>
             </div>
           </div>
-          <div className="mt-10 pt-8 border-t border-primary-foreground/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="mt-10 pt-8 border-t border-primary-foreground/10">
             <p className="text-xs text-primary-foreground/40">
               Bullex Trading Platform — All Rights Reserved
             </p>
-            <Link href="/kyc-admin">
-              <Button
-                variant="secondary"
-                size="sm"
-                data-testid="button-footer-dashboard"
-              >
-                Go to Dashboard
-                <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-              </Button>
-            </Link>
           </div>
         </div>
       </div>
