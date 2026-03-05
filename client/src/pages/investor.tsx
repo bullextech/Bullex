@@ -295,7 +295,7 @@ export default function Investor() {
               </h2>
               <p className="text-primary-foreground/70 text-sm leading-relaxed">
                 Start your journey into commodity investment with Bullex. Complete
-                KYC onboarding to access the full range of tokenised commodity assets
+                KYC onboarding to access the full range of real-world commodity assets
                 across five global divisions.
               </p>
             </div>
