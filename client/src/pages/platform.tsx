@@ -446,6 +446,8 @@ export default function Platform() {
                 <DetailRow label="Account Number" value={selectedParticipant.accountNumber} />
                 <DetailRow label="SWIFT Code" value={selectedParticipant.swiftCode} />
                 <DetailRow label="Account Currency" value={selectedParticipant.bankAccountCurrency} />
+                <DetailRow label="Bank Officer Name" value={selectedParticipant.bankOfficerName} />
+                <DetailRow label="Bank Officer Email" value={selectedParticipant.bankOfficerEmail} />
               </DetailSection>
 
               <DetailSection title="Compliance">

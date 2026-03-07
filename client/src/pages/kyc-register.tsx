@@ -94,6 +94,8 @@ const emptyForm = {
   accountNumber: "",
   swiftCode: "",
   bankAccountCurrency: "",
+  bankOfficerName: "",
+  bankOfficerEmail: "",
   employeesCompany: "",
   employeesGroup: "",
   previousBullfrogEmployee: "",
@@ -593,6 +595,14 @@ export default function KycRegister() {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="space-y-2">
+                      <Label className={labelClass}>Bank Officer Name *</Label>
+                      <Input className={inputClass} placeholder="Full name of bank officer" value={form.bankOfficerName} onChange={(e) => update("bankOfficerName", e.target.value)} data-testid="input-reg-bank-officer-name" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={labelClass}>Bank Officer Email *</Label>
+                      <Input className={inputClass} type="email" placeholder="Bank officer email address" value={form.bankOfficerEmail} onChange={(e) => update("bankOfficerEmail", e.target.value)} data-testid="input-reg-bank-officer-email" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -802,6 +812,12 @@ export default function KycRegister() {
                         const parts = (lines[0] || "").split(" — ");
                         if (!parts[0]?.trim() || !parts[1]?.trim() || !parts[2]?.trim() || !parts[3]?.trim()) {
                           toast({ title: "Required Fields", description: "Director 1 details (Full Name, Nationality, Date of Birth, Position) are mandatory.", variant: "destructive" });
+                          return;
+                        }
+                      }
+                      if (activeTab === 5) {
+                        if (!form.bankOfficerName.trim() || !form.bankOfficerEmail.trim()) {
+                          toast({ title: "Required Fields", description: "Bank Officer Name and Email are mandatory. Please complete both fields before proceeding.", variant: "destructive" });
                           return;
                         }
                       }

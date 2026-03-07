@@ -42,6 +42,8 @@ export const kycApplications = pgTable("kyc_applications", {
   accountNumber: text("account_number"),
   swiftCode: text("swift_code"),
   bankAccountCurrency: text("bank_account_currency"),
+  bankOfficerName: text("bank_officer_name"),
+  bankOfficerEmail: text("bank_officer_email"),
   employeesCompany: text("employees_company"),
   employeesGroup: text("employees_group"),
   previousBullfrogEmployee: text("previous_bullfrog_employee"),

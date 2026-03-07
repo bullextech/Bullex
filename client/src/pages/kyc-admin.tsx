@@ -502,6 +502,8 @@ export default function KycAdmin() {
                               ["Account Number", app.accountNumber],
                               ["SWIFT Code", app.swiftCode],
                               ["Currency", app.bankAccountCurrency],
+                              ["Bank Officer Name", app.bankOfficerName],
+                              ["Bank Officer Email", app.bankOfficerEmail],
                               ["Share Capital", app.shareCapital],
                               ["Capital Range", app.capitalRange],
                               ["Financial Currency", app.financialCurrency],
