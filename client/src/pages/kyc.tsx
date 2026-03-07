@@ -635,7 +635,7 @@ export default function KYC() {
                   <Input className={inputClass} placeholder="Group-wide employee count" value={form.employeesGroup} onChange={(e) => update("employeesGroup", e.target.value)} data-testid="input-employees-group" />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label className={labelClass}>Previous Bullfrog Group Employee?</Label>
+                  <Label className={labelClass}>Previous Bullfrog Group Employee? *</Label>
                   <Select value={form.previousBullfrogEmployee} onValueChange={(v) => update("previousBullfrogEmployee", v)}>
                     <SelectTrigger className={inputClass} data-testid="select-previous-employee">
                       <SelectValue placeholder="Select..." />
@@ -853,6 +853,12 @@ export default function KYC() {
                   if (activeTab === 5) {
                     if (!form.bankOfficerName.trim() || !form.bankOfficerEmail.trim()) {
                       toast({ title: "Required Fields", description: "Bank Officer Name and Email are mandatory. Please complete both fields before proceeding.", variant: "destructive" });
+                      return;
+                    }
+                  }
+                  if (activeTab === 6) {
+                    if (!form.previousBullfrogEmployee.trim()) {
+                      toast({ title: "Required Field", description: "Please select whether you are a previous Bullfrog Group employee before proceeding.", variant: "destructive" });
                       return;
                     }
                   }
