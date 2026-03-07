@@ -73,6 +73,7 @@ export default function KycAdmin() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<Record<string, string>>({});
+  const [products, setProducts] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
   const { data: applications, isLoading: kycLoading } = useQuery<KycApplication[]>({
@@ -91,8 +92,8 @@ export default function KycAdmin() {
   const isLoading = kycLoading || tl || bl || dl;
 
   const updateStatus = useMutation({
-    mutationFn: async ({ id, status, notes, category }: { id: string; status: string; notes?: string; category?: string }) => {
-      const res = await apiRequest("PATCH", `/api/kyc/${id}/status`, { status, reviewNotes: notes, category });
+    mutationFn: async ({ id, status, notes, category, products }: { id: string; status: string; notes?: string; category?: string; products?: string }) => {
+      const res = await apiRequest("PATCH", `/api/kyc/${id}/status`, { status, reviewNotes: notes, category, products });
       return res.json();
     },
     onSuccess: (_data: any, variables) => {
@@ -586,6 +587,17 @@ export default function KycAdmin() {
                                 </div>
 
                                 <div className="space-y-1.5">
+                                  <label className="text-xs font-bold uppercase tracking-wider text-primary">Products</label>
+                                  <Input
+                                    className="rounded-none h-10 border-border text-sm"
+                                    placeholder="e.g. Iron Ore, Copper, Bauxite"
+                                    value={products[app.id] !== undefined ? products[app.id] : (app.products || "")}
+                                    onChange={(e) => setProducts({ ...products, [app.id]: e.target.value })}
+                                    data-testid={`input-products-${app.id}`}
+                                  />
+                                </div>
+
+                                <div className="space-y-1.5">
                                   <label className="text-xs font-bold uppercase tracking-wider text-primary">Review Notes</label>
                                   <Textarea
                                     className="rounded-none min-h-[80px] resize-none border-border text-sm"
@@ -601,7 +613,7 @@ export default function KycAdmin() {
                                     size="sm"
                                     className="flex-1 rounded-none h-10 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider"
                                     disabled={updateStatus.isPending || app.status === "approved"}
-                                    onClick={() => updateStatus.mutate({ id: app.id, status: "approved", notes: reviewNotes[app.id], category: categories[app.id] || app.category || undefined })}
+                                    onClick={() => updateStatus.mutate({ id: app.id, status: "approved", notes: reviewNotes[app.id], category: categories[app.id] || app.category || undefined, products: products[app.id] !== undefined ? products[app.id] : (app.products || undefined) })}
                                     data-testid={`button-approve-${app.id}`}
                                   >
                                     <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
@@ -612,7 +624,7 @@ export default function KycAdmin() {
                                     variant="destructive"
                                     className="flex-1 rounded-none h-10 text-xs font-bold uppercase tracking-wider"
                                     disabled={updateStatus.isPending || app.status === "rejected"}
-                                    onClick={() => updateStatus.mutate({ id: app.id, status: "rejected", notes: reviewNotes[app.id], category: categories[app.id] || app.category || undefined })}
+                                    onClick={() => updateStatus.mutate({ id: app.id, status: "rejected", notes: reviewNotes[app.id], category: categories[app.id] || app.category || undefined, products: products[app.id] !== undefined ? products[app.id] : (app.products || undefined) })}
                                     data-testid={`button-reject-${app.id}`}
                                   >
                                     <XCircle className="w-3.5 h-3.5 mr-1.5" />
@@ -626,7 +638,7 @@ export default function KycAdmin() {
                                     variant="outline"
                                     className="w-full rounded-none h-9 text-xs font-bold uppercase tracking-wider"
                                     disabled={updateStatus.isPending}
-                                    onClick={() => updateStatus.mutate({ id: app.id, status: "pending", notes: reviewNotes[app.id], category: categories[app.id] || app.category || undefined })}
+                                    onClick={() => updateStatus.mutate({ id: app.id, status: "pending", notes: reviewNotes[app.id], category: categories[app.id] || app.category || undefined, products: products[app.id] !== undefined ? products[app.id] : (app.products || undefined) })}
                                     data-testid={`button-reset-${app.id}`}
                                   >
                                     <Clock className="w-3.5 h-3.5 mr-1.5" />

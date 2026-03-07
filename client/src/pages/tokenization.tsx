@@ -502,7 +502,8 @@ export default function Tokenization() {
             Revenue Model & Fund Allocation
           </h2>
           <p className="text-sm text-muted-foreground mb-8 max-w-2xl">
-            Bullex generates sustainable revenue through multiple fee streams across the token lifecycle.
+            Bullex generates sustainable revenue through multiple fee streams across the token lifecycle,
+            supporting the commodity trading infrastructure and blockchain verification systems.
           </p>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div>

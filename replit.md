@@ -1,7 +1,7 @@
-# Bullex - Tokenisation of Real-World Commodities
+# Bullex - Commodity Trading Platform
 
 ## Overview
-Bullex is a proprietary platform of Bullfrog Group — enabling fractional ownership of physical commodities through 1:1 asset-backed BFG-20 tokens. Built for retail and institutional investors seeking direct exposure to verified commodity assets with transparent blockchain settlement.
+Bullex is a proprietary commodity trading platform of Bullfrog Group — an institutional-grade, blockchain-backed system for managing commodity trades, client onboarding, and trade documentation across global operations.
 
 ## Architecture
 - **Frontend**: React + TypeScript with Vite, Tailwind CSS, shadcn/ui components
@@ -15,8 +15,8 @@ Bullex is a proprietary platform of Bullfrog Group — enabling fractional owner
 - **Home page**: "Bullex Trading Platform" — commodity trading focused
 - **Sidebar tagline**: "Commodity Trading Platform"
 - **Sidebar footer**: "Bullex Commodity Trading Platform"
-- **Other pages** (tokenization, investor, products, contact): Retain whitepaper tokenisation content
 - **Contact email**: team@bullex.tech
+- **Trade desk**: trade@bullex.tech
 - **Global footer**: "Bullex is a proprietary platform of Bullfrog Group." (visible on every page via App.tsx)
 - **Logo**: Shield icon (lucide-react) in primary color
 - **Key messaging**: Institutional commodity trading, blockchain verification, trade lifecycle management
@@ -24,7 +24,7 @@ Bullex is a proprietary platform of Bullfrog Group — enabling fractional owner
 ## Authentication
 - Protected routes: `/kyc-admin`, `/platform`, `/documents`, `/trading`, `/vault`, `/blockchain`
 - Public routes: `/`, `/products`, `/tokenization`, `/investor`, `/contact`, `/kyc-register`
-- Backend: express-session with ADMIN_USERNAME/ADMIN_PASSWORD secrets
+- Backend: express-session with ADMIN_USERNAME/ADMIN_PASSWORD secrets, trust proxy enabled
 - Frontend: AuthProvider context with useAuth hook, ProtectedRoute component renders Login page inline
 - Login page: standalone card with username/password fields
 - Sidebar shows username + logout button when authenticated
@@ -35,8 +35,8 @@ Bullex is a proprietary platform of Bullfrog Group — enabling fractional owner
 - `/tokenization` - Tokenisation page (BFG-20 tokens, 5-step process, tokenomics, revenue model, fund allocation)
 - `/investor` - Investor page (why invest, revenue model, fund allocation, how to invest)
 - `/kyc` - KYC Registration (10-section institutional form)
-- `/kyc-admin` - Admin Dashboard (trade stats, chain status, recent trades + KYC administration) [PROTECTED]
-- `/platform` - Platform tools (KYC, Docs, Trading, Vault, Ledger, Tokenisation) [PROTECTED]
+- `/kyc-admin` - Admin Dashboard (trade stats, chain status, recent trades + KYC administration with category & products fields) [PROTECTED]
+- `/platform` - Platform tools (KYC, Docs, Trading, Vault, Ledger, Tokenisation) + Approved Participants section [PROTECTED]
 - `/documents` - Document Generator [PROTECTED]
 - `/trading` - Blockchain Trading [PROTECTED]
 - `/vault` - Document Vault [PROTECTED]
@@ -48,7 +48,7 @@ Bullex is a proprietary platform of Bullfrog Group — enabling fractional owner
 - **Home**: Commodity trading landing — "Bullex Trading Platform", 6 feature cards (Blockchain Trading, KYC, Docs, Vault, Ledger, Compliance), 4-step workflow (Onboarding → Trade → Docs → Verification), commodity divisions, tokenization section, trade inquiry form
 - **Tokenisation**: Full token registry with 12 BFG-20 tokens, 5-step process, tokenomics (revenue: issuance 0.5-1%, trading 0.25-0.5%, custody, licensing; fund allocation: Tech 40%, Sourcing 30%, Compliance 20%, Marketing 10%)
 - **Investor**: Investment thesis, revenue model, fund allocation, 4-step investment process
-- **Admin Dashboard**: Trade volume, chain status, recent trades, KYC approve/reject
+- **Admin Dashboard**: Trade volume, chain status, recent trades, KYC approve/reject with category & products fields
 - **Products**: Tokenised Commodity Portfolio (5 divisions with BFG-20 token badges)
 - **Contact**: team@bullex.tech, tokenisation inquiries, investor onboarding, Dubai office
 - **KYC Registration**: 10-section institutional KYC form
@@ -57,6 +57,7 @@ Bullex is a proprietary platform of Bullfrog Group — enabling fractional owner
 - **Document Vault**: All documents uploaded through blockchain trading pipeline
 - **Blockchain Ledger**: Block explorer with accordion-based block details
 - **Dark/Light Mode**: Theme toggle with persistence
+- **Participants**: Approved KYC participants displayed as cards on Platform page with category & products badges
 
 ## Commodity Categories
 - Minerals: Iron Ore, Bauxite, Manganese
@@ -67,7 +68,7 @@ Bullex is a proprietary platform of Bullfrog Group — enabling fractional owner
 
 ## Data Model
 - `users` - User accounts
-- `kyc_applications` - 10-section KYC form data (company details, banking, compliance, signatory)
+- `kyc_applications` - 10-section KYC form data (company details, banking, compliance, signatory) + category + products fields
 - `kyc_documents` - Uploaded KYC document files
 - `trade_documents` - Uploaded trade pipeline document files
 - `trades` - Commodity trades (tradeRef BFG-YYYY-XXXX, buyer/seller, origin/destination, incoterm, blockchain hash, stageDocuments JSONB)
@@ -84,6 +85,7 @@ Home, Admin, Products, Platform, Investor, Contact
 ## Platform Page (/platform)
 7 tool boxes: KYC Registration, Document Generator, Blockchain Trading, Document Vault, Blockchain Ledger, Tokenisation, Admin
 Client KYC Registration link (/kyc-register) with Copy + Share buttons
+Approved Participants section with category & products badges
 
 ## Standalone Routes (outside app shell)
 - `/kyc-register` - Standalone client KYC registration (no sidebar/nav)
@@ -98,7 +100,7 @@ client/src/
   hooks/
     use-auth.tsx         - AuthProvider context & useAuth hook
   pages/
-    home.tsx             - Whitepaper-aligned landing page
+    home.tsx             - Commodity trading landing page
     login.tsx            - Admin login page
     dashboard.tsx        - Legacy dashboard view
     products.tsx         - Tokenised Commodity Portfolio (5 divisions, 13 products)
@@ -110,10 +112,11 @@ client/src/
     vault.tsx            - Document vault grouped by type
     blockchain.tsx       - Blockchain ledger explorer
     contact.tsx          - Contact page
-    kyc-admin.tsx        - Admin Dashboard (stats + KYC administration)
+    kyc-admin.tsx        - Admin Dashboard (stats + KYC administration with category & products)
+    platform.tsx         - Platform tools + Approved Participants
 server/
   blockchain.ts          - SHA-256 hashing & proof-of-work mining
-  routes.ts              - API endpoints (includes auth endpoints + session middleware)
+  routes.ts              - API endpoints (includes auth endpoints + session middleware with trust proxy)
   storage.ts             - Database operations
   seed.ts                - Database seeding with sample commodity trades
 shared/

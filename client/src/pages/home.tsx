@@ -81,7 +81,7 @@ const divisions = [
 const stats = [
   { value: "5", label: "Trading Divisions" },
   { value: "13", label: "Active Commodities" },
-  { value: "12", label: "Tokenized Assets" },
+  { value: "12", label: "Tokenised Assets" },
   { value: "100%", label: "Blockchain Verified" },
 ];
 
@@ -480,55 +480,28 @@ export default function Home() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-primary">Target Specifications & Volume</label>
-                  <Textarea className="border-border rounded-none min-h-[120px] resize-none focus-visible:ring-primary" placeholder="Please include target volume, destination port (CIF/FOB), and specific grades required." value={supplyForm.message} onChange={(e) => setSupplyForm({ ...supplyForm, message: e.target.value })} data-testid="supply-input-specs" />
+                  <label className="text-xs font-bold uppercase tracking-wider text-primary">Requirements *</label>
+                  <Textarea className="border-border rounded-none min-h-[120px] resize-none focus-visible:ring-primary" placeholder="Describe your commodity requirements, quantities, delivery terms..." value={supplyForm.message} onChange={(e) => setSupplyForm({ ...supplyForm, message: e.target.value })} data-testid="supply-input-message" />
                 </div>
-                <Button type="submit" className="w-full rounded-none h-12 text-sm font-bold uppercase tracking-wider" data-testid="button-submit-supply">Submit to Trading Desk</Button>
-                <p className="text-xs text-muted-foreground text-center">
-                  By submitting this inquiry, you confirm your authority to initiate trade dialogue on behalf of your organization.
-                </p>
+                <Button type="submit" className="w-full h-14 rounded-none text-sm font-bold uppercase tracking-wider" data-testid="supply-button-submit">
+                  Submit Trade Inquiry
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
               </form>
             </div>
           </div>
         </div>
       </section>
 
-      <div className="bg-primary text-primary-foreground py-16 px-6">
+      <div className="bg-card border-t border-border py-8 px-6">
         <div className="max-w-5xl mx-auto">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="max-w-lg">
-              <h2 className="text-2xl font-bold tracking-tight mb-3">
-                Built for Institutional Trading
-              </h2>
-              <p className="text-primary-foreground/70 text-sm leading-relaxed">
-                Bullex is designed exclusively for institutional
-                commodity trading operations. Every feature — from KYC onboarding to
-                blockchain verification — is purpose-built for the demands of global
-                commodity markets.
-              </p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Shield className="w-5 h-5 text-primary" />
+              <span className="text-sm font-semibold">Bullex Commodity Trading Platform</span>
             </div>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-4 h-4 text-primary-foreground/60 flex-shrink-0" />
-                <span className="text-sm text-primary-foreground/80">SHA-256 Proof-of-Work Consensus</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-4 h-4 text-primary-foreground/60 flex-shrink-0" />
-                <span className="text-sm text-primary-foreground/80">Tamper-Proof Transaction Ledger</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Globe className="w-4 h-4 text-primary-foreground/60 flex-shrink-0" />
-                <span className="text-sm text-primary-foreground/80">Asia, Middle East & Africa Coverage</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Zap className="w-4 h-4 text-primary-foreground/60 flex-shrink-0" />
-                <span className="text-sm text-primary-foreground/80">Real-Time Block Mining & Verification</span>
-              </div>
-            </div>
-          </div>
-          <div className="mt-10 pt-8 border-t border-primary-foreground/10">
-            <p className="text-xs text-primary-foreground/40">
-              Bullex Trading Platform — All Rights Reserved
+            <p className="text-xs text-muted-foreground text-center sm:text-right">
+              Built for Institutional Commodity Trading &bull; Blockchain Verified &bull; Bullfrog Group
             </p>
           </div>
         </div>
