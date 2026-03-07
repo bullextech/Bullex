@@ -8,7 +8,7 @@ import { storage } from "./storage";
 import { insertTradeSchema, insertKycSchema, insertDocumentSchema } from "@shared/schema";
 import { generateTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail } from "./email";
 
 declare module "express-session" {
   interface SessionData {
@@ -165,6 +165,20 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Approved applications cannot be modified" });
       }
       const updated = await storage.updateKycStatus(id, status, reviewNotes, category, products);
+
+      if (status === "approved") {
+        const emailTo = updated.signatoryEmail || updated.contactEmail;
+        if (emailTo) {
+          sendKycApprovalEmail(
+            emailTo,
+            updated.companyName,
+            updated.signatoryName || updated.contactName,
+            category || updated.category,
+            products || updated.products
+          ).catch((err) => console.error("[email] background approval send failed:", err));
+        }
+      }
+
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to update KYC status" });
