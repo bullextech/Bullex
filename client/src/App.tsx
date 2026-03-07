@@ -25,7 +25,6 @@ import Investor from "@/pages/investor";
 import Platform from "@/pages/platform";
 import KycRegister from "@/pages/kyc-register";
 import Login from "@/pages/login";
-import Participants from "@/pages/participants";
 
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
   const { authenticated, loading } = useAuth();
@@ -60,7 +59,6 @@ function Router() {
       <Route path="/vault">{() => <ProtectedRoute component={Vault} />}</Route>
       <Route path="/blockchain">{() => <ProtectedRoute component={Blockchain} />}</Route>
       <Route path="/platform">{() => <ProtectedRoute component={Platform} />}</Route>
-      <Route path="/participants">{() => <ProtectedRoute component={Participants} />}</Route>
       <Route path="/investor" component={Investor} />
       <Route path="/contact" component={Contact} />
       <Route component={NotFound} />

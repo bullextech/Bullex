@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import {
   UserCheck,
@@ -16,7 +18,16 @@ import {
   Check,
   ExternalLink,
   Share2,
+  Building2,
+  MapPin,
+  Globe,
+  Mail,
+  Phone,
+  Users,
+  CheckCircle2,
+  Calendar,
 } from "lucide-react";
+import type { KycApplication } from "@shared/schema";
 
 const platformFeatures = [
   {
@@ -71,6 +82,10 @@ const platformFeatures = [
 
 export default function Platform() {
   const [copied, setCopied] = useState(false);
+  const { data: applications, isLoading: participantsLoading } = useQuery<KycApplication[]>({
+    queryKey: ["/api/kyc"],
+  });
+  const approved = applications?.filter((a) => a.status === "approved") || [];
 
   const kycLink = `${window.location.origin}/kyc-register`;
 
@@ -210,6 +225,127 @@ export default function Platform() {
               );
             })}
           </div>
+        </div>
+      </div>
+
+      <div className="bg-muted/30 border-t border-border py-12 px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold tracking-tight" data-testid="text-participants-heading">
+                Approved Participants
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                KYC-verified entities approved to trade on the platform
+              </p>
+            </div>
+            <Badge variant="secondary" className="ml-auto text-xs">
+              {approved.length} Approved
+            </Badge>
+          </div>
+
+          {participantsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-[200px] rounded-md" />
+              ))}
+            </div>
+          ) : approved.length === 0 ? (
+            <Card className="border">
+              <CardContent className="p-10 text-center">
+                <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center mx-auto mb-3">
+                  <Users className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <h3 className="text-sm font-semibold mb-1" data-testid="text-no-participants">No Approved Participants Yet</h3>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  Participants will appear here once their KYC applications have been reviewed and approved.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {approved.map((participant) => (
+                <Card
+                  key={participant.id}
+                  className="border hover:border-primary/30 transition-colors"
+                  data-testid={`card-participant-${participant.id}`}
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Building2 className="w-4 h-4 text-primary" />
+                      </div>
+                      <Badge variant="secondary" className="text-[9px] uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Approved
+                      </Badge>
+                    </div>
+
+                    <h3 className="text-sm font-bold mb-1" data-testid={`text-participant-name-${participant.id}`}>
+                      {participant.companyName}
+                    </h3>
+
+                    {participant.businessType && (
+                      <p className="text-[10px] text-muted-foreground mb-3 uppercase tracking-wider">
+                        {participant.businessType}
+                      </p>
+                    )}
+
+                    <div className="space-y-2 mt-3 pt-3 border-t border-border">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className="text-xs text-muted-foreground truncate">
+                          {participant.countryOfIncorporation}
+                        </span>
+                      </div>
+
+                      {participant.countryOfOperation && participant.countryOfOperation !== participant.countryOfIncorporation && (
+                        <div className="flex items-center gap-2">
+                          <Globe className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                          <span className="text-xs text-muted-foreground truncate">
+                            Operations: {participant.countryOfOperation}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className="text-xs text-muted-foreground truncate">
+                          {participant.contactEmail}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className="text-xs text-muted-foreground truncate">
+                          {participant.contactPhone}
+                        </span>
+                      </div>
+
+                      {participant.dateOfIncorporation && (
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                          <span className="text-xs text-muted-foreground truncate">
+                            Inc. {participant.dateOfIncorporation}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-3 pt-3 border-t border-border flex items-center gap-2">
+                      <Shield className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                      <span className="text-[10px] text-primary font-medium uppercase tracking-wider">
+                        KYC Verified
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
