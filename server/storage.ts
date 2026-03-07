@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray, and, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import {
@@ -60,6 +60,7 @@ export interface IStorage {
   getKycDocumentsByApplicationId(kycApplicationId: string): Promise<KycDocument[]>;
   createKycDocument(doc: InsertKycDocument): Promise<KycDocument>;
   deleteKycDocument(id: string): Promise<void>;
+  linkKycDocumentsToApplication(kycApplicationId: string, documentIds: string[]): Promise<void>;
 
   getAllTradeDocuments(): Promise<TradeDocument[]>;
   getTradeDocuments(tradeId: string): Promise<TradeDocument[]>;
@@ -179,6 +180,17 @@ export class DatabaseStorage implements IStorage {
 
   async deleteKycDocument(id: string): Promise<void> {
     await db.delete(kycDocuments).where(eq(kycDocuments.id, id));
+  }
+
+  async linkKycDocumentsToApplication(kycApplicationId: string, documentIds: string[]): Promise<void> {
+    await db.update(kycDocuments)
+      .set({ kycApplicationId })
+      .where(
+        and(
+          inArray(kycDocuments.id, documentIds),
+          isNull(kycDocuments.kycApplicationId)
+        )
+      );
   }
 
   async getAllTradeDocuments(): Promise<TradeDocument[]> {

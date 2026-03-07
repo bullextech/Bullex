@@ -32,8 +32,10 @@ import {
   Users,
   CheckCircle2,
   Calendar,
+  Download,
+  FileCheck,
 } from "lucide-react";
-import type { KycApplication } from "@shared/schema";
+import type { KycApplication, KycDocument } from "@shared/schema";
 
 const platformFeatures = [
   {
@@ -91,6 +93,15 @@ export default function Platform() {
   const [selectedParticipant, setSelectedParticipant] = useState<KycApplication | null>(null);
   const { data: applications, isLoading: participantsLoading } = useQuery<KycApplication[]>({
     queryKey: ["/api/kyc"],
+  });
+  const { data: participantDocs } = useQuery<KycDocument[]>({
+    queryKey: ["/api/kyc", selectedParticipant?.id, "documents"],
+    queryFn: async () => {
+      const res = await fetch(`/api/kyc/${selectedParticipant!.id}/documents`);
+      if (!res.ok) throw new Error("Failed to fetch documents");
+      return res.json();
+    },
+    enabled: !!selectedParticipant,
   });
   const approved = applications?.filter((a) => a.status === "approved") || [];
 
@@ -459,6 +470,43 @@ export default function Platform() {
                 <DetailRow label="Signatory Company" value={selectedParticipant.signatoryCompany} />
                 <DetailRow label="Signatory Place/Date" value={selectedParticipant.signatoryPlaceDate} />
               </DetailSection>
+
+              {participantDocs && participantDocs.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-3 pb-2 border-b border-border">
+                    Attached Documents
+                  </h4>
+                  <div className="space-y-2">
+                    {participantDocs.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between p-3 rounded-md bg-muted/50 border border-border"
+                        data-testid={`doc-participant-${doc.id}`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <FileCheck className="w-4 h-4 text-primary flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{doc.originalName}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {doc.documentType} &bull; {(doc.size / 1024).toFixed(0)} KB
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 flex-shrink-0"
+                          onClick={() => window.open(`/api/kyc-documents/${doc.id}/download`, "_blank")}
+                          data-testid={`btn-download-doc-${doc.id}`}
+                        >
+                          <Download className="w-3.5 h-3.5 mr-1" />
+                          <span className="text-xs">Download</span>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

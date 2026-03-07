@@ -124,6 +124,7 @@ export default function KYC() {
   const { toast } = useToast();
   const [form, setForm] = useState({ ...emptyForm });
   const [uploadingType, setUploadingType] = useState<string | null>(null);
+  const [uploadedDocIds, setUploadedDocIds] = useState<string[]>([]);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const { data: kycs, isLoading } = useQuery<KycApplication[]>({
@@ -146,7 +147,8 @@ export default function KYC() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
+      if (data?.id) setUploadedDocIds((prev) => [...prev, data.id]);
       queryClient.invalidateQueries({ queryKey: ["/api/kyc-documents"] });
       toast({ title: "Document Uploaded", description: "File has been uploaded successfully." });
     },
@@ -178,10 +180,18 @@ export default function KYC() {
   const submitKyc = useMutation({
     mutationFn: async (data: typeof form) => {
       const res = await apiRequest("POST", "/api/kyc", data);
-      return res.json();
+      const created = await res.json();
+      if (uploadedDocIds.length > 0 && created.id) {
+        await apiRequest("PATCH", `/api/kyc/${created.id}/link-documents`, {
+          documentIds: uploadedDocIds,
+        });
+      }
+      return created;
     },
     onSuccess: () => {
+      setUploadedDocIds([]);
       queryClient.invalidateQueries({ queryKey: ["/api/kyc"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc-documents"] });
       toast({
         title: "KYC Application Submitted",
         description: "Your KYC documentation has been securely transmitted to our compliance department. A dedicated compliance officer will review your file and contact you within 48-72 hours.",

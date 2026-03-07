@@ -314,6 +314,30 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/kyc/:id/documents", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await storage.getKycDocumentsByApplicationId(id);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch KYC application documents" });
+    }
+  });
+
+  app.patch("/api/kyc/:id/link-documents", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { documentIds } = req.body;
+      if (!Array.isArray(documentIds) || documentIds.length === 0) {
+        return res.status(400).json({ message: "documentIds array required" });
+      }
+      await storage.linkKycDocumentsToApplication(id, documentIds);
+      res.json({ message: "Documents linked successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to link documents" });
+    }
+  });
+
   app.post("/api/kyc-documents/upload", kycUpload.single("file"), async (req, res) => {
     try {
       const file = req.file;

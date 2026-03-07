@@ -121,6 +121,7 @@ export default function KycRegister() {
   const [form, setForm] = useState({ ...emptyForm });
   const [uploadingType, setUploadingType] = useState<string | null>(null);
   const [uploadedDocs, setUploadedDocs] = useState<Record<string, { name: string; size: number }[]>>({});
+  const [uploadedDocIds, setUploadedDocIds] = useState<string[]>([]);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const uploadDoc = useMutation({
@@ -133,13 +134,15 @@ export default function KycRegister() {
         const err = await res.json();
         throw new Error(err.message || "Upload failed");
       }
-      return { documentType, name: file.name, size: file.size };
+      const created = await res.json();
+      return { documentType, name: file.name, size: file.size, id: created.id };
     },
     onSuccess: (data) => {
       setUploadedDocs((prev) => ({
         ...prev,
         [data.documentType]: [...(prev[data.documentType] || []), { name: data.name, size: data.size }],
       }));
+      if (data.id) setUploadedDocIds((prev) => [...prev, data.id]);
       toast({ title: "Document Uploaded", description: "File has been uploaded successfully." });
     },
     onError: (error: Error) => {
@@ -156,7 +159,13 @@ export default function KycRegister() {
   const submitKyc = useMutation({
     mutationFn: async (data: typeof form) => {
       const res = await apiRequest("POST", "/api/kyc", data);
-      return res.json();
+      const created = await res.json();
+      if (uploadedDocIds.length > 0 && created.id) {
+        await apiRequest("PATCH", `/api/kyc/${created.id}/link-documents`, {
+          documentIds: uploadedDocIds,
+        });
+      }
+      return created;
     },
     onSuccess: () => {
       setSubmitted(true);

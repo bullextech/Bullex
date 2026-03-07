@@ -69,7 +69,7 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 ## Data Model
 - `users` - User accounts
 - `kyc_applications` - 10-section KYC form data (company details, banking, compliance, signatory) + category + products fields
-- `kyc_documents` - Uploaded KYC document files
+- `kyc_documents` - Uploaded KYC document files (linked to kyc_applications via kycApplicationId on submission)
 - `trade_documents` - Uploaded trade pipeline document files
 - `trades` - Commodity trades (tradeRef BFG-YYYY-XXXX, buyer/seller, origin/destination, incoterm, blockchain hash, stageDocuments JSONB)
 - `blocks` - Blockchain blocks (hash, previous hash, nonce, verification)
