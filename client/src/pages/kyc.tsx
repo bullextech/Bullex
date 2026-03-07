@@ -120,6 +120,7 @@ const emptyForm = {
   signatoryName: "",
   signatoryTitle: "",
   signatoryCompany: "",
+  signatoryEmail: "",
   signatoryPlaceDate: "",
 };
 
@@ -818,6 +819,10 @@ export default function KYC() {
                     <Input className={inputClass} placeholder="Company name" value={form.signatoryCompany} onChange={(e) => update("signatoryCompany", e.target.value)} data-testid="input-signatory-company" />
                   </div>
                   <div className="space-y-2">
+                    <Label className={labelClass}>Email *</Label>
+                    <Input className={inputClass} type="email" placeholder="signatory@company.com" value={form.signatoryEmail} onChange={(e) => update("signatoryEmail", e.target.value)} data-testid="input-signatory-email" />
+                  </div>
+                  <div className="space-y-2">
                     <Label className={labelClass}>Place & Date *</Label>
                     <Input className={inputClass} placeholder="e.g. Dubai, 15/03/2025" value={form.signatoryPlaceDate} onChange={(e) => update("signatoryPlaceDate", e.target.value)} data-testid="input-signatory-place-date" />
                   </div>
@@ -955,7 +960,7 @@ export default function KYC() {
                   ]},
                   { title: "10. Authorised Signatory", icon: <PenTool className="w-4 h-4" />, rows: [
                     ["Print Name", form.signatoryName], ["Title", form.signatoryTitle],
-                    ["Company Name", form.signatoryCompany], ["Place & Date", form.signatoryPlaceDate],
+                    ["Company Name", form.signatoryCompany], ["Email", form.signatoryEmail], ["Place & Date", form.signatoryPlaceDate],
                   ]},
                 ].map((section) => (
                   <div key={section.title} className="border border-border p-4" data-testid={`preview-section-${section.title.split(".")[0].trim()}`}>

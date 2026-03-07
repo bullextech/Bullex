@@ -481,6 +481,7 @@ export default function KycAdmin() {
                               ["Signatory", app.signatoryName],
                               ["Signatory Title", app.signatoryTitle],
                               ["Signatory Company", app.signatoryCompany],
+                              ["Signatory Email", app.signatoryEmail],
                             ].map(([label, value]) => (
                               <div key={label} className="flex justify-between py-1.5 border-b border-border/30 text-sm">
                                 <span className="text-muted-foreground text-xs">{label}</span>

@@ -61,6 +61,7 @@ export const kycApplications = pgTable("kyc_applications", {
   signatoryName: text("signatory_name"),
   signatoryTitle: text("signatory_title"),
   signatoryCompany: text("signatory_company"),
+  signatoryEmail: text("signatory_email"),
   signatoryPlaceDate: text("signatory_place_date"),
   status: text("status").notNull().default("pending"),
   category: text("category"),
