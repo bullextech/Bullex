@@ -8,6 +8,7 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 - **Backend**: Express.js with TypeScript
 - **Database**: PostgreSQL with Drizzle ORM
 - **Blockchain**: Custom SHA-256 blockchain implementation for trade verification
+- **Email**: Resend API (RESEND_API_KEY secret) for transactional emails (KYC confirmation)
 - **Authentication**: express-session with ADMIN_USERNAME/ADMIN_PASSWORD environment secrets
 - **Theme**: LSE.com-inspired colour scheme — deep burgundy/maroon (#990000) primary, institutional blue (#0084be) accent, dark charcoal sidebar, clean white cards
 

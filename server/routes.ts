@@ -8,6 +8,7 @@ import { storage } from "./storage";
 import { insertTradeSchema, insertKycSchema, insertDocumentSchema } from "@shared/schema";
 import { generateTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { seedDatabase } from "./seed";
+import { sendKycConfirmationEmail } from "./email";
 
 declare module "express-session" {
   interface SessionData {
@@ -177,6 +178,16 @@ export async function registerRoutes(
         return res.status(400).json({ message: parsed.error.message });
       }
       const result = await storage.createKycApplication(parsed.data);
+
+      const signatoryEmail = parsed.data.signatoryEmail;
+      if (signatoryEmail) {
+        sendKycConfirmationEmail(
+          signatoryEmail,
+          parsed.data.companyName,
+          parsed.data.signatoryName || parsed.data.contactName
+        ).catch((err) => console.error("[email] background send failed:", err));
+      }
+
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to create KYC application" });
