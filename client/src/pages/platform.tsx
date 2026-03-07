@@ -4,6 +4,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Link } from "wouter";
 import {
   UserCheck,
@@ -82,6 +88,7 @@ const platformFeatures = [
 
 export default function Platform() {
   const [copied, setCopied] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState<KycApplication | null>(null);
   const { data: applications, isLoading: participantsLoading } = useQuery<KycApplication[]>({
     queryKey: ["/api/kyc"],
   });
@@ -284,7 +291,11 @@ export default function Platform() {
                       </Badge>
                     </div>
 
-                    <h3 className="text-sm font-bold mb-1" data-testid={`text-participant-name-${participant.id}`}>
+                    <h3
+                      className="text-sm font-bold mb-1 cursor-pointer hover:text-primary transition-colors"
+                      onClick={() => setSelectedParticipant(participant)}
+                      data-testid={`text-participant-name-${participant.id}`}
+                    >
                       {participant.companyName}
                     </h3>
 
@@ -348,6 +359,125 @@ export default function Platform() {
           )}
         </div>
       </div>
+
+      <Dialog open={!!selectedParticipant} onOpenChange={() => setSelectedParticipant(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-describedby={undefined} data-testid="dialog-participant-details">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Building2 className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg" data-testid="text-dialog-participant-name">
+                  {selectedParticipant?.companyName}
+                </DialogTitle>
+                {selectedParticipant?.businessType && (
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mt-0.5">
+                    {selectedParticipant.businessType}
+                  </p>
+                )}
+              </div>
+              <Badge variant="secondary" className="ml-auto text-[9px] uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800">
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                Approved
+              </Badge>
+            </div>
+          </DialogHeader>
+
+          {selectedParticipant && (
+            <div className="space-y-6 mt-4">
+              <DetailSection title="Company Information">
+                <DetailRow label="Company Name" value={selectedParticipant.companyName} />
+                <DetailRow label="Registered Address" value={selectedParticipant.registeredAddress} />
+                <DetailRow label="Primary Business Address" value={selectedParticipant.primaryBusinessAddress} />
+                <DetailRow label="Date of Incorporation" value={selectedParticipant.dateOfIncorporation} />
+                <DetailRow label="Country of Incorporation" value={selectedParticipant.countryOfIncorporation} />
+                <DetailRow label="Country of Operation" value={selectedParticipant.countryOfOperation} />
+                <DetailRow label="Registration Number" value={selectedParticipant.registrationNumber} />
+                <DetailRow label="Tax ID Number" value={selectedParticipant.taxIdNumber} />
+                <DetailRow label="Business Type" value={selectedParticipant.businessType} />
+                <DetailRow label="Core Business Description" value={selectedParticipant.coreBusinessDescription} />
+              </DetailSection>
+
+              <DetailSection title="Ownership & Structure">
+                <DetailRow label="Ultimate Beneficial Owners" value={selectedParticipant.ultimateBeneficialOwners} />
+                <DetailRow label="Shareholders" value={selectedParticipant.shareholders} />
+                <DetailRow label="Management Structure" value={selectedParticipant.managementStructure} />
+                <DetailRow label="Subsidiaries" value={selectedParticipant.subsidiaries} />
+                <DetailRow label="Listing Information" value={selectedParticipant.listingInfo} />
+                <DetailRow label="Share Capital" value={selectedParticipant.shareCapital} />
+              </DetailSection>
+
+              <DetailSection title="Financial Information">
+                <DetailRow label="Capital Range" value={selectedParticipant.capitalRange} />
+                <DetailRow label="Financial Currency" value={selectedParticipant.financialCurrency} />
+                <DetailRow label="Sales Revenue" value={selectedParticipant.salesRevenue} />
+                <DetailRow label="Net Income" value={selectedParticipant.netIncome} />
+                <DetailRow label="Total Equity" value={selectedParticipant.totalEquity} />
+                <DetailRow label="Total Balance Sheet" value={selectedParticipant.totalBalanceSheet} />
+                <DetailRow label="Last Reporting Period" value={selectedParticipant.lastReportingPeriod} />
+                <DetailRow label="External Auditors" value={selectedParticipant.externalAuditors} />
+              </DetailSection>
+
+              <DetailSection title="Banking Details">
+                <DetailRow label="Bank Name" value={selectedParticipant.bankName} />
+                <DetailRow label="Bank Branch" value={selectedParticipant.bankBranch} />
+                <DetailRow label="Bank Address" value={selectedParticipant.bankAddress} />
+                <DetailRow label="Account Name" value={selectedParticipant.accountName} />
+                <DetailRow label="Account Number" value={selectedParticipant.accountNumber} />
+                <DetailRow label="SWIFT Code" value={selectedParticipant.swiftCode} />
+                <DetailRow label="Account Currency" value={selectedParticipant.bankAccountCurrency} />
+              </DetailSection>
+
+              <DetailSection title="Compliance">
+                <DetailRow label="Employees (Company)" value={selectedParticipant.employeesCompany} />
+                <DetailRow label="Employees (Group)" value={selectedParticipant.employeesGroup} />
+                <DetailRow label="Previous Bullfrog Employee" value={selectedParticipant.previousBullfrogEmployee} />
+                <DetailRow label="AML Subject" value={selectedParticipant.amlSubject} />
+                <DetailRow label="AML Conformity Program" value={selectedParticipant.amlConformityProgram} />
+                <DetailRow label="AML Regulator" value={selectedParticipant.amlRegulator} />
+                <DetailRow label="AML Law Name" value={selectedParticipant.amlLawName} />
+              </DetailSection>
+
+              <DetailSection title="Contact & Signatory">
+                <DetailRow label="Contact Name" value={selectedParticipant.contactName} />
+                <DetailRow label="Contact Title" value={selectedParticipant.contactTitle} />
+                <DetailRow label="Contact Phone" value={selectedParticipant.contactPhone} />
+                <DetailRow label="Contact Email" value={selectedParticipant.contactEmail} />
+                <DetailRow label="Fax Number" value={selectedParticipant.faxNumber} />
+                <DetailRow label="Website" value={selectedParticipant.website} />
+                <DetailRow label="Signatory Name" value={selectedParticipant.signatoryName} />
+                <DetailRow label="Signatory Title" value={selectedParticipant.signatoryTitle} />
+                <DetailRow label="Signatory Company" value={selectedParticipant.signatoryCompany} />
+                <DetailRow label="Signatory Place/Date" value={selectedParticipant.signatoryPlaceDate} />
+              </DetailSection>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-3 pb-2 border-b border-border">
+        {title}
+      </h4>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <div data-testid={`detail-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
+      <p className="text-sm font-medium mt-0.5">{value}</p>
     </div>
   );
 }
