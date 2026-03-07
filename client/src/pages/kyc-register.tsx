@@ -181,7 +181,8 @@ export default function KycRegister() {
     e.preventDefault();
     if (!form.companyName || !form.registeredAddress || !form.contactName ||
         !form.contactTitle || !form.contactPhone || !form.contactEmail ||
-        !form.dateOfIncorporation || !form.countryOfIncorporation || !form.registrationNumber) {
+        !form.dateOfIncorporation || !form.countryOfIncorporation || !form.registrationNumber ||
+        !form.signatoryCompany) {
       toast({
         title: "Missing Required Fields",
         description: "Please complete all mandatory fields marked with * before submitting.",
@@ -775,7 +776,7 @@ export default function KycRegister() {
                         <Input className={inputClass} placeholder="e.g. Managing Director" value={form.signatoryTitle} onChange={(e) => update("signatoryTitle", e.target.value)} data-testid="input-reg-signatory-title" />
                       </div>
                       <div className="space-y-2">
-                        <Label className={labelClass}>Company Name</Label>
+                        <Label className={labelClass}>Company Name *</Label>
                         <Input className={inputClass} placeholder="Company name" value={form.signatoryCompany} onChange={(e) => update("signatoryCompany", e.target.value)} data-testid="input-reg-signatory-company" />
                       </div>
                       <div className="space-y-2">
