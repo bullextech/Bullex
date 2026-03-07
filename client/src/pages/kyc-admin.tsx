@@ -35,11 +35,13 @@ import {
   TrendingUp,
   ArrowRight,
   AlertCircle,
+  Download,
+  FileCheck,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
-import type { KycApplication, Trade, Block, Document } from "@shared/schema";
+import type { KycApplication, Trade, Block, Document, KycDocument } from "@shared/schema";
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   pending: { label: "Pending Review", color: "text-amber-600", bg: "bg-amber-600/10 border-amber-600/20 text-amber-700", icon: Clock },
@@ -85,6 +87,16 @@ export default function KycAdmin() {
   const { data: blocks, isLoading: bl } = useQuery<Block[]>({
     queryKey: ["/api/blocks"],
   });
+  const { data: expandedDocs } = useQuery<KycDocument[]>({
+    queryKey: ["/api/kyc", expandedId, "documents"],
+    queryFn: async () => {
+      const res = await fetch(`/api/kyc/${expandedId}/documents`);
+      if (!res.ok) throw new Error("Failed to fetch documents");
+      return res.json();
+    },
+    enabled: !!expandedId,
+  });
+
   const { data: docs, isLoading: dl } = useQuery<Document[]>({
     queryKey: ["/api/documents"],
   });
@@ -544,6 +556,40 @@ export default function KycAdmin() {
                               </div>
                             ))}
                           </div>
+
+                          <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 mt-6 flex items-center gap-2">
+                            <FileCheck className="w-4 h-4" /> Attached Documents
+                          </h4>
+                          {expandedDocs && expandedDocs.length > 0 ? (
+                            <div className="space-y-2 mb-6">
+                              {expandedDocs.map((doc) => (
+                                <div key={doc.id} className="flex items-center justify-between p-3 border border-border bg-muted/30" data-testid={`admin-doc-${doc.id}`}>
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <FileText className="w-4 h-4 text-primary shrink-0" />
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium truncate">{doc.originalName}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {doc.documentType} · {doc.size ? `${(doc.size / 1024).toFixed(1)} KB` : "—"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <a
+                                    href={`/api/kyc-documents/${doc.id}/download`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    data-testid={`admin-download-doc-${doc.id}`}
+                                  >
+                                    <Button size="sm" variant="outline" className="rounded-none h-8 text-xs gap-1.5">
+                                      <Download className="w-3.5 h-3.5" />
+                                      Download
+                                    </Button>
+                                  </a>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground mb-6">No documents attached to this application.</p>
+                          )}
 
                           <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 mt-6 flex items-center gap-2">
                             <Shield className="w-4 h-4" /> Admin Review

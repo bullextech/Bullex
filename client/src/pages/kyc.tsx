@@ -163,7 +163,8 @@ export default function KYC() {
       const res = await apiRequest("DELETE", `/api/kyc-documents/${id}`);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data: any, deletedId: string) => {
+      setUploadedDocIds((prev) => prev.filter((docId) => docId !== deletedId));
       queryClient.invalidateQueries({ queryKey: ["/api/kyc-documents"] });
       toast({ title: "Document Removed", description: "File has been deleted." });
     },
@@ -649,7 +650,7 @@ export default function KYC() {
                 </p>
                 <div className="space-y-3">
                   {kycDocList.map((docDef) => {
-                    const uploaded = kycDocs?.filter((d) => d.documentType === docDef.type) || [];
+                    const uploaded = kycDocs?.filter((d) => d.documentType === docDef.type && uploadedDocIds.includes(d.id)) || [];
                     const isUploading = uploadingType === docDef.type;
                     return (
                       <div key={docDef.type} className="rounded-lg border border-border bg-muted/30 overflow-hidden" data-testid={`kyc-doc-row-${docDef.type}`}>
