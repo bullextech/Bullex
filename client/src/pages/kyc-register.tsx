@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +29,7 @@ import {
   PenTool,
   Upload,
   Loader2,
+  Eye,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -119,6 +121,7 @@ const emptyForm = {
 export default function KycRegister() {
   const [activeTab, setActiveTab] = useState(0);
   const [submitted, setSubmitted] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const { toast } = useToast();
   const [form, setForm] = useState({ ...emptyForm });
   const [uploadingType, setUploadingType] = useState<string | null>(null);
@@ -841,16 +844,109 @@ export default function KycRegister() {
                     Next Section
                   </Button>
                 ) : (
-                  <Button
-                    type="submit"
-                    disabled={submitKyc.isPending}
-                    data-testid="button-reg-submit-kyc"
-                  >
-                    <UserCheck className="w-4 h-4 mr-2" />
-                    {submitKyc.isPending ? "Submitting..." : "Submit KYC Application"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowPreview(true)}
+                      data-testid="button-reg-preview-kyc"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Preview
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={submitKyc.isPending}
+                      data-testid="button-reg-submit-kyc"
+                    >
+                      <UserCheck className="w-4 h-4 mr-2" />
+                      {submitKyc.isPending ? "Submitting..." : "Submit KYC Application"}
+                    </Button>
+                  </div>
                 )}
               </div>
+
+              <Dialog open={showPreview} onOpenChange={setShowPreview}>
+                <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                      <Eye className="w-5 h-5" /> KYC Application Preview
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-6 mt-4">
+                    {[
+                      { title: "1. Company Details", icon: <Building2 className="w-4 h-4" />, rows: [
+                        ["Full Legal Name", form.companyName], ["Registered Address", form.registeredAddress],
+                        ["Primary Business Address", form.primaryBusinessAddress], ["Date of Incorporation", form.dateOfIncorporation],
+                        ["Country of Incorporation", form.countryOfIncorporation], ["Country of Operation", form.countryOfOperation],
+                        ["Registration Number", form.registrationNumber], ["Tax ID Number", form.taxIdNumber],
+                        ["Contact Name", form.contactName], ["Corporate Title", form.contactTitle],
+                        ["Phone", form.contactPhone], ["Email", form.contactEmail],
+                        ["Fax", form.faxNumber], ["Website", form.website],
+                      ]},
+                      { title: "2. Business Activity", icon: <Briefcase className="w-4 h-4" />, rows: [
+                        ["Type of Business", form.businessType], ["Core Business Description", form.coreBusinessDescription],
+                      ]},
+                      { title: "3. Beneficial Owners", icon: <Users className="w-4 h-4" />, rows: [
+                        ["Ultimate Beneficial Owners", form.ultimateBeneficialOwners], ["Shareholders", form.shareholders],
+                      ]},
+                      { title: "4. Management Structure", icon: <Users className="w-4 h-4" />, rows: [
+                        ["Directors / Senior Management", form.managementStructure],
+                        ["Subsidiaries", form.subsidiaries], ["Stock Exchange Listing", form.listingInfo],
+                      ]},
+                      { title: "5. Financial Information", icon: <BarChart3 className="w-4 h-4" />, rows: [
+                        ["Share Capital", form.shareCapital], ["Capital Range", form.capitalRange],
+                        ["Financial Currency", form.financialCurrency], ["Sales Revenue", form.salesRevenue],
+                        ["Net Income", form.netIncome], ["Total Equity", form.totalEquity],
+                        ["Total Balance Sheet", form.totalBalanceSheet], ["Last Reporting Period", form.lastReportingPeriod],
+                        ["External Auditors", form.externalAuditors],
+                      ]},
+                      { title: "6. Banking Information", icon: <Landmark className="w-4 h-4" />, rows: [
+                        ["Bank Name", form.bankName], ["Branch", form.bankBranch], ["Bank Address", form.bankAddress],
+                        ["Account Name", form.accountName], ["Account Number", form.accountNumber],
+                        ["SWIFT Code", form.swiftCode], ["Currency", form.bankAccountCurrency],
+                        ["Bank Officer Name", form.bankOfficerName], ["Bank Officer Email", form.bankOfficerEmail],
+                      ]},
+                      { title: "7. Human Resources", icon: <Users className="w-4 h-4" />, rows: [
+                        ["Employees (Company)", form.employeesCompany], ["Employees (Group)", form.employeesGroup],
+                        ["Previous Bullfrog Employee", form.previousBullfrogEmployee],
+                      ]},
+                      { title: "8. Compliance Questionnaire", icon: <Scale className="w-4 h-4" />, rows: [
+                        ["AML/CFT Subject", form.amlSubject], ["AML/CFT Conformity Program", form.amlConformityProgram],
+                        ["AML/CFT Regulator", form.amlRegulator], ["Applicable AML/CFT Law", form.amlLawName],
+                      ]},
+                      { title: "9. Documents", icon: <FileText className="w-4 h-4" />, rows: [
+                        ["Document Notes", form.documentReasons],
+                      ]},
+                      { title: "10. Authorised Signatory", icon: <PenTool className="w-4 h-4" />, rows: [
+                        ["Print Name", form.signatoryName], ["Title", form.signatoryTitle],
+                        ["Company Name", form.signatoryCompany], ["Place & Date", form.signatoryPlaceDate],
+                      ]},
+                    ].map((section) => (
+                      <div key={section.title} className="border border-border p-4" data-testid={`preview-section-${section.title.split(".")[0].trim()}`}>
+                        <h4 className="text-sm font-bold text-primary flex items-center gap-2 mb-3">{section.icon} {section.title}</h4>
+                        <div className="space-y-1.5">
+                          {section.rows.map(([label, value]) => (
+                            <div key={label} className="flex justify-between py-1 border-b border-border/30 text-sm">
+                              <span className="text-muted-foreground text-xs">{label}</span>
+                              <span className="font-medium text-right max-w-[60%] break-words whitespace-pre-line">{value || "—"}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex justify-end gap-2 pt-4 border-t border-border">
+                      <Button variant="outline" onClick={() => setShowPreview(false)} data-testid="button-reg-preview-close">
+                        Back to Edit
+                      </Button>
+                      <Button onClick={() => { setShowPreview(false); handleSubmit({ preventDefault: () => {} } as React.FormEvent); }} disabled={submitKyc.isPending} data-testid="button-reg-preview-submit">
+                        <UserCheck className="w-4 h-4 mr-2" />
+                        {submitKyc.isPending ? "Submitting..." : "Submit KYC Application"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </form>
           </Card>
         </div>
