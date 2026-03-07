@@ -609,6 +609,29 @@ export default function KycAdmin() {
                                 </div>
                               )}
 
+                              {app.status === "approved" ? (
+                                <div className="space-y-3">
+                                  <div className="p-3 bg-emerald-600/5 border border-emerald-600/20 text-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Application Approved</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">This application has been approved and is now locked. No further changes can be made to the review.</p>
+                                  </div>
+                                  {app.category && (
+                                    <div className="flex justify-between py-1.5 border-b border-border/30 text-sm">
+                                      <span className="text-muted-foreground text-xs">Category</span>
+                                      <span className="font-medium">{app.category}</span>
+                                    </div>
+                                  )}
+                                  {app.products && (
+                                    <div className="flex justify-between py-1.5 border-b border-border/30 text-sm">
+                                      <span className="text-muted-foreground text-xs">Products</span>
+                                      <span className="font-medium text-right max-w-[60%] break-words">{app.products}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
                               <div className="space-y-3">
                                 <div className="space-y-1.5">
                                   <label className="text-xs font-bold uppercase tracking-wider text-primary">Category</label>
@@ -658,7 +681,7 @@ export default function KycAdmin() {
                                   <Button
                                     size="sm"
                                     className="flex-1 rounded-none h-10 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider"
-                                    disabled={updateStatus.isPending || app.status === "approved"}
+                                    disabled={updateStatus.isPending}
                                     onClick={() => updateStatus.mutate({ id: app.id, status: "approved", notes: reviewNotes[app.id], category: categories[app.id] || app.category || undefined, products: products[app.id] !== undefined ? products[app.id] : (app.products || undefined) })}
                                     data-testid={`button-approve-${app.id}`}
                                   >
@@ -678,7 +701,7 @@ export default function KycAdmin() {
                                   </Button>
                                 </div>
 
-                                {app.status !== "pending" && (
+                                {app.status === "rejected" && (
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -692,6 +715,7 @@ export default function KycAdmin() {
                                   </Button>
                                 )}
                               </div>
+                              )}
                             </div>
                           </div>
                         </div>

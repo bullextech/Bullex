@@ -160,6 +160,9 @@ export async function registerRoutes(
       if (!kyc) {
         return res.status(404).json({ message: "KYC application not found" });
       }
+      if (kyc.status === "approved") {
+        return res.status(403).json({ message: "Approved applications cannot be modified" });
+      }
       const updated = await storage.updateKycStatus(id, status, reviewNotes, category, products);
       res.json(updated);
     } catch (error: any) {
