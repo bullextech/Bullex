@@ -922,6 +922,7 @@ export default function KycRegister() {
                       ]},
                       { title: "9. Documents", icon: <FileText className="w-4 h-4" />, rows: [
                         ["Document Notes", form.documentReasons],
+                        ...kycDocList.filter(d => (uploadedDocs[d.type] || []).length > 0).map(d => [d.label, uploadedDocs[d.type].map(f => f.name).join(", ")]),
                       ]},
                       { title: "10. Authorised Signatory", icon: <PenTool className="w-4 h-4" />, rows: [
                         ["Print Name", form.signatoryName], ["Title", form.signatoryTitle],

@@ -957,6 +957,7 @@ export default function KYC() {
                   ]},
                   { title: "9. Documents", icon: <FileText className="w-4 h-4" />, rows: [
                     ["Document Notes", form.documentReasons],
+                    ...kycDocList.filter(d => (kycDocs?.filter(doc => doc.documentType === d.type && uploadedDocIds.includes(doc.id)) || []).length > 0).map(d => [d.label, (kycDocs?.filter(doc => doc.documentType === d.type && uploadedDocIds.includes(doc.id)) || []).map(doc => doc.originalName).join(", ")]),
                   ]},
                   { title: "10. Authorised Signatory", icon: <PenTool className="w-4 h-4" />, rows: [
                     ["Print Name", form.signatoryName], ["Title", form.signatoryTitle],
