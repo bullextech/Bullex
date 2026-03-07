@@ -416,12 +416,12 @@ export default function KYC() {
               </h3>
               <div className="mt-6 space-y-6">
                 <div className="space-y-2">
-                  <Label className={labelClass}>Ultimate Beneficial Owner(s)</Label>
+                  <Label className={labelClass}>Ultimate Beneficial Owner(s) *</Label>
                   <p className="text-xs text-muted-foreground">Please provide details of all individuals who hold directly or indirectly more than 10% of the company's shares or voting rights.</p>
                   <Textarea className={`${textareaClass} min-h-[120px]`} placeholder="Name, Date of Birth, Nationality, Passport No., Percentage held — one per line" value={form.ultimateBeneficialOwners} onChange={(e) => update("ultimateBeneficialOwners", e.target.value)} data-testid="input-beneficial-owners" />
                 </div>
                 <div className="space-y-2">
-                  <Label className={labelClass}>Shareholders (Direct & Indirect)</Label>
+                  <Label className={labelClass}>Shareholders (Direct & Indirect) *</Label>
                   <Textarea className={`${textareaClass} min-h-[100px]`} placeholder="List all shareholders with name, nationality, and percentage held" value={form.shareholders} onChange={(e) => update("shareholders", e.target.value)} data-testid="input-shareholders" />
                 </div>
               </div>
@@ -787,7 +787,15 @@ export default function KYC() {
             {activeTab < sections.length - 1 ? (
               <Button
                 type="button"
-                onClick={() => setActiveTab(activeTab + 1)}
+                onClick={() => {
+                  if (activeTab === 2) {
+                    if (!form.ultimateBeneficialOwners.trim() || !form.shareholders.trim()) {
+                      toast({ title: "Required Fields", description: "Ultimate Beneficial Owners and Shareholders are mandatory. Please complete both fields before proceeding.", variant: "destructive" });
+                      return;
+                    }
+                  }
+                  setActiveTab(activeTab + 1);
+                }}
                 data-testid="btn-next-section"
               >
                 Next Section
