@@ -61,6 +61,7 @@ export const kycApplications = pgTable("kyc_applications", {
   signatoryCompany: text("signatory_company"),
   signatoryPlaceDate: text("signatory_place_date"),
   status: text("status").notNull().default("pending"),
+  category: text("category"),
   reviewNotes: text("review_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

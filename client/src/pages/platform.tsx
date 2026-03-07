@@ -299,11 +299,18 @@ export default function Platform() {
                       {participant.companyName}
                     </h3>
 
-                    {participant.businessType && (
-                      <p className="text-[10px] text-muted-foreground mb-3 uppercase tracking-wider">
-                        {participant.businessType}
-                      </p>
-                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {participant.businessType && (
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                          {participant.businessType}
+                        </p>
+                      )}
+                      {participant.category && (
+                        <Badge variant="outline" className="text-[9px] uppercase tracking-wider" data-testid={`badge-category-${participant.id}`}>
+                          {participant.category}
+                        </Badge>
+                      )}
+                    </div>
 
                     <div className="space-y-2 mt-3 pt-3 border-t border-border">
                       <div className="flex items-center gap-2">
@@ -387,6 +394,7 @@ export default function Platform() {
           {selectedParticipant && (
             <div className="space-y-6 mt-4">
               <DetailSection title="Company Information">
+                <DetailRow label="Category" value={selectedParticipant.category} />
                 <DetailRow label="Company Name" value={selectedParticipant.companyName} />
                 <DetailRow label="Registered Address" value={selectedParticipant.registeredAddress} />
                 <DetailRow label="Primary Business Address" value={selectedParticipant.primaryBusinessAddress} />
