@@ -372,14 +372,19 @@ export default function KycRegister() {
                           <SelectValue placeholder="Select type..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Trader">Trader</SelectItem>
-                          <SelectItem value="Dealer">Dealer</SelectItem>
-                          <SelectItem value="Collector">Collector</SelectItem>
-                          <SelectItem value="Manufacturer">Manufacturer</SelectItem>
-                          <SelectItem value="Refiner">Refiner</SelectItem>
-                          <SelectItem value="Broker">Broker</SelectItem>
-                          <SelectItem value="Mining Company">Mining Company</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
+                          <SelectItem value="Producer">Producer</SelectItem>
+                          <SelectItem value="Seller">Seller</SelectItem>
+                          <SelectItem value="Co Seller">Co Seller</SelectItem>
+                          <SelectItem value="Buyer">Buyer</SelectItem>
+                          <SelectItem value="Co Buyer">Co Buyer</SelectItem>
+                          <SelectItem value="Analysis Agency">Analysis Agency</SelectItem>
+                          <SelectItem value="Collateral Manager">Collateral Manager</SelectItem>
+                          <SelectItem value="Shipping Agency">Shipping Agency</SelectItem>
+                          <SelectItem value="Stevedoring Agency">Stevedoring Agency</SelectItem>
+                          <SelectItem value="Custom House Agent (CHA)">Custom House Agent (CHA)</SelectItem>
+                          <SelectItem value="Chartering Companies">Chartering Companies</SelectItem>
+                          <SelectItem value="Chartering Brokers">Chartering Brokers</SelectItem>
+                          <SelectItem value="Ship Owner">Ship Owner</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
