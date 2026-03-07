@@ -50,7 +50,7 @@ export async function sendKycConfirmationEmail(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Bullex Trading Platform <onboarding@resend.dev>",
+        from: process.env.EMAIL_FROM || "Bullex Trading Platform <onboarding@resend.dev>",
         to: [to],
         subject: `KYC Application Submitted – ${companyName}`,
         html,
