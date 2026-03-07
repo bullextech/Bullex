@@ -434,11 +434,49 @@ export default function KYC() {
                 <Users className="h-5 w-5 text-primary" /> 4. Management Structure
               </h3>
               <div className="mt-6 space-y-6">
-                <div className="space-y-2">
-                  <Label className={labelClass}>Directors / Senior Management</Label>
-                  <p className="text-xs text-muted-foreground">List all directors and senior officers with their full name, nationality, date of birth, and position.</p>
-                  <Textarea className={`${textareaClass} min-h-[120px]`} placeholder="Full Name — Nationality — DOB — Position (one per line)" value={form.managementStructure} onChange={(e) => update("managementStructure", e.target.value)} data-testid="input-management" />
-                </div>
+                <p className="text-xs text-muted-foreground">Provide details for up to 3 directors / senior officers. At least Director 1 is mandatory.</p>
+                {[0, 1, 2].map((idx) => {
+                  const lines = form.managementStructure ? form.managementStructure.split("\n").filter(Boolean) : [];
+                  const parts = (lines[idx] || "").split(" — ");
+                  const dName = parts[0] || "";
+                  const dNat = parts[1] || "";
+                  const dDob = parts[2] || "";
+                  const dPos = parts[3] || "";
+                  const updateDirector = (field: number, val: string) => {
+                    const current = form.managementStructure ? form.managementStructure.split("\n").filter(Boolean) : [];
+                    while (current.length <= idx) current.push("");
+                    const p = current[idx].split(" — ");
+                    while (p.length < 4) p.push("");
+                    p[field] = val;
+                    current[idx] = p.join(" — ");
+                    update("managementStructure", current.filter((l) => l !== " —  —  — ").join("\n"));
+                  };
+                  return (
+                    <div key={idx} className="p-4 border border-border bg-muted/20 space-y-3" data-testid={`director-box-${idx + 1}`}>
+                      <h4 className="text-sm font-bold text-primary flex items-center gap-2">
+                        Director {idx + 1} {idx === 0 && <span className="text-destructive">*</span>}
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Full Name {idx === 0 && "*"}</Label>
+                          <Input className={inputClass} placeholder="Full name" value={dName} onChange={(e) => updateDirector(0, e.target.value)} data-testid={`input-director-${idx + 1}-name`} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Nationality {idx === 0 && "*"}</Label>
+                          <Input className={inputClass} placeholder="Nationality" value={dNat} onChange={(e) => updateDirector(1, e.target.value)} data-testid={`input-director-${idx + 1}-nationality`} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Date of Birth {idx === 0 && "*"}</Label>
+                          <Input className={inputClass} placeholder="DD/MM/YYYY" value={dDob} onChange={(e) => updateDirector(2, e.target.value)} data-testid={`input-director-${idx + 1}-dob`} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Position {idx === 0 && "*"}</Label>
+                          <Input className={inputClass} placeholder="e.g. Managing Director" value={dPos} onChange={(e) => updateDirector(3, e.target.value)} data-testid={`input-director-${idx + 1}-position`} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
                 <div className="space-y-2">
                   <Label className={labelClass}>Subsidiaries / Affiliated Companies</Label>
                   <Textarea className={textareaClass} placeholder="List subsidiaries with country of incorporation" value={form.subsidiaries} onChange={(e) => update("subsidiaries", e.target.value)} data-testid="input-subsidiaries" />
@@ -791,6 +829,14 @@ export default function KYC() {
                   if (activeTab === 2) {
                     if (!form.ultimateBeneficialOwners.trim() || !form.shareholders.trim()) {
                       toast({ title: "Required Fields", description: "Ultimate Beneficial Owners and Shareholders are mandatory. Please complete both fields before proceeding.", variant: "destructive" });
+                      return;
+                    }
+                  }
+                  if (activeTab === 3) {
+                    const lines = form.managementStructure ? form.managementStructure.split("\n").filter(Boolean) : [];
+                    const parts = (lines[0] || "").split(" — ");
+                    if (!parts[0]?.trim() || !parts[1]?.trim() || !parts[2]?.trim() || !parts[3]?.trim()) {
+                      toast({ title: "Required Fields", description: "Director 1 details (Full Name, Nationality, Date of Birth, Position) are mandatory.", variant: "destructive" });
                       return;
                     }
                   }
