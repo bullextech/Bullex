@@ -27,6 +27,7 @@ import {
   Users,
   Wrench,
   LogOut,
+  Building2,
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -36,6 +37,7 @@ const navItems = [
   { title: "Admin", url: "/kyc-admin", icon: ShieldCheck },
   { title: "Products", url: "/products", icon: Package },
   { title: "Platform", url: "/platform", icon: Wrench },
+  { title: "Participants", url: "/participants", icon: Building2 },
   { title: "Investor", url: "/investor", icon: Users },
   { title: "Contact", url: "/contact", icon: Mail },
 ];
