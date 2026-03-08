@@ -17,6 +17,11 @@ import {
   Ship,
   LogOut,
   User,
+  SearchCheck,
+  Scale,
+  MapPin,
+  Clock,
+  Info,
 } from "lucide-react";
 import { useClientAuth } from "@/hooks/use-client-auth";
 import ClientLogin from "./client-login";
@@ -50,6 +55,23 @@ interface TradeDocument {
   mimeType: string;
   size: number;
   uploadedAt: string;
+}
+
+interface ClientEnquiry {
+  id: string;
+  enquiryRef: string;
+  side: string;
+  product: string;
+  specifications: string | null;
+  producer: string | null;
+  quantity: string | null;
+  unit: string | null;
+  loadingPort: string | null;
+  incoterms: string | null;
+  validity: string | null;
+  additionalInfo: string | null;
+  status: string;
+  createdAt: string;
 }
 
 interface KycData {
@@ -254,6 +276,141 @@ function TradeCard({ trade }: { trade: Trade }) {
   );
 }
 
+const enquiryStatusColors: Record<string, string> = {
+  open: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  under_review: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+  quoted: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  closed: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
+  cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+};
+
+const enquiryStatusLabels: Record<string, string> = {
+  open: "Open",
+  under_review: "Under Review",
+  quoted: "Quoted",
+  closed: "Closed",
+  cancelled: "Cancelled",
+};
+
+function EnquiryCard({ enquiry }: { enquiry: ClientEnquiry }) {
+  const [expanded, setExpanded] = useState(false);
+  const created = new Date(enquiry.createdAt).toLocaleDateString("en-GB", {
+    day: "2-digit", month: "short", year: "numeric",
+  });
+
+  return (
+    <Card className="border" data-testid={`card-client-enquiry-${enquiry.id}`}>
+      <CardContent className="p-0">
+        <button
+          className="w-full p-5 text-left flex items-center justify-between hover:bg-muted/30 transition-colors"
+          onClick={() => setExpanded(!expanded)}
+          data-testid={`button-expand-enquiry-${enquiry.id}`}
+        >
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <SearchCheck className="w-5 h-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge
+                  className={`text-[10px] font-bold ${enquiry.side === "sell" ? "bg-red-600 text-white" : "bg-green-600 text-white"}`}
+                >
+                  {enquiry.side === "sell" ? "SELL" : "BUY"}
+                </Badge>
+                <span className="font-bold text-sm">{enquiry.enquiryRef}</span>
+                <Badge variant="outline" className={`text-[10px] ${enquiryStatusColors[enquiry.status] || ""}`}>
+                  {enquiryStatusLabels[enquiry.status] || enquiry.status}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {enquiry.product}
+                {enquiry.quantity && ` — ${enquiry.quantity} ${enquiry.unit || "MT"}`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <span className="text-xs text-muted-foreground hidden sm:block">{created}</span>
+            {expanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+          </div>
+        </button>
+
+        {expanded && (
+          <div className="border-t px-5 pb-5">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4 text-sm">
+              <div className="flex items-start gap-2">
+                <Package className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Product</p>
+                  <p className="text-xs font-medium">{enquiry.product}</p>
+                </div>
+              </div>
+              {enquiry.producer && (
+                <div className="flex items-start gap-2">
+                  <Building2 className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Producer</p>
+                    <p className="text-xs font-medium">{enquiry.producer}</p>
+                  </div>
+                </div>
+              )}
+              {enquiry.quantity && (
+                <div className="flex items-start gap-2">
+                  <Scale className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Quantity</p>
+                    <p className="text-xs font-medium">{enquiry.quantity} {enquiry.unit || "MT"}</p>
+                  </div>
+                </div>
+              )}
+              {enquiry.loadingPort && (
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Loading Port</p>
+                    <p className="text-xs font-medium">{enquiry.loadingPort}</p>
+                  </div>
+                </div>
+              )}
+              {enquiry.incoterms && (
+                <div className="flex items-start gap-2">
+                  <Info className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Incoterms</p>
+                    <p className="text-xs font-medium">{enquiry.incoterms}</p>
+                  </div>
+                </div>
+              )}
+              {enquiry.validity && (
+                <div className="flex items-start gap-2">
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Validity</p>
+                    <p className="text-xs font-medium">{enquiry.validity}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {enquiry.specifications && (
+              <div className="bg-muted/30 border rounded-md p-3 mb-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Specifications</p>
+                <p className="text-xs whitespace-pre-wrap">{enquiry.specifications}</p>
+              </div>
+            )}
+
+            {enquiry.additionalInfo && (
+              <div className="bg-muted/30 border rounded-md p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Additional Information</p>
+                <p className="text-xs whitespace-pre-wrap">{enquiry.additionalInfo}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ClientPortal() {
   const { authenticated, loading, username, companyName, logout } = useClientAuth();
 
@@ -271,6 +428,16 @@ export default function ClientPortal() {
     queryKey: ["/api/client/kyc"],
     queryFn: async () => {
       const res = await fetch("/api/client/kyc");
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    enabled: authenticated,
+  });
+
+  const { data: enquiries, isLoading: enquiriesLoading } = useQuery<ClientEnquiry[]>({
+    queryKey: ["/api/client/enquiries"],
+    queryFn: async () => {
+      const res = await fetch("/api/client/enquiries", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
@@ -429,6 +596,39 @@ export default function ClientPortal() {
                 <p className="text-sm text-muted-foreground">No trades found for your organisation yet.</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Contact <a href="mailto:trade@bullex.tech" className="text-primary hover:underline">trade@bullex.tech</a> to initiate a trade.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <div className="mb-8">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-4 flex items-center gap-2" data-testid="text-enquiries-heading">
+            <SearchCheck className="w-4 h-4" />
+            Product Enquiries
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Trade enquiries matching your registered products
+            {kycData?.products ? ` (${kycData.products})` : kycData?.category ? ` (${kycData.category})` : ""}
+          </p>
+          {enquiriesLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-20" />
+              <Skeleton className="h-20" />
+            </div>
+          ) : enquiries && enquiries.length > 0 ? (
+            <div className="space-y-3">
+              {enquiries.map((enquiry) => (
+                <EnquiryCard key={enquiry.id} enquiry={enquiry} />
+              ))}
+            </div>
+          ) : (
+            <Card className="border">
+              <CardContent className="p-8 text-center">
+                <SearchCheck className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">No product enquiries matching your registered products.</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Enquiries for products you deal in will appear here automatically.
                 </p>
               </CardContent>
             </Card>

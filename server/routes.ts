@@ -250,6 +250,25 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/client/enquiries", requireClientAuth, async (req, res) => {
+    try {
+      const kyc = await storage.getKycApplicationById(req.session.clientKycId!);
+      if (!kyc) return res.status(404).json({ message: "KYC record not found" });
+      const allEnquiries = await storage.getTradeEnquiries();
+      const kycProducts = (kyc.products || kyc.coreBusinessDescription || "")
+        .split(/[,;\/|]+/)
+        .map((p: string) => p.trim().toLowerCase())
+        .filter(Boolean);
+      const matched = allEnquiries.filter((e) => {
+        const product = e.product.toLowerCase();
+        return kycProducts.some((kp: string) => product.includes(kp) || kp.includes(product));
+      });
+      res.json(matched);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch enquiries" });
+    }
+  });
+
   seedDatabase().catch((err) => console.error("Seed error:", err));
 
   function sanitizeKyc(kyc: any) {
