@@ -262,7 +262,7 @@ export default function KYC() {
     if (!form.companyName || !form.registeredAddress || !form.contactName ||
         !form.contactTitle || !form.contactPhone || !form.contactEmail ||
         !form.dateOfIncorporation || !form.countryOfIncorporation || !form.registrationNumber ||
-        !form.signatoryCompany) {
+        !form.signatoryCompany || !form.filledByName || !form.filledByEmail) {
       toast({
         title: "Missing Required Fields",
         description: "Please complete all mandatory fields marked with * before submitting.",
@@ -1127,11 +1127,11 @@ export default function KYC() {
                   <h4 className="text-sm font-bold text-primary mb-4">Form Filled By</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label className={labelClass}>Name</Label>
+                      <Label className={labelClass}>Name *</Label>
                       <Input className={inputClass} placeholder="Name of person filling this form" value={form.filledByName} onChange={(e) => update("filledByName", e.target.value)} data-testid="input-filled-by-name" />
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Email</Label>
+                      <Label className={labelClass}>Email *</Label>
                       <Input className={inputClass} type="email" placeholder="email@company.com" value={form.filledByEmail} onChange={(e) => update("filledByEmail", e.target.value)} data-testid="input-filled-by-email" />
                     </div>
                   </div>
