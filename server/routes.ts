@@ -154,7 +154,6 @@ export async function registerRoutes(
     }
     try {
       const kyc = await storage.getKycByClientUsername(username);
-      console.log(`[client-login] Attempt: username="${username}", found=${!!kyc}, status=${kyc?.status}, passwordMatch=${kyc?.clientPassword === password}`);
       if (!kyc || kyc.clientPassword !== password || kyc.status !== "approved") {
         return res.status(401).json({ message: "Invalid credentials or account not active" });
       }
