@@ -28,6 +28,13 @@ export interface ProductDetails {
   docsForPayment?: string;
   otherTerms?: string;
   compliance?: string;
+  recapValidity?: string;
+  deliveryBasis?: string;
+  loadingWindow?: string;
+  shippingTerms?: string;
+  governingLaw?: string;
+  annexSpecs?: string;
+  qualityPremiums?: string;
   specialNote?: string;
 }
 
@@ -105,48 +112,172 @@ SWIFT/BIC: ${v(seller?.swift)}`;
 
 const templates: Record<string, (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => string> = {
 
-  DEAL_RECAP: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `DEAL RECAP
-${"=".repeat(40)}
+  DEAL_RECAP: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const cur = product?.currency || trade?.currency || "USD";
+    const recapVal = product?.recapValidity?.trim() || "Valid for acceptance for five (5) calendar days from issuance, subject to Seller's confirmation and product availability.";
+    const agency = v(product?.analysisAgency, "SGS, Intertek or Bureau Veritas");
+    return `RECAP – COMMERCIAL TERMS CONFIRMATION
+${"=".repeat(50)}
 
-Date: ${today()}
-Reference: ${trade?.tradeRef || "_______________"}
-Status: DRAFT — Subject to Final Confirmation by Both Parties
 
-PREAMBLE
-This Deal Recap summarises the principal terms and conditions agreed between the parties for the supply of the commodity described below. This document serves as a record of the key deal points and is subject to the execution of a formal Sales & Purchase Agreement (SPA).
+${"═".repeat(70)}
+CHAPTER I – INTRODUCTORY & BACKGROUND
+${"═".repeat(70)}
 
-PARTIES
-${sellerBlock(seller, trade)}
+ Item                          │ Description
+${"─".repeat(70)}
+ Contract Reference            │ ${trade?.tradeRef || "_______________"}
+${"─".repeat(70)}
+ Effective Date                │ Date of last authorized signature
+${"─".repeat(70)}
+ Seller                        │ ${v(seller?.name, trade?.sellerName)}
+${"─".repeat(70)}
+ Buyer                         │ ${v(buyer?.name, trade?.buyerName)}
+${"─".repeat(70)}
+ Legal Model of Contract       │ Sales and Purchase Agreement (SPA)
+${"─".repeat(70)}
+ Recap Validity                │ ${recapVal}
+${"─".repeat(70)}
 
-${buyerBlock(buyer, trade)}
 
-COMMODITY DETAILS
-${tradeBlock(trade, buyer, seller, product)}
+${"═".repeat(70)}
+CHAPTER II – SCOPE & COMMERCIAL TERMS
+${"═".repeat(70)}
 
-${qualityBlock(product)}
+ Item                          │ Description
+${"─".repeat(70)}
+ Commodity                     │ ${v(product?.commodity, trade?.commodity)}
+${"─".repeat(70)}
+ Country of Origin             │ ${v(product?.origin, trade?.origin)}
+${"─".repeat(70)}
+ Quality / Specification       │ ${product?.qualitySpecs?.trim() || "As per Annex 1 – Product Specifications"}
+${"─".repeat(70)}
+ Delivery Basis                │ ${v(product?.deliveryBasis, product?.incoterm || trade?.incoterm)}
+${"─".repeat(70)}
+ Contractual Quantity          │ ${v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined)}
+${"─".repeat(70)}
 
-DELIVERY TERMS
-${deliveryBlock(trade, product)}
 
-PAYMENT TERMS
-${paymentBlock(product)}
+${"═".repeat(70)}
+CHAPTER III – FINANCIAL & OPERATIONAL ARRANGEMENTS
+${"═".repeat(70)}
 
-${inspectionBlock(product)}
+ Item                          │ Description
+${"─".repeat(70)}
+ Contract Price & Currency     │ ${cur} ${v(product?.price, trade ? trade.pricePerUnit.toLocaleString() : undefined)}
+${"─".repeat(70)}
+ Payment Terms                 │ ${v(product?.paymentTerms)}
+${"─".repeat(70)}
+ Loading Window                │ ${v(product?.loadingWindow, product?.laycan)}
+${"─".repeat(70)}
+ Shipping Terms                │ ${product?.shippingTerms?.trim() || `Delivery Term: ${v(product?.incoterm, trade?.incoterm)}\nPort of Discharge (POD): ${v(product?.dischargePort, trade?.destination)}`}
+${"─".repeat(70)}
 
-TERMS & CONDITIONS
-1. This Deal Recap is valid for a period of seven (7) working days from the date of issuance.
-2. The Buyer shall respond with an ICPO within the validity period.
-3. Upon mutual agreement, the parties shall proceed to execute a Sales & Purchase Agreement (SPA).
-4. All terms are subject to final negotiation and execution of the SPA.
-5. This Deal Recap does not constitute a binding contract.
-${specialNoteBlock(product)}
 
-AUTHORISED SIGNATORY
-Name: _______________
-Title: _______________
-Company: ${v(seller?.name, trade?.sellerName)}
-Date: ${today()}
-Signature: _______________`,
+${"═".repeat(70)}
+CHAPTER IV – MISCELLANEOUS & BOILERPLATE
+${"═".repeat(70)}
+
+ Item                          │ Description
+${"─".repeat(70)}
+ Governing Law and             │ ${v(product?.governingLaw)}
+ Jurisdiction                  │
+${"─".repeat(70)}
+ Application of Industry       │ Applicable international industry
+ Standards                     │ standards and ICC rules
+${"─".repeat(70)}
+
+
+For and on behalf of the Seller:          For and on behalf of the Buyer:
+${v(seller?.name, trade?.sellerName).padEnd(42)}${v(buyer?.name, trade?.buyerName)}
+
+Name: ${v(seller?.contact).padEnd(36)}Name: ${v(buyer?.contact)}
+Authorised Signatory: _______________     Authorised Signatory: _______________
+Title: _______________                    Title: _______________
+Date: ${today().padEnd(37)}Date: ${today()}
+
+Signature & Stamp:                        Signature & Stamp:
+
+
+
+
+${"═".repeat(70)}
+⬛ ANNEX I – PRODUCT SPECIFICATION, QUALITY ADJUSTMENT & SAMPLING
+${"═".repeat(70)}
+
+Product: ${v(product?.commodity, trade?.commodity)}
+Grade: ${v(product?.qualitySpecs?.split("\\n")?.[0], "_______________")}
+
+The product supplied under this Contract shall comply with the
+following specifications. Guaranteed specifications represent binding
+commitments by the Seller. Typical specifications are provided for
+reference only and shall not constitute contractual guarantees.
+
+PRODUCT SPECIFICATION
+${"─".repeat(70)}
+ Parameter          │ Guaranteed    │ Typical       │ Rejection
+                    │ Specification │ Specification │ Limit
+${"─".repeat(70)}
+${product?.annexSpecs?.trim() || ` Moisture           │               │               │
+${"─".repeat(70)}
+ Ash                │               │               │
+${"─".repeat(70)}
+ Volatile Matter    │               │               │
+${"─".repeat(70)}
+ Fixed Carbon       │               │               │
+${"─".repeat(70)}
+ Sulphur            │               │               │
+${"─".repeat(70)}
+ Calorific Value    │               │               │
+${"─".repeat(70)}
+ Size Distribution  │               │               │`}
+${"─".repeat(70)}
+
+
+QUALITY PREMIUMS AND PENALTIES
+${"─".repeat(70)}
+${product?.qualityPremiums?.trim() || "To be agreed between Buyer and Seller."}
+${"─".repeat(70)}
+
+
+SAMPLING PROCEDURE
+Sampling shall be conducted during loading at the loading port
+following internationally recognized standards for sampling.
+Incremental samples shall be taken systematically and combined into
+representative composite samples. Sampling and sealing procedures
+shall be supervised and certified by the independent inspection
+company.
+
+QUALITY DETERMINATION
+All quality determinations shall be performed by an internationally
+recognized inspection company such as ${agency}
+at the loading port. The inspection certificate issued at the loading
+port shall be final and binding for both Parties.
+
+SAMPLE RETENTION
+One representative sealed sample shall be retained by the inspection
+company for ninety (90) days for reference in case of dispute.
+
+MOISTURE DETERMINATION
+Moisture content shall be determined at the loading port based on
+laboratory analysis of representative composite samples. The moisture
+value determined at the loading port shall be the contractual moisture
+value for the cargo. Any determination at the discharge port shall be
+for reference only and shall not affect commercial settlement.
+
+QUANTITY AND WEIGHT DETERMINATION
+The quantity of the cargo shall be determined at the loading port by
+draft survey conducted by an independent inspection company such as
+${agency}.
+The draft survey certificate issued at the loading port shall
+determine the official shipped quantity and shall be final and binding
+for both Parties.
+The quantity stated in the Bill of Lading and confirmed by the draft
+survey certificate shall be the contractual quantity for invoicing and
+settlement purposes.
+${product?.specialNote ? `\n\nSPECIAL NOTES\n${product.specialNote}` : ""}
+`;
+  },
 
   FCO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `FULL CORPORATE OFFER (FCO)
 ${"=".repeat(40)}

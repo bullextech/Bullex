@@ -98,6 +98,13 @@ export default function DocumentGenerator() {
   const [docsForPayment, setDocsForPayment] = useState("");
   const [otherTerms, setOtherTerms] = useState("");
   const [compliance, setCompliance] = useState("");
+  const [recapValidity, setRecapValidity] = useState("");
+  const [deliveryBasis, setDeliveryBasis] = useState("");
+  const [loadingWindow, setLoadingWindow] = useState("");
+  const [shippingTerms, setShippingTerms] = useState("");
+  const [governingLaw, setGoverningLaw] = useState("");
+  const [annexSpecs, setAnnexSpecs] = useState("");
+  const [qualityPremiums, setQualityPremiums] = useState("");
   const [specialNote, setSpecialNote] = useState("");
   const [viewDoc, setViewDoc] = useState<Doc | null>(null);
   const [editDoc, setEditDoc] = useState<Doc | null>(null);
@@ -162,7 +169,9 @@ export default function DocumentGenerator() {
     setCommodity(""); setOrigin(""); setQuantity(""); setQualitySpecs(""); setLoadingPort(""); setDischargePort("");
     setPrice(""); setCurrency("USD"); setIncoterm(""); setLaycan(""); setPaymentTerms("");
     setAnalysisAgency(""); setAnalysisAgencyContact(""); setValidity(""); setRefPerson("");
-    setContractConfirmation(""); setDocsForPayment(""); setOtherTerms(""); setCompliance(""); setSpecialNote("");
+    setContractConfirmation(""); setDocsForPayment(""); setOtherTerms(""); setCompliance("");
+    setRecapValidity(""); setDeliveryBasis(""); setLoadingWindow(""); setShippingTerms("");
+    setGoverningLaw(""); setAnnexSpecs(""); setQualityPremiums(""); setSpecialNote("");
   };
 
   const generateDoc = useMutation({
@@ -217,7 +226,9 @@ export default function DocumentGenerator() {
         commodity, origin, quantity, qualitySpecs, loadingPort, dischargePort,
         price, currency, incoterm, laycan, paymentTerms,
         analysisAgency, analysisAgencyContact, validity, refPerson,
-        contractConfirmation, docsForPayment, otherTerms, compliance, specialNote,
+        contractConfirmation, docsForPayment, otherTerms, compliance,
+        recapValidity, deliveryBasis, loadingWindow, shippingTerms,
+        governingLaw, annexSpecs, qualityPremiums, specialNote,
       },
     });
   };
@@ -233,7 +244,9 @@ export default function DocumentGenerator() {
       setCommodity(""); setOrigin(""); setQuantity(""); setQualitySpecs(""); setLoadingPort(""); setDischargePort("");
       setPrice(""); setCurrency("USD"); setIncoterm(""); setLaycan(""); setPaymentTerms("");
       setAnalysisAgency(""); setAnalysisAgencyContact(""); setValidity(""); setRefPerson("");
-      setContractConfirmation(""); setDocsForPayment(""); setOtherTerms(""); setCompliance(""); setSpecialNote("");
+      setContractConfirmation(""); setDocsForPayment(""); setOtherTerms(""); setCompliance("");
+      setRecapValidity(""); setDeliveryBasis(""); setLoadingWindow(""); setShippingTerms("");
+      setGoverningLaw(""); setAnnexSpecs(""); setQualityPremiums(""); setSpecialNote("");
     }
   };
 
@@ -459,7 +472,7 @@ export default function DocumentGenerator() {
                 />
               </div>
 
-              <Accordion type="multiple" defaultValue={selectedType?.value === "LOI" ? ["product", "buyer", "seller"] : ["product"]} className="w-full">
+              <Accordion type="multiple" defaultValue={selectedType?.value === "LOI" || selectedType?.value === "DEAL_RECAP" ? ["product", "buyer", "seller"] : ["product"]} className="w-full">
                 <AccordionItem value="product" className="border-b-0">
                   <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">
                     <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Product Details</span>
@@ -501,6 +514,17 @@ export default function DocumentGenerator() {
                         <Textarea placeholder="Documents for Payment (e.g. Commercial Invoice, Packing List, Certificate of Origin, Assay Report, etc.)" value={docsForPayment} onChange={(e) => setDocsForPayment(e.target.value)} rows={4} data-testid="input-docs-for-payment" />
                         <Textarea placeholder="Other Terms & Conditions (e.g. For DLC, after signing of SPA, Seller must arrange RWA by MT199...)" value={otherTerms} onChange={(e) => setOtherTerms(e.target.value)} rows={3} data-testid="input-other-terms" />
                         <Textarea placeholder="Compliance (e.g. Seller must send KYC documents to compliance@bullfrog.ae upon signing of SPA...)" value={compliance} onChange={(e) => setCompliance(e.target.value)} rows={2} data-testid="input-compliance" />
+                      </>
+                    )}
+                    {selectedType?.value === "DEAL_RECAP" && (
+                      <>
+                        <Input placeholder="Recap Validity (e.g. Valid for 5 calendar days from issuance)" value={recapValidity} onChange={(e) => setRecapValidity(e.target.value)} data-testid="input-recap-validity" />
+                        <Input placeholder="Delivery Basis (e.g. FOB Vessel, CIF Discharge Port)" value={deliveryBasis} onChange={(e) => setDeliveryBasis(e.target.value)} data-testid="input-delivery-basis" />
+                        <Input placeholder="Loading Window (e.g. 15-30 April 2026)" value={loadingWindow} onChange={(e) => setLoadingWindow(e.target.value)} data-testid="input-loading-window" />
+                        <Textarea placeholder="Shipping Terms (e.g. Delivery Term: CIF&#10;Port of Discharge (POD): Qingdao, China)" value={shippingTerms} onChange={(e) => setShippingTerms(e.target.value)} rows={3} data-testid="input-shipping-terms" />
+                        <Input placeholder="Governing Law & Jurisdiction (e.g. English Law, LCIA Arbitration)" value={governingLaw} onChange={(e) => setGoverningLaw(e.target.value)} data-testid="input-governing-law" />
+                        <Textarea placeholder="Annex I — Product Specification Table (e.g. Moisture: 8% max | Ash: 12% max | Sulphur: 1.5% max | CV: 6000 kcal/kg)" value={annexSpecs} onChange={(e) => setAnnexSpecs(e.target.value)} rows={5} data-testid="input-annex-specs" />
+                        <Textarea placeholder="Quality Premiums & Penalties (e.g. CV above 6200: +$2/MT | CV below 5800: -$3/MT | Moisture above 10%: rejection)" value={qualityPremiums} onChange={(e) => setQualityPremiums(e.target.value)} rows={3} data-testid="input-quality-premiums" />
                       </>
                     )}
                     <div className="grid grid-cols-2 gap-3">
