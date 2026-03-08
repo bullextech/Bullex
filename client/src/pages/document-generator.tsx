@@ -21,6 +21,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   FileText,
   Plus,
   CheckCircle2,
@@ -30,6 +36,8 @@ import {
   Pencil,
   Save,
   X,
+  User,
+  Building2,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +59,16 @@ export default function DocumentGenerator() {
   const [selectedType, setSelectedType] = useState("");
   const [selectedTrade, setSelectedTrade] = useState("");
   const [title, setTitle] = useState("");
+  const [buyerName, setBuyerName] = useState("");
+  const [buyerAddress, setBuyerAddress] = useState("");
+  const [buyerContact, setBuyerContact] = useState("");
+  const [buyerBank, setBuyerBank] = useState("");
+  const [buyerSwift, setBuyerSwift] = useState("");
+  const [sellerName, setSellerName] = useState("");
+  const [sellerAddress, setSellerAddress] = useState("");
+  const [sellerContact, setSellerContact] = useState("");
+  const [sellerBank, setSellerBank] = useState("");
+  const [sellerSwift, setSellerSwift] = useState("");
   const [viewDoc, setViewDoc] = useState<Doc | null>(null);
   const [editDoc, setEditDoc] = useState<Doc | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -66,7 +84,7 @@ export default function DocumentGenerator() {
   });
 
   const generateDoc = useMutation({
-    mutationFn: async (data: { docType: string; tradeRef?: string; title: string }) => {
+    mutationFn: async (data: Record<string, any>) => {
       const res = await apiRequest("POST", "/api/documents", data);
       return res.json();
     },
@@ -75,6 +93,8 @@ export default function DocumentGenerator() {
       setSelectedType("");
       setSelectedTrade("");
       setTitle("");
+      setBuyerName(""); setBuyerAddress(""); setBuyerContact(""); setBuyerBank(""); setBuyerSwift("");
+      setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
       toast({ title: "Document Generated", description: "Trade document has been created successfully." });
     },
     onError: (error: Error) => {
@@ -107,6 +127,14 @@ export default function DocumentGenerator() {
       docType: selectedType,
       tradeRef: selectedTrade && selectedTrade !== "none" ? selectedTrade : undefined,
       title,
+      buyerDetails: {
+        name: buyerName, address: buyerAddress, contact: buyerContact,
+        bank: buyerBank, swift: buyerSwift,
+      },
+      sellerDetails: {
+        name: sellerName, address: sellerAddress, contact: sellerContact,
+        bank: sellerBank, swift: sellerSwift,
+      },
     });
   };
 
@@ -224,6 +252,32 @@ export default function DocumentGenerator() {
                 data-testid="input-doc-title"
               />
             </div>
+            <Accordion type="multiple" className="w-full">
+              <AccordionItem value="buyer" className="border-b-0">
+                <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">
+                  <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Buyer Details</span>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-3 pb-3">
+                  <Input placeholder="Buyer company name" value={buyerName} onChange={(e) => setBuyerName(e.target.value)} data-testid="input-buyer-name" />
+                  <Input placeholder="Buyer address" value={buyerAddress} onChange={(e) => setBuyerAddress(e.target.value)} data-testid="input-buyer-address" />
+                  <Input placeholder="Contact person & email" value={buyerContact} onChange={(e) => setBuyerContact(e.target.value)} data-testid="input-buyer-contact" />
+                  <Input placeholder="Bank name" value={buyerBank} onChange={(e) => setBuyerBank(e.target.value)} data-testid="input-buyer-bank" />
+                  <Input placeholder="SWIFT / BIC code" value={buyerSwift} onChange={(e) => setBuyerSwift(e.target.value)} data-testid="input-buyer-swift" />
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="seller" className="border-b-0">
+                <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">
+                  <span className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> Seller Details</span>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-3 pb-3">
+                  <Input placeholder="Seller company name" value={sellerName} onChange={(e) => setSellerName(e.target.value)} data-testid="input-seller-name" />
+                  <Input placeholder="Seller address" value={sellerAddress} onChange={(e) => setSellerAddress(e.target.value)} data-testid="input-seller-address" />
+                  <Input placeholder="Contact person & email" value={sellerContact} onChange={(e) => setSellerContact(e.target.value)} data-testid="input-seller-contact" />
+                  <Input placeholder="Bank name" value={sellerBank} onChange={(e) => setSellerBank(e.target.value)} data-testid="input-seller-bank" />
+                  <Input placeholder="SWIFT / BIC code" value={sellerSwift} onChange={(e) => setSellerSwift(e.target.value)} data-testid="input-seller-swift" />
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
             <Button
               className="w-full"
               onClick={handleGenerate}

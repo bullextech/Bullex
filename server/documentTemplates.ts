@@ -1,8 +1,17 @@
 import type { Trade } from "@shared/schema";
 
-const today = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+export interface PartyDetails {
+  name?: string;
+  address?: string;
+  contact?: string;
+  bank?: string;
+  swift?: string;
+}
 
-function tradeBlock(trade?: Trade): string {
+const today = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+const v = (val?: string, fallback = "_______________") => val?.trim() || fallback;
+
+function tradeBlock(trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails): string {
   if (!trade) return `[Commodity]: _______________
 [Quantity]: _______________
 [Unit Price]: _______________
@@ -11,8 +20,8 @@ function tradeBlock(trade?: Trade): string {
 [Origin]: _______________
 [Destination]: _______________
 [Incoterm]: _______________
-[Buyer]: _______________
-[Seller]: _______________`;
+[Buyer]: ${v(buyer?.name)}
+[Seller]: ${v(seller?.name)}`;
 
   return `Commodity: ${trade.commodity}
 Quantity: ${trade.quantity.toLocaleString()} ${trade.unit}
@@ -22,13 +31,31 @@ Currency: ${trade.currency}
 Origin: ${trade.origin}
 Destination: ${trade.destination}
 Incoterm: ${trade.incoterm}
-Buyer: ${trade.buyerName}
-Seller: ${trade.sellerName}`;
+Buyer: ${v(buyer?.name, trade.buyerName)}
+Seller: ${v(seller?.name, trade.sellerName)}`;
 }
 
-const templates: Record<string, (trade?: Trade) => string> = {
+function buyerBlock(buyer?: PartyDetails, trade?: Trade): string {
+  return `BUYER DETAILS
+Company: ${v(buyer?.name, trade?.buyerName)}
+Address: ${v(buyer?.address)}
+Contact: ${v(buyer?.contact)}
+Bank: ${v(buyer?.bank)}
+SWIFT/BIC: ${v(buyer?.swift)}`;
+}
 
-  SCO: (trade?: Trade) => `SOFT CORPORATE OFFER (SCO)
+function sellerBlock(seller?: PartyDetails, trade?: Trade): string {
+  return `SELLER DETAILS
+Company: ${v(seller?.name, trade?.sellerName)}
+Address: ${v(seller?.address)}
+Contact: ${v(seller?.contact)}
+Bank: ${v(seller?.bank)}
+SWIFT/BIC: ${v(seller?.swift)}`;
+}
+
+const templates: Record<string, (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => string> = {
+
+  SCO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `SOFT CORPORATE OFFER (SCO)
 ${"=".repeat(40)}
 
 Date: ${today()}
@@ -38,8 +65,13 @@ Status: DRAFT — Subject to Seller's Final Confirmation
 PREAMBLE
 We, the undersigned, hereby present this Soft Corporate Offer for the supply of the commodity described below. This SCO is issued in good faith and is subject to the Seller's final confirmation upon receipt of the Buyer's Irrevocable Corporate Purchase Order (ICPO).
 
+PARTIES
+${sellerBlock(seller, trade)}
+
+${buyerBlock(buyer, trade)}
+
 COMMODITY DETAILS
-${tradeBlock(trade)}
+${tradeBlock(trade, buyer, seller)}
 
 TERMS & CONDITIONS
 1. This Soft Corporate Offer is valid for a period of seven (7) working days from the date of issuance.
@@ -60,7 +92,7 @@ Company: _______________
 Date: ${today()}
 Signature: _______________`,
 
-  FCO: (trade?: Trade) => `FULL CORPORATE OFFER (FCO)
+  FCO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `FULL CORPORATE OFFER (FCO)
 ${"=".repeat(40)}
 
 Date: ${today()}
@@ -70,8 +102,13 @@ Status: IRREVOCABLE — Binding upon Buyer's acceptance
 PREAMBLE
 We, the undersigned, hereby confirm and present this Full Corporate Offer for the supply of the commodity described below. This FCO is irrevocable and binding upon acceptance by the Buyer within the stipulated validity period.
 
+PARTIES
+${sellerBlock(seller, trade)}
+
+${buyerBlock(buyer, trade)}
+
 COMMODITY DETAILS
-${tradeBlock(trade)}
+${tradeBlock(trade, buyer, seller)}
 
 DELIVERY TERMS
 Shipment Period: Within _____ days from LC issuance
@@ -108,7 +145,7 @@ Company: _______________
 Date: ${today()}
 Signature: _______________`,
 
-  ICPO: (trade?: Trade) => `IRREVOCABLE CORPORATE PURCHASE ORDER (ICPO)
+  ICPO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `IRREVOCABLE CORPORATE PURCHASE ORDER (ICPO)
 ${"=".repeat(40)}
 
 Date: ${today()}
@@ -118,8 +155,13 @@ Status: IRREVOCABLE
 PREAMBLE
 We, the undersigned Buyer, hereby issue this Irrevocable Corporate Purchase Order to purchase the commodity described below, under the terms and conditions set forth herein.
 
+PARTIES
+${buyerBlock(buyer, trade)}
+
+${sellerBlock(seller, trade)}
+
 COMMODITY DETAILS
-${tradeBlock(trade)}
+${tradeBlock(trade, buyer, seller)}
 
 BUYER'S UNDERTAKING
 1. The Buyer confirms readiness, willingness, and ability to purchase the above commodity.
@@ -133,34 +175,37 @@ TERMS & CONDITIONS
 4. All disputes shall be settled by arbitration under ICC rules.
 
 BANKING DETAILS
-Bank Name: _______________
-Account Name: _______________
-SWIFT/BIC: _______________
+Bank Name: ${v(buyer?.bank)}
+Account Name: ${v(buyer?.name, trade?.buyerName)}
+SWIFT/BIC: ${v(buyer?.swift)}
 Bank Officer: _______________
 Bank Officer Email: _______________
 
 AUTHORISED SIGNATORY
 Name: _______________
 Title: _______________
-Company: ${trade?.buyerName || "_______________"}
+Company: ${v(buyer?.name, trade?.buyerName)}
 Date: ${today()}
 Signature: _______________`,
 
-  SPA: (trade?: Trade) => `SALES & PURCHASE AGREEMENT (SPA)
+  SPA: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `SALES & PURCHASE AGREEMENT (SPA)
 ${"=".repeat(40)}
 
 Date: ${today()}
 Agreement Reference: ${trade?.tradeRef || "_______________"}
 
 PARTIES
-Seller: ${trade?.sellerName || "_______________"} (hereinafter referred to as "Seller")
-Buyer: ${trade?.buyerName || "_______________"} (hereinafter referred to as "Buyer")
+${sellerBlock(seller, trade)}
+(hereinafter referred to as "Seller")
+
+${buyerBlock(buyer, trade)}
+(hereinafter referred to as "Buyer")
 
 RECITALS
 WHEREAS the Seller desires to sell and the Buyer desires to purchase the commodity described herein under the terms and conditions set forth in this Agreement.
 
 ARTICLE 1 — COMMODITY
-${tradeBlock(trade)}
+${tradeBlock(trade, buyer, seller)}
 
 ARTICLE 2 — PRICE AND PAYMENT
 2.1 The total contract value is ${trade ? `${trade.currency} ${trade.totalValue.toLocaleString()}` : "_______________"}.
@@ -201,25 +246,25 @@ This Agreement shall be governed by English Law.
 SELLER
 Name: _______________
 Title: _______________
-Company: ${trade?.sellerName || "_______________"}
+Company: ${v(seller?.name, trade?.sellerName)}
 Date: ${today()}
 Signature: _______________
 
 BUYER
 Name: _______________
 Title: _______________
-Company: ${trade?.buyerName || "_______________"}
+Company: ${v(buyer?.name, trade?.buyerName)}
 Date: ${today()}
 Signature: _______________`,
 
-  LOI: (trade?: Trade) => `LETTER OF INTENT (LOI)
+  LOI: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `LETTER OF INTENT (LOI)
 ${"=".repeat(40)}
 
 Date: ${today()}
 Reference: ${trade?.tradeRef || "_______________"}
 
-TO: ${trade?.sellerName || "_______________"}
-FROM: ${trade?.buyerName || "_______________"}
+TO: ${v(seller?.name, trade?.sellerName)}
+FROM: ${v(buyer?.name, trade?.buyerName)}
 
 SUBJECT: Letter of Intent to Purchase ${trade?.commodity || "_______________"}
 
@@ -227,8 +272,13 @@ Dear Sir/Madam,
 
 We hereby express our firm intention and interest to purchase the commodity described below under the terms and conditions outlined herein.
 
+PARTIES
+${buyerBlock(buyer, trade)}
+
+${sellerBlock(seller, trade)}
+
 COMMODITY DETAILS
-${tradeBlock(trade)}
+${tradeBlock(trade, buyer, seller)}
 
 INTENT
 1. We confirm our genuine interest, readiness, willingness, and financial ability to purchase the above commodity.
@@ -242,10 +292,8 @@ b) We have the financial capacity to complete this transaction.
 c) Our banking institution is ready to issue an LC upon execution of the SPA.
 
 BANKING REFERENCE
-Bank Name: _______________
-Account Name: _______________
-SWIFT/BIC: _______________
-Bank Officer: _______________
+Bank Name: ${v(buyer?.bank)}
+SWIFT/BIC: ${v(buyer?.swift)}
 
 VALIDITY
 This Letter of Intent is valid for ten (10) working days from the date of issuance.
@@ -253,11 +301,11 @@ This Letter of Intent is valid for ten (10) working days from the date of issuan
 AUTHORISED SIGNATORY
 Name: _______________
 Title: _______________
-Company: ${trade?.buyerName || "_______________"}
+Company: ${v(buyer?.name, trade?.buyerName)}
 Date: ${today()}
 Signature: _______________`,
 
-  POP: (trade?: Trade) => `PROOF OF PRODUCT (POP)
+  POP: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `PROOF OF PRODUCT (POP)
 ${"=".repeat(40)}
 
 Date: ${today()}
@@ -266,8 +314,10 @@ Reference: ${trade?.tradeRef || "_______________"}
 PREAMBLE
 This document serves as Proof of Product confirming the availability and existence of the commodity described below. The Seller warrants the authenticity of all information provided herein.
 
+${sellerBlock(seller, trade)}
+
 COMMODITY DETAILS
-${tradeBlock(trade)}
+${tradeBlock(trade, buyer, seller)}
 
 PRODUCT SPECIFICATIONS
 Grade/Quality: _______________
@@ -299,11 +349,11 @@ The Seller hereby warrants that:
 AUTHORISED SIGNATORY
 Name: _______________
 Title: _______________
-Company: ${trade?.sellerName || "_______________"}
+Company: ${v(seller?.name, trade?.sellerName)}
 Date: ${today()}
 Signature: _______________`,
 
-  POF: (trade?: Trade) => `PROOF OF FUNDS (POF)
+  POF: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `PROOF OF FUNDS (POF)
 ${"=".repeat(40)}
 
 Date: ${today()}
@@ -312,8 +362,10 @@ Reference: ${trade?.tradeRef || "_______________"}
 PREAMBLE
 This document serves as Proof of Funds confirming the financial capacity of the Buyer to complete the transaction described below. The Buyer warrants that all financial information provided herein is accurate and verifiable.
 
+${buyerBlock(buyer, trade)}
+
 TRANSACTION DETAILS
-${tradeBlock(trade)}
+${tradeBlock(trade, buyer, seller)}
 
 FINANCIAL CONFIRMATION
 The Buyer hereby confirms:
@@ -323,10 +375,10 @@ The Buyer hereby confirms:
 4. The Buyer is authorised to utilise said funds for this transaction.
 
 BANKING DETAILS
-Bank Name: _______________
-Account Holder: _______________
+Bank Name: ${v(buyer?.bank)}
+Account Holder: ${v(buyer?.name, trade?.buyerName)}
 Account Number: _______________
-SWIFT/BIC: _______________
+SWIFT/BIC: ${v(buyer?.swift)}
 Account Currency: _______________
 
 BANK OFFICER CONFIRMATION
@@ -344,11 +396,11 @@ SUPPORTING DOCUMENTS
 AUTHORISED SIGNATORY
 Name: _______________
 Title: _______________
-Company: ${trade?.buyerName || "_______________"}
+Company: ${v(buyer?.name, trade?.buyerName)}
 Date: ${today()}
 Signature: _______________`,
 
-  BCL: (trade?: Trade) => `BANK COMFORT LETTER (BCL)
+  BCL: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `BANK COMFORT LETTER (BCL)
 ${"=".repeat(40)}
 
 Date: ${today()}
@@ -356,20 +408,21 @@ Reference: ${trade?.tradeRef || "_______________"}
 
 TO WHOM IT MAY CONCERN
 
-RE: Bank Comfort Letter for ${trade?.buyerName || "_______________"}
+RE: Bank Comfort Letter for ${v(buyer?.name, trade?.buyerName)}
 
 Dear Sir/Madam,
 
 We, the undersigned banking institution, hereby confirm the following with respect to our client named below:
 
 CLIENT DETAILS
-Client Name: ${trade?.buyerName || "_______________"}
+Client Name: ${v(buyer?.name, trade?.buyerName)}
+Client Address: ${v(buyer?.address)}
 Account Number: _______________
 Account Type: _______________
 Relationship Since: _______________
 
 TRANSACTION REFERENCE
-${tradeBlock(trade)}
+${tradeBlock(trade, buyer, seller)}
 
 CONFIRMATION
 We hereby confirm that:
@@ -397,8 +450,8 @@ Date: ${today()}
 Signature & Bank Seal: _______________`,
 };
 
-export function generateDocumentContent(docType: string, trade?: Trade): string {
+export function generateDocumentContent(docType: string, trade?: Trade, buyerDetails?: PartyDetails, sellerDetails?: PartyDetails): string {
   const templateFn = templates[docType];
   if (!templateFn) return "";
-  return templateFn(trade);
+  return templateFn(trade, buyerDetails, sellerDetails);
 }
