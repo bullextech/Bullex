@@ -122,6 +122,39 @@ export async function sendKycApprovalEmail(
   return sendEmail(to, `KYC Application Approved – ${companyName}`, emailWrapper(body));
 }
 
+export async function sendKycRejectionEmail(
+  to: string,
+  companyName: string,
+  signatoryName: string,
+  reviewNotes?: string | null
+): Promise<boolean> {
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">KYC Application Rejected</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${signatoryName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      We regret to inform you that the KYC application for <strong>${companyName}</strong> has been reviewed and <strong>rejected</strong> by our compliance team.
+    </p>
+    ${reviewNotes ? `
+    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #991b1b; margin: 0; font-weight: 600;">Reason for Rejection</p>
+      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">${reviewNotes}</p>
+    </div>
+    ` : `
+    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #991b1b; margin: 0; font-weight: 600;">Application Status: Rejected</p>
+      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">
+        Your application did not meet the required compliance standards at this time.
+      </p>
+    </div>
+    `}
+    <p style="color: #475569; line-height: 1.6;">
+      You may submit a new application after addressing the issues noted above. If you believe this decision was made in error or need further clarification, please contact our team at
+      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
+    </p>
+  `;
+  return sendEmail(to, `KYC Application Rejected – ${companyName}`, emailWrapper(body));
+}
+
 export async function sendChangeRequestApprovedEmail(
   to: string,
   companyName: string,

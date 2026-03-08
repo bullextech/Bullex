@@ -8,7 +8,7 @@ import { storage } from "./storage";
 import { insertTradeSchema, insertKycSchema, insertDocumentSchema } from "@shared/schema";
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail, sendKycApprovalEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail } from "./email";
 
 declare module "express-session" {
   interface SessionData {
@@ -184,6 +184,18 @@ export async function registerRoutes(
             category || updated.category,
             products || updated.products
           ).catch((err) => console.error("[email] background approval send failed:", err));
+        }
+      }
+
+      if (status === "rejected") {
+        const emailTo = updated.signatoryEmail || updated.contactEmail;
+        if (emailTo) {
+          sendKycRejectionEmail(
+            emailTo,
+            updated.companyName,
+            updated.signatoryName || updated.contactName,
+            reviewNotes
+          ).catch((err) => console.error("[email] background rejection send failed:", err));
         }
       }
 
