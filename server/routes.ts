@@ -659,6 +659,36 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/documents/:id", async (req, res) => {
+    try {
+      const doc = await storage.getDocumentById(req.params.id);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      res.json(doc);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch document" });
+    }
+  });
+
+  app.patch("/api/documents/:id", requireAuth, async (req, res) => {
+    try {
+      const doc = await storage.getDocumentById(req.params.id);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      const allowedStatuses = ["draft", "review", "final"];
+      const { title, content, status } = req.body;
+      const updateData: Record<string, any> = {};
+      if (typeof title === "string" && title.trim()) updateData.title = title.trim();
+      if (typeof content === "string") updateData.content = content;
+      if (typeof status === "string" && allowedStatuses.includes(status)) updateData.status = status;
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: "No valid fields to update" });
+      }
+      const updated = await storage.updateDocument(req.params.id, updateData);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update document" });
+    }
+  });
+
   app.get("/api/kyc-documents", async (req, res) => {
     try {
       const { documentType } = req.query;

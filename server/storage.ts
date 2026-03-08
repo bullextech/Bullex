@@ -60,7 +60,9 @@ export interface IStorage {
   createBlock(block: InsertBlock): Promise<Block>;
 
   getDocuments(): Promise<Document[]>;
+  getDocumentById(id: string): Promise<Document | undefined>;
   createDocument(doc: InsertDocument): Promise<Document>;
+  updateDocument(id: string, data: Partial<InsertDocument>): Promise<Document>;
 
   getKycDocuments(documentType?: string): Promise<KycDocument[]>;
   getKycDocumentsByApplicationId(kycApplicationId: string): Promise<KycDocument[]>;
@@ -180,9 +182,19 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(documents).orderBy(desc(documents.createdAt));
   }
 
+  async getDocumentById(id: string): Promise<Document | undefined> {
+    const [doc] = await db.select().from(documents).where(eq(documents.id, id));
+    return doc;
+  }
+
   async createDocument(doc: InsertDocument): Promise<Document> {
     const [created] = await db.insert(documents).values(doc).returning();
     return created;
+  }
+
+  async updateDocument(id: string, data: Partial<InsertDocument>): Promise<Document> {
+    const [updated] = await db.update(documents).set(data).where(eq(documents.id, id)).returning();
+    return updated;
   }
 
   async getKycDocuments(documentType?: string): Promise<KycDocument[]> {

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -14,12 +15,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   FileText,
   Plus,
-  Download,
   CheckCircle2,
   Clock,
   FileCheck,
+  Eye,
+  Pencil,
+  Save,
+  X,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -41,6 +51,11 @@ export default function DocumentGenerator() {
   const [selectedType, setSelectedType] = useState("");
   const [selectedTrade, setSelectedTrade] = useState("");
   const [title, setTitle] = useState("");
+  const [viewDoc, setViewDoc] = useState<Doc | null>(null);
+  const [editDoc, setEditDoc] = useState<Doc | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editStatus, setEditStatus] = useState("");
 
   const { data: docs, isLoading: docsLoading } = useQuery<Doc[]>({
     queryKey: ["/api/documents"],
@@ -67,6 +82,22 @@ export default function DocumentGenerator() {
     },
   });
 
+  const updateDoc = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Doc> }) => {
+      const res = await apiRequest("PATCH", `/api/documents/${id}`, data);
+      return res.json();
+    },
+    onSuccess: (updated: Doc) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      setEditDoc(null);
+      setViewDoc(updated);
+      toast({ title: "Document Amended", description: "Changes saved successfully." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleGenerate = () => {
     if (!selectedType || !title) {
       toast({ title: "Missing Fields", description: "Please select a document type and enter a title.", variant: "destructive" });
@@ -76,6 +107,48 @@ export default function DocumentGenerator() {
       docType: selectedType,
       tradeRef: selectedTrade && selectedTrade !== "none" ? selectedTrade : undefined,
       title,
+    });
+  };
+
+  const fetchFreshDoc = async (id: string): Promise<Doc> => {
+    const res = await fetch(`/api/documents/${id}`);
+    if (!res.ok) throw new Error("Failed to fetch document");
+    return res.json();
+  };
+
+  const openView = async (doc: Doc) => {
+    try {
+      const fresh = await fetchFreshDoc(doc.id);
+      setViewDoc(fresh);
+      setEditDoc(null);
+    } catch {
+      setViewDoc(doc);
+      setEditDoc(null);
+    }
+  };
+
+  const openEdit = async (doc: Doc) => {
+    try {
+      const fresh = await fetchFreshDoc(doc.id);
+      setEditDoc(fresh);
+      setViewDoc(null);
+      setEditTitle(fresh.title);
+      setEditContent(fresh.content || "");
+      setEditStatus(fresh.status);
+    } catch {
+      setEditDoc(doc);
+      setViewDoc(null);
+      setEditTitle(doc.title);
+      setEditContent(doc.content || "");
+      setEditStatus(doc.status);
+    }
+  };
+
+  const handleSaveAmend = () => {
+    if (!editDoc) return;
+    updateDoc.mutate({
+      id: editDoc.id,
+      data: { title: editTitle, content: editContent, status: editStatus },
     });
   };
 
@@ -209,6 +282,24 @@ export default function DocumentGenerator() {
                         )}
                         {doc.status}
                       </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openView(doc)}
+                        data-testid={`button-view-doc-${doc.id}`}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openEdit(doc)}
+                        data-testid={`button-amend-doc-${doc.id}`}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -223,6 +314,124 @@ export default function DocumentGenerator() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!viewDoc} onOpenChange={(open) => !open && setViewDoc(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" data-testid="text-view-doc-title">
+              <FileCheck className="w-5 h-5 text-primary" />
+              {viewDoc?.title}
+            </DialogTitle>
+          </DialogHeader>
+          {viewDoc && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Document Type</Label>
+                  <p className="text-sm font-medium" data-testid="text-view-doc-type">{docTypes.find(d => d.value === viewDoc.docType)?.label || viewDoc.docType}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <Badge variant={viewDoc.status === "final" ? "default" : "secondary"} className="capitalize" data-testid="text-view-doc-status">
+                    {viewDoc.status}
+                  </Badge>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Trade Reference</Label>
+                  <p className="text-sm" data-testid="text-view-doc-trade">{viewDoc.tradeRef || "Standalone"}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Created</Label>
+                  <p className="text-sm" data-testid="text-view-doc-date">{new Date(viewDoc.createdAt).toLocaleString()}</p>
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Content</Label>
+                <div className="mt-1 p-4 rounded-md bg-muted min-h-[120px] whitespace-pre-wrap text-sm" data-testid="text-view-doc-content">
+                  {viewDoc.content || "No content yet. Use the Amend button to add content."}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setViewDoc(null)} data-testid="button-close-view">
+                  <X className="w-3.5 h-3.5 mr-1.5" />
+                  Close
+                </Button>
+                <Button onClick={() => openEdit(viewDoc)} data-testid="button-edit-from-view">
+                  <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                  Amend
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editDoc} onOpenChange={(open) => !open && setEditDoc(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" data-testid="text-edit-doc-heading">
+              <Pencil className="w-5 h-5 text-primary" />
+              Amend Document
+            </DialogTitle>
+          </DialogHeader>
+          {editDoc && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Document Type</Label>
+                  <p className="text-sm font-medium">{docTypes.find(d => d.value === editDoc.docType)?.label || editDoc.docType}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Trade Reference</Label>
+                  <p className="text-sm">{editDoc.tradeRef || "Standalone"}</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Title</Label>
+                <Input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  data-testid="input-edit-doc-title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={editStatus} onValueChange={setEditStatus}>
+                  <SelectTrigger data-testid="select-edit-doc-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="review">Review</SelectItem>
+                    <SelectItem value="final">Final</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Content</Label>
+                <Textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  rows={10}
+                  placeholder="Enter document content..."
+                  className="font-mono text-sm"
+                  data-testid="textarea-edit-doc-content"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditDoc(null)} data-testid="button-cancel-edit">
+                  <X className="w-3.5 h-3.5 mr-1.5" />
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveAmend} disabled={updateDoc.isPending} data-testid="button-save-amend">
+                  <Save className="w-3.5 h-3.5 mr-1.5" />
+                  {updateDoc.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
