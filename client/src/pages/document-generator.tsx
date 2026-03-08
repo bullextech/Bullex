@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/accordion";
 import {
   FileText,
-  Plus,
   CheckCircle2,
   Clock,
   FileCheck,
@@ -38,25 +37,34 @@ import {
   X,
   User,
   Building2,
+  Send,
+  ShieldCheck,
+  FileSignature,
+  ScrollText,
+  Handshake,
+  ClipboardList,
+  Landmark,
+  BadgeDollarSign,
+  PackageCheck,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Document as Doc, Trade } from "@shared/schema";
 
 const docTypes = [
-  { value: "SCO", label: "Soft Corporate Offer (SCO)" },
-  { value: "FCO", label: "Full Corporate Offer (FCO)" },
-  { value: "ICPO", label: "Irrevocable Corporate Purchase Order (ICPO)" },
-  { value: "SPA", label: "Sales & Purchase Agreement (SPA)" },
-  { value: "LOI", label: "Letter of Intent (LOI)" },
-  { value: "POP", label: "Proof of Product (POP)" },
-  { value: "POF", label: "Proof of Funds (POF)" },
-  { value: "BCL", label: "Bank Comfort Letter (BCL)" },
+  { value: "SCO", label: "Soft Corporate Offer", short: "SCO", description: "Initial offer issued by the seller to express willingness to supply a commodity", icon: Send },
+  { value: "FCO", label: "Full Corporate Offer", short: "FCO", description: "Binding irrevocable offer with complete trade terms and conditions", icon: ShieldCheck },
+  { value: "ICPO", label: "Irrevocable Corporate Purchase Order", short: "ICPO", description: "Buyer's binding commitment to purchase the specified commodity", icon: ClipboardList },
+  { value: "SPA", label: "Sales & Purchase Agreement", short: "SPA", description: "Full legal contract between buyer and seller covering all trade terms", icon: FileSignature },
+  { value: "LOI", label: "Letter of Intent", short: "LOI", description: "Buyer's preliminary expression of interest to purchase a commodity", icon: ScrollText },
+  { value: "POP", label: "Proof of Product", short: "POP", description: "Evidence confirming the availability and existence of the commodity", icon: PackageCheck },
+  { value: "POF", label: "Proof of Funds", short: "POF", description: "Documentation verifying the buyer's financial capacity for the transaction", icon: BadgeDollarSign },
+  { value: "BCL", label: "Bank Comfort Letter", short: "BCL", description: "Bank confirmation of client's financial standing and LC capability", icon: Landmark },
 ];
 
 export default function DocumentGenerator() {
   const { toast } = useToast();
-  const [selectedType, setSelectedType] = useState("");
+  const [selectedType, setSelectedType] = useState<typeof docTypes[0] | null>(null);
   const [selectedTrade, setSelectedTrade] = useState("");
   const [title, setTitle] = useState("");
   const [buyerName, setBuyerName] = useState("");
@@ -83,6 +91,14 @@ export default function DocumentGenerator() {
     queryKey: ["/api/trades"],
   });
 
+  const resetForm = () => {
+    setSelectedType(null);
+    setSelectedTrade("");
+    setTitle("");
+    setBuyerName(""); setBuyerAddress(""); setBuyerContact(""); setBuyerBank(""); setBuyerSwift("");
+    setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
+  };
+
   const generateDoc = useMutation({
     mutationFn: async (data: Record<string, any>) => {
       const res = await apiRequest("POST", "/api/documents", data);
@@ -90,11 +106,7 @@ export default function DocumentGenerator() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-      setSelectedType("");
-      setSelectedTrade("");
-      setTitle("");
-      setBuyerName(""); setBuyerAddress(""); setBuyerContact(""); setBuyerBank(""); setBuyerSwift("");
-      setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
+      resetForm();
       toast({ title: "Document Generated", description: "Trade document has been created successfully." });
     },
     onError: (error: Error) => {
@@ -120,11 +132,11 @@ export default function DocumentGenerator() {
 
   const handleGenerate = () => {
     if (!selectedType || !title) {
-      toast({ title: "Missing Fields", description: "Please select a document type and enter a title.", variant: "destructive" });
+      toast({ title: "Missing Fields", description: "Please enter a document title.", variant: "destructive" });
       return;
     }
     generateDoc.mutate({
-      docType: selectedType,
+      docType: selectedType.value,
       tradeRef: selectedTrade && selectedTrade !== "none" ? selectedTrade : undefined,
       title,
       buyerDetails: {
@@ -136,6 +148,14 @@ export default function DocumentGenerator() {
         bank: sellerBank, swift: sellerSwift,
       },
     });
+  };
+
+  const openTemplateDialog = (dt: typeof docTypes[0]) => {
+    setSelectedType(dt);
+    setTitle("");
+    setSelectedTrade("");
+    setBuyerName(""); setBuyerAddress(""); setBuyerContact(""); setBuyerBank(""); setBuyerSwift("");
+    setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
   };
 
   const fetchFreshDoc = async (id: string): Promise<Doc> => {
@@ -186,9 +206,10 @@ export default function DocumentGenerator() {
     return (
       <div className="p-6 space-y-6">
         <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Skeleton className="h-[300px] rounded-md" />
-          <Skeleton className="h-[300px] rounded-md lg:col-span-2" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-[140px] rounded-md" />
+          ))}
         </div>
       </div>
     );
@@ -198,176 +219,201 @@ export default function DocumentGenerator() {
     <div className="p-6 space-y-6 overflow-y-auto h-full">
       <div>
         <h1 className="text-2xl font-bold tracking-tight" data-testid="text-docgen-title">
-          Automated Document Generator
+          Document Templates
         </h1>
         <p className="text-sm text-muted-foreground">
-          Generate trade documents linked to blockchain-verified transactions
+          Select a template to generate trade documents linked to blockchain-verified transactions
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card data-testid="card-generate-doc">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Plus className="w-4 h-4 text-primary" />
-              Generate Document
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Document Type *</Label>
-              <Select value={selectedType} onValueChange={setSelectedType}>
-                <SelectTrigger data-testid="select-doc-type">
-                  <SelectValue placeholder="Select type..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {docTypes.map((dt) => (
-                    <SelectItem key={dt.value} value={dt.value}>{dt.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Link to Trade (Optional)</Label>
-              <Select value={selectedTrade} onValueChange={setSelectedTrade}>
-                <SelectTrigger data-testid="select-doc-trade">
-                  <SelectValue placeholder="Select trade..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No trade link</SelectItem>
-                  {trades?.map((t) => (
-                    <SelectItem key={t.id} value={t.tradeRef}>
-                      {t.tradeRef} - {t.commodity}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Document Title *</Label>
-              <Input
-                placeholder="Enter document title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                data-testid="input-doc-title"
-              />
-            </div>
-            <Accordion type="multiple" className="w-full">
-              <AccordionItem value="buyer" className="border-b-0">
-                <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">
-                  <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Buyer Details</span>
-                </AccordionTrigger>
-                <AccordionContent className="space-y-3 pb-3">
-                  <Input placeholder="Buyer company name" value={buyerName} onChange={(e) => setBuyerName(e.target.value)} data-testid="input-buyer-name" />
-                  <Input placeholder="Buyer address" value={buyerAddress} onChange={(e) => setBuyerAddress(e.target.value)} data-testid="input-buyer-address" />
-                  <Input placeholder="Contact person & email" value={buyerContact} onChange={(e) => setBuyerContact(e.target.value)} data-testid="input-buyer-contact" />
-                  <Input placeholder="Bank name" value={buyerBank} onChange={(e) => setBuyerBank(e.target.value)} data-testid="input-buyer-bank" />
-                  <Input placeholder="SWIFT / BIC code" value={buyerSwift} onChange={(e) => setBuyerSwift(e.target.value)} data-testid="input-buyer-swift" />
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="seller" className="border-b-0">
-                <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">
-                  <span className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> Seller Details</span>
-                </AccordionTrigger>
-                <AccordionContent className="space-y-3 pb-3">
-                  <Input placeholder="Seller company name" value={sellerName} onChange={(e) => setSellerName(e.target.value)} data-testid="input-seller-name" />
-                  <Input placeholder="Seller address" value={sellerAddress} onChange={(e) => setSellerAddress(e.target.value)} data-testid="input-seller-address" />
-                  <Input placeholder="Contact person & email" value={sellerContact} onChange={(e) => setSellerContact(e.target.value)} data-testid="input-seller-contact" />
-                  <Input placeholder="Bank name" value={sellerBank} onChange={(e) => setSellerBank(e.target.value)} data-testid="input-seller-bank" />
-                  <Input placeholder="SWIFT / BIC code" value={sellerSwift} onChange={(e) => setSellerSwift(e.target.value)} data-testid="input-seller-swift" />
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-            <Button
-              className="w-full"
-              onClick={handleGenerate}
-              disabled={generateDoc.isPending}
-              data-testid="button-generate-doc"
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {docTypes.map((dt) => {
+          const Icon = dt.icon;
+          const count = docs?.filter(d => d.docType === dt.value).length || 0;
+          return (
+            <Card
+              key={dt.value}
+              className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md group"
+              onClick={() => openTemplateDialog(dt)}
+              data-testid={`template-box-${dt.value}`}
             >
-              <FileText className="w-3.5 h-3.5 mr-1.5" />
-              {generateDoc.isPending ? "Generating..." : "Generate Document"}
-            </Button>
-          </CardContent>
-        </Card>
+              <CardContent className="p-5 flex flex-col items-center text-center gap-3">
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <Icon className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{dt.short}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{dt.label}</p>
+                </div>
+                {count > 0 && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    {count} generated
+                  </Badge>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
 
-        <Card className="lg:col-span-2" data-testid="card-doc-list">
-          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0">
-            <CardTitle className="text-base font-semibold">Generated Documents</CardTitle>
-            <Badge variant="secondary" className="text-[10px]">
-              {docs?.length || 0} documents
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            {docs && docs.length > 0 ? (
-              <div className="space-y-2">
-                {docs.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center justify-between gap-3 p-3 rounded-md bg-muted"
-                    data-testid={`doc-row-${doc.id}`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <FileCheck className="w-4 h-4 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium">{doc.title}</span>
-                          <Badge variant="secondary" className="text-[10px]">
-                            {doc.docType}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {doc.tradeRef ? `Trade: ${doc.tradeRef}` : "Standalone"}
-                          {" "}&middot;{" "}
-                          {new Date(doc.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
+      <Card data-testid="card-doc-list">
+        <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0">
+          <CardTitle className="text-base font-semibold">Generated Documents</CardTitle>
+          <Badge variant="secondary" className="text-[10px]">
+            {docs?.length || 0} documents
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          {docs && docs.length > 0 ? (
+            <div className="space-y-2">
+              {docs.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between gap-3 p-3 rounded-md bg-muted"
+                  data-testid={`doc-row-${doc.id}`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <FileCheck className="w-4 h-4 text-primary" />
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge
-                        variant={doc.status === "final" ? "default" : "secondary"}
-                        className="text-[10px] capitalize"
-                      >
-                        {doc.status === "final" ? (
-                          <CheckCircle2 className="w-3 h-3 mr-0.5" />
-                        ) : (
-                          <Clock className="w-3 h-3 mr-0.5" />
-                        )}
-                        {doc.status}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openView(doc)}
-                        data-testid={`button-view-doc-${doc.id}`}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEdit(doc)}
-                        data-testid={`button-amend-doc-${doc.id}`}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium">{doc.title}</span>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {doc.docType}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {doc.tradeRef ? `Trade: ${doc.tradeRef}` : "Standalone"}
+                        {" "}&middot;{" "}
+                        {new Date(doc.createdAt).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
-                ))}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge
+                      variant={doc.status === "final" ? "default" : "secondary"}
+                      className="text-[10px] capitalize"
+                    >
+                      {doc.status === "final" ? (
+                        <CheckCircle2 className="w-3 h-3 mr-0.5" />
+                      ) : (
+                        <Clock className="w-3 h-3 mr-0.5" />
+                      )}
+                      {doc.status}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => openView(doc)}
+                      data-testid={`button-view-doc-${doc.id}`}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => openEdit(doc)}
+                      data-testid={`button-amend-doc-${doc.id}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <FileText className="w-12 h-12 mb-4 opacity-20" />
+              <p className="text-sm font-medium">No documents generated</p>
+              <p className="text-xs">Select a template above to generate trade documents</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={!!selectedType} onOpenChange={(open) => !open && resetForm()}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" data-testid="text-generate-dialog-title">
+              {selectedType && (() => { const Icon = selectedType.icon; return <Icon className="w-5 h-5 text-primary" />; })()}
+              Generate {selectedType?.short}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedType && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">{selectedType.description}</p>
+
+              <div className="space-y-2">
+                <Label>Document Title *</Label>
+                <Input
+                  placeholder={`Enter ${selectedType.short} document title`}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  data-testid="input-doc-title"
+                />
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <FileText className="w-12 h-12 mb-4 opacity-20" />
-                <p className="text-sm font-medium">No documents generated</p>
-                <p className="text-xs">Use the form to generate trade documents</p>
+
+              <div className="space-y-2">
+                <Label>Link to Trade (Optional)</Label>
+                <Select value={selectedTrade} onValueChange={setSelectedTrade}>
+                  <SelectTrigger data-testid="select-doc-trade">
+                    <SelectValue placeholder="Select trade..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No trade link</SelectItem>
+                    {trades?.map((t) => (
+                      <SelectItem key={t.id} value={t.tradeRef}>
+                        {t.tradeRef} - {t.commodity}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+
+              <Accordion type="multiple" className="w-full">
+                <AccordionItem value="buyer" className="border-b-0">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">
+                    <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Buyer Details</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-3 pb-3">
+                    <Input placeholder="Buyer company name" value={buyerName} onChange={(e) => setBuyerName(e.target.value)} data-testid="input-buyer-name" />
+                    <Input placeholder="Buyer address" value={buyerAddress} onChange={(e) => setBuyerAddress(e.target.value)} data-testid="input-buyer-address" />
+                    <Input placeholder="Contact person & email" value={buyerContact} onChange={(e) => setBuyerContact(e.target.value)} data-testid="input-buyer-contact" />
+                    <Input placeholder="Bank name" value={buyerBank} onChange={(e) => setBuyerBank(e.target.value)} data-testid="input-buyer-bank" />
+                    <Input placeholder="SWIFT / BIC code" value={buyerSwift} onChange={(e) => setBuyerSwift(e.target.value)} data-testid="input-buyer-swift" />
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="seller" className="border-b-0">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">
+                    <span className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> Seller Details</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-3 pb-3">
+                    <Input placeholder="Seller company name" value={sellerName} onChange={(e) => setSellerName(e.target.value)} data-testid="input-seller-name" />
+                    <Input placeholder="Seller address" value={sellerAddress} onChange={(e) => setSellerAddress(e.target.value)} data-testid="input-seller-address" />
+                    <Input placeholder="Contact person & email" value={sellerContact} onChange={(e) => setSellerContact(e.target.value)} data-testid="input-seller-contact" />
+                    <Input placeholder="Bank name" value={sellerBank} onChange={(e) => setSellerBank(e.target.value)} data-testid="input-seller-bank" />
+                    <Input placeholder="SWIFT / BIC code" value={sellerSwift} onChange={(e) => setSellerSwift(e.target.value)} data-testid="input-seller-swift" />
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={resetForm} data-testid="button-cancel-generate">
+                  <X className="w-3.5 h-3.5 mr-1.5" />
+                  Cancel
+                </Button>
+                <Button onClick={handleGenerate} disabled={generateDoc.isPending} data-testid="button-generate-doc">
+                  <FileText className="w-3.5 h-3.5 mr-1.5" />
+                  {generateDoc.isPending ? "Generating..." : `Generate ${selectedType.short}`}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!viewDoc} onOpenChange={(open) => !open && setViewDoc(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
