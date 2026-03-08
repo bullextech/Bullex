@@ -123,6 +123,10 @@ export const documents = pgTable("documents", {
   title: text("title").notNull(),
   content: text("content"),
   status: text("status").notNull().default("draft"),
+  docxPath: text("docx_path"),
+  pdfPath: text("pdf_path"),
+  buyerEmail: text("buyer_email"),
+  sellerEmail: text("seller_email"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

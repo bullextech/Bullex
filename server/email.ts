@@ -1,4 +1,12 @@
-async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+import fs from "fs";
+import path from "path";
+
+interface EmailAttachment {
+  filename: string;
+  content: string;
+}
+
+async function sendEmail(to: string, subject: string, html: string, attachments?: EmailAttachment[]): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.log("[email] RESEND_API_KEY not set, skipping email");
@@ -6,18 +14,23 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
   }
 
   try {
+    const payload: Record<string, any> = {
+      from: process.env.EMAIL_FROM || "Bullex Trading Platform <onboarding@resend.dev>",
+      to: [to],
+      subject,
+      html,
+    };
+    if (attachments && attachments.length > 0) {
+      payload.attachments = attachments;
+    }
+
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from: process.env.EMAIL_FROM || "Bullex Trading Platform <onboarding@resend.dev>",
-        to: [to],
-        subject,
-        html,
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -272,4 +285,64 @@ export async function sendChangeRequestRejectedEmail(
     </p>
   `;
   return sendEmail(to, `KYC Change Request Rejected – ${companyName}`, emailWrapper(body));
+}
+
+export async function sendDocumentEmail(
+  to: string,
+  recipientName: string,
+  docType: string,
+  docTitle: string,
+  role: "Buyer" | "Seller",
+  pdfFilePath: string
+): Promise<boolean> {
+  const docTypeLabels: Record<string, string> = {
+    SCO: "Soft Corporate Offer",
+    FCO: "Full Corporate Offer",
+    ICPO: "Irrevocable Corporate Purchase Order",
+    SPA: "Sales & Purchase Agreement",
+    LOI: "Letter of Intent",
+    POP: "Proof of Product",
+    POF: "Proof of Funds",
+    BCL: "Bank Comfort Letter",
+  };
+
+  const fullType = docTypeLabels[docType] || docType;
+  let pdfBase64 = "";
+  try {
+    const pdfBuffer = fs.readFileSync(pdfFilePath);
+    pdfBase64 = pdfBuffer.toString("base64");
+  } catch (err) {
+    console.error("[email] Failed to read PDF for attachment:", err);
+    return false;
+  }
+
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Trade Document Issued</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${recipientName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      Please find attached the following trade document issued via the Bullex Trading Platform:
+    </p>
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+        <tr><td style="color: #64748b; padding: 6px 0; width: 120px;">Document Type:</td><td style="color: #1e293b; font-weight: 600;">${fullType} (${docType})</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Title:</td><td style="color: #1e293b; font-weight: 600;">${docTitle}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Your Role:</td><td style="color: #1e293b; font-weight: 600;">${role}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Date Issued:</td><td style="color: #1e293b; font-weight: 600;">${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</td></tr>
+      </table>
+    </div>
+    <p style="color: #475569; line-height: 1.6;">
+      The PDF document is attached to this email. Please review the document carefully and contact our trade desk if you have any questions.
+    </p>
+    <p style="color: #475569; line-height: 1.6;">
+      For any trade inquiries, please contact our trade desk at
+      <a href="mailto:trade@bullex.tech" style="color: #2563eb;">trade@bullex.tech</a>.
+    </p>
+  `;
+
+  const attachments: EmailAttachment[] = [{
+    filename: `${docType}_${docTitle.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_")}.pdf`,
+    content: pdfBase64,
+  }];
+
+  return sendEmail(to, `${fullType} (${docType}) – ${docTitle}`, emailWrapper(body), attachments);
 }

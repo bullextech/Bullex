@@ -64,7 +64,7 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 - **Contact**: team@bullex.tech, tokenisation inquiries, investor onboarding, Dubai office
 - **KYC Registration**: 10-section institutional KYC form
 - **Blockchain Trading**: Commodity trade execution with blockchain verification
-- **Document Generator**: Generate SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL linked to trades
+- **Document Generator**: Generate SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL with DOCX/PDF output, auto-email to buyer/seller with PDF attachment, KYC client auto-fill
 - **Document Vault**: All documents uploaded through blockchain trading pipeline
 - **Blockchain Ledger**: Block explorer with accordion-based block details, shows both Trade and KYC blocks with type badges
 - **Dark/Light Mode**: Theme toggle with persistence
@@ -85,7 +85,7 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 - `trades` - Commodity trades (tradeRef BFG-YYYY-XXXX, buyer/seller, origin/destination, incoterm, blockchain hash, stageDocuments JSONB)
 - `blocks` - Blockchain blocks (hash, previous hash, nonce, verification, dataType: "trade"|"kyc", dataId, dataSummary)
 - `kyc_change_requests` - Change requests for approved KYC applications (kycApplicationId, changedFields JSONB, reason, status: pending|approved|rejected, adminNotes, reviewedAt)
-- `documents` - Trade documents (SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL)
+- `documents` - Trade documents (SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL) with docxPath, pdfPath, buyerEmail, sellerEmail
 
 ## Trade Pipeline (Document-Gated)
 Trade flow: `pre_deal` → `deal` → `execution` → `final_payment`

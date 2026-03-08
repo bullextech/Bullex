@@ -47,6 +47,7 @@ import {
   Landmark,
   BadgeDollarSign,
   PackageCheck,
+  Download,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -314,6 +315,30 @@ export default function DocumentGenerator() {
                       )}
                       {doc.status}
                     </Badge>
+                    {doc.docxPath && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => window.open(`/api/documents/${doc.id}/download/docx`, "_blank")}
+                        title="Download DOCX"
+                        data-testid={`button-download-docx-${doc.id}`}
+                      >
+                        <Download className="w-4 h-4 text-blue-600" />
+                      </Button>
+                    )}
+                    {doc.pdfPath && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => window.open(`/api/documents/${doc.id}/download/pdf`, "_blank")}
+                        title="Download PDF"
+                        data-testid={`button-download-pdf-${doc.id}`}
+                      >
+                        <FileText className="w-4 h-4 text-red-600" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"

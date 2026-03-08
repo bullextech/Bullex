@@ -9,7 +9,8 @@ import { insertTradeSchema, insertKycSchema, insertDocumentSchema, type Trade } 
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail } from "./email";
+import { generateDocx, generatePdf, getDocFilePath } from "./documentFileGenerator";
 
 declare module "express-session" {
   interface SessionData {
@@ -661,8 +662,34 @@ export async function registerRoutes(
         ...parsed.data,
         content,
         status: "draft",
+        buyerEmail: buyerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || null,
+        sellerEmail: sellerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || null,
       });
-      res.json(result);
+
+      try {
+        const docxPath = await generateDocx(result.id, result.title, content);
+        const pdfPath = await generatePdf(result.id, result.title, content);
+        const updated = await storage.updateDocument(result.id, { docxPath, pdfPath });
+
+        const buyerEmail = buyerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0];
+        const sellerEmail = sellerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0];
+        const buyerName = buyerDetails?.name || "Buyer";
+        const sellerName = sellerDetails?.name || "Seller";
+
+        if (buyerEmail) {
+          sendDocumentEmail(buyerEmail, buyerName, parsed.data.docType, result.title, "Buyer", pdfPath)
+            .catch(err => console.error("[docs] Failed to email buyer:", err));
+        }
+        if (sellerEmail) {
+          sendDocumentEmail(sellerEmail, sellerName, parsed.data.docType, result.title, "Seller", pdfPath)
+            .catch(err => console.error("[docs] Failed to email seller:", err));
+        }
+
+        res.json(updated);
+      } catch (fileErr) {
+        console.error("[docs] File generation error (document still created):", fileErr);
+        res.json(result);
+      }
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to create document" });
     }
@@ -695,6 +722,34 @@ export async function registerRoutes(
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to update document" });
+    }
+  });
+
+  app.get("/api/documents/:id/download/docx", async (req, res) => {
+    try {
+      const doc = await storage.getDocumentById(req.params.id);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      const filePath = doc.docxPath ? getDocFilePath(doc.docxPath) : null;
+      if (!filePath) return res.status(404).json({ message: "DOCX file not available" });
+      res.setHeader("Content-Disposition", `attachment; filename="${doc.docType}_${doc.title.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_")}.docx"`);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      res.sendFile(filePath);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to download DOCX" });
+    }
+  });
+
+  app.get("/api/documents/:id/download/pdf", async (req, res) => {
+    try {
+      const doc = await storage.getDocumentById(req.params.id);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      const filePath = doc.pdfPath ? getDocFilePath(doc.pdfPath) : null;
+      if (!filePath) return res.status(404).json({ message: "PDF file not available" });
+      res.setHeader("Content-Disposition", `attachment; filename="${doc.docType}_${doc.title.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_")}.pdf"`);
+      res.setHeader("Content-Type", "application/pdf");
+      res.sendFile(filePath);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to download PDF" });
     }
   });
 
