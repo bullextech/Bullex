@@ -48,6 +48,7 @@ import {
   BadgeDollarSign,
   PackageCheck,
   Download,
+  Package,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -78,6 +79,18 @@ export default function DocumentGenerator() {
   const [sellerContact, setSellerContact] = useState("");
   const [sellerBank, setSellerBank] = useState("");
   const [sellerSwift, setSellerSwift] = useState("");
+  const [commodity, setCommodity] = useState("");
+  const [origin, setOrigin] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [qualitySpecs, setQualitySpecs] = useState("");
+  const [loadingPort, setLoadingPort] = useState("");
+  const [dischargePort, setDischargePort] = useState("");
+  const [price, setPrice] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [incoterm, setIncoterm] = useState("");
+  const [laycan, setLaycan] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [specialNote, setSpecialNote] = useState("");
   const [viewDoc, setViewDoc] = useState<Doc | null>(null);
   const [editDoc, setEditDoc] = useState<Doc | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -112,6 +125,8 @@ export default function DocumentGenerator() {
     setTitle("");
     setBuyerName(""); setBuyerAddress(""); setBuyerContact(""); setBuyerBank(""); setBuyerSwift("");
     setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
+    setCommodity(""); setOrigin(""); setQuantity(""); setQualitySpecs(""); setLoadingPort(""); setDischargePort("");
+    setPrice(""); setCurrency("USD"); setIncoterm(""); setLaycan(""); setPaymentTerms(""); setSpecialNote("");
   };
 
   const generateDoc = useMutation({
@@ -161,6 +176,10 @@ export default function DocumentGenerator() {
         name: sellerName, address: sellerAddress, contact: sellerContact,
         bank: sellerBank, swift: sellerSwift,
       },
+      productDetails: {
+        commodity, origin, quantity, qualitySpecs, loadingPort, dischargePort,
+        price, currency, incoterm, laycan, paymentTerms, specialNote,
+      },
     });
   };
 
@@ -169,6 +188,8 @@ export default function DocumentGenerator() {
     setTitle("");
     setBuyerName(""); setBuyerAddress(""); setBuyerContact(""); setBuyerBank(""); setBuyerSwift("");
     setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
+    setCommodity(""); setOrigin(""); setQuantity(""); setQualitySpecs(""); setLoadingPort(""); setDischargePort("");
+    setPrice(""); setCurrency("USD"); setIncoterm(""); setLaycan(""); setPaymentTerms(""); setSpecialNote("");
   };
 
   const fetchFreshDoc = async (id: string): Promise<Doc> => {
@@ -393,7 +414,43 @@ export default function DocumentGenerator() {
                 />
               </div>
 
-              <Accordion type="multiple" className="w-full">
+              <Accordion type="multiple" defaultValue={["product"]} className="w-full">
+                <AccordionItem value="product" className="border-b-0">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">
+                    <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Product Details</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-3 pb-3">
+                    <Input placeholder="Commodity (e.g. Iron Ore, Bauxite, ULSD)" value={commodity} onChange={(e) => setCommodity(e.target.value)} data-testid="input-commodity" />
+                    <Input placeholder="Origin (e.g. Guinea, Zambia)" value={origin} onChange={(e) => setOrigin(e.target.value)} data-testid="input-origin" />
+                    <Input placeholder="Quantity (e.g. 50,000 MT)" value={quantity} onChange={(e) => setQuantity(e.target.value)} data-testid="input-quantity" />
+                    <Textarea placeholder="Quality Specifications (e.g. Fe 63.5% min, moisture 8% max, Al2O3 2.5% max)" value={qualitySpecs} onChange={(e) => setQualitySpecs(e.target.value)} rows={3} data-testid="input-quality-specs" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input placeholder="Loading Port" value={loadingPort} onChange={(e) => setLoadingPort(e.target.value)} data-testid="input-loading-port" />
+                      <Input placeholder="Discharge Port" value={dischargePort} onChange={(e) => setDischargePort(e.target.value)} data-testid="input-discharge-port" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input placeholder="Price (e.g. 118.50 per MT)" value={price} onChange={(e) => setPrice(e.target.value)} data-testid="input-price" />
+                      <Select value={currency} onValueChange={setCurrency}>
+                        <SelectTrigger data-testid="select-currency">
+                          <SelectValue placeholder="Currency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="GBP">GBP</SelectItem>
+                          <SelectItem value="AED">AED</SelectItem>
+                          <SelectItem value="CNY">CNY</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input placeholder="Incoterm (e.g. FOB, CIF, CFR)" value={incoterm} onChange={(e) => setIncoterm(e.target.value)} data-testid="input-incoterm" />
+                      <Input placeholder="Laycan (e.g. 15-30 April 2026)" value={laycan} onChange={(e) => setLaycan(e.target.value)} data-testid="input-laycan" />
+                    </div>
+                    <Input placeholder="Payment Terms (e.g. Irrevocable LC at sight)" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} data-testid="input-payment-terms" />
+                    <Textarea placeholder="Special Notes (e.g. subject to SGS inspection, performance bond required)" value={specialNote} onChange={(e) => setSpecialNote(e.target.value)} rows={2} data-testid="input-special-note" />
+                  </AccordionContent>
+                </AccordionItem>
                 <AccordionItem value="buyer" className="border-b-0">
                   <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">
                     <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Buyer Details</span>

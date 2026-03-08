@@ -647,7 +647,7 @@ export async function registerRoutes(
 
   app.post("/api/documents", requireAuth, async (req, res) => {
     try {
-      const { buyerDetails, sellerDetails, ...docData } = req.body;
+      const { buyerDetails, sellerDetails, productDetails, ...docData } = req.body;
       const parsed = insertDocumentSchema.safeParse(docData);
       if (!parsed.success) {
         return res.status(400).json({ message: parsed.error.message });
@@ -657,7 +657,7 @@ export async function registerRoutes(
         const trades = await storage.getTrades();
         trade = trades.find(t => t.tradeRef === parsed.data.tradeRef);
       }
-      const content = generateDocumentContent(parsed.data.docType, trade, buyerDetails, sellerDetails);
+      const content = generateDocumentContent(parsed.data.docType, trade, buyerDetails, sellerDetails, productDetails);
       const result = await storage.createDocument({
         ...parsed.data,
         content,

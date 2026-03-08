@@ -8,31 +8,61 @@ export interface PartyDetails {
   swift?: string;
 }
 
+export interface ProductDetails {
+  commodity?: string;
+  origin?: string;
+  quantity?: string;
+  qualitySpecs?: string;
+  loadingPort?: string;
+  dischargePort?: string;
+  price?: string;
+  currency?: string;
+  incoterm?: string;
+  laycan?: string;
+  paymentTerms?: string;
+  specialNote?: string;
+}
+
 const today = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
 const v = (val?: string, fallback = "_______________") => val?.trim() || fallback;
 
-function tradeBlock(trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails): string {
-  if (!trade) return `[Commodity]: _______________
-[Quantity]: _______________
-[Unit Price]: _______________
-[Total Value]: _______________
-[Currency]: _______________
-[Origin]: _______________
-[Destination]: _______________
-[Incoterm]: _______________
-[Buyer]: ${v(buyer?.name)}
-[Seller]: ${v(seller?.name)}`;
+function tradeBlock(trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails): string {
+  const cur = product?.currency || trade?.currency || "USD";
+  return `Commodity: ${v(product?.commodity, trade?.commodity)}
+Quantity: ${v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined)}
+Origin: ${v(product?.origin, trade?.origin)}
+Unit Price: ${cur} ${v(product?.price, trade ? trade.pricePerUnit.toLocaleString() : undefined)}
+Currency: ${cur}
+Incoterm: ${v(product?.incoterm, trade?.incoterm)}
+Buyer: ${v(buyer?.name, trade?.buyerName)}
+Seller: ${v(seller?.name, trade?.sellerName)}`;
+}
 
-  return `Commodity: ${trade.commodity}
-Quantity: ${trade.quantity.toLocaleString()} ${trade.unit}
-Unit Price: ${trade.currency} ${trade.pricePerUnit.toLocaleString()}
-Total Value: ${trade.currency} ${trade.totalValue.toLocaleString()}
-Currency: ${trade.currency}
-Origin: ${trade.origin}
-Destination: ${trade.destination}
-Incoterm: ${trade.incoterm}
-Buyer: ${v(buyer?.name, trade.buyerName)}
-Seller: ${v(seller?.name, trade.sellerName)}`;
+function qualityBlock(product?: ProductDetails): string {
+  if (!product?.qualitySpecs) return `Quality Specifications: _______________`;
+  return `Quality Specifications:\n${product.qualitySpecs}`;
+}
+
+function deliveryBlock(trade?: Trade, product?: ProductDetails): string {
+  return `Loading Port: ${v(product?.loadingPort, trade?.origin)}
+Discharge Port: ${v(product?.dischargePort, trade?.destination)}
+Laycan: ${v(product?.laycan)}
+Delivery Terms: ${v(product?.incoterm, trade?.incoterm)}`;
+}
+
+function paymentBlock(product?: ProductDetails): string {
+  if (product?.paymentTerms) {
+    return `Payment Terms: ${product.paymentTerms}`;
+  }
+  return `Payment Method: Irrevocable, Transferable, Confirmed Documentary Letter of Credit (DLC)
+LC Issuing Bank: Top 25 World Bank
+LC Validity: _____ days
+Performance Bond: 2% of contract value`;
+}
+
+function specialNoteBlock(product?: ProductDetails): string {
+  if (!product?.specialNote) return "";
+  return `\nSPECIAL NOTES\n${product.specialNote}`;
 }
 
 function buyerBlock(buyer?: PartyDetails, trade?: Trade): string {
@@ -53,9 +83,9 @@ Bank: ${v(seller?.bank)}
 SWIFT/BIC: ${v(seller?.swift)}`;
 }
 
-const templates: Record<string, (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => string> = {
+const templates: Record<string, (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => string> = {
 
-  SCO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `SOFT CORPORATE OFFER (SCO)
+  SCO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `SOFT CORPORATE OFFER (SCO)
 ${"=".repeat(40)}
 
 Date: ${today()}
@@ -71,7 +101,15 @@ ${sellerBlock(seller, trade)}
 ${buyerBlock(buyer, trade)}
 
 COMMODITY DETAILS
-${tradeBlock(trade, buyer, seller)}
+${tradeBlock(trade, buyer, seller, product)}
+
+${qualityBlock(product)}
+
+DELIVERY TERMS
+${deliveryBlock(trade, product)}
+
+PAYMENT TERMS
+${paymentBlock(product)}
 
 TERMS & CONDITIONS
 1. This Soft Corporate Offer is valid for a period of seven (7) working days from the date of issuance.
@@ -79,20 +117,16 @@ TERMS & CONDITIONS
 3. Upon receipt of ICPO, the Seller shall issue a Full Corporate Offer (FCO).
 4. All terms are subject to final negotiation and execution of a Sales & Purchase Agreement (SPA).
 5. This SCO does not constitute a binding contract.
-
-BANKING DETAILS
-Bank Name: _______________
-Account Name: _______________
-SWIFT/BIC: _______________
+${specialNoteBlock(product)}
 
 AUTHORISED SIGNATORY
 Name: _______________
 Title: _______________
-Company: _______________
+Company: ${v(seller?.name, trade?.sellerName)}
 Date: ${today()}
 Signature: _______________`,
 
-  FCO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `FULL CORPORATE OFFER (FCO)
+  FCO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `FULL CORPORATE OFFER (FCO)
 ${"=".repeat(40)}
 
 Date: ${today()}
@@ -108,19 +142,15 @@ ${sellerBlock(seller, trade)}
 ${buyerBlock(buyer, trade)}
 
 COMMODITY DETAILS
-${tradeBlock(trade, buyer, seller)}
+${tradeBlock(trade, buyer, seller, product)}
+
+${qualityBlock(product)}
 
 DELIVERY TERMS
-Shipment Period: Within _____ days from LC issuance
-Loading Port: ${trade?.origin || "_______________"}
-Discharge Port: ${trade?.destination || "_______________"}
-Delivery Terms: ${trade?.incoterm || "_______________"}
+${deliveryBlock(trade, product)}
 
 PAYMENT TERMS
-Payment Method: Irrevocable, Transferable, Confirmed Documentary Letter of Credit (DLC)
-LC Issuing Bank: Top 25 World Bank
-LC Validity: _____ days
-Performance Bond: 2% of contract value
+${paymentBlock(product)}
 
 INSPECTION
 Pre-shipment inspection by SGS/Bureau Veritas at loading port at Seller's cost.
@@ -137,15 +167,16 @@ DOCUMENTATION
 
 VALIDITY
 This FCO is valid for five (5) working days from the date of issuance.
+${specialNoteBlock(product)}
 
 AUTHORISED SIGNATORY
 Name: _______________
 Title: _______________
-Company: _______________
+Company: ${v(seller?.name, trade?.sellerName)}
 Date: ${today()}
 Signature: _______________`,
 
-  ICPO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `IRREVOCABLE CORPORATE PURCHASE ORDER (ICPO)
+  ICPO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `IRREVOCABLE CORPORATE PURCHASE ORDER (ICPO)
 ${"=".repeat(40)}
 
 Date: ${today()}
@@ -161,7 +192,15 @@ ${buyerBlock(buyer, trade)}
 ${sellerBlock(seller, trade)}
 
 COMMODITY DETAILS
-${tradeBlock(trade, buyer, seller)}
+${tradeBlock(trade, buyer, seller, product)}
+
+${qualityBlock(product)}
+
+DELIVERY TERMS
+${deliveryBlock(trade, product)}
+
+PAYMENT TERMS
+${paymentBlock(product)}
 
 BUYER'S UNDERTAKING
 1. The Buyer confirms readiness, willingness, and ability to purchase the above commodity.
@@ -180,6 +219,7 @@ Account Name: ${v(buyer?.name, trade?.buyerName)}
 SWIFT/BIC: ${v(buyer?.swift)}
 Bank Officer: _______________
 Bank Officer Email: _______________
+${specialNoteBlock(product)}
 
 AUTHORISED SIGNATORY
 Name: _______________
@@ -188,7 +228,7 @@ Company: ${v(buyer?.name, trade?.buyerName)}
 Date: ${today()}
 Signature: _______________`,
 
-  SPA: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `SALES & PURCHASE AGREEMENT (SPA)
+  SPA: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `SALES & PURCHASE AGREEMENT (SPA)
 ${"=".repeat(40)}
 
 Date: ${today()}
@@ -205,19 +245,15 @@ RECITALS
 WHEREAS the Seller desires to sell and the Buyer desires to purchase the commodity described herein under the terms and conditions set forth in this Agreement.
 
 ARTICLE 1 — COMMODITY
-${tradeBlock(trade, buyer, seller)}
+${tradeBlock(trade, buyer, seller, product)}
+
+${qualityBlock(product)}
 
 ARTICLE 2 — PRICE AND PAYMENT
-2.1 The total contract value is ${trade ? `${trade.currency} ${trade.totalValue.toLocaleString()}` : "_______________"}.
-2.2 Payment shall be made by Irrevocable, Transferable, Confirmed Documentary Letter of Credit (DLC).
-2.3 The LC shall be issued within _____ banking days of signing this Agreement.
-2.4 The LC shall be issued by a Top 25 World Bank.
+${paymentBlock(product)}
 
 ARTICLE 3 — DELIVERY
-3.1 Shipment shall commence within _____ days from LC issuance.
-3.2 Loading Port: ${trade?.origin || "_______________"}
-3.3 Discharge Port: ${trade?.destination || "_______________"}
-3.4 Delivery Terms: ${trade?.incoterm || "_______________"}
+${deliveryBlock(trade, product)}
 
 ARTICLE 4 — INSPECTION
 4.1 Pre-shipment inspection by SGS / Bureau Veritas at the loading port.
@@ -242,6 +278,7 @@ All disputes arising from this Agreement shall be settled by arbitration under I
 
 ARTICLE 8 — GOVERNING LAW
 This Agreement shall be governed by English Law.
+${specialNoteBlock(product)}
 
 SELLER
 Name: _______________
@@ -257,7 +294,7 @@ Company: ${v(buyer?.name, trade?.buyerName)}
 Date: ${today()}
 Signature: _______________`,
 
-  LOI: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `LETTER OF INTENT (LOI)
+  LOI: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `LETTER OF INTENT (LOI)
 ${"=".repeat(40)}
 
 Date: ${today()}
@@ -266,7 +303,7 @@ Reference: ${trade?.tradeRef || "_______________"}
 TO: ${v(seller?.name, trade?.sellerName)}
 FROM: ${v(buyer?.name, trade?.buyerName)}
 
-SUBJECT: Letter of Intent to Purchase ${trade?.commodity || "_______________"}
+SUBJECT: Letter of Intent to Purchase ${v(product?.commodity, trade?.commodity)}
 
 Dear Sir/Madam,
 
@@ -278,7 +315,15 @@ ${buyerBlock(buyer, trade)}
 ${sellerBlock(seller, trade)}
 
 COMMODITY DETAILS
-${tradeBlock(trade, buyer, seller)}
+${tradeBlock(trade, buyer, seller, product)}
+
+${qualityBlock(product)}
+
+DELIVERY TERMS
+${deliveryBlock(trade, product)}
+
+PAYMENT TERMS
+${paymentBlock(product)}
 
 INTENT
 1. We confirm our genuine interest, readiness, willingness, and financial ability to purchase the above commodity.
@@ -297,6 +342,7 @@ SWIFT/BIC: ${v(buyer?.swift)}
 
 VALIDITY
 This Letter of Intent is valid for ten (10) working days from the date of issuance.
+${specialNoteBlock(product)}
 
 AUTHORISED SIGNATORY
 Name: _______________
@@ -305,7 +351,7 @@ Company: ${v(buyer?.name, trade?.buyerName)}
 Date: ${today()}
 Signature: _______________`,
 
-  POP: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `PROOF OF PRODUCT (POP)
+  POP: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `PROOF OF PRODUCT (POP)
 ${"=".repeat(40)}
 
 Date: ${today()}
@@ -317,13 +363,16 @@ This document serves as Proof of Product confirming the availability and existen
 ${sellerBlock(seller, trade)}
 
 COMMODITY DETAILS
-${tradeBlock(trade, buyer, seller)}
+${tradeBlock(trade, buyer, seller, product)}
 
 PRODUCT SPECIFICATIONS
-Grade/Quality: _______________
+${product?.qualitySpecs ? product.qualitySpecs : `Grade/Quality: _______________
 Chemical Composition: _______________
 Moisture Content: _______________
-Packaging: _______________
+Packaging: _______________`}
+
+DELIVERY TERMS
+${deliveryBlock(trade, product)}
 
 SUPPORTING EVIDENCE
 The following documents are provided as proof of product:
@@ -336,8 +385,8 @@ The following documents are provided as proof of product:
 
 STORAGE LOCATION
 Warehouse/Mine: _______________
-Location: ${trade?.origin || "_______________"}
-Available Quantity: ${trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : "_______________"}
+Location: ${v(product?.origin, trade?.origin)}
+Available Quantity: ${v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined)}
 
 SELLER'S WARRANTY
 The Seller hereby warrants that:
@@ -345,6 +394,7 @@ The Seller hereby warrants that:
 2. The product meets the stated specifications.
 3. The Seller has legal title and authority to sell.
 4. All export permits and licences are in order.
+${specialNoteBlock(product)}
 
 AUTHORISED SIGNATORY
 Name: _______________
@@ -353,7 +403,7 @@ Company: ${v(seller?.name, trade?.sellerName)}
 Date: ${today()}
 Signature: _______________`,
 
-  POF: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `PROOF OF FUNDS (POF)
+  POF: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `PROOF OF FUNDS (POF)
 ${"=".repeat(40)}
 
 Date: ${today()}
@@ -365,11 +415,11 @@ This document serves as Proof of Funds confirming the financial capacity of the 
 ${buyerBlock(buyer, trade)}
 
 TRANSACTION DETAILS
-${tradeBlock(trade, buyer, seller)}
+${tradeBlock(trade, buyer, seller, product)}
 
 FINANCIAL CONFIRMATION
 The Buyer hereby confirms:
-1. Availability of funds in the amount of ${trade ? `${trade.currency} ${trade.totalValue.toLocaleString()}` : "_______________"} or equivalent.
+1. Availability of funds or equivalent.
 2. The funds are clean, clear, and of non-criminal origin.
 3. The funds are held in a reputable banking institution.
 4. The Buyer is authorised to utilise said funds for this transaction.
@@ -392,6 +442,7 @@ SUPPORTING DOCUMENTS
 ☐ Bank Comfort Letter (BCL)
 ☐ Treasury Confirmation
 ☐ LC Capability Letter
+${specialNoteBlock(product)}
 
 AUTHORISED SIGNATORY
 Name: _______________
@@ -400,7 +451,7 @@ Company: ${v(buyer?.name, trade?.buyerName)}
 Date: ${today()}
 Signature: _______________`,
 
-  BCL: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails) => `BANK COMFORT LETTER (BCL)
+  BCL: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `BANK COMFORT LETTER (BCL)
 ${"=".repeat(40)}
 
 Date: ${today()}
@@ -422,7 +473,7 @@ Account Type: _______________
 Relationship Since: _______________
 
 TRANSACTION REFERENCE
-${tradeBlock(trade, buyer, seller)}
+${tradeBlock(trade, buyer, seller, product)}
 
 CONFIRMATION
 We hereby confirm that:
@@ -450,8 +501,8 @@ Date: ${today()}
 Signature & Bank Seal: _______________`,
 };
 
-export function generateDocumentContent(docType: string, trade?: Trade, buyerDetails?: PartyDetails, sellerDetails?: PartyDetails): string {
+export function generateDocumentContent(docType: string, trade?: Trade, buyerDetails?: PartyDetails, sellerDetails?: PartyDetails, productDetails?: ProductDetails): string {
   const templateFn = templates[docType];
   if (!templateFn) return "";
-  return templateFn(trade, buyerDetails, sellerDetails);
+  return templateFn(trade, buyerDetails, sellerDetails, productDetails);
 }
