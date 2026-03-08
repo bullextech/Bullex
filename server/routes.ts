@@ -5,8 +5,9 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
-import { insertTradeSchema, insertKycSchema, insertDocumentSchema } from "@shared/schema";
+import { insertTradeSchema, insertKycSchema, insertDocumentSchema, type Trade } from "@shared/schema";
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, mineBlock, GENESIS_HASH } from "./blockchain";
+import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
 import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail } from "./email";
 
@@ -649,8 +650,15 @@ export async function registerRoutes(
       if (!parsed.success) {
         return res.status(400).json({ message: parsed.error.message });
       }
+      let trade: Trade | undefined;
+      if (parsed.data.tradeRef) {
+        const trades = await storage.getTrades();
+        trade = trades.find(t => t.tradeRef === parsed.data.tradeRef);
+      }
+      const content = generateDocumentContent(parsed.data.docType, trade);
       const result = await storage.createDocument({
         ...parsed.data,
+        content,
         status: "draft",
       });
       res.json(result);
