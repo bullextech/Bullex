@@ -92,6 +92,7 @@ export default function DocumentGenerator() {
   const [paymentTerms, setPaymentTerms] = useState("");
   const [analysisAgency, setAnalysisAgency] = useState("");
   const [analysisAgencyContact, setAnalysisAgencyContact] = useState("");
+  const [validity, setValidity] = useState("");
   const [specialNote, setSpecialNote] = useState("");
   const [viewDoc, setViewDoc] = useState<Doc | null>(null);
   const [editDoc, setEditDoc] = useState<Doc | null>(null);
@@ -155,7 +156,7 @@ export default function DocumentGenerator() {
     setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
     setCommodity(""); setOrigin(""); setQuantity(""); setQualitySpecs(""); setLoadingPort(""); setDischargePort("");
     setPrice(""); setCurrency("USD"); setIncoterm(""); setLaycan(""); setPaymentTerms("");
-    setAnalysisAgency(""); setAnalysisAgencyContact(""); setSpecialNote("");
+    setAnalysisAgency(""); setAnalysisAgencyContact(""); setValidity(""); setSpecialNote("");
   };
 
   const generateDoc = useMutation({
@@ -209,7 +210,7 @@ export default function DocumentGenerator() {
       productDetails: {
         commodity, origin, quantity, qualitySpecs, loadingPort, dischargePort,
         price, currency, incoterm, laycan, paymentTerms,
-        analysisAgency, analysisAgencyContact, specialNote,
+        analysisAgency, analysisAgencyContact, validity, specialNote,
       },
     });
   };
@@ -224,7 +225,7 @@ export default function DocumentGenerator() {
       setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
       setCommodity(""); setOrigin(""); setQuantity(""); setQualitySpecs(""); setLoadingPort(""); setDischargePort("");
       setPrice(""); setCurrency("USD"); setIncoterm(""); setLaycan(""); setPaymentTerms("");
-      setAnalysisAgency(""); setAnalysisAgencyContact(""); setSpecialNote("");
+      setAnalysisAgency(""); setAnalysisAgencyContact(""); setValidity(""); setSpecialNote("");
     }
   };
 
@@ -450,7 +451,7 @@ export default function DocumentGenerator() {
                 />
               </div>
 
-              <Accordion type="multiple" defaultValue={["product"]} className="w-full">
+              <Accordion type="multiple" defaultValue={selectedType?.value === "LOI" ? ["product", "buyer", "seller"] : ["product"]} className="w-full">
                 <AccordionItem value="product" className="border-b-0">
                   <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">
                     <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Product Details</span>
@@ -483,9 +484,12 @@ export default function DocumentGenerator() {
                       <Input placeholder="Incoterm (e.g. FOB, CIF, CFR)" value={incoterm} onChange={(e) => setIncoterm(e.target.value)} data-testid="input-incoterm" />
                       <Input placeholder="Laycan (e.g. 15-30 April 2026)" value={laycan} onChange={(e) => setLaycan(e.target.value)} data-testid="input-laycan" />
                     </div>
-                    <Input placeholder="Payment Terms (e.g. Irrevocable LC at sight)" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} data-testid="input-payment-terms" />
+                    <Input placeholder="Payment Terms (e.g. By DLC against 2% Performance Bond)" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} data-testid="input-payment-terms" />
+                    {selectedType?.value === "LOI" && (
+                      <Input placeholder="LOI Validity (e.g. Saturday 2nd August, 2025 - 2000HRS Dubai Time)" value={validity} onChange={(e) => setValidity(e.target.value)} data-testid="input-validity" />
+                    )}
                     <div className="grid grid-cols-2 gap-3">
-                      <Input placeholder="Analysis Agency (e.g. SGS, Bureau Veritas)" value={analysisAgency} onChange={(e) => setAnalysisAgency(e.target.value)} data-testid="input-analysis-agency" />
+                      <Input placeholder="Analysis Agency (e.g. SGS, CCIC, Alfred H. Knight)" value={analysisAgency} onChange={(e) => setAnalysisAgency(e.target.value)} data-testid="input-analysis-agency" />
                       <Input placeholder="Agency Contact / Email" value={analysisAgencyContact} onChange={(e) => setAnalysisAgencyContact(e.target.value)} data-testid="input-analysis-agency-contact" />
                     </div>
                     <Textarea placeholder="Special Notes (e.g. subject to SGS inspection, performance bond required)" value={specialNote} onChange={(e) => setSpecialNote(e.target.value)} rows={2} data-testid="input-special-note" />
