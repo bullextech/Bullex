@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -34,7 +37,10 @@ import {
   Calendar,
   Download,
   FileCheck,
+  Edit,
 } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { KycApplication, KycDocument } from "@shared/schema";
 
 const platformFeatures = [
@@ -89,10 +95,32 @@ const platformFeatures = [
 ];
 
 export default function Platform() {
+  const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<KycApplication | null>(null);
+  const [editingParticipant, setEditingParticipant] = useState<KycApplication | null>(null);
+  const [changeFields, setChangeFields] = useState<Record<string, string>>({});
+  const [changeReason, setChangeReason] = useState("");
   const { data: applications, isLoading: participantsLoading } = useQuery<KycApplication[]>({
     queryKey: ["/api/kyc"],
+  });
+  const submitChangeRequest = useMutation({
+    mutationFn: async (data: { kycId: string; changedFields: Record<string, string>; reason: string }) => {
+      const res = await apiRequest("POST", `/api/kyc/${data.kycId}/change-request`, {
+        changedFields: data.changedFields,
+        reason: data.reason,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Change request submitted", description: "The change request has been submitted for review." });
+      setEditingParticipant(null);
+      setChangeFields({});
+      setChangeReason("");
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to submit change request.", variant: "destructive" });
+    },
   });
   const { data: participantDocs } = useQuery<KycDocument[]>({
     queryKey: ["/api/kyc", selectedParticipant?.id, "documents"],
@@ -372,11 +400,28 @@ export default function Platform() {
                       )}
                     </div>
 
-                    <div className="mt-3 pt-3 border-t border-border flex items-center gap-2">
-                      <Shield className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                      <span className="text-[10px] text-primary font-medium uppercase tracking-wider">
-                        KYC Verified
-                      </span>
+                    <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                        <span className="text-[10px] text-primary font-medium uppercase tracking-wider">
+                          KYC Verified
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-[10px] text-muted-foreground hover:text-primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingParticipant(participant);
+                          setChangeFields({});
+                          setChangeReason("");
+                        }}
+                        data-testid={`button-request-changes-${participant.id}`}
+                      >
+                        <Edit className="w-3 h-3 mr-1" />
+                        Request Changes
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -519,6 +564,106 @@ export default function Platform() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingParticipant} onOpenChange={(open) => { if (!open) setEditingParticipant(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" data-testid="dialog-request-changes">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-serif">
+              <Edit className="w-5 h-5 text-primary" />
+              Request Changes — {editingParticipant?.companyName}
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground">
+              Edit the fields you want to change. Only modified fields will be submitted as a change request for admin approval.
+            </p>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {[
+              { key: "companyName", label: "Company Name" },
+              { key: "registeredAddress", label: "Registered Address" },
+              { key: "primaryBusinessAddress", label: "Primary Business Address" },
+              { key: "contactName", label: "Contact Name" },
+              { key: "contactTitle", label: "Contact Title" },
+              { key: "contactPhone", label: "Contact Phone" },
+              { key: "contactEmail", label: "Contact Email" },
+              { key: "countryOfOperation", label: "Country of Operation" },
+              { key: "businessType", label: "Business Type" },
+              { key: "coreBusinessDescription", label: "Core Business Description" },
+              { key: "bankName", label: "Bank Name" },
+              { key: "bankAddress", label: "Bank Address" },
+              { key: "accountName", label: "Account Name" },
+              { key: "accountNumber", label: "Account Number" },
+              { key: "swiftCode", label: "SWIFT Code" },
+              { key: "bankAccountCurrency", label: "Bank Account Currency" },
+              { key: "signatoryName", label: "Signatory Name" },
+              { key: "signatoryTitle", label: "Signatory Title" },
+              { key: "signatoryEmail", label: "Signatory Email" },
+            ].map(({ key, label }) => {
+              const currentVal = editingParticipant ? String((editingParticipant as any)[key] || "") : "";
+              return (
+                <div key={key} className="space-y-1">
+                  <Label className="text-xs font-medium">{label}</Label>
+                  <Input
+                    className="text-sm rounded-none"
+                    placeholder={currentVal || "Current: (empty)"}
+                    value={changeFields[key] ?? ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setChangeFields((prev) => {
+                        const next = { ...prev };
+                        if (val === "" || val === currentVal) {
+                          delete next[key];
+                        } else {
+                          next[key] = val;
+                        }
+                        return next;
+                      });
+                    }}
+                    data-testid={`input-change-${key}`}
+                  />
+                  {currentVal && (
+                    <p className="text-[10px] text-muted-foreground">Current: {currentVal}</p>
+                  )}
+                </div>
+              );
+            })}
+            <div className="space-y-1 pt-2 border-t">
+              <Label className="text-xs font-medium">Reason for Changes</Label>
+              <Textarea
+                className="text-sm rounded-none h-20"
+                placeholder="Briefly explain why these changes are needed..."
+                value={changeReason}
+                onChange={(e) => setChangeReason(e.target.value)}
+                data-testid="input-change-reason"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                className="rounded-none"
+                onClick={() => setEditingParticipant(null)}
+                data-testid="button-cancel-changes"
+              >
+                Cancel
+              </Button>
+              <Button
+                className="rounded-none"
+                disabled={Object.keys(changeFields).length === 0 || submitChangeRequest.isPending}
+                onClick={() => {
+                  if (!editingParticipant) return;
+                  submitChangeRequest.mutate({
+                    kycId: editingParticipant.id,
+                    changedFields: changeFields,
+                    reason: changeReason,
+                  });
+                }}
+                data-testid="button-submit-changes"
+              >
+                {submitChangeRequest.isPending ? "Submitting..." : "Submit Change Request"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
