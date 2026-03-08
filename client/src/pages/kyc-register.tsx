@@ -119,6 +119,8 @@ const emptyForm = {
   signatoryCompany: "",
   signatoryEmail: "",
   signatoryPlaceDate: "",
+  filledByName: "",
+  filledByEmail: "",
 };
 
 export default function KycRegister() {
@@ -940,6 +942,20 @@ export default function KycRegister() {
                         <Input className={inputClass} placeholder="e.g. Dubai, 15/03/2025" value={form.signatoryPlaceDate} onChange={(e) => update("signatoryPlaceDate", e.target.value)} data-testid="input-reg-signatory-place-date" />
                       </div>
                     </div>
+
+                    <div className="mt-6 pt-4 border-t border-border">
+                      <h4 className="text-sm font-bold text-primary mb-4">Form Filled By</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label className={labelClass}>Name</Label>
+                          <Input className={inputClass} placeholder="Name of person filling this form" value={form.filledByName} onChange={(e) => update("filledByName", e.target.value)} data-testid="input-reg-filled-by-name" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className={labelClass}>Email</Label>
+                          <Input className={inputClass} type="email" placeholder="email@company.com" value={form.filledByEmail} onChange={(e) => update("filledByEmail", e.target.value)} data-testid="input-reg-filled-by-email" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1082,6 +1098,7 @@ export default function KycRegister() {
                       { title: "10. Authorised Signatory", icon: <PenTool className="w-4 h-4" />, rows: [
                         ["Print Name", form.signatoryName], ["Title", form.signatoryTitle],
                         ["Company Name", form.signatoryCompany], ["Email", form.signatoryEmail], ["Place & Date", form.signatoryPlaceDate],
+                        ["Filled By", form.filledByName], ["Filled By Email", form.filledByEmail],
                       ]},
                     ].map((section) => (
                       <div key={section.title} className="border border-border p-4" data-testid={`preview-section-${section.title.split(".")[0].trim()}`}>

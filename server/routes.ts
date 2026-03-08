@@ -185,6 +185,15 @@ export async function registerRoutes(
             products || updated.products
           ).catch((err) => console.error("[email] background approval send failed:", err));
         }
+        if (updated.filledByEmail && updated.filledByEmail !== emailTo) {
+          sendKycApprovalEmail(
+            updated.filledByEmail,
+            updated.companyName,
+            updated.filledByName || "Applicant",
+            category || updated.category,
+            products || updated.products
+          ).catch((err) => console.error("[email] background approval send to filledBy failed:", err));
+        }
       }
 
       if (status === "rejected") {
@@ -196,6 +205,14 @@ export async function registerRoutes(
             updated.signatoryName || updated.contactName,
             reviewNotes
           ).catch((err) => console.error("[email] background rejection send failed:", err));
+        }
+        if (updated.filledByEmail && updated.filledByEmail !== emailTo) {
+          sendKycRejectionEmail(
+            updated.filledByEmail,
+            updated.companyName,
+            updated.filledByName || "Applicant",
+            reviewNotes
+          ).catch((err) => console.error("[email] background rejection send to filledBy failed:", err));
         }
       }
 
@@ -372,6 +389,13 @@ export async function registerRoutes(
           parsed.data.companyName,
           parsed.data.signatoryName || parsed.data.contactName
         ).catch((err) => console.error("[email] background send failed:", err));
+      }
+      if (parsed.data.filledByEmail && parsed.data.filledByEmail !== signatoryEmail) {
+        sendKycConfirmationEmail(
+          parsed.data.filledByEmail,
+          parsed.data.companyName,
+          parsed.data.filledByName || "Applicant"
+        ).catch((err) => console.error("[email] background send to filledBy failed:", err));
       }
 
       res.json(result);
