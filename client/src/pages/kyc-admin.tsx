@@ -4,10 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -109,27 +107,6 @@ export default function KycAdmin() {
   });
 
   const [changeRequestNotes, setChangeRequestNotes] = useState<Record<string, string>>({});
-  const [adminEditingKyc, setAdminEditingKyc] = useState<KycApplication | null>(null);
-  const [adminChangeFields, setAdminChangeFields] = useState<Record<string, string>>({});
-  const [adminChangeReason, setAdminChangeReason] = useState("");
-
-  const adminSubmitChangeRequest = useMutation({
-    mutationFn: async ({ kycId, changedFields, reason }: { kycId: string; changedFields: Record<string, string>; reason: string }) => {
-      const res = await apiRequest("POST", `/api/kyc/${kycId}/change-request`, { changedFields, reason });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/kyc-change-requests"] });
-      toast({ title: "Change Request Created", description: "Change request has been submitted for review." });
-      setAdminEditingKyc(null);
-      setAdminChangeFields({});
-      setAdminChangeReason("");
-    },
-    onError: (error: Error) => {
-      toast({ title: "Submission Failed", description: error.message, variant: "destructive" });
-    },
-  });
-
   const updateChangeRequest = useMutation({
     mutationFn: async ({ id, status, adminNotes }: { id: string; status: string; adminNotes?: string }) => {
       const res = await apiRequest("PATCH", `/api/kyc-change-requests/${id}/status`, { status, adminNotes });
@@ -758,20 +735,7 @@ export default function KycAdmin() {
                                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                                       <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Application Approved</span>
                                     </div>
-                                    <p className="text-xs text-muted-foreground">This application has been approved. To modify details, submit a change request.</p>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="mt-2 rounded-none text-xs"
-                                      onClick={() => {
-                                        setAdminEditingKyc(app);
-                                        setAdminChangeFields({});
-                                        setAdminChangeReason("");
-                                      }}
-                                      data-testid={`button-admin-request-changes-${app.id}`}
-                                    >
-                                      <Edit className="w-3 h-3 mr-1" /> Request Changes
-                                    </Button>
+                                    <p className="text-xs text-muted-foreground">This application has been approved.</p>
                                   </div>
                                   {app.blockchainHash && (
                                     <div className="p-3 bg-primary/5 border border-primary/20 text-sm space-y-1">
@@ -901,105 +865,6 @@ export default function KycAdmin() {
           )}
         </div>
 
-        <Dialog open={!!adminEditingKyc} onOpenChange={(open) => { if (!open) setAdminEditingKyc(null); }}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-lg font-serif">
-                <Edit className="w-5 h-5 text-primary" />
-                Request Changes — {adminEditingKyc?.companyName}
-              </DialogTitle>
-              <p className="text-xs text-muted-foreground">
-                Edit the fields you want to change. Only modified fields will be submitted as a change request for admin approval.
-              </p>
-            </DialogHeader>
-            <div className="space-y-4 mt-4">
-              {[
-                { key: "companyName", label: "Company Name" },
-                { key: "registeredAddress", label: "Registered Address" },
-                { key: "primaryBusinessAddress", label: "Primary Business Address" },
-                { key: "contactName", label: "Contact Name" },
-                { key: "contactTitle", label: "Contact Title" },
-                { key: "contactPhone", label: "Contact Phone" },
-                { key: "contactEmail", label: "Contact Email" },
-                { key: "countryOfOperation", label: "Country of Operation" },
-                { key: "businessType", label: "Business Type" },
-                { key: "coreBusinessDescription", label: "Core Business Description" },
-                { key: "bankName", label: "Bank Name" },
-                { key: "bankAddress", label: "Bank Address" },
-                { key: "accountName", label: "Account Name" },
-                { key: "accountNumber", label: "Account Number" },
-                { key: "swiftCode", label: "SWIFT Code" },
-                { key: "bankAccountCurrency", label: "Bank Account Currency" },
-                { key: "signatoryName", label: "Signatory Name" },
-                { key: "signatoryTitle", label: "Signatory Title" },
-                { key: "signatoryEmail", label: "Signatory Email" },
-              ].map(({ key, label }) => {
-                const currentVal = adminEditingKyc ? String((adminEditingKyc as any)[key] || "") : "";
-                return (
-                  <div key={key} className="space-y-1">
-                    <Label className="text-xs font-medium">{label}</Label>
-                    <Input
-                      className="text-sm rounded-none"
-                      placeholder={currentVal || "Current: (empty)"}
-                      value={adminChangeFields[key] ?? ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setAdminChangeFields((prev) => {
-                          const next = { ...prev };
-                          if (val === "" || val === currentVal) {
-                            delete next[key];
-                          } else {
-                            next[key] = val;
-                          }
-                          return next;
-                        });
-                      }}
-                      data-testid={`input-admin-change-${key}`}
-                    />
-                    {currentVal && (
-                      <p className="text-[10px] text-muted-foreground">Current: {currentVal}</p>
-                    )}
-                  </div>
-                );
-              })}
-              <div className="space-y-1 pt-2 border-t">
-                <Label className="text-xs font-medium">Reason for Changes</Label>
-                <Textarea
-                  className="text-sm rounded-none h-20"
-                  placeholder="Briefly explain why these changes are needed..."
-                  value={adminChangeReason}
-                  onChange={(e) => setAdminChangeReason(e.target.value)}
-                  data-testid="input-admin-change-reason"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  className="rounded-none"
-                  onClick={() => setAdminEditingKyc(null)}
-                  data-testid="button-admin-cancel-changes"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="rounded-none"
-                  disabled={Object.keys(adminChangeFields).length === 0 || adminSubmitChangeRequest.isPending}
-                  onClick={() => {
-                    if (!adminEditingKyc) return;
-                    adminSubmitChangeRequest.mutate({
-                      kycId: adminEditingKyc.id,
-                      changedFields: adminChangeFields,
-                      reason: adminChangeReason,
-                    });
-                  }}
-                  data-testid="button-admin-submit-changes"
-                >
-                  {adminSubmitChangeRequest.isPending ? "Submitting..." : "Submit Change Request"}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );
