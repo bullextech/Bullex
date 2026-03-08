@@ -26,6 +26,12 @@ import {
   kycChangeRequests,
   type KycChangeRequest,
   type InsertKycChangeRequest,
+  tradeEnquiries,
+  tradeEnquiryDocuments,
+  type TradeEnquiry,
+  type InsertTradeEnquiry,
+  type TradeEnquiryDocument,
+  type InsertTradeEnquiryDocument,
 } from "@shared/schema";
 
 const pool = new pg.Pool({
@@ -89,6 +95,17 @@ export interface IStorage {
   updateKycChangeRequestStatus(id: string, status: string, adminNotes?: string): Promise<KycChangeRequest>;
   approveAndApplyChangeRequest(id: string, adminNotes?: string): Promise<KycApplication>;
   updateKycApplicationFields(id: string, fields: Record<string, any>): Promise<KycApplication>;
+
+  getTradeEnquiries(): Promise<TradeEnquiry[]>;
+  getTradeEnquiryById(id: string): Promise<TradeEnquiry | undefined>;
+  createTradeEnquiry(enquiry: InsertTradeEnquiry): Promise<TradeEnquiry>;
+  updateTradeEnquiryStatus(id: string, status: string): Promise<TradeEnquiry>;
+  deleteTradeEnquiry(id: string): Promise<void>;
+
+  getTradeEnquiryDocuments(enquiryId: string): Promise<TradeEnquiryDocument[]>;
+  getTradeEnquiryDocumentById(id: string): Promise<TradeEnquiryDocument | undefined>;
+  createTradeEnquiryDocument(doc: InsertTradeEnquiryDocument): Promise<TradeEnquiryDocument>;
+  deleteTradeEnquiryDocument(id: string): Promise<TradeEnquiryDocument | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -456,6 +473,50 @@ export class DatabaseStorage implements IStorage {
   async updateKycApplicationFields(id: string, fields: Record<string, any>): Promise<KycApplication> {
     const [updated] = await db.update(kycApplications).set(fields).where(eq(kycApplications.id, id)).returning();
     return updated;
+  }
+
+  async getTradeEnquiries(): Promise<TradeEnquiry[]> {
+    return db.select().from(tradeEnquiries).orderBy(desc(tradeEnquiries.createdAt));
+  }
+
+  async getTradeEnquiryById(id: string): Promise<TradeEnquiry | undefined> {
+    const [enquiry] = await db.select().from(tradeEnquiries).where(eq(tradeEnquiries.id, id));
+    return enquiry;
+  }
+
+  async createTradeEnquiry(enquiry: InsertTradeEnquiry): Promise<TradeEnquiry> {
+    const ref = `ENQ-${Date.now().toString(36).toUpperCase().slice(-4)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const [created] = await db.insert(tradeEnquiries).values({ ...enquiry, enquiryRef: ref }).returning();
+    return created;
+  }
+
+  async updateTradeEnquiryStatus(id: string, status: string): Promise<TradeEnquiry> {
+    const [updated] = await db.update(tradeEnquiries).set({ status }).where(eq(tradeEnquiries.id, id)).returning();
+    return updated;
+  }
+
+  async deleteTradeEnquiry(id: string): Promise<void> {
+    await db.delete(tradeEnquiryDocuments).where(eq(tradeEnquiryDocuments.enquiryId, id));
+    await db.delete(tradeEnquiries).where(eq(tradeEnquiries.id, id));
+  }
+
+  async getTradeEnquiryDocuments(enquiryId: string): Promise<TradeEnquiryDocument[]> {
+    return db.select().from(tradeEnquiryDocuments).where(eq(tradeEnquiryDocuments.enquiryId, enquiryId));
+  }
+
+  async getTradeEnquiryDocumentById(id: string): Promise<TradeEnquiryDocument | undefined> {
+    const [doc] = await db.select().from(tradeEnquiryDocuments).where(eq(tradeEnquiryDocuments.id, id));
+    return doc;
+  }
+
+  async createTradeEnquiryDocument(doc: InsertTradeEnquiryDocument): Promise<TradeEnquiryDocument> {
+    const [created] = await db.insert(tradeEnquiryDocuments).values(doc).returning();
+    return created;
+  }
+
+  async deleteTradeEnquiryDocument(id: string): Promise<TradeEnquiryDocument | undefined> {
+    const [deleted] = await db.delete(tradeEnquiryDocuments).where(eq(tradeEnquiryDocuments.id, id)).returning();
+    return deleted;
   }
 }
 

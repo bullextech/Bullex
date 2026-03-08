@@ -181,6 +181,44 @@ export const insertTradeDocumentSchema = createInsertSchema(tradeDocuments).omit
   uploadedAt: true,
 });
 
+export const tradeEnquiries = pgTable("trade_enquiries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  enquiryRef: text("enquiry_ref").notNull().unique(),
+  product: text("product").notNull(),
+  specifications: text("specifications"),
+  producer: text("producer"),
+  quantity: text("quantity"),
+  unit: text("unit").default("MT"),
+  loadingPort: text("loading_port"),
+  incoterms: text("incoterms"),
+  validity: text("validity"),
+  additionalInfo: text("additional_info"),
+  status: text("status").notNull().default("open"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const tradeEnquiryDocuments = pgTable("trade_enquiry_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  enquiryId: varchar("enquiry_id").notNull(),
+  originalName: text("original_name").notNull(),
+  storedName: text("stored_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+});
+
+export const insertTradeEnquirySchema = createInsertSchema(tradeEnquiries).omit({
+  id: true,
+  enquiryRef: true,
+  status: true,
+  createdAt: true,
+});
+
+export const insertTradeEnquiryDocumentSchema = createInsertSchema(tradeEnquiryDocuments).omit({
+  id: true,
+  uploadedAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -232,3 +270,7 @@ export type TradeDocument = typeof tradeDocuments.$inferSelect;
 export type InsertTradeDocument = z.infer<typeof insertTradeDocumentSchema>;
 export type KycChangeRequest = typeof kycChangeRequests.$inferSelect;
 export type InsertKycChangeRequest = z.infer<typeof insertKycChangeRequestSchema>;
+export type TradeEnquiry = typeof tradeEnquiries.$inferSelect;
+export type InsertTradeEnquiry = z.infer<typeof insertTradeEnquirySchema>;
+export type TradeEnquiryDocument = typeof tradeEnquiryDocuments.$inferSelect;
+export type InsertTradeEnquiryDocument = z.infer<typeof insertTradeEnquiryDocumentSchema>;

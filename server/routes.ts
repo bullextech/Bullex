@@ -24,8 +24,10 @@ declare module "express-session" {
 
 const kycUploadsDir = path.join(process.cwd(), "uploads", "kyc");
 const tradeUploadsDir = path.join(process.cwd(), "uploads", "trades");
+const enquiryUploadsDir = path.join(process.cwd(), "uploads", "enquiries");
 if (!fs.existsSync(kycUploadsDir)) fs.mkdirSync(kycUploadsDir, { recursive: true });
 if (!fs.existsSync(tradeUploadsDir)) fs.mkdirSync(tradeUploadsDir, { recursive: true });
+if (!fs.existsSync(enquiryUploadsDir)) fs.mkdirSync(enquiryUploadsDir, { recursive: true });
 
 const allowedExts = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx", ".xls", ".xlsx"];
 
@@ -53,6 +55,7 @@ function createUploader(destDir: string, prefix: string) {
 
 const kycUpload = createUploader(kycUploadsDir, "kyc");
 const tradeUpload = createUploader(tradeUploadsDir, "trade");
+const enquiryUpload = createUploader(enquiryUploadsDir, "enquiry");
 
 const VALID_KYC_DOC_TYPES = [
   "certificate_of_incorporation",
@@ -960,6 +963,142 @@ export async function registerRoutes(
       res.json({ message: "Document deleted" });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to delete trade document" });
+    }
+  });
+
+  // ─── TRADE ENQUIRIES ───
+  app.get("/api/trade-enquiries", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const enquiries = await storage.getTradeEnquiries();
+      res.json(enquiries);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trade-enquiries/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const enquiry = await storage.getTradeEnquiryById(req.params.id);
+      if (!enquiry) return res.status(404).json({ message: "Enquiry not found" });
+      res.json(enquiry);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trade-enquiries", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = req.body;
+      if (!b || typeof b.product !== "string" || !b.product.trim()) {
+        return res.status(400).json({ message: "Product is required and must be a string" });
+      }
+      const str = (v: any) => (typeof v === "string" && v.trim()) ? v.trim() : null;
+      const enquiry = await storage.createTradeEnquiry({
+        product: b.product.trim(),
+        specifications: str(b.specifications),
+        producer: str(b.producer),
+        quantity: str(b.quantity),
+        unit: str(b.unit) || "MT",
+        loadingPort: str(b.loadingPort),
+        incoterms: str(b.incoterms),
+        validity: str(b.validity),
+        additionalInfo: str(b.additionalInfo),
+      });
+      res.json(enquiry);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/trade-enquiries/:id/status", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { status } = req.body;
+      const valid = ["open", "under_review", "quoted", "closed", "cancelled"];
+      if (!valid.includes(status)) return res.status(400).json({ message: "Invalid status" });
+      const existing = await storage.getTradeEnquiryById(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Enquiry not found" });
+      const updated = await storage.updateTradeEnquiryStatus(req.params.id, status);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/trade-enquiries/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const existing = await storage.getTradeEnquiryById(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Enquiry not found" });
+      const docs = await storage.getTradeEnquiryDocuments(req.params.id);
+      for (const doc of docs) {
+        const filePath = path.join(enquiryUploadsDir, doc.storedName);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }
+      await storage.deleteTradeEnquiry(req.params.id);
+      res.json({ message: "Enquiry deleted" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ─── TRADE ENQUIRY DOCUMENTS ───
+  app.get("/api/trade-enquiries/:id/documents", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const docs = await storage.getTradeEnquiryDocuments(req.params.id);
+      res.json(docs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trade-enquiries/:id/documents", requireAuth, enquiryUpload.single("file"), async (req: Request, res: Response) => {
+    const file = req.file;
+    try {
+      if (!file) return res.status(400).json({ message: "No file uploaded" });
+      const enquiry = await storage.getTradeEnquiryById(req.params.id);
+      if (!enquiry) {
+        fs.unlinkSync(path.join(enquiryUploadsDir, file.filename));
+        return res.status(404).json({ message: "Enquiry not found" });
+      }
+      const doc = await storage.createTradeEnquiryDocument({
+        enquiryId: req.params.id,
+        originalName: file.originalname,
+        storedName: file.filename,
+        mimeType: file.mimetype,
+        size: file.size,
+      });
+      res.json(doc);
+    } catch (error: any) {
+      if (file) {
+        const fp = path.join(enquiryUploadsDir, file.filename);
+        if (fs.existsSync(fp)) fs.unlinkSync(fp);
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trade-enquiry-documents/:docId/download", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const doc = await storage.getTradeEnquiryDocumentById(req.params.docId);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      const filePath = path.join(enquiryUploadsDir, doc.storedName);
+      if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
+      res.setHeader("Content-Disposition", `attachment; filename="${doc.originalName}"`);
+      res.setHeader("Content-Type", doc.mimeType);
+      res.sendFile(filePath);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/trade-enquiry-documents/:docId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const deleted = await storage.deleteTradeEnquiryDocument(req.params.docId);
+      if (!deleted) return res.status(404).json({ message: "Document not found" });
+      const filePath = path.join(enquiryUploadsDir, deleted.storedName);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      res.json({ message: "Document deleted" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 

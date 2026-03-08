@@ -26,6 +26,7 @@ import Investor from "@/pages/investor";
 import Platform from "@/pages/platform";
 import KycRegister from "@/pages/kyc-register";
 import ClientPortal from "@/pages/client-portal";
+import TradeEnquiries from "@/pages/trade-enquiries";
 import Login from "@/pages/login";
 
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
@@ -61,6 +62,7 @@ function Router() {
       <Route path="/vault">{() => <ProtectedRoute component={Vault} />}</Route>
       <Route path="/blockchain">{() => <ProtectedRoute component={Blockchain} />}</Route>
       <Route path="/platform">{() => <ProtectedRoute component={Platform} />}</Route>
+      <Route path="/trade-enquiries">{() => <ProtectedRoute component={TradeEnquiries} />}</Route>
       <Route path="/client-portal" component={ClientPortal} />
       <Route path="/investor" component={Investor} />
       <Route path="/contact" component={Contact} />

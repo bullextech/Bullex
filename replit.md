@@ -51,6 +51,7 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 - `/trading` - Blockchain Trading [PROTECTED]
 - `/vault` - Document Vault [PROTECTED]
 - `/blockchain` - Blockchain Ledger [PROTECTED]
+- `/trade-enquiries` - Trade Enquiries (create, manage, attach documents) [PROTECTED]
 - `/client-portal` - Client Portal (client login/dashboard for viewing trades and documents) [STANDALONE]
 - `/contact` - Contact page (Dubai, team@bullex.tech, +971585416399)
 - `/kyc-register` - Standalone client KYC registration (no sidebar/nav)
@@ -86,13 +87,15 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 - `blocks` - Blockchain blocks (hash, previous hash, nonce, verification, dataType: "trade"|"kyc", dataId, dataSummary)
 - `kyc_change_requests` - Change requests for approved KYC applications (kycApplicationId, changedFields JSONB, reason, status: pending|approved|rejected, adminNotes, reviewedAt)
 - `documents` - Trade documents (SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL) with docxPath, pdfPath, buyerEmail, sellerEmail
+- `trade_enquiries` - Trade enquiry records (enquiryRef, product, specifications, producer, quantity, unit, loadingPort, incoterms, validity, additionalInfo, status: open|under_review|quoted|closed|cancelled)
+- `trade_enquiry_documents` - Files attached to trade enquiries (enquiryId, originalName, storedName, mimeType, size)
 
 ## Trade Pipeline (Document-Gated)
 Trade flow: `pre_deal` → `deal` → `execution` → `final_payment`
 Each stage has mandatory (M) and optional (O) documents. All mandatory docs must be confirmed before advancing.
 
 ## Sidebar Order
-Home, Admin, Products, Platform, Client Portal, Investor, Contact
+Home, Admin, Enquiries, Products, Platform, Client Portal, Investor, Contact
 
 ## Platform Page (/platform)
 7 tool boxes: KYC Registration, Document Generator, Blockchain Trading, Document Vault, Blockchain Ledger, Tokenisation, Admin
