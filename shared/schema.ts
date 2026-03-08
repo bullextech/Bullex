@@ -194,6 +194,8 @@ export const tradeEnquiries = pgTable("trade_enquiries", {
   incoterms: text("incoterms"),
   validity: text("validity"),
   additionalInfo: text("additional_info"),
+  createdBy: text("created_by"),
+  email: text("email"),
   status: text("status").notNull().default("open"),
   clientResponse: text("client_response"),
   clientRespondedBy: text("client_responded_by"),

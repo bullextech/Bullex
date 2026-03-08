@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   Search, Plus, FileText, Download, Trash2, Upload, Eye, X,
-  Package, MapPin, Scale, Clock, Info, ChevronDown
+  Package, MapPin, Scale, Clock, Info, ChevronDown, User, Mail
 } from "lucide-react";
 import type { TradeEnquiry, TradeEnquiryDocument } from "@shared/schema";
 
@@ -47,6 +47,8 @@ interface EnquiryForm {
   incoterms: string;
   validity: string;
   additionalInfo: string;
+  createdBy: string;
+  email: string;
 }
 
 const emptyForm: EnquiryForm = {
@@ -60,6 +62,8 @@ const emptyForm: EnquiryForm = {
   incoterms: "FOB",
   validity: "",
   additionalInfo: "",
+  createdBy: "",
+  email: "",
 };
 
 export default function TradeEnquiries() {
@@ -182,6 +186,30 @@ export default function TradeEnquiries() {
                 >
                   SELL
                 </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="createdBy">Created By</Label>
+                <Input
+                  id="createdBy"
+                  placeholder="e.g. John Smith"
+                  value={form.createdBy}
+                  onChange={(e) => setForm({ ...form, createdBy: e.target.value })}
+                  data-testid="input-created-by"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="e.g. john@company.com"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  data-testid="input-email"
+                />
               </div>
             </div>
 
@@ -446,6 +474,16 @@ function EnquiryCard({
               {enquiry.product}
             </h3>
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
+              {enquiry.createdBy && (
+                <span className="flex items-center gap-1">
+                  <User className="w-3.5 h-3.5" /> {enquiry.createdBy}
+                </span>
+              )}
+              {enquiry.email && (
+                <span className="flex items-center gap-1">
+                  <Mail className="w-3.5 h-3.5" /> {enquiry.email}
+                </span>
+              )}
               {enquiry.producer && (
                 <span className="flex items-center gap-1">
                   <Package className="w-3.5 h-3.5" /> {enquiry.producer}
@@ -602,6 +640,18 @@ function EnquiryDetailDialog({
                 <span className="text-muted-foreground">Date:</span>
                 <span className="ml-2 font-medium">{created}</span>
               </div>
+              {enquiry.createdBy && (
+                <div>
+                  <span className="text-muted-foreground">Created By:</span>
+                  <span className="ml-2 font-medium" data-testid="text-detail-created-by">{enquiry.createdBy}</span>
+                </div>
+              )}
+              {enquiry.email && (
+                <div>
+                  <span className="text-muted-foreground">Email:</span>
+                  <span className="ml-2 font-medium" data-testid="text-detail-email">{enquiry.email}</span>
+                </div>
+              )}
               <div>
                 <span className="text-muted-foreground">Product:</span>
                 <span className="ml-2 font-medium" data-testid="text-detail-product">{enquiry.product}</span>

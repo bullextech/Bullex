@@ -1082,6 +1082,8 @@ export async function registerRoutes(
         incoterms: str(b.incoterms),
         validity: str(b.validity),
         additionalInfo: str(b.additionalInfo),
+        createdBy: str(b.createdBy),
+        email: str(b.email),
       });
       res.json(enquiry);
     } catch (error: any) {
