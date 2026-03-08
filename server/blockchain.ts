@@ -38,6 +38,17 @@ export function generateKycHash(
   return computeHash(data);
 }
 
+export function generateKycAmendmentHash(
+  companyName: string,
+  registrationNumber: string,
+  changedFields: Record<string, any>,
+  timestamp: string
+): string {
+  const fieldKeys = Object.keys(changedFields).sort().join(",");
+  const data = `KYC_AMENDMENT:${companyName}:${registrationNumber}:${fieldKeys}:${timestamp}`;
+  return computeHash(data);
+}
+
 export function mineBlock(
   blockNumber: number,
   previousHash: string,

@@ -22,8 +22,10 @@ import type { Block, Trade, KycApplication } from "@shared/schema";
 
 function BlockCard({ block, trades, kycApps }: { block: Block; trades: Trade[]; kycApps: KycApplication[] }) {
   const isKyc = block.dataType === "kyc";
-  const blockTrades = isKyc ? [] : trades.filter((t) => t.blockNumber === block.blockNumber);
-  const kycApp = isKyc && block.dataId ? kycApps.find((k) => k.id === block.dataId) : null;
+  const isAmendment = block.dataType === "kyc_amendment";
+  const isKycRelated = isKyc || isAmendment;
+  const blockTrades = isKycRelated ? [] : trades.filter((t) => t.blockNumber === block.blockNumber);
+  const kycApp = isKycRelated && block.dataId ? kycApps.find((k) => k.id === block.dataId) : null;
   const formattedDate = block.timestamp
     ? new Date(block.timestamp).toLocaleString()
     : "Unknown";
@@ -36,14 +38,14 @@ function BlockCard({ block, trades, kycApps }: { block: Block; trades: Trade[]; 
     >
       <AccordionTrigger className="px-4 py-3 [&[data-state=open]]:border-b">
         <div className="flex items-center gap-3 w-full pr-2">
-          <div className={`w-10 h-10 rounded-md flex items-center justify-center flex-shrink-0 ${isKyc ? "bg-chart-2/10" : "bg-primary/10"}`}>
-            {isKyc ? <FileCheck className="w-5 h-5 text-chart-2" /> : <Layers className="w-5 h-5 text-primary" />}
+          <div className={`w-10 h-10 rounded-md flex items-center justify-center flex-shrink-0 ${isKycRelated ? "bg-chart-2/10" : "bg-primary/10"}`}>
+            {isKycRelated ? <FileCheck className="w-5 h-5 text-chart-2" /> : <Layers className="w-5 h-5 text-primary" />}
           </div>
           <div className="flex-1 min-w-0 text-left">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-sm">Block #{block.blockNumber}</span>
-              <Badge variant={isKyc ? "secondary" : "outline"} className="text-[10px]">
-                {isKyc ? "KYC" : "Trade"}
+              <Badge variant={isKycRelated ? "secondary" : "outline"} className="text-[10px]">
+                {isAmendment ? "KYC Amendment" : isKyc ? "KYC" : "Trade"}
               </Badge>
               {block.verified && (
                 <Badge variant="default" className="text-[10px]">
@@ -86,7 +88,7 @@ function BlockCard({ block, trades, kycApps }: { block: Block; trades: Trade[]; 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div>
               <p className="text-muted-foreground">Type</p>
-              <p className="font-medium">{isKyc ? "KYC Verification" : "Trade"}</p>
+              <p className="font-medium">{isAmendment ? "KYC Amendment" : isKyc ? "KYC Verification" : "Trade"}</p>
             </div>
             <div>
               <p className="text-muted-foreground">Nonce</p>
@@ -101,21 +103,31 @@ function BlockCard({ block, trades, kycApps }: { block: Block; trades: Trade[]; 
               <p className="font-medium">{block.tradeCount}</p>
             </div>
           </div>
-          {isKyc && kycApp && (
+          {isKycRelated && kycApp && (
             <div>
-              <p className="text-xs font-medium mb-2 flex items-center gap-1"><Users className="w-3 h-3" /> KYC Record</p>
+              <p className="text-xs font-medium mb-2 flex items-center gap-1">
+                <Users className="w-3 h-3" /> {isAmendment ? "KYC Amendment Record" : "KYC Record"}
+              </p>
               <div className="p-2.5 rounded-md bg-muted text-xs space-y-1" data-testid={`block-kyc-${kycApp.id}`}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{kycApp.companyName}</span>
                     <Badge variant="secondary" className="text-[10px]">{kycApp.category || "N/A"}</Badge>
                   </div>
-                  <Badge variant="default" className="text-[10px]">Approved</Badge>
+                  <Badge variant={isAmendment ? "secondary" : "default"} className="text-[10px]">
+                    {isAmendment ? "Amended" : "Approved"}
+                  </Badge>
                 </div>
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>{kycApp.countryOfIncorporation} &middot; Reg: {kycApp.registrationNumber}</span>
                   <span>{kycApp.products || ""}</span>
                 </div>
+                {isAmendment && block.dataSummary && (
+                  <div className="mt-1">
+                    <p className="text-muted-foreground">Changed Fields</p>
+                    <p className="font-medium bg-background p-1 rounded">{block.dataSummary.split("Amendment: ")[1] || block.dataSummary}</p>
+                  </div>
+                )}
                 {kycApp.blockchainHash && (
                   <div className="mt-1">
                     <p className="text-muted-foreground">KYC Hash</p>

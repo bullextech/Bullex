@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
 import { insertTradeSchema, insertKycSchema, insertDocumentSchema } from "@shared/schema";
-import { generateTradeHash, generateKycHash, mineBlock, GENESIS_HASH } from "./blockchain";
+import { generateTradeHash, generateKycHash, generateKycAmendmentHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { seedDatabase } from "./seed";
 import { sendKycConfirmationEmail, sendKycApprovalEmail } from "./email";
 
@@ -258,6 +258,43 @@ export async function registerRoutes(
       }
       if (status === "approved") {
         const updatedKyc = await storage.approveAndApplyChangeRequest(req.params.id, adminNotes);
+
+        try {
+          const latestBlock = await storage.getLatestBlock();
+          const previousHash = latestBlock?.hash || GENESIS_HASH;
+          const blockNumber = (latestBlock?.blockNumber || 0) + 1;
+          const timestamp = new Date().toISOString();
+
+          const changeReqs = await storage.getKycChangeRequestsByApplicationId(updatedKyc.id);
+          const changeReq = changeReqs.find((cr) => cr.id === req.params.id);
+          const changedFields = (changeReq?.changedFields || {}) as Record<string, any>;
+
+          const amendmentHash = generateKycAmendmentHash(
+            updatedKyc.companyName,
+            updatedKyc.registrationNumber,
+            changedFields,
+            timestamp
+          );
+          const { hash: blockHash, nonce } = mineBlock(blockNumber, previousHash, timestamp, amendmentHash);
+
+          const fieldNames = Object.keys(changedFields).map((k) => k.replace(/([A-Z])/g, " $1").trim()).join(", ");
+          await storage.createBlock({
+            blockNumber,
+            hash: blockHash,
+            previousHash,
+            nonce,
+            tradeCount: 1,
+            verified: true,
+            timestamp: new Date(timestamp),
+            dataType: "kyc_amendment",
+            dataId: updatedKyc.id,
+            dataSummary: `${updatedKyc.companyName} | Amendment: ${fieldNames}`,
+          });
+          console.log(`[blockchain] KYC amendment block minted for ${updatedKyc.companyName}, block #${blockNumber}`);
+        } catch (err: any) {
+          console.error("[blockchain] KYC amendment minting failed:", err.message);
+        }
+
         res.json({ status: "approved", kycApplication: updatedKyc });
       } else {
         const updated = await storage.updateKycChangeRequestStatus(req.params.id, status, adminNotes);
