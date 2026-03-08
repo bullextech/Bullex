@@ -23,6 +23,9 @@ import {
   type InsertKycDocument,
   type TradeDocument,
   type InsertTradeDocument,
+  kycChangeRequests,
+  type KycChangeRequest,
+  type InsertKycChangeRequest,
 } from "@shared/schema";
 
 const pool = new pg.Pool({
@@ -75,6 +78,13 @@ export interface IStorage {
     mineBlock: Function,
     genesisHash: string
   ): Promise<Trade>;
+
+  getKycChangeRequests(): Promise<KycChangeRequest[]>;
+  getKycChangeRequestsByApplicationId(kycApplicationId: string): Promise<KycChangeRequest[]>;
+  createKycChangeRequest(req: InsertKycChangeRequest): Promise<KycChangeRequest>;
+  updateKycChangeRequestStatus(id: string, status: string, adminNotes?: string): Promise<KycChangeRequest>;
+  approveAndApplyChangeRequest(id: string, adminNotes?: string): Promise<KycApplication>;
+  updateKycApplicationFields(id: string, fields: Record<string, any>): Promise<KycApplication>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -366,6 +376,62 @@ export class DatabaseStorage implements IStorage {
     } finally {
       client.release();
     }
+  }
+
+  async getKycChangeRequests(): Promise<KycChangeRequest[]> {
+    return db.select().from(kycChangeRequests).orderBy(desc(kycChangeRequests.createdAt));
+  }
+
+  async getKycChangeRequestsByApplicationId(kycApplicationId: string): Promise<KycChangeRequest[]> {
+    return db.select().from(kycChangeRequests).where(eq(kycChangeRequests.kycApplicationId, kycApplicationId)).orderBy(desc(kycChangeRequests.createdAt));
+  }
+
+  async createKycChangeRequest(req: InsertKycChangeRequest): Promise<KycChangeRequest> {
+    const [created] = await db.insert(kycChangeRequests).values(req).returning();
+    return created;
+  }
+
+  async updateKycChangeRequestStatus(id: string, status: string, adminNotes?: string): Promise<KycChangeRequest> {
+    const [updated] = await db.update(kycChangeRequests).set({
+      status,
+      adminNotes: adminNotes || null,
+      reviewedAt: new Date(),
+    }).where(eq(kycChangeRequests.id, id)).returning();
+    return updated;
+  }
+
+  async approveAndApplyChangeRequest(id: string, adminNotes?: string): Promise<KycApplication> {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const txDb = drizzle(client);
+
+      const [changeReq] = await txDb.select().from(kycChangeRequests).where(eq(kycChangeRequests.id, id));
+      if (!changeReq) throw new Error("Change request not found");
+      if (changeReq.status !== "pending") throw new Error("Change request is no longer pending");
+
+      const fields = changeReq.changedFields as Record<string, any>;
+      const [updated] = await txDb.update(kycApplications).set(fields).where(eq(kycApplications.id, changeReq.kycApplicationId)).returning();
+
+      await txDb.update(kycChangeRequests).set({
+        status: "approved",
+        adminNotes: adminNotes || null,
+        reviewedAt: new Date(),
+      }).where(eq(kycChangeRequests.id, id));
+
+      await client.query("COMMIT");
+      return updated;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async updateKycApplicationFields(id: string, fields: Record<string, any>): Promise<KycApplication> {
+    const [updated] = await db.update(kycApplications).set(fields).where(eq(kycApplications.id, id)).returning();
+    return updated;
   }
 }
 

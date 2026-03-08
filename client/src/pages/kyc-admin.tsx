@@ -37,11 +37,12 @@ import {
   AlertCircle,
   Download,
   FileCheck,
+  Edit,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
-import type { KycApplication, Trade, Block, Document, KycDocument } from "@shared/schema";
+import type { KycApplication, Trade, Block, Document, KycDocument, KycChangeRequest } from "@shared/schema";
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   pending: { label: "Pending Review", color: "text-amber-600", bg: "bg-amber-600/10 border-amber-600/20 text-amber-700", icon: Clock },
@@ -99,6 +100,27 @@ export default function KycAdmin() {
 
   const { data: docs, isLoading: dl } = useQuery<Document[]>({
     queryKey: ["/api/documents"],
+  });
+
+  const { data: changeRequests } = useQuery<KycChangeRequest[]>({
+    queryKey: ["/api/kyc-change-requests"],
+  });
+
+  const [changeRequestNotes, setChangeRequestNotes] = useState<Record<string, string>>({});
+
+  const updateChangeRequest = useMutation({
+    mutationFn: async ({ id, status, adminNotes }: { id: string; status: string; adminNotes?: string }) => {
+      const res = await apiRequest("PATCH", `/api/kyc-change-requests/${id}/status`, { status, adminNotes });
+      return res.json();
+    },
+    onSuccess: (_data: any, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc-change-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc"] });
+      toast({ title: "Change Request Updated", description: `Request has been ${variables.status}.` });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+    },
   });
 
   const isLoading = kycLoading || tl || bl || dl;
@@ -357,6 +379,95 @@ export default function KycAdmin() {
             </CardContent>
           </Card>
         </div>
+
+        {(() => {
+          const pendingChangeReqs = changeRequests?.filter((cr) => cr.status === "pending") || [];
+          if (pendingChangeReqs.length === 0) return null;
+          return (
+            <Card className="mb-6 border-amber-300 dark:border-amber-700" data-testid="card-change-requests">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-serif flex items-center gap-2">
+                  <Edit className="w-5 h-5 text-amber-600" />
+                  Pending Change Requests
+                  <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800">
+                    {pendingChangeReqs.length}
+                  </Badge>
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Approved participants have requested changes to their KYC data. Review and approve or reject below.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {pendingChangeReqs.map((cr) => {
+                  const app = applications?.find((a) => a.id === cr.kycApplicationId);
+                  const fields = cr.changedFields as Record<string, any>;
+                  return (
+                    <div key={cr.id} className="border border-border rounded-md p-4 space-y-3" data-testid={`change-request-${cr.id}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold">{app?.companyName || "Unknown Company"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Submitted {new Date(cr.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                          </p>
+                          {cr.reason && (
+                            <p className="text-xs text-muted-foreground mt-1 italic">Reason: {cr.reason}</p>
+                          )}
+                        </div>
+                        <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                          <Clock className="w-3 h-3 mr-1" /> Pending
+                        </Badge>
+                      </div>
+                      <div className="bg-muted/50 rounded p-3 space-y-2">
+                        <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">Proposed Changes</p>
+                        {Object.entries(fields).map(([key, val]) => {
+                          const currentVal = app ? (app as any)[key] : undefined;
+                          const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (c: string) => c.toUpperCase());
+                          return (
+                            <div key={key} className="grid grid-cols-3 gap-2 text-xs">
+                              <span className="font-medium text-muted-foreground">{label}</span>
+                              <span className="text-red-500 line-through truncate" title={String(currentVal || "—")}>{String(currentVal || "—")}</span>
+                              <span className="text-emerald-600 font-medium truncate" title={String(val)}>{String(val)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="space-y-2">
+                        <Textarea
+                          placeholder="Admin notes (optional)..."
+                          className="text-xs h-16 rounded-none"
+                          value={changeRequestNotes[cr.id] || ""}
+                          onChange={(e) => setChangeRequestNotes((prev) => ({ ...prev, [cr.id]: e.target.value }))}
+                          data-testid={`input-cr-notes-${cr.id}`}
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            className="rounded-none bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={() => updateChangeRequest.mutate({ id: cr.id, status: "approved", adminNotes: changeRequestNotes[cr.id] })}
+                            disabled={updateChangeRequest.isPending}
+                            data-testid={`button-approve-cr-${cr.id}`}
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Approve & Apply
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-none border-red-300 text-red-600 hover:bg-red-50"
+                            onClick={() => updateChangeRequest.mutate({ id: cr.id, status: "rejected", adminNotes: changeRequestNotes[cr.id] })}
+                            disabled={updateChangeRequest.isPending}
+                            data-testid={`button-reject-cr-${cr.id}`}
+                          >
+                            <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>

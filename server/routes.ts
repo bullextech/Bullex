@@ -193,6 +193,81 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/kyc-change-requests", requireAuth, async (_req, res) => {
+    try {
+      const requests = await storage.getKycChangeRequests();
+      res.json(requests);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch change requests" });
+    }
+  });
+
+  app.get("/api/kyc/:id/change-requests", async (req, res) => {
+    try {
+      const requests = await storage.getKycChangeRequestsByApplicationId(req.params.id);
+      res.json(requests);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch change requests" });
+    }
+  });
+
+  const ALLOWED_CHANGE_FIELDS = new Set([
+    "companyName", "registeredAddress", "primaryBusinessAddress",
+    "contactName", "contactTitle", "contactPhone", "contactEmail",
+    "countryOfOperation", "businessType", "coreBusinessDescription",
+    "bankName", "bankBranch", "bankAddress", "accountName", "accountNumber",
+    "swiftCode", "bankAccountCurrency", "bankOfficerName", "bankOfficerEmail",
+    "signatoryName", "signatoryTitle", "signatoryEmail", "signatoryCompany",
+    "website", "faxNumber",
+  ]);
+
+  app.post("/api/kyc/:id/change-request", async (req, res) => {
+    try {
+      const kyc = await storage.getKycApplicationById(req.params.id);
+      if (!kyc) return res.status(404).json({ message: "KYC application not found" });
+      if (kyc.status !== "approved") return res.status(400).json({ message: "Change requests can only be submitted for approved applications" });
+      const { changedFields, reason } = req.body;
+      if (!changedFields || typeof changedFields !== "object" || Object.keys(changedFields).length === 0) {
+        return res.status(400).json({ message: "changedFields must be a non-empty object" });
+      }
+      const sanitized: Record<string, string> = {};
+      for (const [key, val] of Object.entries(changedFields)) {
+        if (ALLOWED_CHANGE_FIELDS.has(key) && typeof val === "string") {
+          sanitized[key] = val;
+        }
+      }
+      if (Object.keys(sanitized).length === 0) {
+        return res.status(400).json({ message: "No valid fields to change" });
+      }
+      const created = await storage.createKycChangeRequest({
+        kycApplicationId: req.params.id,
+        changedFields: sanitized,
+        reason: reason || null,
+      });
+      res.status(201).json(created);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to create change request" });
+    }
+  });
+
+  app.patch("/api/kyc-change-requests/:id/status", requireAuth, async (req, res) => {
+    try {
+      const { status, adminNotes } = req.body;
+      if (!status || !["approved", "rejected"].includes(status)) {
+        return res.status(400).json({ message: "Status must be approved or rejected" });
+      }
+      if (status === "approved") {
+        const updatedKyc = await storage.approveAndApplyChangeRequest(req.params.id, adminNotes);
+        res.json({ status: "approved", kycApplication: updatedKyc });
+      } else {
+        const updated = await storage.updateKycChangeRequestStatus(req.params.id, status, adminNotes);
+        res.json(updated);
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update change request" });
+    }
+  });
+
   app.post("/api/kyc", async (req, res) => {
     try {
       const parsed = insertKycSchema.safeParse(req.body);

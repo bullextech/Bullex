@@ -138,6 +138,25 @@ export const insertKycDocumentSchema = createInsertSchema(kycDocuments).omit({
   uploadedAt: true,
 });
 
+export const kycChangeRequests = pgTable("kyc_change_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  kycApplicationId: varchar("kyc_application_id").notNull(),
+  changedFields: jsonb("changed_fields").notNull(),
+  reason: text("reason"),
+  status: text("status").notNull().default("pending"),
+  adminNotes: text("admin_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+});
+
+export const insertKycChangeRequestSchema = createInsertSchema(kycChangeRequests).omit({
+  id: true,
+  status: true,
+  adminNotes: true,
+  createdAt: true,
+  reviewedAt: true,
+});
+
 export const tradeDocuments = pgTable("trade_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tradeId: varchar("trade_id").notNull(),
@@ -203,3 +222,5 @@ export type KycDocument = typeof kycDocuments.$inferSelect;
 export type InsertKycDocument = z.infer<typeof insertKycDocumentSchema>;
 export type TradeDocument = typeof tradeDocuments.$inferSelect;
 export type InsertTradeDocument = z.infer<typeof insertTradeDocumentSchema>;
+export type KycChangeRequest = typeof kycChangeRequests.$inferSelect;
+export type InsertKycChangeRequest = z.infer<typeof insertKycChangeRequestSchema>;

@@ -74,6 +74,7 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 - `trade_documents` - Uploaded trade pipeline document files
 - `trades` - Commodity trades (tradeRef BFG-YYYY-XXXX, buyer/seller, origin/destination, incoterm, blockchain hash, stageDocuments JSONB)
 - `blocks` - Blockchain blocks (hash, previous hash, nonce, verification, dataType: "trade"|"kyc", dataId, dataSummary)
+- `kyc_change_requests` - Change requests for approved KYC applications (kycApplicationId, changedFields JSONB, reason, status: pending|approved|rejected, adminNotes, reviewedAt)
 - `documents` - Trade documents (SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL)
 
 ## Trade Pipeline (Document-Gated)

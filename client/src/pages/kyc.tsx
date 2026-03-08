@@ -35,10 +35,11 @@ import {
   Loader2,
   Eye,
   Plus,
+  Edit,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { KycApplication, KycDocument } from "@shared/schema";
+import type { KycApplication, KycDocument, KycChangeRequest } from "@shared/schema";
 
 const sections = [
   "Company Details",
@@ -125,6 +126,28 @@ const emptyForm = {
   signatoryPlaceDate: "",
 };
 
+const editableFields = [
+  { key: "companyName", label: "Company Name" },
+  { key: "registeredAddress", label: "Registered Address" },
+  { key: "primaryBusinessAddress", label: "Primary Business Address" },
+  { key: "contactName", label: "Contact Name" },
+  { key: "contactTitle", label: "Contact Title" },
+  { key: "contactPhone", label: "Contact Phone" },
+  { key: "contactEmail", label: "Contact Email" },
+  { key: "countryOfOperation", label: "Country of Operation" },
+  { key: "businessType", label: "Business Type" },
+  { key: "coreBusinessDescription", label: "Core Business Description" },
+  { key: "bankName", label: "Bank Name" },
+  { key: "bankAddress", label: "Bank Address" },
+  { key: "accountName", label: "Account Name" },
+  { key: "accountNumber", label: "Account Number" },
+  { key: "swiftCode", label: "SWIFT Code" },
+  { key: "bankAccountCurrency", label: "Bank Account Currency" },
+  { key: "signatoryName", label: "Signatory Name" },
+  { key: "signatoryTitle", label: "Signatory Title" },
+  { key: "signatoryEmail", label: "Signatory Email" },
+];
+
 export default function KYC() {
   const [activeTab, setActiveTab] = useState(0);
   const { toast } = useToast();
@@ -134,12 +157,32 @@ export default function KYC() {
   const [uploadedDocIds, setUploadedDocIds] = useState<string[]>([]);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  const [editingKyc, setEditingKyc] = useState<KycApplication | null>(null);
+  const [changeFields, setChangeFields] = useState<Record<string, string>>({});
+  const [changeReason, setChangeReason] = useState("");
+
   const { data: kycs, isLoading } = useQuery<KycApplication[]>({
     queryKey: ["/api/kyc"],
   });
 
   const { data: kycDocs } = useQuery<KycDocument[]>({
     queryKey: ["/api/kyc-documents"],
+  });
+
+  const submitChangeRequest = useMutation({
+    mutationFn: async ({ kycId, changedFields, reason }: { kycId: string; changedFields: Record<string, string>; reason: string }) => {
+      const res = await apiRequest("POST", `/api/kyc/${kycId}/change-request`, { changedFields, reason });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Change Request Submitted", description: "Your change request has been submitted for admin review." });
+      setEditingKyc(null);
+      setChangeFields({});
+      setChangeReason("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Submission Failed", description: error.message, variant: "destructive" });
+    },
   });
 
   const uploadDoc = useMutation({
@@ -271,19 +314,122 @@ export default function KYC() {
                     </p>
                   </div>
                 </div>
-                <Badge
-                  variant={kyc.status === "approved" ? "default" : "secondary"}
-                  className="text-[10px] capitalize"
-                >
-                  {kyc.status === "approved" && <CheckCircle2 className="w-3 h-3 mr-0.5" />}
-                  {kyc.status === "pending" && <Clock className="w-3 h-3 mr-0.5" />}
-                  {kyc.status}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {kyc.status === "approved" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-[10px] h-7 rounded-none"
+                      onClick={() => {
+                        setEditingKyc(kyc);
+                        setChangeFields({});
+                        setChangeReason("");
+                      }}
+                      data-testid={`button-request-changes-${kyc.id}`}
+                    >
+                      <Edit className="w-3 h-3 mr-1" /> Request Changes
+                    </Button>
+                  )}
+                  <Badge
+                    variant={kyc.status === "approved" ? "default" : "secondary"}
+                    className="text-[10px] capitalize"
+                  >
+                    {kyc.status === "approved" && <CheckCircle2 className="w-3 h-3 mr-0.5" />}
+                    {kyc.status === "pending" && <Clock className="w-3 h-3 mr-0.5" />}
+                    {kyc.status}
+                  </Badge>
+                </div>
               </div>
             ))}
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={!!editingKyc} onOpenChange={(open) => { if (!open) setEditingKyc(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-serif">
+              <Edit className="w-5 h-5 text-primary" />
+              Request Changes — {editingKyc?.companyName}
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground">
+              Edit the fields you want to change. Only modified fields will be submitted for admin approval.
+            </p>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {editableFields.map(({ key, label }) => {
+              const currentVal = editingKyc ? String((editingKyc as any)[key] || "") : "";
+              return (
+                <div key={key} className="space-y-1">
+                  <Label className="text-xs font-medium">{label}</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      className="text-sm rounded-none"
+                      placeholder={currentVal || `Current: (empty)`}
+                      value={changeFields[key] ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setChangeFields((prev) => {
+                          const next = { ...prev };
+                          if (val === "" || val === currentVal) {
+                            delete next[key];
+                          } else {
+                            next[key] = val;
+                          }
+                          return next;
+                        });
+                      }}
+                      data-testid={`input-change-${key}`}
+                    />
+                  </div>
+                  {currentVal && (
+                    <p className="text-[10px] text-muted-foreground">Current: {currentVal}</p>
+                  )}
+                </div>
+              );
+            })}
+            <div className="space-y-1 pt-2 border-t">
+              <Label className="text-xs font-medium">Reason for Changes</Label>
+              <Textarea
+                className="text-sm rounded-none h-20"
+                placeholder="Briefly explain why these changes are needed..."
+                value={changeReason}
+                onChange={(e) => setChangeReason(e.target.value)}
+                data-testid="input-change-reason"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                className="rounded-none"
+                onClick={() => setEditingKyc(null)}
+                data-testid="button-cancel-changes"
+              >
+                Cancel
+              </Button>
+              <Button
+                className="rounded-none"
+                disabled={Object.keys(changeFields).length === 0 || submitChangeRequest.isPending}
+                onClick={() => {
+                  if (!editingKyc) return;
+                  submitChangeRequest.mutate({
+                    kycId: editingKyc.id,
+                    changedFields: changeFields,
+                    reason: changeReason,
+                  });
+                }}
+                data-testid="button-submit-changes"
+              >
+                {submitChangeRequest.isPending ? (
+                  <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> Submitting...</>
+                ) : (
+                  "Submit Change Request"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Card className="max-w-5xl" data-testid="card-kyc-form">
         <div className="p-6 md:p-8 border-b border-border bg-muted/10">
