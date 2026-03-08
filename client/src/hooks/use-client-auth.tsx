@@ -1,38 +1,42 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 
-interface AuthState {
+interface ClientAuthState {
   authenticated: boolean;
   username: string | null;
-  role: string | null;
+  companyName: string | null;
+  kycId: string | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthState>({
+const ClientAuthContext = createContext<ClientAuthState>({
   authenticated: false,
   username: null,
-  role: null,
+  companyName: null,
+  kycId: null,
   loading: true,
   login: async () => ({ success: false }),
   logout: async () => {},
 });
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function ClientAuthProvider({ children }: { children: ReactNode }) {
   const [authenticated, setAuthenticated] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
+  const [kycId, setKycId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/auth/me")
+    fetch("/api/client/me")
       .then((res) => res.json())
       .then((data) => {
-        if (data.authenticated && data.role === "admin") {
+        if (data.authenticated) {
           setAuthenticated(true);
           setUsername(data.username || null);
-          setRole(data.role || null);
+          setCompanyName(data.companyName || null);
+          setKycId(data.kycId || null);
         }
       })
       .catch(() => {})
@@ -41,16 +45,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (user: string, pass: string) => {
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/client/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: user, password: pass }),
       });
       const data = await res.json();
-      if (res.ok && data.authenticated && data.role === "admin") {
+      if (res.ok && data.authenticated) {
         setAuthenticated(true);
         setUsername(data.username);
-        setRole(data.role);
+        setCompanyName(data.companyName);
+        setKycId(data.kycId);
         return { success: true };
       }
       return { success: false, error: data.message || "Login failed" };
@@ -60,19 +65,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch("/api/client/logout", { method: "POST" });
     setAuthenticated(false);
     setUsername(null);
-    setRole(null);
+    setCompanyName(null);
+    setKycId(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ authenticated, username, role, loading, login, logout }}>
+    <ClientAuthContext.Provider value={{ authenticated, username, companyName, kycId, loading, login, logout }}>
       {children}
-    </AuthContext.Provider>
+    </ClientAuthContext.Provider>
   );
 }
 
-export function useAuth() {
-  return useContext(AuthContext);
+export function useClientAuth() {
+  return useContext(ClientAuthContext);
 }

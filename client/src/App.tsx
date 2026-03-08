@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { ClientAuthProvider } from "@/hooks/use-client-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -24,6 +25,7 @@ import KycAdmin from "@/pages/kyc-admin";
 import Investor from "@/pages/investor";
 import Platform from "@/pages/platform";
 import KycRegister from "@/pages/kyc-register";
+import ClientPortal from "@/pages/client-portal";
 import Login from "@/pages/login";
 
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
@@ -59,6 +61,7 @@ function Router() {
       <Route path="/vault">{() => <ProtectedRoute component={Vault} />}</Route>
       <Route path="/blockchain">{() => <ProtectedRoute component={Blockchain} />}</Route>
       <Route path="/platform">{() => <ProtectedRoute component={Platform} />}</Route>
+      <Route path="/client-portal" component={ClientPortal} />
       <Route path="/investor" component={Investor} />
       <Route path="/contact" component={Contact} />
       <Route component={NotFound} />
@@ -97,18 +100,23 @@ function AppShell() {
 
 function App() {
   const [isKycRegister] = useRoute("/kyc-register");
+  const [isClientPortal] = useRoute("/client-portal");
 
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <AuthProvider>
-            {isKycRegister ? (
-              <KycRegister />
-            ) : (
-              <AppShell />
-            )}
-          </AuthProvider>
+          <ClientAuthProvider>
+            <AuthProvider>
+              {isKycRegister ? (
+                <KycRegister />
+              ) : isClientPortal ? (
+                <ClientPortal />
+              ) : (
+                <AppShell />
+              )}
+            </AuthProvider>
+          </ClientAuthProvider>
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>

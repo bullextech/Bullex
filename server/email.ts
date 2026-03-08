@@ -85,12 +85,30 @@ export async function sendKycApprovalEmail(
   companyName: string,
   signatoryName: string,
   category?: string | null,
-  products?: string | null
+  products?: string | null,
+  clientUsername?: string | null,
+  clientPassword?: string | null
 ): Promise<boolean> {
   const detailsRows = [
     category ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Category</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${category}</td></tr>` : "",
     products ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Products</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${products}</td></tr>` : "",
   ].filter(Boolean).join("");
+
+  const credentialsBlock = (clientUsername && clientPassword) ? `
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #1e40af; margin: 0; font-weight: 600;">Client Portal Login Credentials</p>
+      <p style="color: #1d4ed8; margin: 8px 0 0; font-size: 14px;">
+        You can now access the Client Portal to view your trades and documents.
+      </p>
+      <table style="width: 100%; border-collapse: collapse; margin: 12px 0 0; font-size: 14px;">
+        <tr><td style="color: #64748b; padding: 6px 0; width: 100px;">Username:</td><td style="color: #1e293b; font-weight: 600;">${clientUsername}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0; width: 100px;">Password:</td><td style="color: #1e293b; font-weight: 600;">${clientPassword}</td></tr>
+      </table>
+      <p style="color: #64748b; margin: 12px 0 0; font-size: 12px;">
+        Please keep these credentials secure and do not share them with unauthorized persons.
+      </p>
+    </div>
+  ` : "";
 
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">KYC Application Approved</h2>
@@ -110,6 +128,7 @@ export async function sendKycApprovalEmail(
       ${detailsRows}
     </table>
     ` : ""}
+    ${credentialsBlock}
     <p style="color: #475569; line-height: 1.6;">
       You may now participate in commodity trades on the platform. For any trade inquiries, please contact our trade desk at
       <a href="mailto:trade@bullex.tech" style="color: #2563eb;">trade@bullex.tech</a>.

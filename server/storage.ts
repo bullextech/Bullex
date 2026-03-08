@@ -41,8 +41,10 @@ export interface IStorage {
 
   getKycApplications(): Promise<KycApplication[]>;
   getKycApplicationById(id: string): Promise<KycApplication | undefined>;
+  getKycByClientUsername(username: string): Promise<KycApplication | undefined>;
   createKycApplication(kyc: InsertKyc): Promise<KycApplication>;
   updateKycStatus(id: string, status: string, reviewNotes?: string, category?: string, products?: string): Promise<KycApplication>;
+  updateKycClientCredentials(id: string, clientUsername: string, clientPassword: string): Promise<KycApplication>;
 
   getTrades(): Promise<Trade[]>;
   getTradeById(id: string): Promise<Trade | undefined>;
@@ -112,9 +114,19 @@ export class DatabaseStorage implements IStorage {
     return kyc;
   }
 
+  async getKycByClientUsername(username: string): Promise<KycApplication | undefined> {
+    const [kyc] = await db.select().from(kycApplications).where(eq(kycApplications.clientUsername, username));
+    return kyc;
+  }
+
   async createKycApplication(kyc: InsertKyc): Promise<KycApplication> {
     const [created] = await db.insert(kycApplications).values(kyc).returning();
     return created;
+  }
+
+  async updateKycClientCredentials(id: string, clientUsername: string, clientPassword: string): Promise<KycApplication> {
+    const [updated] = await db.update(kycApplications).set({ clientUsername, clientPassword }).where(eq(kycApplications.id, id)).returning();
+    return updated;
   }
 
   async updateKycStatus(id: string, status: string, reviewNotes?: string, category?: string, products?: string): Promise<KycApplication> {

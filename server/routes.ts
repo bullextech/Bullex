@@ -14,6 +14,9 @@ declare module "express-session" {
   interface SessionData {
     authenticated: boolean;
     username: string;
+    role: "admin" | "client";
+    clientKycId: string;
+    clientCompanyName: string;
   }
 }
 
@@ -77,7 +80,14 @@ const allValidDocKeys = new Set([
 ]);
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (req.session && req.session.authenticated) {
+  if (req.session && req.session.authenticated && req.session.role === "admin") {
+    return next();
+  }
+  res.status(401).json({ message: "Unauthorized" });
+}
+
+function requireClientAuth(req: Request, res: Response, next: NextFunction) {
+  if (req.session && req.session.authenticated && req.session.role === "client") {
     return next();
   }
   res.status(401).json({ message: "Unauthorized" });
@@ -118,7 +128,8 @@ export async function registerRoutes(
     if (username === adminUser && password === adminPass) {
       req.session.authenticated = true;
       req.session.username = username;
-      return res.json({ authenticated: true, username });
+      req.session.role = "admin";
+      return res.json({ authenticated: true, username, role: "admin" });
     }
     res.status(401).json({ message: "Invalid username or password" });
   });
@@ -131,17 +142,120 @@ export async function registerRoutes(
 
   app.get("/api/auth/me", (req, res) => {
     if (req.session && req.session.authenticated) {
-      return res.json({ authenticated: true, username: req.session.username });
+      return res.json({ authenticated: true, username: req.session.username, role: req.session.role || "admin" });
     }
     res.json({ authenticated: false });
   });
 
+  app.post("/api/client/login", async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password are required" });
+    }
+    try {
+      const kyc = await storage.getKycByClientUsername(username);
+      if (!kyc || kyc.clientPassword !== password || kyc.status !== "approved") {
+        return res.status(401).json({ message: "Invalid credentials or account not active" });
+      }
+      req.session.authenticated = true;
+      req.session.username = username;
+      req.session.role = "client";
+      req.session.clientKycId = kyc.id;
+      req.session.clientCompanyName = kyc.companyName;
+      return res.json({ authenticated: true, username, role: "client", companyName: kyc.companyName });
+    } catch (error) {
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  app.post("/api/client/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.json({ authenticated: false });
+    });
+  });
+
+  app.get("/api/client/me", (req, res) => {
+    if (req.session && req.session.authenticated && req.session.role === "client") {
+      return res.json({
+        authenticated: true,
+        username: req.session.username,
+        role: "client",
+        kycId: req.session.clientKycId,
+        companyName: req.session.clientCompanyName,
+      });
+    }
+    res.json({ authenticated: false });
+  });
+
+  app.get("/api/client/kyc", requireClientAuth, async (req, res) => {
+    try {
+      const kyc = await storage.getKycApplicationById(req.session.clientKycId!);
+      if (!kyc) return res.status(404).json({ message: "KYC record not found" });
+      const { clientPassword, ...safeKyc } = kyc;
+      res.json(safeKyc);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch KYC data" });
+    }
+  });
+
+  app.get("/api/client/trades", requireClientAuth, async (req, res) => {
+    try {
+      const companyName = req.session.clientCompanyName!;
+      const allTrades = await storage.getTrades();
+      const clientTrades = allTrades.filter(
+        (t) => t.buyerName === companyName || t.sellerName === companyName
+      );
+      res.json(clientTrades);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch trades" });
+    }
+  });
+
+  app.get("/api/client/trades/:id/documents", requireClientAuth, async (req, res) => {
+    try {
+      const companyName = req.session.clientCompanyName!;
+      const trade = await storage.getTradeById(req.params.id);
+      if (!trade) return res.status(404).json({ message: "Trade not found" });
+      if (trade.buyerName !== companyName && trade.sellerName !== companyName) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      const docs = await storage.getTradeDocuments(trade.id);
+      res.json(docs);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch trade documents" });
+    }
+  });
+
+  app.get("/api/client/trade-documents/:id/download", requireClientAuth, async (req, res) => {
+    try {
+      const companyName = req.session.clientCompanyName!;
+      const doc = await storage.getTradeDocumentById(req.params.id);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      const trade = await storage.getTradeById(doc.tradeId);
+      if (!trade || (trade.buyerName !== companyName && trade.sellerName !== companyName)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      const filePath = path.join(tradeUploadsDir, doc.storedName);
+      if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
+      res.setHeader("Content-Disposition", `attachment; filename="${doc.originalName}"`);
+      res.setHeader("Content-Type", doc.mimeType);
+      res.sendFile(filePath);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to download document" });
+    }
+  });
+
   seedDatabase().catch((err) => console.error("Seed error:", err));
+
+  function sanitizeKyc(kyc: any) {
+    const { clientPassword, ...safe } = kyc;
+    return safe;
+  }
 
   app.get("/api/kyc", async (_req, res) => {
     try {
       const result = await storage.getKycApplications();
-      res.json(result);
+      res.json(result.map(sanitizeKyc));
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch KYC applications" });
     }
@@ -150,7 +264,7 @@ export async function registerRoutes(
   app.patch("/api/kyc/:id/status", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const { status, reviewNotes, category, products } = req.body;
+      const { status, reviewNotes, category, products, clientUsername, clientPassword } = req.body;
       if (!status || !["approved", "rejected", "pending"].includes(status)) {
         return res.status(400).json({ message: "Invalid status. Must be: approved, rejected, or pending" });
       }
@@ -164,10 +278,23 @@ export async function registerRoutes(
       if (kyc.status === "approved") {
         return res.status(403).json({ message: "Approved applications cannot be modified" });
       }
+
+      if (status === "approved") {
+        if (!clientUsername || !clientPassword) {
+          return res.status(400).json({ message: "Client username and password are required when approving" });
+        }
+        const existingUser = await storage.getKycByClientUsername(clientUsername);
+        if (existingUser && existingUser.id !== id) {
+          return res.status(400).json({ message: "This username is already in use by another client" });
+        }
+      }
+
       const updated = await storage.updateKycStatus(id, status, reviewNotes, category, products);
 
       let finalResult = updated;
       if (status === "approved") {
+        await storage.updateKycClientCredentials(id, clientUsername, clientPassword);
+
         try {
           finalResult = await storage.mintKycBlock(id, generateKycHash, mineBlock, GENESIS_HASH);
           console.log(`[blockchain] KYC block minted for ${updated.companyName}, block #${finalResult.blockNumber}`);
@@ -182,7 +309,9 @@ export async function registerRoutes(
             updated.companyName,
             updated.signatoryName || updated.contactName,
             category || updated.category,
-            products || updated.products
+            products || updated.products,
+            clientUsername,
+            clientPassword
           ).catch((err) => console.error("[email] background approval send failed:", err));
         }
         if (updated.filledByEmail && updated.filledByEmail !== emailTo) {
@@ -191,7 +320,9 @@ export async function registerRoutes(
             updated.companyName,
             updated.filledByName || "Applicant",
             category || updated.category,
-            products || updated.products
+            products || updated.products,
+            clientUsername,
+            clientPassword
           ).catch((err) => console.error("[email] background approval send to filledBy failed:", err));
         }
       }
@@ -216,7 +347,7 @@ export async function registerRoutes(
         }
       }
 
-      res.json(finalResult);
+      res.json(sanitizeKyc(finalResult));
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to update KYC status" });
     }
@@ -341,7 +472,7 @@ export async function registerRoutes(
           console.error("[email] Change request approval email failed:", err.message);
         }
 
-        res.json({ status: "approved", kycApplication: updatedKyc });
+        res.json({ status: "approved", kycApplication: sanitizeKyc(updatedKyc) });
       } else {
         const updated = await storage.updateKycChangeRequestStatus(req.params.id, status, adminNotes);
 
@@ -398,7 +529,7 @@ export async function registerRoutes(
         ).catch((err) => console.error("[email] background send to filledBy failed:", err));
       }
 
-      res.json(result);
+      res.json(sanitizeKyc(result));
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to create KYC application" });
     }

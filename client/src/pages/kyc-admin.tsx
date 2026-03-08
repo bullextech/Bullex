@@ -79,6 +79,8 @@ export default function KycAdmin() {
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<Record<string, string>>({});
   const [products, setProducts] = useState<Record<string, string>>({});
+  const [clientUsernames, setClientUsernames] = useState<Record<string, string>>({});
+  const [clientPasswords, setClientPasswords] = useState<Record<string, string>>({});
   const [productInput, setProductInput] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
@@ -128,8 +130,8 @@ export default function KycAdmin() {
   const isLoading = kycLoading || tl || bl || dl;
 
   const updateStatus = useMutation({
-    mutationFn: async ({ id, status, notes, category, products }: { id: string; status: string; notes?: string; category?: string; products?: string }) => {
-      const res = await apiRequest("PATCH", `/api/kyc/${id}/status`, { status, reviewNotes: notes, category, products });
+    mutationFn: async ({ id, status, notes, category, products, clientUsername, clientPassword }: { id: string; status: string; notes?: string; category?: string; products?: string; clientUsername?: string; clientPassword?: string }) => {
+      const res = await apiRequest("PATCH", `/api/kyc/${id}/status`, { status, reviewNotes: notes, category, products, clientUsername, clientPassword });
       return res.json();
     },
     onSuccess: (_data: any, variables) => {
@@ -871,12 +873,41 @@ export default function KycAdmin() {
                                   />
                                 </div>
 
+                                {app.status !== "approved" && (
+                                  <div className="space-y-1.5">
+                                    <label className="text-xs font-bold uppercase tracking-wider text-primary">Client Portal Credentials</label>
+                                    <p className="text-[10px] text-muted-foreground">Required when approving. These credentials will be sent to the client.</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <Input
+                                        className="rounded-none border-border text-sm"
+                                        placeholder="Username"
+                                        value={clientUsernames[app.id] || ""}
+                                        onChange={(e) => setClientUsernames({ ...clientUsernames, [app.id]: e.target.value })}
+                                        data-testid={`input-client-username-${app.id}`}
+                                      />
+                                      <Input
+                                        className="rounded-none border-border text-sm"
+                                        placeholder="Password"
+                                        value={clientPasswords[app.id] || ""}
+                                        onChange={(e) => setClientPasswords({ ...clientPasswords, [app.id]: e.target.value })}
+                                        data-testid={`input-client-password-${app.id}`}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
                                 <div className="flex gap-2">
                                   <Button
                                     size="sm"
                                     className="flex-1 rounded-none h-10 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider"
                                     disabled={updateStatus.isPending}
-                                    onClick={() => updateStatus.mutate({ id: app.id, status: "approved", notes: reviewNotes[app.id], category: categories[app.id] || app.category || undefined, products: products[app.id] !== undefined ? products[app.id] : (app.products || undefined) })}
+                                    onClick={() => {
+                                      if (!clientUsernames[app.id] || !clientPasswords[app.id]) {
+                                        toast({ title: "Credentials Required", description: "Please set a username and password for the client portal before approving.", variant: "destructive" });
+                                        return;
+                                      }
+                                      updateStatus.mutate({ id: app.id, status: "approved", notes: reviewNotes[app.id], category: categories[app.id] || app.category || undefined, products: products[app.id] !== undefined ? products[app.id] : (app.products || undefined), clientUsername: clientUsernames[app.id], clientPassword: clientPasswords[app.id] });
+                                    }}
                                     data-testid={`button-approve-${app.id}`}
                                   >
                                     <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />

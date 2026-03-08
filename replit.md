@@ -30,6 +30,15 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 - Login page: standalone card with username/password fields
 - Sidebar shows username + logout button when authenticated
 
+### Client Portal Authentication
+- Approved KYC participants get `clientUsername` and `clientPassword` set by admin during approval
+- Separate client auth system: `POST /api/client/login`, `/api/client/logout`, `/api/client/me`
+- Session stores `role` ("admin" or "client"), `clientKycId`, `clientCompanyName`
+- Client portal route: `/client-portal` (standalone, outside app shell)
+- Client can view: their KYC data, trades (matched by company name), trade documents with download
+- Credentials included in KYC approval email
+- Frontend: ClientAuthProvider context with useClientAuth hook
+
 ## Routes
 - `/` - Home page (commodity trading: 4-step workflow, 6 features, commodity divisions, tokenization section)
 - `/products` - Tokenised Commodity Portfolio (5 divisions with BFG-20 token tags)
@@ -42,6 +51,7 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 - `/trading` - Blockchain Trading [PROTECTED]
 - `/vault` - Document Vault [PROTECTED]
 - `/blockchain` - Blockchain Ledger [PROTECTED]
+- `/client-portal` - Client Portal (client login/dashboard for viewing trades and documents) [STANDALONE]
 - `/contact` - Contact page (Dubai, team@bullex.tech, +971585416399)
 - `/kyc-register` - Standalone client KYC registration (no sidebar/nav)
 
@@ -82,7 +92,7 @@ Trade flow: `pre_deal` → `deal` → `execution` → `final_payment`
 Each stage has mandatory (M) and optional (O) documents. All mandatory docs must be confirmed before advancing.
 
 ## Sidebar Order
-Home, Admin, Products, Platform, Investor, Contact
+Home, Admin, Products, Platform, Client Portal, Investor, Contact
 
 ## Platform Page (/platform)
 7 tool boxes: KYC Registration, Document Generator, Blockchain Trading, Document Vault, Blockchain Ledger, Tokenisation, Admin
@@ -91,6 +101,7 @@ Approved Participants section with category & products badges
 
 ## Standalone Routes (outside app shell)
 - `/kyc-register` - Standalone client KYC registration (no sidebar/nav)
+- `/client-portal` - Client portal with own auth system (no sidebar/nav)
 
 ## Project Structure
 ```
