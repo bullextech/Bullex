@@ -543,49 +543,82 @@ export default function KycRegister() {
                     <Users className="h-5 w-5 text-primary" /> 4. Management Structure
                   </h3>
                   <div className="mt-6 space-y-6">
-                    <p className="text-xs text-muted-foreground">Provide details for up to 3 directors / senior officers. At least Director 1 is mandatory.</p>
-                    {[0, 1, 2].map((idx) => {
+                    <p className="text-xs text-muted-foreground">Provide details for directors / senior officers. At least Director 1 is mandatory.</p>
+                    {(() => {
                       const lines = form.managementStructure ? form.managementStructure.split("\n").filter(Boolean) : [];
-                      const parts = (lines[idx] || "").split(" — ");
-                      const dName = parts[0] || "";
-                      const dNat = parts[1] || "";
-                      const dDob = parts[2] || "";
-                      const dPos = parts[3] || "";
-                      const updateDirector = (field: number, val: string) => {
-                        const current = form.managementStructure ? form.managementStructure.split("\n").filter(Boolean) : [];
-                        while (current.length <= idx) current.push("");
-                        const p = current[idx].split(" — ");
-                        while (p.length < 4) p.push("");
-                        p[field] = val;
-                        current[idx] = p.join(" — ");
-                        update("managementStructure", current.filter((l) => l !== " —  —  — ").join("\n"));
-                      };
+                      const count = Math.max(1, lines.length);
                       return (
-                        <div key={idx} className="p-4 border border-border bg-muted/20 space-y-3" data-testid={`director-box-${idx + 1}`}>
-                          <h4 className="text-sm font-bold text-primary flex items-center gap-2">
-                            Director {idx + 1} {idx === 0 && <span className="text-destructive">*</span>}
-                          </h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">Full Name {idx === 0 && "*"}</Label>
-                              <Input className={inputClass} placeholder="Full name" value={dName} onChange={(e) => updateDirector(0, e.target.value)} data-testid={`input-reg-director-${idx + 1}-name`} />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">Nationality {idx === 0 && "*"}</Label>
-                              <Input className={inputClass} placeholder="Nationality" value={dNat} onChange={(e) => updateDirector(1, e.target.value)} data-testid={`input-reg-director-${idx + 1}-nationality`} />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">Date of Birth {idx === 0 && "*"}</Label>
-                              <Input className={inputClass} placeholder="DD/MM/YYYY" value={dDob} onChange={(e) => updateDirector(2, e.target.value)} data-testid={`input-reg-director-${idx + 1}-dob`} />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">Position {idx === 0 && "*"}</Label>
-                              <Input className={inputClass} placeholder="e.g. Managing Director" value={dPos} onChange={(e) => updateDirector(3, e.target.value)} data-testid={`input-reg-director-${idx + 1}-position`} />
-                            </div>
-                          </div>
-                        </div>
+                        <>
+                          {Array.from({ length: count }).map((_, idx) => {
+                            const parts = (lines[idx] || "").split(" — ");
+                            const dName = parts[0] || "";
+                            const dNat = parts[1] || "";
+                            const dDob = parts[2] || "";
+                            const dPos = parts[3] || "";
+                            const updateDirector = (field: number, val: string) => {
+                              const current = form.managementStructure ? form.managementStructure.split("\n").filter(Boolean) : [];
+                              while (current.length <= idx) current.push("");
+                              const p = current[idx].split(" — ");
+                              while (p.length < 4) p.push("");
+                              p[field] = val;
+                              current[idx] = p.join(" — ");
+                              update("managementStructure", current.filter((l) => l !== " —  —  — ").join("\n"));
+                            };
+                            const removeDirector = () => {
+                              const current = form.managementStructure ? form.managementStructure.split("\n").filter(Boolean) : [];
+                              current.splice(idx, 1);
+                              update("managementStructure", current.join("\n"));
+                            };
+                            return (
+                              <div key={idx} className="p-4 border border-border bg-muted/20 space-y-3" data-testid={`director-box-${idx + 1}`}>
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-sm font-bold text-primary flex items-center gap-2">
+                                    Director {idx + 1} {idx === 0 && <span className="text-destructive">*</span>}
+                                  </h4>
+                                  {idx > 0 && (
+                                    <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive" onClick={removeDirector} data-testid={`button-remove-director-${idx + 1}`}>
+                                      <Trash2 className="w-3 h-3 mr-1" /> Remove
+                                    </Button>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">Full Name {idx === 0 && "*"}</Label>
+                                    <Input className={inputClass} placeholder="Full name" value={dName} onChange={(e) => updateDirector(0, e.target.value)} data-testid={`input-reg-director-${idx + 1}-name`} />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">Nationality {idx === 0 && "*"}</Label>
+                                    <Input className={inputClass} placeholder="Nationality" value={dNat} onChange={(e) => updateDirector(1, e.target.value)} data-testid={`input-reg-director-${idx + 1}-nationality`} />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">Date of Birth {idx === 0 && "*"}</Label>
+                                    <Input className={inputClass} placeholder="DD/MM/YYYY" value={dDob} onChange={(e) => updateDirector(2, e.target.value)} data-testid={`input-reg-director-${idx + 1}-dob`} />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">Position {idx === 0 && "*"}</Label>
+                                    <Input className={inputClass} placeholder="e.g. Managing Director" value={dPos} onChange={(e) => updateDirector(3, e.target.value)} data-testid={`input-reg-director-${idx + 1}-position`} />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-none"
+                            onClick={() => {
+                              const current = form.managementStructure ? form.managementStructure.split("\n").filter(Boolean) : [];
+                              current.push(" —  —  — ");
+                              update("managementStructure", current.join("\n"));
+                            }}
+                            data-testid="button-add-director"
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-1" /> Add Director
+                          </Button>
+                        </>
                       );
-                    })}
+                    })()}
                     <div className="space-y-2">
                       <Label className={labelClass}>Subsidiaries / Affiliated Companies</Label>
                       <Textarea className={textareaClass} placeholder="List subsidiaries with country of incorporation" value={form.subsidiaries} onChange={(e) => update("subsidiaries", e.target.value)} data-testid="input-reg-subsidiaries" />
