@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
 import { insertTradeSchema, insertKycSchema, insertDocumentSchema, type Trade } from "@shared/schema";
-import { generateTradeHash, generateKycHash, generateKycAmendmentHash, mineBlock, GENESIS_HASH } from "./blockchain";
+import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
 import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail } from "./email";
@@ -264,6 +264,44 @@ export async function registerRoutes(
         response,
         companyName
       );
+
+      if (response === "accepted") {
+        try {
+          const latestBlock = await storage.getLatestBlock();
+          const previousHash = latestBlock ? latestBlock.hash : GENESIS_HASH;
+          const blockNumber = latestBlock ? latestBlock.blockNumber + 1 : 1;
+          const timestamp = new Date().toISOString();
+
+          const enquiryHash = generateEnquiryTradeHash(
+            enquiry.enquiryRef,
+            enquiry.product,
+            enquiry.side,
+            enquiry.quantity,
+            companyName,
+            timestamp
+          );
+
+          const tradeData = `${enquiry.enquiryRef}:${enquiry.product}:${enquiry.side}:${enquiry.quantity || "N/A"}:${companyName}:${enquiryHash}`;
+          const { hash: blockHash, nonce } = mineBlock(blockNumber, previousHash, timestamp, tradeData, 2);
+
+          await storage.createBlock({
+            blockNumber,
+            hash: blockHash,
+            previousHash,
+            nonce,
+            tradeCount: 1,
+            verified: true,
+            dataType: "trade",
+            dataId: enquiry.id,
+            dataSummary: `${enquiry.enquiryRef} | ${enquiry.side.toUpperCase()} ${enquiry.product} | Accepted by ${companyName}`,
+          });
+
+          console.log(`[blockchain] Trade enquiry block minted for ${enquiry.enquiryRef}, block #${blockNumber}`);
+        } catch (err: any) {
+          console.error("[blockchain] Enquiry trade block minting failed:", err.message);
+        }
+      }
+
       res.json(updated);
     } catch (error) {
       res.status(500).json({ message: "Failed to submit response" });

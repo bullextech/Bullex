@@ -49,6 +49,18 @@ export function generateKycAmendmentHash(
   return computeHash(data);
 }
 
+export function generateEnquiryTradeHash(
+  enquiryRef: string,
+  product: string,
+  side: string,
+  quantity: string | null,
+  respondedBy: string,
+  timestamp: string
+): string {
+  const data = `TRADE_ENQUIRY:${enquiryRef}:${product}:${side}:${quantity || "N/A"}:${respondedBy}:${timestamp}`;
+  return computeHash(data);
+}
+
 export function mineBlock(
   blockNumber: number,
   previousHash: string,
