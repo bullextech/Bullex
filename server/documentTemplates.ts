@@ -20,6 +20,8 @@ export interface ProductDetails {
   incoterm?: string;
   laycan?: string;
   paymentTerms?: string;
+  analysisAgency?: string;
+  analysisAgencyContact?: string;
   specialNote?: string;
 }
 
@@ -58,6 +60,18 @@ function paymentBlock(product?: ProductDetails): string {
 LC Issuing Bank: Top 25 World Bank
 LC Validity: _____ days
 Performance Bond: 2% of contract value`;
+}
+
+function inspectionBlock(product?: ProductDetails): string {
+  const agency = product?.analysisAgency?.trim();
+  const contact = product?.analysisAgencyContact?.trim();
+  const agencyName = agency || "SGS / Bureau Veritas";
+  let block = `INSPECTION & ANALYSIS
+Analysis Agency: ${agencyName}`;
+  if (contact) block += `\nAgency Contact: ${contact}`;
+  block += `\nPre-shipment inspection by ${agencyName} at loading port at Seller's cost.
+Discharge inspection at Buyer's cost.`;
+  return block;
 }
 
 function specialNoteBlock(product?: ProductDetails): string {
@@ -111,6 +125,8 @@ ${deliveryBlock(trade, product)}
 PAYMENT TERMS
 ${paymentBlock(product)}
 
+${inspectionBlock(product)}
+
 TERMS & CONDITIONS
 1. This Soft Corporate Offer is valid for a period of seven (7) working days from the date of issuance.
 2. The Buyer shall respond with an ICPO within the validity period.
@@ -152,9 +168,7 @@ ${deliveryBlock(trade, product)}
 PAYMENT TERMS
 ${paymentBlock(product)}
 
-INSPECTION
-Pre-shipment inspection by SGS/Bureau Veritas at loading port at Seller's cost.
-Discharge inspection at Buyer's cost.
+${inspectionBlock(product)}
 
 DOCUMENTATION
 - Full set of Bills of Lading (3/3)
@@ -255,10 +269,7 @@ ${paymentBlock(product)}
 ARTICLE 3 — DELIVERY
 ${deliveryBlock(trade, product)}
 
-ARTICLE 4 — INSPECTION
-4.1 Pre-shipment inspection by SGS / Bureau Veritas at the loading port.
-4.2 Inspection costs at loading port: Seller's account.
-4.3 Inspection costs at discharge port: Buyer's account.
+ARTICLE 4 — ${inspectionBlock(product)}
 
 ARTICLE 5 — DOCUMENTATION
 The Seller shall provide the following documents:
@@ -376,7 +387,7 @@ ${deliveryBlock(trade, product)}
 
 SUPPORTING EVIDENCE
 The following documents are provided as proof of product:
-☐ SGS / Bureau Veritas Inspection Report
+☐ ${product?.analysisAgency?.trim() || "SGS / Bureau Veritas"} Inspection Report
 ☐ Mine/Refinery Certificate of Production
 ☐ Warehouse Receipt / Stock Report
 ☐ Recent Certificate of Analysis (COA)
