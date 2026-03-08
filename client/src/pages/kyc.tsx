@@ -34,6 +34,7 @@ import {
   Trash2,
   Loader2,
   Eye,
+  Plus,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -426,7 +427,7 @@ export default function KYC() {
                   <Label className={labelClass}>Ultimate Beneficial Owner(s) *</Label>
                   <p className="text-xs text-muted-foreground">Please provide details of all individuals who hold directly or indirectly more than 10% of the company's shares or voting rights.</p>
                 </div>
-                {[0, 1, 2].map((idx) => {
+                {Array.from({ length: Math.max(1, (form.ultimateBeneficialOwners ? form.ultimateBeneficialOwners.split("\n").filter(Boolean).length : 0) || 1) }).map((_, idx) => {
                   const lines = form.ultimateBeneficialOwners ? form.ultimateBeneficialOwners.split("\n").filter(Boolean) : [];
                   const parts = (lines[idx] || "").split(" — ");
                   const uName = parts[0] || "";
@@ -443,11 +444,23 @@ export default function KYC() {
                     current[idx] = p.join(" — ");
                     update("ultimateBeneficialOwners", current.filter((l) => l !== " —  —  —  — ").join("\n"));
                   };
+                  const removeUbo = () => {
+                    const current = form.ultimateBeneficialOwners ? form.ultimateBeneficialOwners.split("\n").filter(Boolean) : [];
+                    current.splice(idx, 1);
+                    update("ultimateBeneficialOwners", current.join("\n"));
+                  };
                   return (
                     <div key={idx} className="p-4 border border-border bg-muted/20 space-y-3" data-testid={`ubo-box-${idx + 1}`}>
-                      <h4 className="text-sm font-bold text-primary flex items-center gap-2">
-                        UBO {idx + 1} {idx === 0 && <span className="text-destructive">*</span>}
-                      </h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-primary flex items-center gap-2">
+                          UBO {idx + 1} {idx === 0 && <span className="text-destructive">*</span>}
+                        </h4>
+                        {idx > 0 && (
+                          <button type="button" onClick={removeUbo} className="text-xs text-destructive hover:text-destructive/80 flex items-center gap-1" data-testid={`btn-remove-ubo-${idx + 1}`}>
+                            <Trash2 className="h-3 w-3" /> Remove
+                          </button>
+                        )}
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs text-muted-foreground">Full Name {idx === 0 && "*"}</Label>
@@ -473,11 +486,14 @@ export default function KYC() {
                     </div>
                   );
                 })}
+                <button type="button" onClick={() => { const current = form.ultimateBeneficialOwners ? form.ultimateBeneficialOwners.split("\n").filter(Boolean) : []; current.push(""); update("ultimateBeneficialOwners", current.join("\n") + "\n"); }} className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 border border-dashed border-primary/40 rounded px-4 py-2 w-full justify-center" data-testid="btn-add-ubo">
+                  <Plus className="h-4 w-4" /> Add Another UBO
+                </button>
                 <div className="space-y-2 mt-4">
                   <Label className={labelClass}>Shareholders (Direct & Indirect) *</Label>
                   <p className="text-xs text-muted-foreground">Provide details of all direct and indirect shareholders.</p>
                 </div>
-                {[0, 1, 2].map((idx) => {
+                {Array.from({ length: Math.max(1, (form.shareholders ? form.shareholders.split("\n").filter(Boolean).length : 0) || 1) }).map((_, idx) => {
                   const lines = form.shareholders ? form.shareholders.split("\n").filter(Boolean) : [];
                   const parts = (lines[idx] || "").split(" — ");
                   const sName = parts[0] || "";
@@ -492,11 +508,23 @@ export default function KYC() {
                     current[idx] = p.join(" — ");
                     update("shareholders", current.filter((l) => l !== " —  — ").join("\n"));
                   };
+                  const removeShareholder = () => {
+                    const current = form.shareholders ? form.shareholders.split("\n").filter(Boolean) : [];
+                    current.splice(idx, 1);
+                    update("shareholders", current.join("\n"));
+                  };
                   return (
                     <div key={idx} className="p-4 border border-border bg-muted/20 space-y-3" data-testid={`shareholder-box-${idx + 1}`}>
-                      <h4 className="text-sm font-bold text-primary flex items-center gap-2">
-                        Shareholder {idx + 1} {idx === 0 && <span className="text-destructive">*</span>}
-                      </h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-primary flex items-center gap-2">
+                          Shareholder {idx + 1} {idx === 0 && <span className="text-destructive">*</span>}
+                        </h4>
+                        {idx > 0 && (
+                          <button type="button" onClick={removeShareholder} className="text-xs text-destructive hover:text-destructive/80 flex items-center gap-1" data-testid={`btn-remove-shareholder-${idx + 1}`}>
+                            <Trash2 className="h-3 w-3" /> Remove
+                          </button>
+                        )}
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs text-muted-foreground">Name {idx === 0 && "*"}</Label>
@@ -514,6 +542,9 @@ export default function KYC() {
                     </div>
                   );
                 })}
+                <button type="button" onClick={() => { const current = form.shareholders ? form.shareholders.split("\n").filter(Boolean) : []; current.push(""); update("shareholders", current.join("\n") + "\n"); }} className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 border border-dashed border-primary/40 rounded px-4 py-2 w-full justify-center" data-testid="btn-add-shareholder">
+                  <Plus className="h-4 w-4" /> Add Another Shareholder
+                </button>
               </div>
             </div>
           )}
