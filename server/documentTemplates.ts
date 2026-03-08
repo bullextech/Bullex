@@ -305,62 +305,102 @@ Company: ${v(buyer?.name, trade?.buyerName)}
 Date: ${today()}
 Signature: _______________`,
 
-  LOI: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `LETTER OF INTENT (LOI)
-${"=".repeat(40)}
+  LOI: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const cur = product?.currency || trade?.currency || "USD";
+    const validityDate = (() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 7);
+      return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    })();
+    return `PURCHASE LETTER OF INTENT
+${"=".repeat(50)}
 
-Date: ${today()}
-Reference: ${trade?.tradeRef || "_______________"}
+┌─────────────────────────────────────────────────────────────────────┐
+│  Issued to Seller                                                   │
+│  ${v(seller?.name, trade?.sellerName).padEnd(65)}│
+│  ${v(seller?.address).padEnd(65)}│
+│  Attention (PIC)                                                    │
+│  ${v(seller?.contact).padEnd(65)}│
+├─────────────────────────────────────────────────────────────────────┤
+│  LOI Issue No. and Date                                             │
+│  ${(trade?.tradeRef || "_______________").padEnd(20)} ${today().padEnd(44)}│
+│  Valid Till                                                         │
+│  ${(validityDate + " (2000HRS Dubai Time)").padEnd(65)}│
+│  Purchase Incoterms                                                 │
+│  ${v(product?.incoterm, trade?.incoterm).padEnd(65)}│
+├─────────────────────────────────────────────────────────────────────┤
+│  Issued by Buyer                                                    │
+│  ${v(buyer?.name, trade?.buyerName).padEnd(65)}│
+│  ${v(buyer?.address).padEnd(65)}│
+│  Attention (PIC)                                                    │
+│  ${v(buyer?.contact).padEnd(65)}│
+└─────────────────────────────────────────────────────────────────────┘
 
-TO: ${v(seller?.name, trade?.sellerName)}
-FROM: ${v(buyer?.name, trade?.buyerName)}
+${"─".repeat(70)}
+ Sr. No.  │  Parameters                │  Details
+${"─".repeat(70)}
+ 01       │  Commodity                 │  ${v(product?.commodity, trade?.commodity)}
+${"─".repeat(70)}
+ 02       │  Origin                    │  ${v(product?.origin, trade?.origin)}
+${"─".repeat(70)}
+ 03       │  Quantity                  │  ${v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined)}
+${"─".repeat(70)}
+ 04       │  Incoterms Terms           │  ${v(product?.incoterm, trade?.incoterm)}
+${"─".repeat(70)}
+ 05       │  Delivery Period           │  ${v(product?.laycan)}
+${"─".repeat(70)}
+ 06       │  Price                     │  ${cur} ${v(product?.price, trade ? trade.pricePerUnit.toLocaleString() : undefined)} per MT
+${"─".repeat(70)}
+ 07       │  Contract Confirmation     │  Subject to Producer's Confirmation of cargo
+${"─".repeat(70)}
+ 08       │  Commodity Specifications  │  ${product?.qualitySpecs?.trim() || "As per industry standard specifications"}
+${"─".repeat(70)}
+ 09       │  Payment Terms             │  ${product?.paymentTerms?.trim() || "By DLC against 2% Performance Bond"}
+${"─".repeat(70)}
+ 10       │  Documents for Payment     │  Seller's export permit, and 3 copies
+          │                            │  Commercial Invoice, 3 Original and 3 copies
+          │                            │  Packing List, 3 originals and 3 copies
+          │                            │  Certificate of Origin, 3 originals and 3 copies
+          │                            │  Assay Report, 3 Original and 3 copies
+          │                            │  Certificate of quantity and quality issued by
+          │                            │  an international independent surveyor such as
+          │                            │  ${v(product?.analysisAgency, "SGS / Bureau Veritas")}
+          │                            │  at loading port, 3 original and 3 copies
+          │                            │  Certificate of quantity and quality at discharge
+          │                            │  port, 3 original and 3 copies
+          │                            │  Container Stuffing report at loading port
+          │                            │  Certificate of Movement (product is clean and
+          │                            │  free from any lien/encumbrance), 3 original and
+          │                            │  3 copies
+          │                            │  Insurance Policy of 110% of invoice value issued
+          │                            │  by first class insurance company
+${"─".repeat(70)}
+ 11       │  Other Terms & Conditions  │  For DLC, after signing of SPA, Seller must
+          │                            │  arrange RWA by MT199 from LC receiving bank
+          │                            │  indicating their readiness to accept LC and
+          │                            │  issue performance bond 2% of the value of DLC
+          │                            │  within 2 working days from the receipt of DLC.
+${"─".repeat(70)}
+ 12       │  Compliance                │  Seller must send KYC documents to
+          │                            │  compliance@bullfrog.ae upon signing of SPA
+          │                            │  but before issuance of DLC.
+${"─".repeat(70)}
+${product?.specialNote ? `\nSPECIAL NOTES\n${product.specialNote}\n` : ""}
 
-SUBJECT: Letter of Intent to Purchase ${v(product?.commodity, trade?.commodity)}
+We look forward to hearing from you within the stipulated LOI Validity
+and look forward to a long term and mutually fruitful association.
 
-Dear Sir/Madam,
+With warm regards,
 
-We hereby express our firm intention and interest to purchase the commodity described below under the terms and conditions outlined herein.
-
-PARTIES
-${buyerBlock(buyer, trade)}
-
-${sellerBlock(seller, trade)}
-
-COMMODITY DETAILS
-${tradeBlock(trade, buyer, seller, product)}
-
-${qualityBlock(product)}
-
-DELIVERY TERMS
-${deliveryBlock(trade, product)}
-
-PAYMENT TERMS
-${paymentBlock(product)}
-
-INTENT
-1. We confirm our genuine interest, readiness, willingness, and financial ability to purchase the above commodity.
-2. This LOI serves as a preliminary expression of intent and shall be followed by the issuance of an ICPO within _____ working days.
-3. Upon Seller's acceptance, we request a Soft Corporate Offer (SCO) or Full Corporate Offer (FCO).
-
-BUYER'S CONFIRMATION
-We confirm that:
-a) We are a duly registered and authorised company.
-b) We have the financial capacity to complete this transaction.
-c) Our banking institution is ready to issue an LC upon execution of the SPA.
-
-BANKING REFERENCE
-Bank Name: ${v(buyer?.bank)}
-SWIFT/BIC: ${v(buyer?.swift)}
-
-VALIDITY
-This Letter of Intent is valid for ten (10) working days from the date of issuance.
-${specialNoteBlock(product)}
+For & On Behalf of
+${v(buyer?.name, trade?.buyerName)}
 
 AUTHORISED SIGNATORY
-Name: _______________
+Name: ${v(buyer?.contact)}
 Title: _______________
-Company: ${v(buyer?.name, trade?.buyerName)}
 Date: ${today()}
-Signature: _______________`,
+Signature: _______________`;
+  },
 
   POP: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `PROOF OF PRODUCT (POP)
 ${"=".repeat(40)}

@@ -59,7 +59,7 @@ const docTypes = [
   { value: "FCO", label: "Full Corporate Offer", short: "FCO", description: "Binding irrevocable offer with complete trade terms and conditions", icon: ShieldCheck },
   { value: "ICPO", label: "Irrevocable Corporate Purchase Order", short: "ICPO", description: "Buyer's binding commitment to purchase the specified commodity", icon: ClipboardList },
   { value: "SPA", label: "Sales & Purchase Agreement", short: "SPA", description: "Full legal contract between buyer and seller covering all trade terms", icon: FileSignature },
-  { value: "LOI", label: "Letter of Intent", short: "LOI", description: "Buyer's preliminary expression of interest to purchase a commodity", icon: ScrollText },
+  { value: "LOI", label: "Purchase Letter of Intent", short: "LOI", description: "Buyer's formal expression of intent to purchase a commodity with full trade terms", icon: ScrollText },
   { value: "POP", label: "Proof of Product", short: "POP", description: "Evidence confirming the availability and existence of the commodity", icon: PackageCheck },
   { value: "POF", label: "Proof of Funds", short: "POF", description: "Documentation verifying the buyer's financial capacity for the transaction", icon: BadgeDollarSign },
   { value: "BCL", label: "Bank Comfort Letter", short: "BCL", description: "Bank confirmation of client's financial standing and LC capability", icon: Landmark },
