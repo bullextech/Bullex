@@ -296,10 +296,18 @@ export default function Platform() {
                       <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <Building2 className="w-4 h-4 text-primary" />
                       </div>
-                      <Badge variant="secondary" className="text-[9px] uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800">
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        Approved
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant="secondary" className="text-[9px] uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Approved
+                        </Badge>
+                        {participant.blockchainHash && (
+                          <Badge variant="secondary" className="text-[9px] uppercase tracking-wider bg-primary/10 text-primary border-primary/20" data-testid={`badge-blockchain-${participant.id}`}>
+                            <Shield className="w-3 h-3 mr-1" />
+                            Blockchain Verified
+                          </Badge>
+                        )}
+                      </div>
                     </div>
 
                     <h3
