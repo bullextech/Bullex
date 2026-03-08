@@ -184,6 +184,7 @@ export const insertTradeDocumentSchema = createInsertSchema(tradeDocuments).omit
 export const tradeEnquiries = pgTable("trade_enquiries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   enquiryRef: text("enquiry_ref").notNull().unique(),
+  side: text("side").notNull().default("buy"),
   product: text("product").notNull(),
   specifications: text("specifications"),
   producer: text("producer"),

@@ -37,6 +37,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 interface EnquiryForm {
+  side: "buy" | "sell";
   product: string;
   specifications: string;
   producer: string;
@@ -49,6 +50,7 @@ interface EnquiryForm {
 }
 
 const emptyForm: EnquiryForm = {
+  side: "buy",
   product: "",
   specifications: "",
   producer: "",
@@ -66,6 +68,7 @@ export default function TradeEnquiries() {
   const [form, setForm] = useState<EnquiryForm>({ ...emptyForm });
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sideFilter, setSideFilter] = useState<string>("all");
   const [viewEnquiry, setViewEnquiry] = useState<TradeEnquiry | null>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
 
@@ -124,7 +127,8 @@ export default function TradeEnquiries() {
       e.enquiryRef.toLowerCase().includes(searchTerm.toLowerCase()) ||
       e.producer?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || e.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesSide = sideFilter === "all" || e.side === sideFilter;
+    return matchesSearch && matchesStatus && matchesSide;
   });
 
   const handleSubmit = () => {
@@ -157,6 +161,30 @@ export default function TradeEnquiries() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Enquiry Type *</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={form.side === "buy" ? "default" : "outline"}
+                  className={form.side === "buy" ? "bg-green-600 hover:bg-green-700 text-white flex-1" : "flex-1"}
+                  onClick={() => setForm({ ...form, side: "buy" })}
+                  data-testid="button-side-buy"
+                >
+                  BUY
+                </Button>
+                <Button
+                  type="button"
+                  variant={form.side === "sell" ? "default" : "outline"}
+                  className={form.side === "sell" ? "bg-red-600 hover:bg-red-700 text-white flex-1" : "flex-1"}
+                  onClick={() => setForm({ ...form, side: "sell" })}
+                  data-testid="button-side-sell"
+                >
+                  SELL
+                </Button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="product">Product / Commodity *</Label>
@@ -297,6 +325,16 @@ export default function TradeEnquiries() {
             data-testid="input-search-enquiries"
           />
         </div>
+        <Select value={sideFilter} onValueChange={setSideFilter}>
+          <SelectTrigger className="w-28" data-testid="select-side-filter">
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="buy">Buy</SelectItem>
+            <SelectItem value="sell">Sell</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-40" data-testid="select-status-filter">
             <SelectValue placeholder="All Statuses" />
@@ -383,6 +421,12 @@ function EnquiryCard({
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
+              <Badge
+                className={`text-[10px] font-bold ${enquiry.side === "sell" ? "bg-red-600 text-white" : "bg-green-600 text-white"}`}
+                data-testid={`badge-side-${enquiry.id}`}
+              >
+                {enquiry.side === "sell" ? "SELL" : "BUY"}
+              </Badge>
               <span className="font-mono text-xs text-muted-foreground" data-testid={`text-ref-${enquiry.id}`}>
                 {enquiry.enquiryRef}
               </span>
@@ -522,9 +566,17 @@ function EnquiryDetailDialog({
               <FileText className="w-5 h-5" />
               Trade Enquiry — {enquiry.enquiryRef}
             </div>
-            <Badge className={STATUS_COLORS[enquiry.status]} data-testid="badge-detail-status">
-              {STATUS_LABELS[enquiry.status]}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge
+                className={`font-bold ${enquiry.side === "sell" ? "bg-red-600 text-white" : "bg-green-600 text-white"}`}
+                data-testid="badge-detail-side"
+              >
+                {enquiry.side === "sell" ? "SELL" : "BUY"}
+              </Badge>
+              <Badge className={STATUS_COLORS[enquiry.status]} data-testid="badge-detail-status">
+                {STATUS_LABELS[enquiry.status]}
+              </Badge>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
@@ -533,12 +585,18 @@ function EnquiryDetailDialog({
             <h4 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Enquiry Details</h4>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <span className="text-muted-foreground">Product:</span>
-                <span className="ml-2 font-medium" data-testid="text-detail-product">{enquiry.product}</span>
+                <span className="text-muted-foreground">Type:</span>
+                <span className={`ml-2 font-bold ${enquiry.side === "sell" ? "text-red-600" : "text-green-600"}`}>
+                  {enquiry.side === "sell" ? "SELL" : "BUY"}
+                </span>
               </div>
               <div>
                 <span className="text-muted-foreground">Date:</span>
                 <span className="ml-2 font-medium">{created}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Product:</span>
+                <span className="ml-2 font-medium" data-testid="text-detail-product">{enquiry.product}</span>
               </div>
               {enquiry.producer && (
                 <div>

@@ -993,8 +993,10 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Product is required and must be a string" });
       }
       const str = (v: any) => (typeof v === "string" && v.trim()) ? v.trim() : null;
+      const side = b.side === "sell" ? "sell" : "buy";
       const enquiry = await storage.createTradeEnquiry({
         product: b.product.trim(),
+        side,
         specifications: str(b.specifications),
         producer: str(b.producer),
         quantity: str(b.quantity),
