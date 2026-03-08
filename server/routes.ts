@@ -250,6 +250,26 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/client/enquiries/:id/respond", requireClientAuth, async (req, res) => {
+    try {
+      const { response } = req.body;
+      if (!["accepted", "rejected"].includes(response)) {
+        return res.status(400).json({ message: "Response must be 'accepted' or 'rejected'" });
+      }
+      const enquiry = await storage.getTradeEnquiryById(req.params.id);
+      if (!enquiry) return res.status(404).json({ message: "Enquiry not found" });
+      const companyName = req.session.clientCompanyName!;
+      const updated = await storage.updateTradeEnquiryClientResponse(
+        req.params.id,
+        response,
+        companyName
+      );
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to submit response" });
+    }
+  });
+
   app.get("/api/client/enquiries", requireClientAuth, async (req, res) => {
     try {
       const kyc = await storage.getKycApplicationById(req.session.clientKycId!);

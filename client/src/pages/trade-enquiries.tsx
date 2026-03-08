@@ -433,6 +433,14 @@ function EnquiryCard({
               <Badge className={`text-[10px] ${STATUS_COLORS[enquiry.status]}`} data-testid={`badge-status-${enquiry.id}`}>
                 {STATUS_LABELS[enquiry.status]}
               </Badge>
+              {enquiry.clientResponse && (
+                <Badge
+                  className={`text-[10px] font-bold ${enquiry.clientResponse === "accepted" ? "bg-emerald-600 text-white" : "bg-orange-600 text-white"}`}
+                  data-testid={`badge-client-response-${enquiry.id}`}
+                >
+                  {enquiry.clientResponse === "accepted" ? "CLIENT ACCEPTED" : "CLIENT REJECTED"}
+                </Badge>
+              )}
             </div>
             <h3 className="font-semibold text-base truncate" data-testid={`text-product-${enquiry.id}`}>
               {enquiry.product}
@@ -642,6 +650,21 @@ function EnquiryDetailDialog({
             <div className="bg-muted/50 rounded-lg p-4">
               <h4 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground mb-2">Additional Information</h4>
               <p className="text-sm whitespace-pre-wrap" data-testid="text-detail-additional">{enquiry.additionalInfo}</p>
+            </div>
+          )}
+
+          {enquiry.clientResponse && (
+            <div className={`rounded-lg p-4 ${enquiry.clientResponse === "accepted" ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"}`}>
+              <h4 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground mb-2">Client Response</h4>
+              <div className="flex items-center gap-2">
+                <Badge className={`font-bold ${enquiry.clientResponse === "accepted" ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}>
+                  {enquiry.clientResponse === "accepted" ? "ACCEPTED" : "REJECTED"}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  by {enquiry.clientRespondedBy}
+                  {enquiry.clientRespondedAt && ` on ${new Date(enquiry.clientRespondedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
+                </span>
+              </div>
             </div>
           )}
 

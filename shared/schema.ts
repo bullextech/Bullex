@@ -195,6 +195,9 @@ export const tradeEnquiries = pgTable("trade_enquiries", {
   validity: text("validity"),
   additionalInfo: text("additional_info"),
   status: text("status").notNull().default("open"),
+  clientResponse: text("client_response"),
+  clientRespondedBy: text("client_responded_by"),
+  clientRespondedAt: timestamp("client_responded_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

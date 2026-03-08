@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 import {
   Building2,
   FileText,
@@ -22,6 +24,8 @@ import {
   MapPin,
   Clock,
   Info,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { useClientAuth } from "@/hooks/use-client-auth";
 import ClientLogin from "./client-login";
@@ -71,6 +75,9 @@ interface ClientEnquiry {
   validity: string | null;
   additionalInfo: string | null;
   status: string;
+  clientResponse: string | null;
+  clientRespondedBy: string | null;
+  clientRespondedAt: string | null;
   createdAt: string;
 }
 
@@ -294,9 +301,29 @@ const enquiryStatusLabels: Record<string, string> = {
 
 function EnquiryCard({ enquiry }: { enquiry: ClientEnquiry }) {
   const [expanded, setExpanded] = useState(false);
+  const { toast } = useToast();
   const created = new Date(enquiry.createdAt).toLocaleDateString("en-GB", {
     day: "2-digit", month: "short", year: "numeric",
   });
+
+  const respondMutation = useMutation({
+    mutationFn: async (response: string) => {
+      const res = await apiRequest("POST", `/api/client/enquiries/${enquiry.id}/respond`, { response });
+      return res.json();
+    },
+    onSuccess: (_data, response) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client/enquiries"] });
+      toast({ title: response === "accepted" ? "Enquiry accepted" : "Enquiry rejected" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to respond", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const hasResponded = !!enquiry.clientResponse;
+  const respondedAt = enquiry.clientRespondedAt
+    ? new Date(enquiry.clientRespondedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+    : null;
 
   return (
     <Card className="border" data-testid={`card-client-enquiry-${enquiry.id}`}>
@@ -321,6 +348,14 @@ function EnquiryCard({ enquiry }: { enquiry: ClientEnquiry }) {
                 <Badge variant="outline" className={`text-[10px] ${enquiryStatusColors[enquiry.status] || ""}`}>
                   {enquiryStatusLabels[enquiry.status] || enquiry.status}
                 </Badge>
+                {hasResponded && (
+                  <Badge
+                    className={`text-[10px] font-bold ${enquiry.clientResponse === "accepted" ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}
+                    data-testid={`badge-response-${enquiry.id}`}
+                  >
+                    {enquiry.clientResponse === "accepted" ? "ACCEPTED" : "REJECTED"}
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 {enquiry.product}
@@ -399,11 +434,55 @@ function EnquiryCard({ enquiry }: { enquiry: ClientEnquiry }) {
             )}
 
             {enquiry.additionalInfo && (
-              <div className="bg-muted/30 border rounded-md p-3">
+              <div className="bg-muted/30 border rounded-md p-3 mb-3">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Additional Information</p>
                 <p className="text-xs whitespace-pre-wrap">{enquiry.additionalInfo}</p>
               </div>
             )}
+
+            <div className="border-t pt-4 mt-2">
+              {hasResponded ? (
+                <div className={`flex items-center gap-3 p-3 rounded-md ${enquiry.clientResponse === "accepted" ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"}`}>
+                  {enquiry.clientResponse === "accepted" ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                  )}
+                  <div>
+                    <p className={`text-sm font-semibold ${enquiry.clientResponse === "accepted" ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
+                      {enquiry.clientResponse === "accepted" ? "Enquiry Accepted" : "Enquiry Rejected"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      by {enquiry.clientRespondedBy}{respondedAt && ` on ${respondedAt}`}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <p className="text-xs text-muted-foreground flex-1">Respond to this enquiry:</p>
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    onClick={(e) => { e.stopPropagation(); respondMutation.mutate("accepted"); }}
+                    disabled={respondMutation.isPending}
+                    data-testid={`button-accept-enquiry-${enquiry.id}`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                    Accept
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={(e) => { e.stopPropagation(); respondMutation.mutate("rejected"); }}
+                    disabled={respondMutation.isPending}
+                    data-testid={`button-reject-enquiry-${enquiry.id}`}
+                  >
+                    <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                    Reject
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </CardContent>
