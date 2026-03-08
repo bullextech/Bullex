@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import type { Trade, Block, TradeDocument, KycApplication } from "@shared/schema";
 
 const stageDefinitions = [
@@ -126,6 +127,7 @@ function getStageLabel(status: string) {
 }
 
 export default function Trading() {
+  const [, navigate] = useLocation();
   const [expandedTrade, setExpandedTrade] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -773,6 +775,23 @@ export default function Trading() {
                                         </Button>
                                       </div>
                                     )}
+                                  </div>
+
+                                  <div className="mt-2 mb-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="w-full text-xs h-8 border-primary/30 text-primary hover:bg-primary/5"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/documents?tradeRef=${encodeURIComponent(trade.tradeRef)}`);
+                                      }}
+                                      data-testid={`button-generate-doc-${trade.id}-${stage.key}`}
+                                    >
+                                      <FileText className="w-3.5 h-3.5 mr-1.5" />
+                                      Generate Document
+                                    </Button>
                                   </div>
 
                                   <div className="space-y-1 mt-2">

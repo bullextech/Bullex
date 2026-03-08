@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Document as Doc, KycApplication } from "@shared/schema";
+import type { Document as Doc, KycApplication, Trade } from "@shared/schema";
 
 const docTypes = [
   { value: "SCO", label: "Soft Corporate Offer", short: "SCO", description: "Initial offer issued by the seller to express willingness to supply a commodity", icon: Send },
@@ -98,6 +98,32 @@ export default function DocumentGenerator() {
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [editStatus, setEditStatus] = useState("");
+
+  const urlTradeRef = new URLSearchParams(window.location.search).get("tradeRef");
+  const [tradePrefilled, setTradePrefilled] = useState(false);
+
+  const { data: allTrades } = useQuery<Trade[]>({
+    queryKey: ["/api/trades"],
+    enabled: !!urlTradeRef,
+  });
+
+  useEffect(() => {
+    if (urlTradeRef && allTrades && !tradePrefilled) {
+      const trade = allTrades.find((t) => t.tradeRef === urlTradeRef);
+      if (trade) {
+        setCommodity(trade.commodity || "");
+        setOrigin(trade.origin || "");
+        setQuantity(`${trade.quantity || ""} ${trade.unit || "MT"}`);
+        setPrice(`${trade.pricePerUnit || ""}`);
+        setCurrency(trade.currency || "USD");
+        setIncoterm(trade.incoterm || "");
+        setBuyerName(trade.buyerName || "");
+        setSellerName(trade.sellerName || "");
+        setTradePrefilled(true);
+        toast({ title: "Trade loaded", description: `Pre-filled from trade ${trade.tradeRef}` });
+      }
+    }
+  }, [urlTradeRef, allTrades, tradePrefilled]);
 
   const { data: docs, isLoading: docsLoading } = useQuery<Doc[]>({
     queryKey: ["/api/documents"],
@@ -171,6 +197,7 @@ export default function DocumentGenerator() {
     generateDoc.mutate({
       docType: selectedType.value,
       title,
+      tradeRef: urlTradeRef || undefined,
       buyerDetails: {
         name: buyerName, address: buyerAddress, contact: buyerContact,
         bank: buyerBank, swift: buyerSwift,
@@ -189,12 +216,16 @@ export default function DocumentGenerator() {
 
   const openTemplateDialog = (dt: typeof docTypes[0]) => {
     setSelectedType(dt);
-    setTitle("");
-    setBuyerName(""); setBuyerAddress(""); setBuyerContact(""); setBuyerBank(""); setBuyerSwift("");
-    setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
-    setCommodity(""); setOrigin(""); setQuantity(""); setQualitySpecs(""); setLoadingPort(""); setDischargePort("");
-    setPrice(""); setCurrency("USD"); setIncoterm(""); setLaycan(""); setPaymentTerms("");
-    setAnalysisAgency(""); setAnalysisAgencyContact(""); setSpecialNote("");
+    if (urlTradeRef && tradePrefilled) {
+      setTitle(`${dt.short} - ${urlTradeRef}`);
+    } else {
+      setTitle("");
+      setBuyerName(""); setBuyerAddress(""); setBuyerContact(""); setBuyerBank(""); setBuyerSwift("");
+      setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
+      setCommodity(""); setOrigin(""); setQuantity(""); setQualitySpecs(""); setLoadingPort(""); setDischargePort("");
+      setPrice(""); setCurrency("USD"); setIncoterm(""); setLaycan(""); setPaymentTerms("");
+      setAnalysisAgency(""); setAnalysisAgencyContact(""); setSpecialNote("");
+    }
   };
 
   const fetchFreshDoc = async (id: string): Promise<Doc> => {
