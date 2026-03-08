@@ -486,7 +486,7 @@ export default function KYC() {
                     </div>
                   );
                 })}
-                <button type="button" onClick={() => { const current = form.ultimateBeneficialOwners ? form.ultimateBeneficialOwners.split("\n").filter(Boolean) : []; current.push(""); update("ultimateBeneficialOwners", current.join("\n") + "\n"); }} className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 border border-dashed border-primary/40 rounded px-4 py-2 w-full justify-center" data-testid="btn-add-ubo">
+                <button type="button" onClick={() => { const current = form.ultimateBeneficialOwners ? form.ultimateBeneficialOwners.split("\n").filter(Boolean) : []; current.push(" —  —  —  — "); update("ultimateBeneficialOwners", current.join("\n")); }} className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 border border-dashed border-primary/40 rounded px-4 py-2 w-full justify-center" data-testid="btn-add-ubo">
                   <Plus className="h-4 w-4" /> Add Another UBO
                 </button>
                 <div className="space-y-2 mt-4">
@@ -542,7 +542,7 @@ export default function KYC() {
                     </div>
                   );
                 })}
-                <button type="button" onClick={() => { const current = form.shareholders ? form.shareholders.split("\n").filter(Boolean) : []; current.push(""); update("shareholders", current.join("\n") + "\n"); }} className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 border border-dashed border-primary/40 rounded px-4 py-2 w-full justify-center" data-testid="btn-add-shareholder">
+                <button type="button" onClick={() => { const current = form.shareholders ? form.shareholders.split("\n").filter(Boolean) : []; current.push(" —  — "); update("shareholders", current.join("\n")); }} className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 border border-dashed border-primary/40 rounded px-4 py-2 w-full justify-center" data-testid="btn-add-shareholder">
                   <Plus className="h-4 w-4" /> Add Another Shareholder
                 </button>
               </div>
