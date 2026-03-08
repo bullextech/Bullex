@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Accordion,
@@ -17,18 +18,31 @@ import {
   ArrowRight,
   FileCheck,
   Users,
+  SearchCheck,
+  PlayCircle,
 } from "lucide-react";
-import type { Block, Trade, KycApplication } from "@shared/schema";
+import { Link } from "wouter";
+import type { Block, Trade, KycApplication, TradeEnquiry } from "@shared/schema";
 
-function BlockCard({ block, trades, kycApps }: { block: Block; trades: Trade[]; kycApps: KycApplication[] }) {
+function BlockCard({ block, trades, kycApps, enquiries }: { block: Block; trades: Trade[]; kycApps: KycApplication[]; enquiries: TradeEnquiry[] }) {
   const isKyc = block.dataType === "kyc";
   const isAmendment = block.dataType === "kyc_amendment";
+  const isTradeEnquiry = block.dataType === "trade_enquiry";
   const isKycRelated = isKyc || isAmendment;
-  const blockTrades = isKycRelated ? [] : trades.filter((t) => t.blockNumber === block.blockNumber);
+  const blockTrades = (isKycRelated || isTradeEnquiry) ? [] : trades.filter((t) => t.blockNumber === block.blockNumber);
   const kycApp = isKycRelated && block.dataId ? kycApps.find((k) => k.id === block.dataId) : null;
+  const enquiry = isTradeEnquiry && block.dataId ? enquiries.find((e) => e.id === block.dataId) : null;
   const formattedDate = block.timestamp
     ? new Date(block.timestamp).toLocaleString()
     : "Unknown";
+
+  const blockTypeLabel = isAmendment ? "KYC Amendment" : isKyc ? "KYC" : isTradeEnquiry ? "Trade Enquiry" : "Trade";
+  const blockTypeColor = isKycRelated ? "bg-chart-2/10" : isTradeEnquiry ? "bg-emerald-500/10" : "bg-primary/10";
+  const blockTypeIcon = isKycRelated
+    ? <FileCheck className="w-5 h-5 text-chart-2" />
+    : isTradeEnquiry
+    ? <SearchCheck className="w-5 h-5 text-emerald-600" />
+    : <Layers className="w-5 h-5 text-primary" />;
 
   return (
     <AccordionItem
@@ -38,14 +52,14 @@ function BlockCard({ block, trades, kycApps }: { block: Block; trades: Trade[]; 
     >
       <AccordionTrigger className="px-4 py-3 [&[data-state=open]]:border-b">
         <div className="flex items-center gap-3 w-full pr-2">
-          <div className={`w-10 h-10 rounded-md flex items-center justify-center flex-shrink-0 ${isKycRelated ? "bg-chart-2/10" : "bg-primary/10"}`}>
-            {isKycRelated ? <FileCheck className="w-5 h-5 text-chart-2" /> : <Layers className="w-5 h-5 text-primary" />}
+          <div className={`w-10 h-10 rounded-md flex items-center justify-center flex-shrink-0 ${blockTypeColor}`}>
+            {blockTypeIcon}
           </div>
           <div className="flex-1 min-w-0 text-left">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-sm">Block #{block.blockNumber}</span>
-              <Badge variant={isKycRelated ? "secondary" : "outline"} className="text-[10px]">
-                {isAmendment ? "KYC Amendment" : isKyc ? "KYC" : "Trade"}
+              <Badge variant={isKycRelated ? "secondary" : isTradeEnquiry ? "secondary" : "outline"} className={`text-[10px] ${isTradeEnquiry ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" : ""}`}>
+                {blockTypeLabel}
               </Badge>
               {block.verified && (
                 <Badge variant="default" className="text-[10px]">
@@ -55,12 +69,12 @@ function BlockCard({ block, trades, kycApps }: { block: Block; trades: Trade[]; 
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {isKyc ? (block.dataSummary || "KYC Verification") : `${block.tradeCount} transaction${block.tradeCount !== 1 ? "s" : ""}`} &middot; {formattedDate}
+              {isKyc ? (block.dataSummary || "KYC Verification") : isTradeEnquiry ? (block.dataSummary || "Trade Enquiry Accepted") : `${block.tradeCount} transaction${block.tradeCount !== 1 ? "s" : ""}`} &middot; {formattedDate}
             </p>
           </div>
           <div className="text-right flex-shrink-0 hidden sm:block">
             <span className="text-xs font-mono text-muted-foreground">
-              {isKyc ? (kycApp?.companyName || "") : (blockTrades[0]?.tradeRef || "")}
+              {isKyc ? (kycApp?.companyName || "") : isTradeEnquiry ? (enquiry?.enquiryRef || "") : (blockTrades[0]?.tradeRef || "")}
             </span>
           </div>
         </div>
@@ -88,7 +102,7 @@ function BlockCard({ block, trades, kycApps }: { block: Block; trades: Trade[]; 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div>
               <p className="text-muted-foreground">Type</p>
-              <p className="font-medium">{isAmendment ? "KYC Amendment" : isKyc ? "KYC Verification" : "Trade"}</p>
+              <p className="font-medium">{isAmendment ? "KYC Amendment" : isKyc ? "KYC Verification" : isTradeEnquiry ? "Trade Enquiry" : "Trade"}</p>
             </div>
             <div>
               <p className="text-muted-foreground">Nonce</p>
@@ -103,6 +117,73 @@ function BlockCard({ block, trades, kycApps }: { block: Block; trades: Trade[]; 
               <p className="font-medium">{block.tradeCount}</p>
             </div>
           </div>
+
+          {isTradeEnquiry && enquiry && (
+            <div>
+              <p className="text-xs font-medium mb-2 flex items-center gap-1">
+                <SearchCheck className="w-3 h-3" /> Accepted Trade Enquiry
+              </p>
+              <div className="p-3 rounded-md bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-xs space-y-2" data-testid={`block-enquiry-${enquiry.id}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-medium">{enquiry.enquiryRef}</span>
+                    <Badge className={`text-[10px] font-bold ${enquiry.side === "sell" ? "bg-red-600 text-white" : "bg-green-600 text-white"}`}>
+                      {enquiry.side === "sell" ? "SELL" : "BUY"}
+                    </Badge>
+                  </div>
+                  <Badge className="text-[10px] bg-emerald-600 text-white">
+                    <CheckCircle2 className="w-3 h-3 mr-0.5" />
+                    Accepted
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider block">Product</span>
+                    <span className="font-medium text-foreground">{enquiry.product}</span>
+                  </div>
+                  {enquiry.quantity && (
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider block">Quantity</span>
+                      <span className="font-medium text-foreground">{enquiry.quantity} {enquiry.unit || "MT"}</span>
+                    </div>
+                  )}
+                  {enquiry.createdBy && (
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider block">Created By</span>
+                      <span className="font-medium text-foreground">{enquiry.createdBy}</span>
+                    </div>
+                  )}
+                  {enquiry.clientRespondedBy && (
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider block">Accepted By</span>
+                      <span className="font-medium text-foreground">{enquiry.clientRespondedBy}</span>
+                    </div>
+                  )}
+                  {enquiry.loadingPort && (
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider block">Loading Port</span>
+                      <span className="font-medium text-foreground">{enquiry.loadingPort}</span>
+                    </div>
+                  )}
+                  {enquiry.incoterms && (
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider block">Incoterms</span>
+                      <span className="font-medium text-foreground">{enquiry.incoterms}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="pt-2 border-t border-emerald-200 dark:border-emerald-700">
+                  <Link href={`/trading?enquiry=${enquiry.id}`}>
+                    <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" data-testid={`button-initiate-trade-${enquiry.id}`}>
+                      <PlayCircle className="w-3.5 h-3.5 mr-1.5" />
+                      Initiate Trade
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
           {isKycRelated && kycApp && (
             <div>
               <p className="text-xs font-medium mb-2 flex items-center gap-1">
@@ -183,8 +264,11 @@ export default function Blockchain() {
   const { data: kycApps, isLoading: kycLoading } = useQuery<KycApplication[]>({
     queryKey: ["/api/kyc"],
   });
+  const { data: enquiries, isLoading: enquiriesLoading } = useQuery<TradeEnquiry[]>({
+    queryKey: ["/api/trade-enquiries"],
+  });
 
-  const isLoading = blocksLoading || tradesLoading || kycLoading;
+  const isLoading = blocksLoading || tradesLoading || kycLoading || enquiriesLoading;
 
   if (isLoading) {
     return (
@@ -267,7 +351,7 @@ export default function Blockchain() {
           {blocks && blocks.length > 0 ? (
             <Accordion type="single" collapsible>
               {blocks.map((block) => (
-                <BlockCard key={block.id} block={block} trades={trades || []} kycApps={kycApps || []} />
+                <BlockCard key={block.id} block={block} trades={trades || []} kycApps={kycApps || []} enquiries={enquiries || []} />
               ))}
             </Accordion>
           ) : (

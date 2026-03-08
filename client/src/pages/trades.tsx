@@ -1,10 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { TradeEnquiry } from "@shared/schema";
 import {
   Select,
   SelectContent,
@@ -130,6 +131,7 @@ export default function Trading() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showNewTrade, setShowNewTrade] = useState(false);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const [enquiryPrefilled, setEnquiryPrefilled] = useState(false);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const { toast } = useToast();
 
@@ -146,6 +148,51 @@ export default function Trading() {
     destination: "",
     incoterm: "CIF",
   });
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const enquiryId = urlParams.get("enquiry");
+
+  const { data: prefillEnquiry } = useQuery<TradeEnquiry>({
+    queryKey: ["/api/trade-enquiries", enquiryId],
+    queryFn: async () => {
+      const res = await fetch(`/api/trade-enquiries/${enquiryId}`);
+      if (!res.ok) throw new Error("Failed to fetch enquiry");
+      return res.json();
+    },
+    enabled: !!enquiryId && !enquiryPrefilled,
+  });
+
+  useEffect(() => {
+    if (prefillEnquiry && !enquiryPrefilled) {
+      const product = prefillEnquiry.product.toUpperCase();
+      let matchedCategory = "";
+      let matchedCommodity = "";
+      for (const cat of commodityCategories) {
+        const found = cat.items.find((item) => product.includes(item.toUpperCase()));
+        if (found) {
+          matchedCategory = cat.value;
+          matchedCommodity = found;
+          break;
+        }
+      }
+      setForm({
+        commodityCategory: matchedCategory,
+        commodity: matchedCommodity || prefillEnquiry.product,
+        quantity: prefillEnquiry.quantity || "",
+        unit: prefillEnquiry.unit || "MT",
+        pricePerUnit: "",
+        currency: "USD",
+        buyerName: prefillEnquiry.side === "buy" ? (prefillEnquiry.createdBy || "") : "",
+        sellerName: prefillEnquiry.side === "sell" ? (prefillEnquiry.createdBy || "") : "Bullfrog Group",
+        origin: prefillEnquiry.loadingPort || "",
+        destination: "",
+        incoterm: prefillEnquiry.incoterms || "CIF",
+      });
+      setShowNewTrade(true);
+      setEnquiryPrefilled(true);
+      toast({ title: "Enquiry loaded", description: `Pre-filled from ${prefillEnquiry.enquiryRef}` });
+    }
+  }, [prefillEnquiry, enquiryPrefilled]);
 
   const { data: trades, isLoading } = useQuery<Trade[]>({
     queryKey: ["/api/trades"],

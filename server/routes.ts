@@ -291,7 +291,7 @@ export async function registerRoutes(
             nonce,
             tradeCount: 1,
             verified: true,
-            dataType: "trade",
+            dataType: "trade_enquiry",
             dataId: enquiry.id,
             dataSummary: `${enquiry.enquiryRef} | ${enquiry.side.toUpperCase()} ${enquiry.product} | Accepted by ${companyName}`,
           });
