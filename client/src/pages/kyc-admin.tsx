@@ -525,7 +525,10 @@ export default function KycAdmin() {
                           </h4>
                           <div className="space-y-2">
                             {[
-                              ["UBO", app.ultimateBeneficialOwners],
+                              ...(app.ultimateBeneficialOwners ? app.ultimateBeneficialOwners.split("\n").filter(Boolean).map((line: string, i: number) => {
+                                const p = line.split(" — ");
+                                return [`UBO ${i + 1}`, `${p[0] || ""}  |  DOB: ${p[1] || "N/A"}  |  Nationality: ${p[2] || "N/A"}  |  Passport: ${p[3] || "N/A"}  |  ${p[4] || "N/A"}`];
+                              }) : [["UBO", "—"]]),
                               ["Shareholders", app.shareholders],
                               ["Management", app.managementStructure],
                               ["Subsidiaries", app.subsidiaries],

@@ -425,8 +425,54 @@ export default function KYC() {
                 <div className="space-y-2">
                   <Label className={labelClass}>Ultimate Beneficial Owner(s) *</Label>
                   <p className="text-xs text-muted-foreground">Please provide details of all individuals who hold directly or indirectly more than 10% of the company's shares or voting rights.</p>
-                  <Textarea className={`${textareaClass} min-h-[120px]`} placeholder="Name, Date of Birth, Nationality, Passport No., Percentage held — one per line" value={form.ultimateBeneficialOwners} onChange={(e) => update("ultimateBeneficialOwners", e.target.value)} data-testid="input-beneficial-owners" />
                 </div>
+                {[0, 1, 2].map((idx) => {
+                  const lines = form.ultimateBeneficialOwners ? form.ultimateBeneficialOwners.split("\n").filter(Boolean) : [];
+                  const parts = (lines[idx] || "").split(" — ");
+                  const uName = parts[0] || "";
+                  const uDob = parts[1] || "";
+                  const uNat = parts[2] || "";
+                  const uPassport = parts[3] || "";
+                  const uPercent = parts[4] || "";
+                  const updateUbo = (field: number, val: string) => {
+                    const current = form.ultimateBeneficialOwners ? form.ultimateBeneficialOwners.split("\n").filter(Boolean) : [];
+                    while (current.length <= idx) current.push("");
+                    const p = current[idx].split(" — ");
+                    while (p.length < 5) p.push("");
+                    p[field] = val;
+                    current[idx] = p.join(" — ");
+                    update("ultimateBeneficialOwners", current.filter((l) => l !== " —  —  —  — ").join("\n"));
+                  };
+                  return (
+                    <div key={idx} className="p-4 border border-border bg-muted/20 space-y-3" data-testid={`ubo-box-${idx + 1}`}>
+                      <h4 className="text-sm font-bold text-primary flex items-center gap-2">
+                        UBO {idx + 1} {idx === 0 && <span className="text-destructive">*</span>}
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Full Name {idx === 0 && "*"}</Label>
+                          <Input className={inputClass} placeholder="Full name" value={uName} onChange={(e) => updateUbo(0, e.target.value)} data-testid={`input-ubo-${idx + 1}-name`} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Date of Birth {idx === 0 && "*"}</Label>
+                          <Input className={inputClass} placeholder="DD/MM/YYYY" value={uDob} onChange={(e) => updateUbo(1, e.target.value)} data-testid={`input-ubo-${idx + 1}-dob`} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Nationality {idx === 0 && "*"}</Label>
+                          <Input className={inputClass} placeholder="Nationality" value={uNat} onChange={(e) => updateUbo(2, e.target.value)} data-testid={`input-ubo-${idx + 1}-nationality`} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Passport No. {idx === 0 && "*"}</Label>
+                          <Input className={inputClass} placeholder="Passport number" value={uPassport} onChange={(e) => updateUbo(3, e.target.value)} data-testid={`input-ubo-${idx + 1}-passport`} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Percentage Held {idx === 0 && "*"}</Label>
+                          <Input className={inputClass} placeholder="e.g. 25%" value={uPercent} onChange={(e) => updateUbo(4, e.target.value)} data-testid={`input-ubo-${idx + 1}-percent`} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
                 <div className="space-y-2">
                   <Label className={labelClass}>Shareholders (Direct & Indirect) *</Label>
                   <Textarea className={`${textareaClass} min-h-[100px]`} placeholder="List all shareholders with name, nationality, and percentage held" value={form.shareholders} onChange={(e) => update("shareholders", e.target.value)} data-testid="input-shareholders" />
@@ -928,7 +974,11 @@ export default function KYC() {
                     ["Type of Business", form.businessType], ["Core Business Description", form.coreBusinessDescription],
                   ]},
                   { title: "3. Beneficial Owners", icon: <Users className="w-4 h-4" />, rows: [
-                    ["Ultimate Beneficial Owners", form.ultimateBeneficialOwners], ["Shareholders", form.shareholders],
+                    ...(form.ultimateBeneficialOwners ? form.ultimateBeneficialOwners.split("\n").filter(Boolean).map((line: string, i: number) => {
+                      const p = line.split(" — ");
+                      return [`UBO ${i + 1}`, `${p[0] || ""}  |  DOB: ${p[1] || "N/A"}  |  Nationality: ${p[2] || "N/A"}  |  Passport: ${p[3] || "N/A"}  |  ${p[4] || "N/A"}`];
+                    }) : [["Ultimate Beneficial Owners", "—"]]),
+                    ["Shareholders", form.shareholders],
                   ]},
                   { title: "4. Management Structure", icon: <Users className="w-4 h-4" />, rows: [
                     ["Directors / Senior Management", form.managementStructure],
