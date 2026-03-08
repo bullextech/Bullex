@@ -627,6 +627,16 @@ export default function KycAdmin() {
                                     </div>
                                     <p className="text-xs text-muted-foreground">This application has been approved and is now locked. No further changes can be made to the review.</p>
                                   </div>
+                                  {app.blockchainHash && (
+                                    <div className="p-3 bg-primary/5 border border-primary/20 text-sm space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <Shield className="w-4 h-4 text-primary" />
+                                        <span className="text-xs font-bold uppercase tracking-wider text-primary">Blockchain Verified</span>
+                                        <span className="text-[10px] text-muted-foreground ml-auto">Block #{app.blockNumber}</span>
+                                      </div>
+                                      <p className="font-mono text-[10px] break-all text-muted-foreground">{app.blockchainHash}</p>
+                                    </div>
+                                  )}
                                   {app.category && (
                                     <div className="flex justify-between py-1.5 border-b border-border/30 text-sm">
                                       <span className="text-muted-foreground text-xs">Category</span>

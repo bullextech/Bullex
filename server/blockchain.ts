@@ -27,6 +27,17 @@ export function generateTradeHash(
   return computeHash(data);
 }
 
+export function generateKycHash(
+  companyName: string,
+  registrationNumber: string,
+  countryOfIncorporation: string,
+  category: string,
+  timestamp: string
+): string {
+  const data = `KYC:${companyName}:${registrationNumber}:${countryOfIncorporation}:${category}:${timestamp}`;
+  return computeHash(data);
+}
+
 export function mineBlock(
   blockNumber: number,
   previousHash: string,

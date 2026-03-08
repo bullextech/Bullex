@@ -48,6 +48,7 @@ export interface IStorage {
   createTrade(trade: any): Promise<Trade>;
   createPreDealTrade(tradeInput: any): Promise<Trade>;
   mintTradeBlock(tradeId: string, newStatus: string, generateTradeHashFn: Function, mineBlockFn: Function, genesisHash: string): Promise<Trade>;
+  mintKycBlock(kycId: string, generateKycHashFn: Function, mineBlockFn: Function, genesisHash: string): Promise<KycApplication>;
 
   getBlocks(): Promise<Block[]>;
   getLatestBlock(): Promise<Block | undefined>;
@@ -295,6 +296,66 @@ export class DatabaseStorage implements IStorage {
         tradeCount: 1,
         verified: true,
         timestamp: new Date(timestamp),
+      });
+
+      await client.query("COMMIT");
+      return updated;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  async mintKycBlock(
+    kycId: string,
+    generateKycHashFn: Function,
+    mineBlockFn: Function,
+    genesisHash: string
+  ): Promise<KycApplication> {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const txDb = drizzle(client);
+
+      const [kyc] = await txDb.select().from(kycApplications).where(eq(kycApplications.id, kycId));
+      if (!kyc) throw new Error("KYC application not found");
+      if (kyc.blockchainHash) throw new Error("KYC already has a blockchain record");
+
+      const [latestBlock] = await txDb.select().from(blocks).orderBy(desc(blocks.blockNumber)).limit(1);
+      const previousHash = latestBlock ? latestBlock.hash : genesisHash;
+      const blockNumber = latestBlock ? latestBlock.blockNumber + 1 : 1;
+      const timestamp = new Date().toISOString();
+
+      const kycHash = generateKycHashFn(
+        kyc.companyName,
+        kyc.registrationNumber,
+        kyc.countryOfIncorporation,
+        kyc.category || "N/A",
+        timestamp
+      );
+
+      const kycData = `KYC:${kyc.companyName}:${kyc.registrationNumber}:${kyc.countryOfIncorporation}:${kycHash}`;
+      const { hash: blockHash, nonce } = mineBlockFn(blockNumber, previousHash, timestamp, kycData, 2);
+
+      const [updated] = await txDb.update(kycApplications).set({
+        blockchainHash: kycHash,
+        previousHash,
+        blockNumber,
+        nonce,
+      }).where(eq(kycApplications.id, kycId)).returning();
+
+      await txDb.insert(blocks).values({
+        blockNumber,
+        hash: blockHash,
+        previousHash,
+        nonce,
+        tradeCount: 1,
+        verified: true,
+        timestamp: new Date(timestamp),
+        dataType: "kyc",
+        dataId: kycId,
+        dataSummary: `${kyc.companyName} | ${kyc.category || "N/A"} | ${kyc.countryOfIncorporation}`,
       });
 
       await client.query("COMMIT");

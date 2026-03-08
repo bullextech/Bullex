@@ -67,6 +67,10 @@ export const kycApplications = pgTable("kyc_applications", {
   category: text("category"),
   products: text("products"),
   reviewNotes: text("review_notes"),
+  blockchainHash: text("blockchain_hash"),
+  previousHash: text("previous_hash"),
+  blockNumber: integer("block_number"),
+  nonce: integer("nonce"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -103,6 +107,9 @@ export const blocks = pgTable("blocks", {
   nonce: integer("nonce").notNull().default(0),
   tradeCount: integer("trade_count").notNull().default(0),
   verified: boolean("verified").notNull().default(true),
+  dataType: text("data_type").notNull().default("trade"),
+  dataId: text("data_id"),
+  dataSummary: text("data_summary"),
 });
 
 export const documents = pgTable("documents", {
@@ -156,6 +163,10 @@ export const insertKycSchema = createInsertSchema(kycApplications).omit({
   id: true,
   status: true,
   reviewNotes: true,
+  blockchainHash: true,
+  previousHash: true,
+  blockNumber: true,
+  nonce: true,
   createdAt: true,
 });
 

@@ -7,7 +7,7 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 - **Frontend**: React + TypeScript with Vite, Tailwind CSS, shadcn/ui components
 - **Backend**: Express.js with TypeScript
 - **Database**: PostgreSQL with Drizzle ORM
-- **Blockchain**: Custom SHA-256 blockchain implementation for trade verification
+- **Blockchain**: Custom SHA-256 blockchain implementation for trade and KYC verification
 - **Email**: Resend API (RESEND_API_KEY secret) for transactional emails (KYC confirmation)
 - **Authentication**: express-session with ADMIN_USERNAME/ADMIN_PASSWORD environment secrets
 - **Theme**: LSE.com-inspired colour scheme — deep burgundy/maroon (#990000) primary, institutional blue (#0084be) accent, dark charcoal sidebar, clean white cards
@@ -56,7 +56,7 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 - **Blockchain Trading**: Commodity trade execution with blockchain verification
 - **Document Generator**: Generate SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL linked to trades
 - **Document Vault**: All documents uploaded through blockchain trading pipeline
-- **Blockchain Ledger**: Block explorer with accordion-based block details
+- **Blockchain Ledger**: Block explorer with accordion-based block details, shows both Trade and KYC blocks with type badges
 - **Dark/Light Mode**: Theme toggle with persistence
 - **Participants**: Approved KYC participants displayed as cards on Platform page with category & products badges
 
@@ -69,11 +69,11 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 
 ## Data Model
 - `users` - User accounts
-- `kyc_applications` - 10-section KYC form data (company details, banking, compliance, signatory) + category + products fields
+- `kyc_applications` - 10-section KYC form data (company details, banking, compliance, signatory) + category + products fields + blockchain fields (blockchainHash, previousHash, blockNumber, nonce)
 - `kyc_documents` - Uploaded KYC document files (linked to kyc_applications via kycApplicationId on submission)
 - `trade_documents` - Uploaded trade pipeline document files
 - `trades` - Commodity trades (tradeRef BFG-YYYY-XXXX, buyer/seller, origin/destination, incoterm, blockchain hash, stageDocuments JSONB)
-- `blocks` - Blockchain blocks (hash, previous hash, nonce, verification)
+- `blocks` - Blockchain blocks (hash, previous hash, nonce, verification, dataType: "trade"|"kyc", dataId, dataSummary)
 - `documents` - Trade documents (SCO, FCO, ICPO, SPA, LOI, POP, POF, BCL)
 
 ## Trade Pipeline (Document-Gated)

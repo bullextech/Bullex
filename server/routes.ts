@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
 import { insertTradeSchema, insertKycSchema, insertDocumentSchema } from "@shared/schema";
-import { generateTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
+import { generateTradeHash, generateKycHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { seedDatabase } from "./seed";
 import { sendKycConfirmationEmail, sendKycApprovalEmail } from "./email";
 
@@ -166,7 +166,15 @@ export async function registerRoutes(
       }
       const updated = await storage.updateKycStatus(id, status, reviewNotes, category, products);
 
+      let finalResult = updated;
       if (status === "approved") {
+        try {
+          finalResult = await storage.mintKycBlock(id, generateKycHash, mineBlock, GENESIS_HASH);
+          console.log(`[blockchain] KYC block minted for ${updated.companyName}, block #${finalResult.blockNumber}`);
+        } catch (err: any) {
+          console.error("[blockchain] KYC minting failed:", err.message);
+        }
+
         const emailTo = updated.signatoryEmail || updated.contactEmail;
         if (emailTo) {
           sendKycApprovalEmail(
@@ -179,7 +187,7 @@ export async function registerRoutes(
         }
       }
 
-      res.json(updated);
+      res.json(finalResult);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to update KYC status" });
     }
