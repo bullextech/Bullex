@@ -296,7 +296,8 @@ export async function registerRoutes(
         }
 
         try {
-          const changeReqForEmail = changeReqs.find((cr) => cr.id === req.params.id);
+          const allReqs = await storage.getKycChangeRequestsByApplicationId(updatedKyc.id);
+          const changeReqForEmail = allReqs.find((cr) => cr.id === req.params.id);
           const emailTo = updatedKyc.contactEmail || updatedKyc.signatoryEmail;
           if (emailTo && changeReqForEmail) {
             await sendChangeRequestApprovedEmail(

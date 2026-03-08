@@ -38,6 +38,8 @@ import {
   Download,
   FileCheck,
   Edit,
+  X,
+  Plus,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -77,6 +79,7 @@ export default function KycAdmin() {
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<Record<string, string>>({});
   const [products, setProducts] = useState<Record<string, string>>({});
+  const [productInput, setProductInput] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
   const { data: applications, isLoading: kycLoading } = useQuery<KycApplication[]>({
@@ -786,13 +789,73 @@ export default function KycAdmin() {
 
                                 <div className="space-y-1.5">
                                   <label className="text-xs font-bold uppercase tracking-wider text-primary">Products</label>
-                                  <Input
-                                    className="rounded-none h-10 border-border text-sm"
-                                    placeholder="e.g. Iron Ore, Copper, Bauxite"
-                                    value={products[app.id] !== undefined ? products[app.id] : (app.products || "")}
-                                    onChange={(e) => setProducts({ ...products, [app.id]: e.target.value })}
-                                    data-testid={`input-products-${app.id}`}
-                                  />
+                                  {(() => {
+                                    const currentProducts = (products[app.id] !== undefined ? products[app.id] : (app.products || ""))
+                                      .split(",").map((p: string) => p.trim()).filter(Boolean);
+                                    const addProduct = (value: string) => {
+                                      const trimmed = value.trim();
+                                      if (!trimmed) return;
+                                      const newItems = trimmed.split(",").map((p: string) => p.trim()).filter(Boolean);
+                                      const updated = [...new Set([...currentProducts, ...newItems])];
+                                      setProducts({ ...products, [app.id]: updated.join(", ") });
+                                      setProductInput({ ...productInput, [app.id]: "" });
+                                    };
+                                    const removeProduct = (idx: number) => {
+                                      const updated = currentProducts.filter((_: string, i: number) => i !== idx);
+                                      setProducts({ ...products, [app.id]: updated.join(", ") });
+                                    };
+                                    return (
+                                      <div className="space-y-2">
+                                        {currentProducts.length > 0 && (
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {currentProducts.map((product: string, idx: number) => (
+                                              <Badge
+                                                key={idx}
+                                                variant="secondary"
+                                                className="text-xs px-2 py-1 rounded-none flex items-center gap-1"
+                                                data-testid={`badge-product-${app.id}-${idx}`}
+                                              >
+                                                {product}
+                                                <button
+                                                  type="button"
+                                                  className="ml-0.5 hover:text-destructive transition-colors"
+                                                  onClick={() => removeProduct(idx)}
+                                                  data-testid={`button-remove-product-${app.id}-${idx}`}
+                                                >
+                                                  <X className="w-3 h-3" />
+                                                </button>
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        )}
+                                        <div className="flex gap-1.5">
+                                          <Input
+                                            className="rounded-none h-9 border-border text-sm flex-1"
+                                            placeholder="Type a product and press Enter..."
+                                            value={productInput[app.id] || ""}
+                                            onChange={(e) => setProductInput({ ...productInput, [app.id]: e.target.value })}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                addProduct(productInput[app.id] || "");
+                                              }
+                                            }}
+                                            data-testid={`input-products-${app.id}`}
+                                          />
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            className="rounded-none h-9 px-2"
+                                            onClick={() => addProduct(productInput[app.id] || "")}
+                                            data-testid={`button-add-product-${app.id}`}
+                                          >
+                                            <Plus className="w-3.5 h-3.5" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
 
                                 <div className="space-y-1.5">
