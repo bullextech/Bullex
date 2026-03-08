@@ -121,3 +121,103 @@ export async function sendKycApprovalEmail(
   `;
   return sendEmail(to, `KYC Application Approved – ${companyName}`, emailWrapper(body));
 }
+
+export async function sendChangeRequestApprovedEmail(
+  to: string,
+  companyName: string,
+  contactName: string,
+  changedFields: Record<string, any>,
+  adminNotes?: string | null
+): Promise<boolean> {
+  const fieldLabels: Record<string, string> = {
+    companyName: "Company Name", registeredAddress: "Registered Address", primaryBusinessAddress: "Primary Business Address",
+    contactName: "Contact Name", contactTitle: "Contact Title", contactPhone: "Contact Phone", contactEmail: "Contact Email",
+    countryOfOperation: "Country of Operation", businessType: "Business Type", coreBusinessDescription: "Core Business Description",
+    bankName: "Bank Name", bankAddress: "Bank Address", accountName: "Account Name", accountNumber: "Account Number",
+    swiftCode: "SWIFT Code", bankAccountCurrency: "Bank Account Currency",
+    signatoryName: "Signatory Name", signatoryTitle: "Signatory Title", signatoryEmail: "Signatory Email",
+  };
+
+  const changesRows = Object.entries(changedFields)
+    .map(([key, value]) => `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${fieldLabels[key] || key}</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${value}</td></tr>`)
+    .join("");
+
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">KYC Change Request Approved</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${contactName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      The change request for <strong>${companyName}</strong> has been reviewed and <strong>approved</strong> by our compliance team. The following updates have been applied to your KYC record:
+    </p>
+    <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+      <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Updated Value</th></tr>
+      ${changesRows}
+    </table>
+    ${adminNotes ? `
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #1e40af; margin: 0; font-weight: 600;">Admin Notes</p>
+      <p style="color: #1d4ed8; margin: 8px 0 0; font-size: 14px;">${adminNotes}</p>
+    </div>
+    ` : ""}
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #166534; margin: 0; font-weight: 600;">Status: Approved &amp; Applied</p>
+      <p style="color: #15803d; margin: 8px 0 0; font-size: 14px;">
+        These changes have been recorded on the blockchain for immutable verification.
+      </p>
+    </div>
+    <p style="color: #475569; line-height: 1.6;">
+      If you have any questions, please contact our team at
+      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
+    </p>
+  `;
+  return sendEmail(to, `KYC Change Request Approved – ${companyName}`, emailWrapper(body));
+}
+
+export async function sendChangeRequestRejectedEmail(
+  to: string,
+  companyName: string,
+  contactName: string,
+  changedFields: Record<string, any>,
+  adminNotes?: string | null
+): Promise<boolean> {
+  const fieldLabels: Record<string, string> = {
+    companyName: "Company Name", registeredAddress: "Registered Address", primaryBusinessAddress: "Primary Business Address",
+    contactName: "Contact Name", contactTitle: "Contact Title", contactPhone: "Contact Phone", contactEmail: "Contact Email",
+    countryOfOperation: "Country of Operation", businessType: "Business Type", coreBusinessDescription: "Core Business Description",
+    bankName: "Bank Name", bankAddress: "Bank Address", accountName: "Account Name", accountNumber: "Account Number",
+    swiftCode: "SWIFT Code", bankAccountCurrency: "Bank Account Currency",
+    signatoryName: "Signatory Name", signatoryTitle: "Signatory Title", signatoryEmail: "Signatory Email",
+  };
+
+  const changesRows = Object.entries(changedFields)
+    .map(([key, value]) => `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${fieldLabels[key] || key}</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${value}</td></tr>`)
+    .join("");
+
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">KYC Change Request Rejected</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${contactName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      The change request for <strong>${companyName}</strong> has been reviewed and <strong>rejected</strong> by our compliance team. The following proposed changes were not applied:
+    </p>
+    <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+      <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Proposed Value</th></tr>
+      ${changesRows}
+    </table>
+    ${adminNotes ? `
+    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #991b1b; margin: 0; font-weight: 600;">Reason for Rejection</p>
+      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">${adminNotes}</p>
+    </div>
+    ` : ""}
+    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #991b1b; margin: 0; font-weight: 600;">Status: Rejected</p>
+      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">
+        No changes have been made to your KYC record. You may submit a new change request if needed.
+      </p>
+    </div>
+    <p style="color: #475569; line-height: 1.6;">
+      If you have any questions, please contact our team at
+      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
+    </p>
+  `;
+  return sendEmail(to, `KYC Change Request Rejected – ${companyName}`, emailWrapper(body));
+}

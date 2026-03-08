@@ -8,7 +8,7 @@ import { storage } from "./storage";
 import { insertTradeSchema, insertKycSchema, insertDocumentSchema } from "@shared/schema";
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail, sendKycApprovalEmail } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail } from "./email";
 
 declare module "express-session" {
   interface SessionData {
@@ -295,9 +295,48 @@ export async function registerRoutes(
           console.error("[blockchain] KYC amendment minting failed:", err.message);
         }
 
+        try {
+          const changeReqForEmail = changeReqs.find((cr) => cr.id === req.params.id);
+          const emailTo = updatedKyc.contactEmail || updatedKyc.signatoryEmail;
+          if (emailTo && changeReqForEmail) {
+            await sendChangeRequestApprovedEmail(
+              emailTo,
+              updatedKyc.companyName,
+              updatedKyc.contactName || updatedKyc.signatoryName || "Participant",
+              (changeReqForEmail.changedFields || {}) as Record<string, any>,
+              adminNotes
+            );
+          }
+        } catch (err: any) {
+          console.error("[email] Change request approval email failed:", err.message);
+        }
+
         res.json({ status: "approved", kycApplication: updatedKyc });
       } else {
         const updated = await storage.updateKycChangeRequestStatus(req.params.id, status, adminNotes);
+
+        try {
+          const changeReqs = await storage.getKycChangeRequests();
+          const changeReq = changeReqs.find((cr) => cr.id === req.params.id);
+          if (changeReq) {
+            const kyc = await storage.getKycApplicationById(changeReq.kycApplicationId);
+            if (kyc) {
+              const emailTo = kyc.contactEmail || kyc.signatoryEmail;
+              if (emailTo) {
+                await sendChangeRequestRejectedEmail(
+                  emailTo,
+                  kyc.companyName,
+                  kyc.contactName || kyc.signatoryName || "Participant",
+                  (changeReq.changedFields || {}) as Record<string, any>,
+                  adminNotes
+                );
+              }
+            }
+          }
+        } catch (err: any) {
+          console.error("[email] Change request rejection email failed:", err.message);
+        }
+
         res.json(updated);
       }
     } catch (error: any) {
