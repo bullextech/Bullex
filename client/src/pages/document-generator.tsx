@@ -50,7 +50,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Document as Doc } from "@shared/schema";
+import type { Document as Doc, KycApplication } from "@shared/schema";
 
 const docTypes = [
   { value: "SCO", label: "Soft Corporate Offer", short: "SCO", description: "Initial offer issued by the seller to express willingness to supply a commodity", icon: Send },
@@ -86,6 +86,25 @@ export default function DocumentGenerator() {
   const { data: docs, isLoading: docsLoading } = useQuery<Doc[]>({
     queryKey: ["/api/documents"],
   });
+
+  const { data: kycClients } = useQuery<KycApplication[]>({
+    queryKey: ["/api/kyc"],
+  });
+
+  const approvedClients = kycClients?.filter((k) => k.status === "approved") || [];
+
+  const fillFromKyc = (kyc: KycApplication, role: "buyer" | "seller") => {
+    const setName = role === "buyer" ? setBuyerName : setSellerName;
+    const setAddress = role === "buyer" ? setBuyerAddress : setSellerAddress;
+    const setContact = role === "buyer" ? setBuyerContact : setSellerContact;
+    const setBank = role === "buyer" ? setBuyerBank : setSellerBank;
+    const setSwift = role === "buyer" ? setBuyerSwift : setSellerSwift;
+    setName(kyc.companyName || "");
+    setAddress(kyc.registeredAddress || "");
+    setContact([kyc.contactName, kyc.contactEmail].filter(Boolean).join(" — "));
+    setBank(kyc.bankName || "");
+    setSwift(kyc.swiftCode || "");
+  };
 
   const resetForm = () => {
     setSelectedType(null);
@@ -355,6 +374,18 @@ export default function DocumentGenerator() {
                     <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Buyer Details</span>
                   </AccordionTrigger>
                   <AccordionContent className="space-y-3 pb-3">
+                    {approvedClients.length > 0 && (
+                      <Select onValueChange={(val) => { const kyc = approvedClients.find(k => k.id === val); if (kyc) fillFromKyc(kyc, "buyer"); }} data-testid="select-buyer-kyc">
+                        <SelectTrigger data-testid="select-buyer-kyc-trigger">
+                          <SelectValue placeholder="Select from approved KYC clients..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {approvedClients.map((k) => (
+                            <SelectItem key={k.id} value={k.id}>{k.companyName}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                     <Input placeholder="Buyer company name" value={buyerName} onChange={(e) => setBuyerName(e.target.value)} data-testid="input-buyer-name" />
                     <Input placeholder="Buyer address" value={buyerAddress} onChange={(e) => setBuyerAddress(e.target.value)} data-testid="input-buyer-address" />
                     <Input placeholder="Contact person & email" value={buyerContact} onChange={(e) => setBuyerContact(e.target.value)} data-testid="input-buyer-contact" />
@@ -367,6 +398,18 @@ export default function DocumentGenerator() {
                     <span className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> Seller Details</span>
                   </AccordionTrigger>
                   <AccordionContent className="space-y-3 pb-3">
+                    {approvedClients.length > 0 && (
+                      <Select onValueChange={(val) => { const kyc = approvedClients.find(k => k.id === val); if (kyc) fillFromKyc(kyc, "seller"); }} data-testid="select-seller-kyc">
+                        <SelectTrigger data-testid="select-seller-kyc-trigger">
+                          <SelectValue placeholder="Select from approved KYC clients..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {approvedClients.map((k) => (
+                            <SelectItem key={k.id} value={k.id}>{k.companyName}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                     <Input placeholder="Seller company name" value={sellerName} onChange={(e) => setSellerName(e.target.value)} data-testid="input-seller-name" />
                     <Input placeholder="Seller address" value={sellerAddress} onChange={(e) => setSellerAddress(e.target.value)} data-testid="input-seller-address" />
                     <Input placeholder="Contact person & email" value={sellerContact} onChange={(e) => setSellerContact(e.target.value)} data-testid="input-seller-contact" />
