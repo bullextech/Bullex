@@ -529,7 +529,10 @@ export default function KycAdmin() {
                                 const p = line.split(" — ");
                                 return [`UBO ${i + 1}`, `${p[0] || ""}  |  DOB: ${p[1] || "N/A"}  |  Nationality: ${p[2] || "N/A"}  |  Passport: ${p[3] || "N/A"}  |  ${p[4] || "N/A"}`];
                               }) : [["UBO", "—"]]),
-                              ["Shareholders", app.shareholders],
+                              ...(app.shareholders ? app.shareholders.split("\n").filter(Boolean).map((line: string, i: number) => {
+                                const p = line.split(" — ");
+                                return [`Shareholder ${i + 1}`, `${p[0] || ""}  |  Nationality: ${p[1] || "N/A"}  |  ${p[2] || "N/A"}`];
+                              }) : [["Shareholders", "—"]]),
                               ["Management", app.managementStructure],
                               ["Subsidiaries", app.subsidiaries],
                               ["Employees (Company)", app.employeesCompany],

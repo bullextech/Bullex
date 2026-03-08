@@ -460,10 +460,47 @@ export default function KycRegister() {
                         </div>
                       );
                     })}
-                    <div className="space-y-2">
+                    <div className="space-y-2 mt-4">
                       <Label className={labelClass}>Shareholders (Direct & Indirect) *</Label>
-                      <Textarea className={`${textareaClass} min-h-[100px]`} placeholder="List all shareholders with name, nationality, and percentage held" value={form.shareholders} onChange={(e) => update("shareholders", e.target.value)} data-testid="input-reg-shareholders" />
+                      <p className="text-xs text-muted-foreground">Provide details of all direct and indirect shareholders.</p>
                     </div>
+                    {[0, 1, 2].map((idx) => {
+                      const lines = form.shareholders ? form.shareholders.split("\n").filter(Boolean) : [];
+                      const parts = (lines[idx] || "").split(" — ");
+                      const sName = parts[0] || "";
+                      const sNat = parts[1] || "";
+                      const sPercent = parts[2] || "";
+                      const updateShareholder = (field: number, val: string) => {
+                        const current = form.shareholders ? form.shareholders.split("\n").filter(Boolean) : [];
+                        while (current.length <= idx) current.push("");
+                        const p = current[idx].split(" — ");
+                        while (p.length < 3) p.push("");
+                        p[field] = val;
+                        current[idx] = p.join(" — ");
+                        update("shareholders", current.filter((l) => l !== " —  — ").join("\n"));
+                      };
+                      return (
+                        <div key={idx} className="p-4 border border-border bg-muted/20 space-y-3" data-testid={`shareholder-box-reg-${idx + 1}`}>
+                          <h4 className="text-sm font-bold text-primary flex items-center gap-2">
+                            Shareholder {idx + 1} {idx === 0 && <span className="text-destructive">*</span>}
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Name {idx === 0 && "*"}</Label>
+                              <Input className={inputClass} placeholder="Full name or entity" value={sName} onChange={(e) => updateShareholder(0, e.target.value)} data-testid={`input-reg-shareholder-${idx + 1}-name`} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Nationality {idx === 0 && "*"}</Label>
+                              <Input className={inputClass} placeholder="Nationality" value={sNat} onChange={(e) => updateShareholder(1, e.target.value)} data-testid={`input-reg-shareholder-${idx + 1}-nationality`} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Percentage Held {idx === 0 && "*"}</Label>
+                              <Input className={inputClass} placeholder="e.g. 25%" value={sPercent} onChange={(e) => updateShareholder(2, e.target.value)} data-testid={`input-reg-shareholder-${idx + 1}-percent`} />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -943,7 +980,10 @@ export default function KycRegister() {
                           const p = line.split(" — ");
                           return [`UBO ${i + 1}`, `${p[0] || ""}  |  DOB: ${p[1] || "N/A"}  |  Nationality: ${p[2] || "N/A"}  |  Passport: ${p[3] || "N/A"}  |  ${p[4] || "N/A"}`];
                         }) : [["Ultimate Beneficial Owners", "—"]]),
-                        ["Shareholders", form.shareholders],
+                        ...(form.shareholders ? form.shareholders.split("\n").filter(Boolean).map((line: string, i: number) => {
+                          const p = line.split(" — ");
+                          return [`Shareholder ${i + 1}`, `${p[0] || ""}  |  Nationality: ${p[1] || "N/A"}  |  ${p[2] || "N/A"}`];
+                        }) : [["Shareholders", "—"]]),
                       ]},
                       { title: "4. Management Structure", icon: <Users className="w-4 h-4" />, rows: [
                         ["Directors / Senior Management", form.managementStructure],
