@@ -66,6 +66,14 @@ const emptyForm: EnquiryForm = {
   email: "",
 };
 
+interface ApprovedClient {
+  id: string;
+  companyName: string;
+  contactName: string;
+  contactEmail: string;
+  status: string;
+}
+
 export default function TradeEnquiries() {
   const { toast } = useToast();
   const [showForm, setShowForm] = useState(false);
@@ -78,6 +86,11 @@ export default function TradeEnquiries() {
 
   const { data: enquiries = [], isLoading } = useQuery<TradeEnquiry[]>({
     queryKey: ["/api/trade-enquiries"],
+  });
+
+  const { data: allKycClients = [] } = useQuery<ApprovedClient[]>({
+    queryKey: ["/api/kyc"],
+    select: (data: any[]) => data.filter((k: any) => k.status === "approved"),
   });
 
   const createMutation = useMutation({
@@ -189,25 +202,45 @@ export default function TradeEnquiries() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="createdBy">Created By</Label>
+                <Label>Client (KYC Approved) *</Label>
+                <Select
+                  value={form.createdBy ? `${form.createdBy}|||${form.email}` : ""}
+                  onValueChange={(v) => {
+                    const [name, email] = v.split("|||");
+                    setForm({ ...form, createdBy: name, email: email || "" });
+                  }}
+                >
+                  <SelectTrigger data-testid="select-client">
+                    <SelectValue placeholder="Select a client..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allKycClients.map((c) => (
+                      <SelectItem key={c.id} value={`${c.contactName}|||${c.contactEmail}`}>
+                        {c.companyName} — {c.contactName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Created By</Label>
                 <Input
-                  id="createdBy"
-                  placeholder="e.g. John Smith"
                   value={form.createdBy}
-                  onChange={(e) => setForm({ ...form, createdBy: e.target.value })}
+                  readOnly
+                  className="bg-muted/50"
+                  placeholder="Auto-filled from client"
                   data-testid="input-created-by"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label>Email</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="e.g. john@company.com"
                   value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  readOnly
+                  className="bg-muted/50"
+                  placeholder="Auto-filled from client"
                   data-testid="input-email"
                 />
               </div>
