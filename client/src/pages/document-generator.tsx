@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 import {
   Dialog,
   DialogContent,
@@ -49,7 +50,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Document as Doc, Trade } from "@shared/schema";
+import type { Document as Doc } from "@shared/schema";
 
 const docTypes = [
   { value: "SCO", label: "Soft Corporate Offer", short: "SCO", description: "Initial offer issued by the seller to express willingness to supply a commodity", icon: Send },
@@ -65,7 +66,6 @@ const docTypes = [
 export default function DocumentGenerator() {
   const { toast } = useToast();
   const [selectedType, setSelectedType] = useState<typeof docTypes[0] | null>(null);
-  const [selectedTrade, setSelectedTrade] = useState("");
   const [title, setTitle] = useState("");
   const [buyerName, setBuyerName] = useState("");
   const [buyerAddress, setBuyerAddress] = useState("");
@@ -87,13 +87,8 @@ export default function DocumentGenerator() {
     queryKey: ["/api/documents"],
   });
 
-  const { data: trades, isLoading: tradesLoading } = useQuery<Trade[]>({
-    queryKey: ["/api/trades"],
-  });
-
   const resetForm = () => {
     setSelectedType(null);
-    setSelectedTrade("");
     setTitle("");
     setBuyerName(""); setBuyerAddress(""); setBuyerContact(""); setBuyerBank(""); setBuyerSwift("");
     setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
@@ -137,7 +132,6 @@ export default function DocumentGenerator() {
     }
     generateDoc.mutate({
       docType: selectedType.value,
-      tradeRef: selectedTrade && selectedTrade !== "none" ? selectedTrade : undefined,
       title,
       buyerDetails: {
         name: buyerName, address: buyerAddress, contact: buyerContact,
@@ -153,7 +147,6 @@ export default function DocumentGenerator() {
   const openTemplateDialog = (dt: typeof docTypes[0]) => {
     setSelectedType(dt);
     setTitle("");
-    setSelectedTrade("");
     setBuyerName(""); setBuyerAddress(""); setBuyerContact(""); setBuyerBank(""); setBuyerSwift("");
     setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
   };
@@ -200,7 +193,7 @@ export default function DocumentGenerator() {
     });
   };
 
-  const isLoading = docsLoading || tradesLoading;
+  const isLoading = docsLoading;
 
   if (isLoading) {
     return (
@@ -354,23 +347,6 @@ export default function DocumentGenerator() {
                   onChange={(e) => setTitle(e.target.value)}
                   data-testid="input-doc-title"
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Link to Trade (Optional)</Label>
-                <Select value={selectedTrade} onValueChange={setSelectedTrade}>
-                  <SelectTrigger data-testid="select-doc-trade">
-                    <SelectValue placeholder="Select trade..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No trade link</SelectItem>
-                    {trades?.map((t) => (
-                      <SelectItem key={t.id} value={t.tradeRef}>
-                        {t.tradeRef} - {t.commodity}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
               <Accordion type="multiple" className="w-full">
