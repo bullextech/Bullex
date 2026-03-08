@@ -93,6 +93,11 @@ export default function DocumentGenerator() {
   const [analysisAgency, setAnalysisAgency] = useState("");
   const [analysisAgencyContact, setAnalysisAgencyContact] = useState("");
   const [validity, setValidity] = useState("");
+  const [refPerson, setRefPerson] = useState("");
+  const [contractConfirmation, setContractConfirmation] = useState("");
+  const [docsForPayment, setDocsForPayment] = useState("");
+  const [otherTerms, setOtherTerms] = useState("");
+  const [compliance, setCompliance] = useState("");
   const [specialNote, setSpecialNote] = useState("");
   const [viewDoc, setViewDoc] = useState<Doc | null>(null);
   const [editDoc, setEditDoc] = useState<Doc | null>(null);
@@ -156,7 +161,8 @@ export default function DocumentGenerator() {
     setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
     setCommodity(""); setOrigin(""); setQuantity(""); setQualitySpecs(""); setLoadingPort(""); setDischargePort("");
     setPrice(""); setCurrency("USD"); setIncoterm(""); setLaycan(""); setPaymentTerms("");
-    setAnalysisAgency(""); setAnalysisAgencyContact(""); setValidity(""); setSpecialNote("");
+    setAnalysisAgency(""); setAnalysisAgencyContact(""); setValidity(""); setRefPerson("");
+    setContractConfirmation(""); setDocsForPayment(""); setOtherTerms(""); setCompliance(""); setSpecialNote("");
   };
 
   const generateDoc = useMutation({
@@ -210,7 +216,8 @@ export default function DocumentGenerator() {
       productDetails: {
         commodity, origin, quantity, qualitySpecs, loadingPort, dischargePort,
         price, currency, incoterm, laycan, paymentTerms,
-        analysisAgency, analysisAgencyContact, validity, specialNote,
+        analysisAgency, analysisAgencyContact, validity, refPerson,
+        contractConfirmation, docsForPayment, otherTerms, compliance, specialNote,
       },
     });
   };
@@ -225,7 +232,8 @@ export default function DocumentGenerator() {
       setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
       setCommodity(""); setOrigin(""); setQuantity(""); setQualitySpecs(""); setLoadingPort(""); setDischargePort("");
       setPrice(""); setCurrency("USD"); setIncoterm(""); setLaycan(""); setPaymentTerms("");
-      setAnalysisAgency(""); setAnalysisAgencyContact(""); setValidity(""); setSpecialNote("");
+      setAnalysisAgency(""); setAnalysisAgencyContact(""); setValidity(""); setRefPerson("");
+      setContractConfirmation(""); setDocsForPayment(""); setOtherTerms(""); setCompliance(""); setSpecialNote("");
     }
   };
 
@@ -486,7 +494,14 @@ export default function DocumentGenerator() {
                     </div>
                     <Input placeholder="Payment Terms (e.g. By DLC against 2% Performance Bond)" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} data-testid="input-payment-terms" />
                     {selectedType?.value === "LOI" && (
-                      <Input placeholder="LOI Validity (e.g. Saturday 2nd August, 2025 - 2000HRS Dubai Time)" value={validity} onChange={(e) => setValidity(e.target.value)} data-testid="input-validity" />
+                      <>
+                        <Input placeholder="LOI Validity (e.g. Saturday 2nd August, 2025 - 2000HRS Dubai Time)" value={validity} onChange={(e) => setValidity(e.target.value)} data-testid="input-validity" />
+                        <Input placeholder="Ref — Reference person (e.g. Mr. Nilesh Thakkar)" value={refPerson} onChange={(e) => setRefPerson(e.target.value)} data-testid="input-ref-person" />
+                        <Input placeholder="Contract Confirmation (e.g. Subject to Producer's Confirmation of cargo)" value={contractConfirmation} onChange={(e) => setContractConfirmation(e.target.value)} data-testid="input-contract-confirmation" />
+                        <Textarea placeholder="Documents for Payment (e.g. Commercial Invoice, Packing List, Certificate of Origin, Assay Report, etc.)" value={docsForPayment} onChange={(e) => setDocsForPayment(e.target.value)} rows={4} data-testid="input-docs-for-payment" />
+                        <Textarea placeholder="Other Terms & Conditions (e.g. For DLC, after signing of SPA, Seller must arrange RWA by MT199...)" value={otherTerms} onChange={(e) => setOtherTerms(e.target.value)} rows={3} data-testid="input-other-terms" />
+                        <Textarea placeholder="Compliance (e.g. Seller must send KYC documents to compliance@bullfrog.ae upon signing of SPA...)" value={compliance} onChange={(e) => setCompliance(e.target.value)} rows={2} data-testid="input-compliance" />
+                      </>
                     )}
                     <div className="grid grid-cols-2 gap-3">
                       <Input placeholder="Analysis Agency (e.g. SGS, CCIC, Alfred H. Knight)" value={analysisAgency} onChange={(e) => setAnalysisAgency(e.target.value)} data-testid="input-analysis-agency" />

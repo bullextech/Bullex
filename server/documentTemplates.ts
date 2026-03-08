@@ -23,6 +23,11 @@ export interface ProductDetails {
   analysisAgency?: string;
   analysisAgencyContact?: string;
   validity?: string;
+  refPerson?: string;
+  contractConfirmation?: string;
+  docsForPayment?: string;
+  otherTerms?: string;
+  compliance?: string;
   specialNote?: string;
 }
 
@@ -314,33 +319,38 @@ Signature: _______________`,
       return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) + " (2000HRS Dubai Time)";
     })();
     const validTill = product?.validity?.trim() || defaultValidity;
-    const agency = v(product?.analysisAgency, "CCIC / Alfred H. Knight / SGS");
+    const refLine = product?.refPerson?.trim() || buyer?.contact?.trim() || "_______________";
     return `PURCHASE LETTER OF INTENT
 ${"=".repeat(50)}
 
 Issued to Seller
 ─────────────────────────────────────────────────────
-  Company     :  ${v(seller?.name, trade?.sellerName)}
-  Address     :  ${v(seller?.address)}
-  Attention   :  ${v(seller?.contact)}
-               (PIC)
+  ${v(seller?.name, trade?.sellerName)}
+  ${v(seller?.address)}
 
-  Ref         :  ${v(buyer?.contact)}
+  Attention (PIC)
+  ${v(seller?.contact)}
 
-LOI Details
-─────────────────────────────────────────────────────
-  LOI Issue No.  :  ${trade?.tradeRef || "_______________"}
-  Issue Date     :  ${today()}
-  Valid Till     :  ${validTill}
-  Purchase       :  ${v(product?.incoterm, trade?.incoterm)}
-  Incoterms
+                     Ref
+  ${refLine}
+
+
+  LOI Issue No. and Date
+  ${trade?.tradeRef || "_______________"} , ${today()}
+
+  Valid Till
+  ${validTill}
+
+  Purchase Incoterms
+  ${v(product?.incoterm, trade?.incoterm)}
 
 Issued by Buyer
 ─────────────────────────────────────────────────────
-  Company     :  ${v(buyer?.name, trade?.buyerName)}
-  Address     :  ${v(buyer?.address)}
-  Attention   :  ${v(buyer?.contact)}
-               (PIC)
+  ${v(buyer?.name, trade?.buyerName)}
+  ${v(buyer?.address)}
+
+  Attention (PIC)
+  ${v(buyer?.contact)}
 
 
 ${"═".repeat(70)}
@@ -354,70 +364,25 @@ ${"─".repeat(70)}
 ${"─".repeat(70)}
  04      │ Incoterms Terms             │ ${v(product?.incoterm, trade?.incoterm)}
 ${"─".repeat(70)}
- 05      │ Delivery Period             │ ${v(product?.laycan)}
+ 05      │ Delivery period             │ ${v(product?.laycan)}
 ${"─".repeat(70)}
- 06      │ Price                       │ ${cur} ${v(product?.price, trade ? trade.pricePerUnit.toLocaleString() : undefined)} per MT
+ 06      │ Price                       │ ${cur} ${v(product?.price, trade ? trade.pricePerUnit.toLocaleString() : undefined)}
 ${"─".repeat(70)}
- 07      │ Contract Confirmation       │ Subject to Producer's Confirmation
-         │                             │ of cargo
+ 07      │ Contract Confirmation       │ ${v(product?.contractConfirmation, "Subject to Producer's Confirmation of cargo")}
 ${"─".repeat(70)}
- 08      │ Commodity Specifications    │ ${product?.qualitySpecs?.trim() || "As per industry standard specifications."}
-         │                             │
-         │                             │ Cargo must conform to the physical
-         │                             │ and chemical specifications of the
-         │                             │ applicable international standards.
+ 08      │ Commodity                   │ ${v(product?.qualitySpecs)}
+         │ Specifications              │
 ${"─".repeat(70)}
- 09      │ Payment Terms               │ ${product?.paymentTerms?.trim() || "By DLC against 2% Performance Bond"}
+ 09      │ Payment Terms               │ ${v(product?.paymentTerms, "By DLC against 2% Performance Bond")}
 ${"─".repeat(70)}
- 10      │ Documents for Payment       │ • Seller's export permit, and 3
-         │                             │   copies
-         │                             │ • Commercial Invoice, 3 Original
-         │                             │   and 3 copies
-         │                             │ • Packing List, 3 originals and
-         │                             │   3 copies
-         │                             │ • Certificate of Origin, 3
-         │                             │   originals and 3 copies
-         │                             │ • Assay Report, signed by
-         │                             │   appropriate authority,
-         │                             │   3 Original and 3 copies
-         │                             │ • Certificate of quantity and
-         │                             │   quality issued by an
-         │                             │   international independent
-         │                             │   surveyor such as ${agency}
-         │                             │   at loading port bonded
-         │                             │   warehouse, in 3 original and
-         │                             │   3 copies
-         │                             │ • Certificate of quantity and
-         │                             │   quality issued by ${agency}
-         │                             │   at discharge port, in
-         │                             │   3 original and 3 copies
-         │                             │ • Container Stuffing report
-         │                             │   issued by ${agency}
-         │                             │   at loading port
-         │                             │ • Certificate of Movement,
-         │                             │   issued by seller to declare
-         │                             │   that the product is clean and
-         │                             │   free from any lien and or
-         │                             │   Encumbrance, 3 original and
-         │                             │   3 copies
-         │                             │ • Insurance Policy of 110% of
-         │                             │   the invoice value issued by
-         │                             │   first class insurance company
+ 10      │ Documents for Payment       │ ${v(product?.docsForPayment)}
 ${"─".repeat(70)}
- 11      │ Other Terms & Conditions    │ For DLC, after signing of SPA,
-         │                             │ Seller must arrange RWA by MT199
-         │                             │ from LC receiving bank indicating
-         │                             │ their readiness to accept LC and
-         │                             │ issue performance bond 2% of the
-         │                             │ value of DLC within 2 working
-         │                             │ days from the receipt of DLC.
+ 11      │ Other terms & conditions    │ ${v(product?.otherTerms)}
 ${"─".repeat(70)}
- 12      │ Compliance                  │ Seller must send KYC documents to
-         │                             │ compliance@bullfrog.ae upon
-         │                             │ signing of SPA but before
-         │                             │ issuance of DLC.
+ 12      │ Compliance                  │ ${v(product?.compliance)}
 ${"═".repeat(70)}
 ${product?.specialNote ? `\nSPECIAL NOTES\n${product.specialNote}\n` : ""}
+
 
 We look forward to hearing from you within the stipulated LOI Validity
 and look forward to a long term and mutually fruitful association.
@@ -428,11 +393,8 @@ With warm regards,
 For & On Behalf of
 ${v(buyer?.name, trade?.buyerName)}
 
-AUTHORISED SIGNATORY
-Name: ${v(buyer?.contact)}
-Title: _______________
-Date: ${today()}
-Signature: _______________`;
+
+`;
   },
 
   POP: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `PROOF OF PRODUCT (POP)
