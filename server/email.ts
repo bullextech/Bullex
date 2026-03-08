@@ -296,7 +296,7 @@ export async function sendDocumentEmail(
   pdfFilePath: string
 ): Promise<boolean> {
   const docTypeLabels: Record<string, string> = {
-    SCO: "Soft Corporate Offer",
+    DEAL_RECAP: "Deal Recap",
     FCO: "Full Corporate Offer",
     ICPO: "Irrevocable Corporate Purchase Order",
     SPA: "Sales & Purchase Agreement",

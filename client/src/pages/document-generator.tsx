@@ -55,7 +55,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Document as Doc, KycApplication, Trade } from "@shared/schema";
 
 const docTypes = [
-  { value: "SCO", label: "Soft Corporate Offer", short: "SCO", description: "Initial offer issued by the seller to express willingness to supply a commodity", icon: Send },
+  { value: "DEAL_RECAP", label: "Deal Recap", short: "Deal Recap", description: "Comprehensive summary of agreed trade terms between buyer and seller", icon: Send },
   { value: "FCO", label: "Full Corporate Offer", short: "FCO", description: "Binding irrevocable offer with complete trade terms and conditions", icon: ShieldCheck },
   { value: "ICPO", label: "Irrevocable Corporate Purchase Order", short: "ICPO", description: "Buyer's binding commitment to purchase the specified commodity", icon: ClipboardList },
   { value: "SPA", label: "Sales & Purchase Agreement", short: "SPA", description: "Full legal contract between buyer and seller covering all trade terms", icon: FileSignature },

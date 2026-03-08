@@ -56,7 +56,7 @@ const platformFeatures = [
     icon: FileText,
     title: "Document Generator",
     description:
-      "Generate trade documents instantly — SCO, FCO, ICPO, SPA, LOI, POP, POF, and BCL — all linked to verified trades with blockchain-backed integrity and full audit trails.",
+      "Generate trade documents instantly — Deal Recap, FCO, ICPO, SPA, LOI, POP, POF, and BCL — all linked to verified trades with blockchain-backed integrity and full audit trails.",
     link: "/documents",
     linkText: "Generate Documents",
   },

@@ -100,15 +100,15 @@ SWIFT/BIC: ${v(seller?.swift)}`;
 
 const templates: Record<string, (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => string> = {
 
-  SCO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `SOFT CORPORATE OFFER (SCO)
+  DEAL_RECAP: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `DEAL RECAP
 ${"=".repeat(40)}
 
 Date: ${today()}
 Reference: ${trade?.tradeRef || "_______________"}
-Status: DRAFT — Subject to Seller's Final Confirmation
+Status: DRAFT — Subject to Final Confirmation by Both Parties
 
 PREAMBLE
-We, the undersigned, hereby present this Soft Corporate Offer for the supply of the commodity described below. This SCO is issued in good faith and is subject to the Seller's final confirmation upon receipt of the Buyer's Irrevocable Corporate Purchase Order (ICPO).
+This Deal Recap summarises the principal terms and conditions agreed between the parties for the supply of the commodity described below. This document serves as a record of the key deal points and is subject to the execution of a formal Sales & Purchase Agreement (SPA).
 
 PARTIES
 ${sellerBlock(seller, trade)}
@@ -129,11 +129,11 @@ ${paymentBlock(product)}
 ${inspectionBlock(product)}
 
 TERMS & CONDITIONS
-1. This Soft Corporate Offer is valid for a period of seven (7) working days from the date of issuance.
+1. This Deal Recap is valid for a period of seven (7) working days from the date of issuance.
 2. The Buyer shall respond with an ICPO within the validity period.
-3. Upon receipt of ICPO, the Seller shall issue a Full Corporate Offer (FCO).
-4. All terms are subject to final negotiation and execution of a Sales & Purchase Agreement (SPA).
-5. This SCO does not constitute a binding contract.
+3. Upon mutual agreement, the parties shall proceed to execute a Sales & Purchase Agreement (SPA).
+4. All terms are subject to final negotiation and execution of the SPA.
+5. This Deal Recap does not constitute a binding contract.
 ${specialNoteBlock(product)}
 
 AUTHORISED SIGNATORY

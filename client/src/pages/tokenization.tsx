@@ -584,7 +584,7 @@ export default function Tokenization() {
               {
                 icon: FileText,
                 title: "Document Linkage",
-                desc: "Each tokenised trade automatically generates linked documentation — SCO, FCO, ICPO, SPA, and more.",
+                desc: "Each tokenised trade automatically generates linked documentation — Deal Recap, FCO, ICPO, SPA, and more.",
               },
               {
                 icon: CheckCircle2,

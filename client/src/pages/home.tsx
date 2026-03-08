@@ -48,7 +48,7 @@ const features = [
     icon: FileText,
     title: "Automated Document Generation",
     description:
-      "Generate trade documents instantly — SCO, FCO, ICPO, SPA, LOI, POP, POF, and BCL — all linked to verified trades with blockchain-backed integrity.",
+      "Generate trade documents instantly — Deal Recap, FCO, ICPO, SPA, LOI, POP, POF, and BCL — all linked to verified trades with blockchain-backed integrity.",
   },
   {
     icon: FolderOpen,
@@ -217,7 +217,7 @@ export default function Home() {
               {
                 step: "03",
                 title: "Document Generation",
-                desc: "Generate all required trade documents — SCO, FCO, ICPO, SPA, LOI, and more — linked directly to verified blockchain trades.",
+                desc: "Generate all required trade documents — Deal Recap, FCO, ICPO, SPA, LOI, and more — linked directly to verified blockchain trades.",
                 link: "/platform",
                 linkText: "Generate Docs",
               },

@@ -104,12 +104,12 @@ const seedTrades = [
 ];
 
 const seedDocs = [
-  { docType: "SCO", title: "SCO - Iron Ore 50,000 MT Guinea-China", tradeIndex: 0, status: "final" },
+  { docType: "DEAL_RECAP", title: "Deal Recap - Iron Ore 50,000 MT Guinea-China", tradeIndex: 0, status: "final" },
   { docType: "FCO", title: "FCO - Iron Ore 50,000 MT Guinea-China", tradeIndex: 0, status: "final" },
   { docType: "SPA", title: "SPA - Iron Ore Supply Agreement", tradeIndex: 0, status: "final" },
   { docType: "ICPO", title: "ICPO - Copper Cathodes 5,000 MT", tradeIndex: 1, status: "final" },
   { docType: "LOI", title: "LOI - ULSD Supply Vietnam", tradeIndex: 2, status: "draft" },
-  { docType: "SCO", title: "SCO - Bauxite 75,000 MT Guinea-China", tradeIndex: 4, status: "draft" },
+  { docType: "DEAL_RECAP", title: "Deal Recap - Bauxite 75,000 MT Guinea-China", tradeIndex: 4, status: "draft" },
 ];
 
 const validStatuses = new Set(["pre_deal", "initiated", "deal", "execution", "final_payment"]);
