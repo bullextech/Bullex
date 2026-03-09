@@ -131,10 +131,15 @@ export async function registerRoutes(
       return res.status(500).json({ message: "Admin credentials not configured" });
     }
     if (username === adminUser && password === adminPass) {
-      req.session.authenticated = true;
-      req.session.username = username;
-      req.session.role = "admin";
-      return res.json({ authenticated: true, username, role: "admin" });
+      req.session.regenerate(() => {
+        req.session.authenticated = true;
+        req.session.username = username;
+        req.session.role = "admin";
+        req.session.save(() => {
+          return res.json({ authenticated: true, username, role: "admin" });
+        });
+      });
+      return;
     }
     res.status(401).json({ message: "Invalid username or password" });
   });
@@ -162,12 +167,16 @@ export async function registerRoutes(
       if (!kyc || kyc.clientPassword !== password || kyc.status !== "approved") {
         return res.status(401).json({ message: "Invalid credentials or account not active" });
       }
-      req.session.authenticated = true;
-      req.session.username = username;
-      req.session.role = "client";
-      req.session.clientKycId = kyc.id;
-      req.session.clientCompanyName = kyc.companyName;
-      return res.json({ authenticated: true, username, role: "client", companyName: kyc.companyName });
+      req.session.regenerate(() => {
+        req.session.authenticated = true;
+        req.session.username = username;
+        req.session.role = "client";
+        req.session.clientKycId = kyc.id;
+        req.session.clientCompanyName = kyc.companyName;
+        req.session.save(() => {
+          return res.json({ authenticated: true, username, role: "client", companyName: kyc.companyName });
+        });
+      });
     } catch (error) {
       res.status(500).json({ message: "Login failed" });
     }
