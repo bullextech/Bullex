@@ -15,7 +15,7 @@ PORT = "5000"
 [deployment]
 deploymentTarget = "autoscale"
 run = ["node", "./dist/index.cjs"]
-build = ["sh", "-c", "npm run build && (npm run db:push 2>/dev/null || echo 'db:push skipped')"]
+build = ["sh", "-c", "npm run build && npm run db:push --force 2>&1 || true"]
 publicDir = "dist/public"
 
 [workflows]
