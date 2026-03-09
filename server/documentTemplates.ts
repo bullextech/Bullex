@@ -667,6 +667,77 @@ Tel: _______________
 Date: ${today()}
 
 Signature & Bank Seal: _______________`,
+
+  LC: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `LETTER OF CREDIT (LC)
+${"=".repeat(40)}
+
+Date: ${today()}
+Reference: ${trade?.tradeRef || "_______________"}
+LC Number: _______________
+
+TYPE OF CREDIT
+Irrevocable Documentary Letter of Credit
+
+ISSUING BANK
+Bank Name: _______________
+Branch: _______________
+SWIFT/BIC: _______________
+Address: _______________
+
+APPLICANT (BUYER)
+Company: ${v(buyer?.name, trade?.buyerName)}
+Address: ${v(buyer?.address)}
+Contact: ${v(buyer?.contact)}
+
+BENEFICIARY (SELLER)
+Company: ${v(seller?.name, trade?.sellerName)}
+Address: ${v(seller?.address)}
+Contact: ${v(seller?.contact)}
+
+ADVISING BANK
+Bank Name: ${v(seller?.bank)}
+SWIFT/BIC: ${v(seller?.swift)}
+Address: _______________
+
+LC DETAILS
+${tradeBlock(trade, buyer, seller, product)}
+
+Currency & Amount: ${product?.currency || "USD"} ${v(product?.price)}
+Tolerance: +/- 10%
+Expiry Date: _______________
+Latest Shipment Date: _______________
+Port of Loading: ${v(product?.loadingPort, trade?.loadingPort)}
+Port of Discharge: ${v(product?.dischargePort, trade?.dischargePort)}
+Incoterms: ${v(product?.incoterm, trade ? trade.incoterm : undefined)}
+Partial Shipment: Allowed / Not Allowed
+Transhipment: Allowed / Not Allowed
+
+DOCUMENTS REQUIRED
+1. Signed Commercial Invoice (3 originals + 3 copies)
+2. Full set of clean on-board Bills of Lading (3/3) made out to order, blank endorsed
+3. Certificate of Origin issued by Chamber of Commerce (3 originals)
+4. Certificate of Quality & Quantity issued by ${v(product?.analysisAgency, "SGS / Bureau Veritas")}
+5. Packing List (3 originals + 3 copies)
+6. Certificate of Weight / Draft Survey Report
+7. Insurance Certificate / Policy for 110% of invoice value (CIF terms)
+8. Phytosanitary / Fumigation Certificate (if applicable)
+9. Beneficiary's Certificate confirming shipment details
+
+ADDITIONAL CONDITIONS
+1. All banking charges outside the issuing bank are for the Beneficiary's account.
+2. Documents must be presented within 21 days after the date of shipment.
+3. This LC is subject to UCP 600 (ICC Uniform Customs and Practice for Documentary Credits, 2007 Revision).
+4. Performance Bond of 2% of LC value to be issued by Beneficiary's bank upon receipt of LC.
+
+SPECIAL INSTRUCTIONS
+${v(product?.specialNote)}
+
+AUTHORISED SIGNATORY
+Name: _______________
+Title: _______________
+Bank: _______________
+Date: ${today()}
+Signature & Bank Seal: _______________`,
 };
 
 export function generateDocumentContent(docType: string, trade?: Trade, buyerDetails?: PartyDetails, sellerDetails?: PartyDetails, productDetails?: ProductDetails): string {
