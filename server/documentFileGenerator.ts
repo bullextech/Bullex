@@ -13,6 +13,7 @@ import {
   VerticalAlign,
   ShadingType,
   PageBreak,
+  ImageRun,
 } from "docx";
 import PDFDocument from "pdfkit";
 import fs from "fs";
@@ -542,13 +543,7 @@ export async function generatePdf(docId: string, title: string, content: string)
       buildGenericPdf(doc, content, leftMargin, pageWidth);
     }
 
-    if (doc.y > 700) doc.addPage();
-    doc.moveDown(2);
-    const footerY = doc.y;
-    doc.moveTo(leftMargin, footerY).lineTo(leftMargin + pageWidth, footerY).stroke("#999999");
-    doc.moveDown(0.5);
-    doc.font("Helvetica-Oblique").fontSize(8).fillColor("#666666")
-      .text("Issued by Bullex Trading Platform", leftMargin, doc.y, { width: pageWidth, align: "center" });
+    addPdfFooter(doc, leftMargin, pageWidth);
 
     doc.end();
     stream.on("finish", () => resolve(filePath));
@@ -846,5 +841,241 @@ function buildGenericPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: n
 export function getDocFilePath(filePath: string): string | null {
   if (filePath && fs.existsSync(filePath)) return filePath;
   return null;
+}
+
+function base64ToBuffer(dataUri: string): Buffer {
+  const base64 = dataUri.split(",")[1];
+  return Buffer.from(base64, "base64");
+}
+
+function addSignatureBlockPdf(
+  doc: PDFKit.PDFDocument,
+  leftMargin: number,
+  pageWidth: number,
+  buyerSig?: string,
+  sellerSig?: string,
+  buyerName?: string,
+  sellerName?: string,
+  buyerSignedAt?: Date,
+  sellerSignedAt?: Date,
+) {
+  const halfWidth = Math.floor(pageWidth / 2) - 10;
+
+  if (doc.y > 580) doc.addPage();
+  doc.moveDown(1);
+
+  const topY = doc.y;
+  doc.font("Helvetica-Bold").fontSize(10).text("SIGNATURES", leftMargin, topY, { width: pageWidth, align: "center" });
+  doc.moveDown(0.5);
+  const lineY = doc.y;
+  doc.moveTo(leftMargin, lineY).lineTo(leftMargin + pageWidth, lineY).stroke("#333333");
+  doc.moveDown(0.8);
+
+  const sigStartY = doc.y;
+
+  doc.font("Helvetica-Bold").fontSize(9).text("FOR & ON BEHALF OF SELLER", leftMargin, sigStartY, { width: halfWidth });
+  doc.font("Helvetica-Bold").fontSize(9).text("FOR & ON BEHALF OF BUYER", leftMargin + halfWidth + 20, sigStartY, { width: halfWidth });
+
+  const labelY = sigStartY + 18;
+
+  if (sellerSig) {
+    try {
+      const sigBuf = base64ToBuffer(sellerSig);
+      doc.image(sigBuf, leftMargin, labelY, { width: 150, height: 60 });
+    } catch (e) {}
+  }
+  if (buyerSig) {
+    try {
+      const sigBuf = base64ToBuffer(buyerSig);
+      doc.image(sigBuf, leftMargin + halfWidth + 20, labelY, { width: 150, height: 60 });
+    } catch (e) {}
+  }
+
+  const nameY = labelY + 65;
+  doc.font("Helvetica").fontSize(8);
+
+  if (sellerName) {
+    doc.text(`Name: ${sellerName}`, leftMargin, nameY, { width: halfWidth });
+    if (sellerSignedAt) {
+      doc.text(`Date: ${sellerSignedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`, leftMargin, nameY + 12, { width: halfWidth });
+    }
+  } else {
+    doc.text("Name: _______________", leftMargin, nameY, { width: halfWidth });
+    doc.text("Date: _______________", leftMargin, nameY + 12, { width: halfWidth });
+  }
+
+  if (buyerName) {
+    doc.text(`Name: ${buyerName}`, leftMargin + halfWidth + 20, nameY, { width: halfWidth });
+    if (buyerSignedAt) {
+      doc.text(`Date: ${buyerSignedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`, leftMargin + halfWidth + 20, nameY + 12, { width: halfWidth });
+    }
+  } else {
+    doc.text("Name: _______________", leftMargin + halfWidth + 20, nameY, { width: halfWidth });
+    doc.text("Date: _______________", leftMargin + halfWidth + 20, nameY + 12, { width: halfWidth });
+  }
+
+  doc.y = nameY + 30;
+}
+
+function addPdfFooter(doc: PDFKit.PDFDocument, leftMargin: number, pageWidth: number) {
+  if (doc.y > 700) doc.addPage();
+  doc.moveDown(2);
+  const footerY = doc.y;
+  doc.moveTo(leftMargin, footerY).lineTo(leftMargin + pageWidth, footerY).stroke("#999999");
+  doc.moveDown(0.5);
+  doc.font("Helvetica-Oblique").fontSize(8).fillColor("#666666")
+    .text("Issued by Bullex Trading Platform", leftMargin, doc.y, { width: pageWidth, align: "center" });
+}
+
+function buildSignatureDocxParagraphs(
+  buyerSig?: string,
+  sellerSig?: string,
+  buyerName?: string,
+  sellerName?: string,
+  buyerSignedAt?: Date,
+  sellerSignedAt?: Date,
+): (Paragraph | Table)[] {
+  const items: (Paragraph | Table)[] = [];
+
+  items.push(new Paragraph({ spacing: { before: 400 } }));
+  items.push(new Paragraph({
+    children: [new TextRun({ text: "SIGNATURES", bold: true, size: 22, font: "Calibri" })],
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 200 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: "333333" } },
+  }));
+
+  const sellerChildren: Paragraph[] = [
+    new Paragraph({
+      children: [new TextRun({ text: "FOR & ON BEHALF OF SELLER", bold: true, size: 18, font: "Calibri" })],
+      spacing: { after: 100 },
+    }),
+  ];
+  if (sellerSig) {
+    try {
+      sellerChildren.push(new Paragraph({
+        children: [new ImageRun({ data: base64ToBuffer(sellerSig), transformation: { width: 180, height: 70 }, type: "png" })],
+        spacing: { after: 60 },
+      }));
+    } catch (e) {}
+  }
+  sellerChildren.push(new Paragraph({
+    children: [new TextRun({ text: `Name: ${sellerName || "_______________"}`, size: 18, font: "Calibri" })],
+    spacing: { after: 40 },
+  }));
+  if (sellerSignedAt) {
+    sellerChildren.push(new Paragraph({
+      children: [new TextRun({ text: `Date: ${sellerSignedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`, size: 18, font: "Calibri" })],
+    }));
+  } else {
+    sellerChildren.push(new Paragraph({
+      children: [new TextRun({ text: "Date: _______________", size: 18, font: "Calibri" })],
+    }));
+  }
+
+  const buyerChildren: Paragraph[] = [
+    new Paragraph({
+      children: [new TextRun({ text: "FOR & ON BEHALF OF BUYER", bold: true, size: 18, font: "Calibri" })],
+      spacing: { after: 100 },
+    }),
+  ];
+  if (buyerSig) {
+    try {
+      buyerChildren.push(new Paragraph({
+        children: [new ImageRun({ data: base64ToBuffer(buyerSig), transformation: { width: 180, height: 70 }, type: "png" })],
+        spacing: { after: 60 },
+      }));
+    } catch (e) {}
+  }
+  buyerChildren.push(new Paragraph({
+    children: [new TextRun({ text: `Name: ${buyerName || "_______________"}`, size: 18, font: "Calibri" })],
+    spacing: { after: 40 },
+  }));
+  if (buyerSignedAt) {
+    buyerChildren.push(new Paragraph({
+      children: [new TextRun({ text: `Date: ${buyerSignedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`, size: 18, font: "Calibri" })],
+    }));
+  } else {
+    buyerChildren.push(new Paragraph({
+      children: [new TextRun({ text: "Date: _______________", size: 18, font: "Calibri" })],
+    }));
+  }
+
+  items.push(new Table({
+    rows: [new TableRow({
+      children: [
+        new TableCell({
+          children: sellerChildren,
+          width: { size: 4500, type: WidthType.DXA },
+          borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
+        }),
+        new TableCell({
+          children: buyerChildren,
+          width: { size: 4500, type: WidthType.DXA },
+          borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
+        }),
+      ],
+    })],
+    width: { size: 9000, type: WidthType.DXA },
+  }));
+
+  return items;
+}
+
+export async function regenerateWithSignatures(
+  docId: string,
+  title: string,
+  content: string,
+  buyerSig?: string,
+  sellerSig?: string,
+  buyerName?: string,
+  sellerName?: string,
+  buyerSignedAt?: Date,
+  sellerSignedAt?: Date,
+): Promise<{ docxPath: string; pdfPath: string }> {
+  let docxChildren: (Paragraph | Table)[];
+  if (isDealRecapContent(content)) {
+    docxChildren = buildDealRecapDocx(content);
+  } else {
+    docxChildren = buildGenericDocx(content);
+  }
+
+  if (buyerSig || sellerSig) {
+    docxChildren.push(...buildSignatureDocxParagraphs(buyerSig, sellerSig, buyerName, sellerName, buyerSignedAt, sellerSignedAt));
+  }
+
+  docxChildren.push(...buildFooterParagraphs());
+
+  const docxDoc = new DocxDocument({ sections: [{ children: docxChildren }] });
+  const buffer = await Packer.toBuffer(docxDoc);
+  const docxPath = path.join(docsDir, `${docId}.docx`);
+  fs.writeFileSync(docxPath, buffer);
+
+  const pdfPath = await new Promise<string>((resolve, reject) => {
+    const filePath = path.join(docsDir, `${docId}.pdf`);
+    const pdfDoc = new PDFDocument({ size: "A4", margin: 50 });
+    const stream = fs.createWriteStream(filePath);
+    pdfDoc.pipe(stream);
+    const pageWidth = 495;
+    const leftMargin = 50;
+
+    if (isDealRecapContent(content)) {
+      buildDealRecapPdf(pdfDoc, content, leftMargin, pageWidth);
+    } else {
+      buildGenericPdf(pdfDoc, content, leftMargin, pageWidth);
+    }
+
+    if (buyerSig || sellerSig) {
+      addSignatureBlockPdf(pdfDoc, leftMargin, pageWidth, buyerSig, sellerSig, buyerName, sellerName, buyerSignedAt, sellerSignedAt);
+    }
+
+    addPdfFooter(pdfDoc, leftMargin, pageWidth);
+
+    pdfDoc.end();
+    stream.on("finish", () => resolve(filePath));
+    stream.on("error", reject);
+  });
+
+  return { docxPath, pdfPath };
 }
 
