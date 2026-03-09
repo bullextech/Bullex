@@ -397,6 +397,369 @@ function isDealRecapContent(content: string): boolean {
   return content.includes("RECAP") && content.includes("CHAPTER I") && content.includes("ANNEX I");
 }
 
+function isLoiContent(content: string): boolean {
+  return content.includes("PURCHASE LETTER OF INTENT") && content.includes("Issued to Seller") && content.includes("Sr. No.");
+}
+
+interface LoiParsed {
+  headerRows: { label: string; value: string }[];
+  buyerRows: { label: string; value: string }[];
+  paramRows: { sr: string; param: string; detail: string }[];
+  specialNote: string;
+  closingLines: string[];
+  buyerSignatory: string;
+}
+
+function parseLoiContent(content: string): LoiParsed {
+  const sanitized = sanitizeUnicode(content);
+  const lines = sanitized.split("\n");
+  const result: LoiParsed = { headerRows: [], buyerRows: [], paramRows: [], specialNote: "", closingLines: [], buyerSignatory: "" };
+
+  let section: "pre" | "seller" | "buyer" | "table" | "note" | "closing" = "pre";
+  let currentLabel = "";
+  let currentValue = "";
+
+  const flushHeader = () => {
+    if (currentLabel) {
+      if (section === "buyer") {
+        result.buyerRows.push({ label: currentLabel, value: currentValue.trim() });
+      } else {
+        result.headerRows.push({ label: currentLabel, value: currentValue.trim() });
+      }
+      currentLabel = "";
+      currentValue = "";
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (trimmed === "PURCHASE LETTER OF INTENT" || trimmed.match(/^={3,}$/)) continue;
+
+    if (trimmed === "Issued to Seller") {
+      section = "seller";
+      continue;
+    }
+    if (trimmed === "Issued by Buyer") {
+      flushHeader();
+      section = "buyer";
+      continue;
+    }
+    if (trimmed.match(/^-{3,}$/) && (section === "seller" || section === "buyer")) continue;
+
+    if (section === "seller" || section === "buyer") {
+      if (trimmed.match(/^={3,}$/) || (trimmed.includes("|") && trimmed.includes("Sr. No."))) {
+        flushHeader();
+        section = "table";
+        continue;
+      }
+
+      const knownLabels = ["Attention (PIC)", "Ref", "LOI Issue No. and Date", "Valid Till", "Purchase Incoterms"];
+      const matchedLabel = knownLabels.find(l => trimmed.startsWith(l));
+      if (matchedLabel) {
+        flushHeader();
+        currentLabel = matchedLabel;
+        currentValue = trimmed.substring(matchedLabel.length).trim();
+        continue;
+      }
+
+      if (!currentLabel && trimmed && section === "seller") {
+        currentLabel = "Seller";
+        currentValue = (currentValue ? currentValue + "\n" : "") + trimmed;
+      } else if (!currentLabel && trimmed && section === "buyer") {
+        currentLabel = "Buyer";
+        currentValue = (currentValue ? currentValue + "\n" : "") + trimmed;
+      } else if (currentLabel) {
+        currentValue = (currentValue ? currentValue + "\n" : "") + trimmed;
+      }
+      continue;
+    }
+
+    if (section === "table") {
+      if (trimmed.match(/^[=-]{3,}$/)) continue;
+      if (trimmed.includes("|") && trimmed.includes("Sr. No.")) continue;
+      if (trimmed.includes("|")) {
+        const cells = trimmed.split("|").map(c => c.trim());
+        if (cells.length >= 3 && cells[0].match(/^\d{2}$/)) {
+          result.paramRows.push({ sr: cells[0], param: cells[1], detail: cells.slice(2).join(" ").trim() });
+        } else if (cells.length >= 3 && cells.filter(c => c).length >= 2) {
+          const lastParam = result.paramRows[result.paramRows.length - 1];
+          if (lastParam) {
+            lastParam.param += " " + cells[1];
+            lastParam.detail += " " + cells.slice(2).join(" ").trim();
+          }
+        }
+        continue;
+      }
+      if (trimmed.startsWith("SPECIAL NOTES")) {
+        section = "note";
+        continue;
+      }
+      if (trimmed.startsWith("We look forward") || trimmed.startsWith("With warm regards") || trimmed.startsWith("For & On Behalf")) {
+        section = "closing";
+        result.closingLines.push(trimmed);
+        continue;
+      }
+      if (!trimmed) {
+        section = "closing";
+        continue;
+      }
+    }
+
+    if (section === "note") {
+      if (trimmed.startsWith("We look forward") || trimmed.startsWith("With warm regards") || trimmed.startsWith("For & On Behalf")) {
+        section = "closing";
+        result.closingLines.push(trimmed);
+        continue;
+      }
+      if (trimmed) result.specialNote += (result.specialNote ? "\n" : "") + trimmed;
+      continue;
+    }
+
+    if (section === "closing") {
+      if (trimmed.startsWith("For & On Behalf")) {
+        result.closingLines.push(trimmed);
+        for (let j = i + 1; j < lines.length; j++) {
+          const next = lines[j].trim();
+          if (next && !next.match(/^[-=]{3,}$/)) {
+            result.buyerSignatory = next;
+            break;
+          }
+        }
+        break;
+      }
+      if (trimmed) result.closingLines.push(trimmed);
+      continue;
+    }
+  }
+  flushHeader();
+  return result;
+}
+
+function buildLoiDocx(content: string): (Paragraph | Table)[] {
+  const loi = parseLoiContent(content);
+  const children: (Paragraph | Table)[] = [];
+
+  children.push(new Paragraph({
+    children: [new TextRun({ text: "PURCHASE LETTER OF INTENT", bold: true, size: 28, font: "Calibri" })],
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 100, after: 200 },
+  }));
+  children.push(new Paragraph({
+    border: { bottom: { style: BorderStyle.SINGLE, size: 3, color: "000000" } },
+    spacing: { after: 200 },
+  }));
+
+  const headerLabel = (text: string) => new Paragraph({
+    children: [new TextRun({ text, bold: true, size: 18, font: "Calibri", color: "555555" })],
+    spacing: { before: 20, after: 20 },
+  });
+  const headerValue = (text: string) => new Paragraph({
+    children: [new TextRun({ text, size: 18, font: "Calibri" })],
+    spacing: { before: 20, after: 20 },
+  });
+
+  const buildHeaderTable = (title: string, rows: { label: string; value: string }[]) => {
+    children.push(new Paragraph({
+      children: [new TextRun({ text: title, bold: true, size: 20, font: "Calibri" })],
+      spacing: { before: 200, after: 100 },
+      shading: { type: ShadingType.SOLID, color: "F0F0F0" },
+    }));
+    const tableRows = rows.map(r => new TableRow({
+      children: [
+        new TableCell({
+          children: [headerLabel(r.label)],
+          width: { size: 2800, type: WidthType.DXA },
+          shading: { type: ShadingType.SOLID, color: "F8F8F8" },
+          borders: { top: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" }, bottom: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" }, left: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" }, right: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" } },
+        }),
+        new TableCell({
+          children: [headerValue(r.value)],
+          width: { size: 6200, type: WidthType.DXA },
+          borders: { top: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" }, bottom: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" }, left: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" }, right: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" } },
+        }),
+      ],
+    }));
+    if (tableRows.length > 0) {
+      children.push(new Table({ rows: tableRows, width: { size: 9000, type: WidthType.DXA } }));
+    }
+  };
+
+  buildHeaderTable("Issued to Seller", loi.headerRows);
+  buildHeaderTable("Issued by Buyer", loi.buyerRows);
+
+  children.push(new Paragraph({ spacing: { before: 300 } }));
+  const paramTableRows: TableRow[] = [];
+  paramTableRows.push(new TableRow({
+    children: [
+      new TableCell({
+        children: [new Paragraph({ children: [new TextRun({ text: "Sr. No.", bold: true, size: 16, font: "Calibri" })], alignment: AlignmentType.CENTER, spacing: { before: 40, after: 40 } })],
+        width: { size: 800, type: WidthType.DXA },
+        shading: { type: ShadingType.SOLID, color: "E8E8E8" },
+        borders: { top: { style: BorderStyle.SINGLE, size: 2, color: "333333" }, bottom: { style: BorderStyle.SINGLE, size: 2, color: "333333" }, left: { style: BorderStyle.SINGLE, size: 2, color: "333333" }, right: { style: BorderStyle.SINGLE, size: 1, color: "333333" } },
+      }),
+      new TableCell({
+        children: [new Paragraph({ children: [new TextRun({ text: "Parameters", bold: true, size: 16, font: "Calibri" })], spacing: { before: 40, after: 40 } })],
+        width: { size: 2700, type: WidthType.DXA },
+        shading: { type: ShadingType.SOLID, color: "E8E8E8" },
+        borders: { top: { style: BorderStyle.SINGLE, size: 2, color: "333333" }, bottom: { style: BorderStyle.SINGLE, size: 2, color: "333333" }, left: { style: BorderStyle.SINGLE, size: 1, color: "333333" }, right: { style: BorderStyle.SINGLE, size: 1, color: "333333" } },
+      }),
+      new TableCell({
+        children: [new Paragraph({ children: [new TextRun({ text: "Details", bold: true, size: 16, font: "Calibri" })], spacing: { before: 40, after: 40 } })],
+        width: { size: 5500, type: WidthType.DXA },
+        shading: { type: ShadingType.SOLID, color: "E8E8E8" },
+        borders: { top: { style: BorderStyle.SINGLE, size: 2, color: "333333" }, bottom: { style: BorderStyle.SINGLE, size: 2, color: "333333" }, left: { style: BorderStyle.SINGLE, size: 1, color: "333333" }, right: { style: BorderStyle.SINGLE, size: 2, color: "333333" } },
+      }),
+    ],
+  }));
+
+  for (const row of loi.paramRows) {
+    const cellBorder = { top: { style: BorderStyle.SINGLE as const, size: 1, color: "CCCCCC" }, bottom: { style: BorderStyle.SINGLE as const, size: 1, color: "CCCCCC" }, left: { style: BorderStyle.SINGLE as const, size: 1, color: "CCCCCC" }, right: { style: BorderStyle.SINGLE as const, size: 1, color: "CCCCCC" } };
+    paramTableRows.push(new TableRow({
+      children: [
+        new TableCell({
+          children: [new Paragraph({ children: [new TextRun({ text: row.sr, size: 16, font: "Calibri" })], alignment: AlignmentType.CENTER, spacing: { before: 30, after: 30 } })],
+          width: { size: 800, type: WidthType.DXA },
+          borders: cellBorder,
+          verticalAlign: VerticalAlign.CENTER,
+        }),
+        new TableCell({
+          children: [new Paragraph({ children: [new TextRun({ text: row.param, bold: true, size: 16, font: "Calibri", color: "555555" })], spacing: { before: 30, after: 30 } })],
+          width: { size: 2700, type: WidthType.DXA },
+          borders: cellBorder,
+          verticalAlign: VerticalAlign.CENTER,
+        }),
+        new TableCell({
+          children: [new Paragraph({ children: [new TextRun({ text: row.detail, size: 16, font: "Calibri" })], spacing: { before: 30, after: 30 } })],
+          width: { size: 5500, type: WidthType.DXA },
+          borders: cellBorder,
+          verticalAlign: VerticalAlign.CENTER,
+        }),
+      ],
+    }));
+  }
+  children.push(new Table({ rows: paramTableRows, width: { size: 9000, type: WidthType.DXA } }));
+
+  if (loi.specialNote) {
+    children.push(new Paragraph({ spacing: { before: 200 } }));
+    children.push(new Paragraph({
+      children: [new TextRun({ text: "SPECIAL NOTES", bold: true, size: 20, font: "Calibri" })],
+      spacing: { before: 200, after: 100 },
+    }));
+    children.push(new Paragraph({
+      children: [new TextRun({ text: loi.specialNote, size: 18, font: "Calibri" })],
+      spacing: { after: 100 },
+    }));
+  }
+
+  children.push(new Paragraph({ spacing: { before: 300 } }));
+  for (const line of loi.closingLines) {
+    children.push(new Paragraph({
+      children: [new TextRun({ text: line, size: 18, font: "Calibri", italics: line.startsWith("We look forward") || line.startsWith("With warm regards") })],
+      spacing: { after: 60 },
+    }));
+  }
+  if (loi.buyerSignatory) {
+    children.push(new Paragraph({
+      children: [new TextRun({ text: loi.buyerSignatory, bold: true, size: 20, font: "Calibri" })],
+      spacing: { before: 100, after: 100 },
+    }));
+  }
+
+  return children;
+}
+
+function buildLoiPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: number, pageWidth: number) {
+  const loi = parseLoiContent(content);
+
+  doc.font("Helvetica-Bold").fontSize(16).text("PURCHASE LETTER OF INTENT", leftMargin, doc.y, { width: pageWidth, align: "center" });
+  doc.moveDown(0.3);
+  doc.moveTo(leftMargin, doc.y).lineTo(leftMargin + pageWidth, doc.y).lineWidth(2).stroke("#333333");
+  doc.moveDown(0.8);
+
+  const drawHeaderSection = (title: string, rows: { label: string; value: string }[]) => {
+    pdfCheckPage(doc, 80);
+    doc.font("Helvetica-Bold").fontSize(10).fillColor("#333333").text(title, leftMargin, doc.y, { width: pageWidth });
+    doc.moveDown(0.3);
+    const col1W = 130;
+    const col2W = pageWidth - col1W;
+    for (const row of rows) {
+      pdfCheckPage(doc, 20);
+      const rowY = doc.y;
+      doc.rect(leftMargin, rowY, col1W, 18).fill("#F8F8F8").stroke("#CCCCCC");
+      doc.rect(leftMargin + col1W, rowY, col2W, 18).stroke("#CCCCCC");
+      doc.font("Helvetica-Bold").fontSize(7).fillColor("#555555").text(row.label, leftMargin + 4, rowY + 4, { width: col1W - 8 });
+      doc.font("Helvetica").fontSize(7).fillColor("#000000").text(row.value, leftMargin + col1W + 4, rowY + 4, { width: col2W - 8 });
+      doc.y = rowY + 18;
+    }
+    doc.moveDown(0.5);
+  };
+
+  drawHeaderSection("Issued to Seller", loi.headerRows);
+  drawHeaderSection("Issued by Buyer", loi.buyerRows);
+
+  doc.moveDown(0.5);
+  pdfCheckPage(doc, 40);
+
+  const srW = 40;
+  const paramW = 120;
+  const detailW = pageWidth - srW - paramW;
+  const headerRowH = 18;
+
+  let tableY = doc.y;
+  doc.rect(leftMargin, tableY, pageWidth, headerRowH).fill("#E8E8E8").stroke("#333333");
+  doc.font("Helvetica-Bold").fontSize(7).fillColor("#333333");
+  doc.text("Sr. No.", leftMargin + 2, tableY + 5, { width: srW - 4, align: "center" });
+  doc.text("Parameters", leftMargin + srW + 4, tableY + 5, { width: paramW - 8 });
+  doc.text("Details", leftMargin + srW + paramW + 4, tableY + 5, { width: detailW - 8 });
+  doc.y = tableY + headerRowH;
+
+  for (const row of loi.paramRows) {
+    pdfCheckPage(doc, 22);
+    const rowY = doc.y;
+    const textH = Math.max(16, doc.heightOfString(row.detail, { width: detailW - 8 }) + 8);
+    doc.rect(leftMargin, rowY, srW, textH).stroke("#CCCCCC");
+    doc.rect(leftMargin + srW, rowY, paramW, textH).stroke("#CCCCCC");
+    doc.rect(leftMargin + srW + paramW, rowY, detailW, textH).stroke("#CCCCCC");
+    doc.font("Helvetica").fontSize(7).fillColor("#000000");
+    doc.text(row.sr, leftMargin + 2, rowY + 4, { width: srW - 4, align: "center" });
+    doc.font("Helvetica-Bold").fontSize(7).fillColor("#555555");
+    doc.text(row.param, leftMargin + srW + 4, rowY + 4, { width: paramW - 8 });
+    doc.font("Helvetica").fontSize(7).fillColor("#000000");
+    doc.text(row.detail, leftMargin + srW + paramW + 4, rowY + 4, { width: detailW - 8 });
+    doc.y = rowY + textH;
+  }
+
+  doc.moveTo(leftMargin, doc.y).lineTo(leftMargin + pageWidth, doc.y).lineWidth(2).stroke("#333333");
+  doc.moveDown(0.8);
+
+  if (loi.specialNote) {
+    pdfCheckPage(doc, 40);
+    doc.font("Helvetica-Bold").fontSize(9).fillColor("#000000").text("SPECIAL NOTES", leftMargin, doc.y);
+    doc.moveDown(0.2);
+    doc.font("Helvetica").fontSize(8).text(loi.specialNote, leftMargin, doc.y, { width: pageWidth });
+    doc.moveDown(0.5);
+  }
+
+  doc.moveDown(0.5);
+  for (const line of loi.closingLines) {
+    pdfCheckPage(doc, 16);
+    if (line.startsWith("We look forward") || line.startsWith("With warm regards")) {
+      doc.font("Helvetica-Oblique").fontSize(8).fillColor("#000000").text(line, leftMargin, doc.y, { width: pageWidth });
+    } else if (line.startsWith("For & On Behalf")) {
+      doc.font("Helvetica-Bold").fontSize(8).text(line, leftMargin, doc.y, { width: pageWidth });
+    } else {
+      doc.font("Helvetica").fontSize(8).text(line, leftMargin, doc.y, { width: pageWidth });
+    }
+    doc.moveDown(0.3);
+  }
+  if (loi.buyerSignatory) {
+    doc.font("Helvetica-Bold").fontSize(9).text(loi.buyerSignatory, leftMargin, doc.y, { width: pageWidth });
+    doc.moveDown(0.5);
+  }
+}
+
 function buildFooterParagraphs(): Paragraph[] {
   return [
     new Paragraph({ spacing: { before: 600 } }),
@@ -417,6 +780,8 @@ export async function generateDocx(docId: string, title: string, content: string
 
   if (isDealRecapContent(content)) {
     children = buildDealRecapDocx(content);
+  } else if (isLoiContent(content)) {
+    children = buildLoiDocx(content);
   } else {
     children = buildGenericDocx(content);
   }
@@ -539,6 +904,8 @@ export async function generatePdf(docId: string, title: string, content: string)
 
     if (isDealRecapContent(content)) {
       buildDealRecapPdf(doc, content, leftMargin, pageWidth);
+    } else if (isLoiContent(content)) {
+      buildLoiPdf(doc, content, leftMargin, pageWidth);
     } else {
       buildGenericPdf(doc, content, leftMargin, pageWidth);
     }
@@ -1036,6 +1403,8 @@ export async function regenerateWithSignatures(
   let docxChildren: (Paragraph | Table)[];
   if (isDealRecapContent(content)) {
     docxChildren = buildDealRecapDocx(content);
+  } else if (isLoiContent(content)) {
+    docxChildren = buildLoiDocx(content);
   } else {
     docxChildren = buildGenericDocx(content);
   }
@@ -1061,6 +1430,8 @@ export async function regenerateWithSignatures(
 
     if (isDealRecapContent(content)) {
       buildDealRecapPdf(pdfDoc, content, leftMargin, pageWidth);
+    } else if (isLoiContent(content)) {
+      buildLoiPdf(pdfDoc, content, leftMargin, pageWidth);
     } else {
       buildGenericPdf(pdfDoc, content, leftMargin, pageWidth);
     }
