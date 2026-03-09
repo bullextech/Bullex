@@ -164,7 +164,7 @@ ${"═".repeat(70)}
 
  Item                          │ Description
 ${"─".repeat(70)}
- Contract Price & Currency     │ ${cur} ${v(product?.price, trade ? trade.pricePerUnit.toLocaleString() : undefined)}
+ Contract Price & Currency     │ ${(product?.price?.trim()?.toUpperCase().startsWith(cur.toUpperCase()) ? "" : cur + " ")}${v(product?.price, trade ? trade.pricePerUnit.toLocaleString() : undefined)}
 ${"─".repeat(70)}
  Payment Terms                 │ ${v(product?.paymentTerms)}
 ${"─".repeat(70)}
