@@ -180,11 +180,9 @@ ${"═".repeat(70)}
 
  Item                          │ Description
 ${"─".repeat(70)}
- Governing Law and             │ ${v(product?.governingLaw)}
- Jurisdiction                  │
+ Governing Law & Jurisdiction  │ ${v(product?.governingLaw)}
 ${"─".repeat(70)}
- Application of Industry       │ Applicable international industry
- Standards                     │ standards and ICC rules
+ Application of Industry Standards │ Applicable international industry standards and ICC rules
 ${"─".repeat(70)}
 
 
@@ -215,22 +213,15 @@ reference only and shall not constitute contractual guarantees.
 
 PRODUCT SPECIFICATION
 ${"─".repeat(70)}
- Parameter          │ Guaranteed    │ Typical       │ Rejection
-                    │ Specification │ Specification │ Limit
+ Parameter          │ Guaranteed Specification │ Typical Specification │ Rejection Limit
 ${"─".repeat(70)}
-${product?.annexSpecs?.trim() || ` Moisture           │               │               │
-${"─".repeat(70)}
- Ash                │               │               │
-${"─".repeat(70)}
- Volatile Matter    │               │               │
-${"─".repeat(70)}
- Fixed Carbon       │               │               │
-${"─".repeat(70)}
- Sulphur            │               │               │
-${"─".repeat(70)}
- Calorific Value    │               │               │
-${"─".repeat(70)}
- Size Distribution  │               │               │`}
+${product?.annexSpecs?.trim() || ` Moisture           │ -             │ -             │ -
+ Ash                │ -             │ -             │ -
+ Volatile Matter    │ -             │ -             │ -
+ Fixed Carbon       │ -             │ -             │ -
+ Sulphur            │ -             │ -             │ -
+ Calorific Value    │ -             │ -             │ -
+ Size Distribution  │ -             │ -             │ -`}
 ${"─".repeat(70)}
 
 
