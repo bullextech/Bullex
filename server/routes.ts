@@ -725,6 +725,22 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/documents/preview", requireAuth, async (req, res) => {
+    try {
+      const { buyerDetails, sellerDetails, productDetails, docType, tradeRef } = req.body;
+      if (!docType) return res.status(400).json({ message: "docType is required" });
+      let trade: Trade | undefined;
+      if (tradeRef) {
+        const trades = await storage.getTrades();
+        trade = trades.find(t => t.tradeRef === tradeRef);
+      }
+      const content = generateDocumentContent(docType, trade, buyerDetails, sellerDetails, productDetails);
+      res.json({ content });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to preview document" });
+    }
+  });
+
   app.post("/api/documents", requireAuth, async (req, res) => {
     try {
       const { buyerDetails, sellerDetails, productDetails, ...docData } = req.body;

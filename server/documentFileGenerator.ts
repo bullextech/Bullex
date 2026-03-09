@@ -24,9 +24,15 @@ function parseContentToSections(content: string): Array<{ type: "heading" | "sub
     const trimmed = line.trim();
     if (!trimmed) {
       sections.push({ type: "text", text: "" });
-    } else if (trimmed.match(/^={3,}$/)) {
+    } else if (trimmed.match(/^[═=]{3,}$/)) {
       sections.push({ type: "separator", text: "" });
-    } else if (trimmed.match(/^[A-Z][A-Z &'/()\-]{2,}$/) && !trimmed.startsWith("[")) {
+    } else if (trimmed.match(/^[─]{3,}$/)) {
+      sections.push({ type: "separator", text: "" });
+    } else if (trimmed.match(/^CHAPTER\s+[IVX]+\s*[–\-]/i)) {
+      sections.push({ type: "subheading", text: trimmed });
+    } else if (trimmed.match(/^⬛\s+ANNEX/i) || trimmed.match(/^ANNEX\s+[IVX]+/i)) {
+      sections.push({ type: "subheading", text: trimmed.replace(/^⬛\s*/, "") });
+    } else if (trimmed.match(/^RECAP\s*[–\-]/) || (trimmed.match(/^[A-Z][A-Z &'/()\-]{2,}$/) && !trimmed.startsWith("["))) {
       if (sections.length <= 2) {
         sections.push({ type: "heading", text: trimmed });
       } else {

@@ -111,6 +111,7 @@ export default function DocumentGenerator() {
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [editStatus, setEditStatus] = useState("");
+  const [reviewContent, setReviewContent] = useState<string | null>(null);
 
   const urlTradeRef = new URLSearchParams(window.location.search).get("tradeRef");
   const [tradePrefilled, setTradePrefilled] = useState(false);
@@ -172,7 +173,43 @@ export default function DocumentGenerator() {
     setContractConfirmation(""); setDocsForPayment(""); setOtherTerms(""); setCompliance("");
     setRecapValidity(""); setDeliveryBasis(""); setLoadingWindow(""); setShippingTerms("");
     setGoverningLaw(""); setAnnexSpecs(""); setQualityPremiums(""); setSpecialNote("");
+    setReviewContent(null);
   };
+
+  const buildPayload = () => ({
+    docType: selectedType!.value,
+    title,
+    tradeRef: urlTradeRef || undefined,
+    buyerDetails: {
+      name: buyerName, address: buyerAddress, contact: buyerContact,
+      bank: buyerBank, swift: buyerSwift,
+    },
+    sellerDetails: {
+      name: sellerName, address: sellerAddress, contact: sellerContact,
+      bank: sellerBank, swift: sellerSwift,
+    },
+    productDetails: {
+      commodity, origin, quantity, qualitySpecs, loadingPort, dischargePort,
+      price, currency, incoterm, laycan, paymentTerms,
+      analysisAgency, analysisAgencyContact, validity, refPerson,
+      contractConfirmation, docsForPayment, otherTerms, compliance,
+      recapValidity, deliveryBasis, loadingWindow, shippingTerms,
+      governingLaw, annexSpecs, qualityPremiums, specialNote,
+    },
+  });
+
+  const previewDoc = useMutation({
+    mutationFn: async (data: Record<string, any>) => {
+      const res = await apiRequest("POST", "/api/documents/preview", data);
+      return res.json();
+    },
+    onSuccess: (result: { content: string }) => {
+      setReviewContent(result.content);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Preview Failed", description: error.message, variant: "destructive" });
+    },
+  });
 
   const generateDoc = useMutation({
     mutationFn: async (data: Record<string, any>) => {
@@ -182,6 +219,7 @@ export default function DocumentGenerator() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       resetForm();
+      setReviewContent(null);
       toast({ title: "Document Generated", description: "Trade document has been created successfully." });
     },
     onError: (error: Error) => {
@@ -205,32 +243,20 @@ export default function DocumentGenerator() {
     },
   });
 
+  const handleReview = () => {
+    if (!selectedType || !title) {
+      toast({ title: "Missing Fields", description: "Please enter a document title.", variant: "destructive" });
+      return;
+    }
+    previewDoc.mutate(buildPayload());
+  };
+
   const handleGenerate = () => {
     if (!selectedType || !title) {
       toast({ title: "Missing Fields", description: "Please enter a document title.", variant: "destructive" });
       return;
     }
-    generateDoc.mutate({
-      docType: selectedType.value,
-      title,
-      tradeRef: urlTradeRef || undefined,
-      buyerDetails: {
-        name: buyerName, address: buyerAddress, contact: buyerContact,
-        bank: buyerBank, swift: buyerSwift,
-      },
-      sellerDetails: {
-        name: sellerName, address: sellerAddress, contact: sellerContact,
-        bank: sellerBank, swift: sellerSwift,
-      },
-      productDetails: {
-        commodity, origin, quantity, qualitySpecs, loadingPort, dischargePort,
-        price, currency, incoterm, laycan, paymentTerms,
-        analysisAgency, analysisAgencyContact, validity, refPerson,
-        contractConfirmation, docsForPayment, otherTerms, compliance,
-        recapValidity, deliveryBasis, loadingWindow, shippingTerms,
-        governingLaw, annexSpecs, qualityPremiums, specialNote,
-      },
-    });
+    generateDoc.mutate(buildPayload());
   };
 
   const openTemplateDialog = (dt: typeof docTypes[0]) => {
@@ -450,15 +476,36 @@ export default function DocumentGenerator() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!selectedType} onOpenChange={(open) => !open && resetForm()}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <Dialog open={!!selectedType} onOpenChange={(open) => { if (!open) { resetForm(); } }}>
+        <DialogContent className={reviewContent ? "max-w-3xl max-h-[90vh] overflow-y-auto" : "max-w-lg max-h-[85vh] overflow-y-auto"}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" data-testid="text-generate-dialog-title">
               {selectedType && (() => { const Icon = selectedType.icon; return <Icon className="w-5 h-5 text-primary" />; })()}
-              Generate {selectedType?.short}
+              {reviewContent ? `Review ${selectedType?.short}` : `Generate ${selectedType?.short}`}
             </DialogTitle>
           </DialogHeader>
-          {selectedType && (
+          {selectedType && reviewContent && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Eye className="w-4 h-4" />
+                Review the document below. If everything looks correct, click "Generate DOCX" to create the final document.
+              </div>
+              <div className="p-4 rounded-lg border bg-muted/30 whitespace-pre-wrap text-sm font-mono leading-relaxed max-h-[60vh] overflow-y-auto" data-testid="text-review-content">
+                {reviewContent}
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setReviewContent(null)} data-testid="button-back-to-edit">
+                  <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                  Back to Edit
+                </Button>
+                <Button onClick={handleGenerate} disabled={generateDoc.isPending} data-testid="button-confirm-generate">
+                  <Download className="w-3.5 h-3.5 mr-1.5" />
+                  {generateDoc.isPending ? "Generating..." : "Generate DOCX"}
+                </Button>
+              </div>
+            </div>
+          )}
+          {selectedType && !reviewContent && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">{selectedType.description}</p>
 
@@ -589,9 +636,9 @@ export default function DocumentGenerator() {
                   <X className="w-3.5 h-3.5 mr-1.5" />
                   Cancel
                 </Button>
-                <Button onClick={handleGenerate} disabled={generateDoc.isPending} data-testid="button-generate-doc">
-                  <FileText className="w-3.5 h-3.5 mr-1.5" />
-                  {generateDoc.isPending ? "Generating..." : `Generate ${selectedType.short}`}
+                <Button onClick={handleReview} disabled={previewDoc.isPending} data-testid="button-review-doc">
+                  <Eye className="w-3.5 h-3.5 mr-1.5" />
+                  {previewDoc.isPending ? "Loading Preview..." : `Review ${selectedType.short}`}
                 </Button>
               </div>
             </div>
