@@ -127,6 +127,12 @@ export const documents = pgTable("documents", {
   pdfPath: text("pdf_path"),
   buyerEmail: text("buyer_email"),
   sellerEmail: text("seller_email"),
+  buyerSignature: text("buyer_signature"),
+  sellerSignature: text("seller_signature"),
+  buyerSignedAt: timestamp("buyer_signed_at"),
+  sellerSignedAt: timestamp("seller_signed_at"),
+  buyerSignedName: text("buyer_signed_name"),
+  sellerSignedName: text("seller_signed_name"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

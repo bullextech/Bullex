@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import SignaturePad from "@/components/signature-pad";
 import type { Document as Doc, KycApplication, Trade } from "@shared/schema";
 
 const docTypes = [
@@ -113,6 +114,9 @@ export default function DocumentGenerator() {
   const [editContent, setEditContent] = useState("");
   const [editStatus, setEditStatus] = useState("");
   const [reviewContent, setReviewContent] = useState<string | null>(null);
+  const [signParty, setSignParty] = useState<"buyer" | "seller" | null>(null);
+  const [signDocId, setSignDocId] = useState<string | null>(null);
+  const [signerName, setSignerName] = useState("");
 
   const urlParams = new URLSearchParams(window.location.search);
   const urlTradeRef = urlParams.get("tradeRef");
@@ -245,6 +249,53 @@ export default function DocumentGenerator() {
       toast({ title: "Update Failed", description: error.message, variant: "destructive" });
     },
   });
+
+  const signDoc = useMutation({
+    mutationFn: async ({ id, party, signature, name }: { id: string; party: string; signature: string; name: string }) => {
+      const res = await apiRequest("POST", `/api/documents/${id}/sign`, { party, signature, name });
+      return res.json();
+    },
+    onSuccess: (updated: Doc) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      setSignParty(null);
+      setSignDocId(null);
+      setSignerName("");
+      setViewDoc(updated);
+      toast({ title: "Document Signed", description: `${signParty === "buyer" ? "Buyer" : "Seller"} signature applied successfully.` });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Signing Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const removeSignature = useMutation({
+    mutationFn: async ({ id, party }: { id: string; party: string }) => {
+      const res = await apiRequest("DELETE", `/api/documents/${id}/sign/${party}`);
+      return res.json();
+    },
+    onSuccess: (updated: Doc) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      setViewDoc(updated);
+      toast({ title: "Signature Removed", description: "Signature has been removed and documents regenerated." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Remove Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const openSignDialog = (docId: string, party: "buyer" | "seller") => {
+    setSignDocId(docId);
+    setSignParty(party);
+    setSignerName("");
+  };
+
+  const handleSignature = (dataUrl: string) => {
+    if (!signDocId || !signParty || !signerName.trim()) {
+      toast({ title: "Name Required", description: "Please enter the signer's name.", variant: "destructive" });
+      return;
+    }
+    signDoc.mutate({ id: signDocId, party: signParty, signature: dataUrl, name: signerName });
+  };
 
   const handleReview = () => {
     if (!selectedType || !title) {
@@ -445,6 +496,12 @@ export default function DocumentGenerator() {
                       )}
                       {doc.status}
                     </Badge>
+                    {(doc.buyerSignature || doc.sellerSignature) && (
+                      <Badge className={`text-[10px] ${doc.buyerSignature && doc.sellerSignature ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"}`} data-testid={`badge-signed-${doc.id}`}>
+                        <FileSignature className="w-3 h-3 mr-0.5" />
+                        {doc.buyerSignature && doc.sellerSignature ? "Fully Signed" : "Partially Signed"}
+                      </Badge>
+                    )}
                     {doc.docxPath && (
                       <Button
                         variant="ghost"
@@ -1146,6 +1203,90 @@ export default function DocumentGenerator() {
                   {viewDoc.content || "No content yet. Use the Amend button to add content."}
                 </div>
               </div>
+
+              <div className="border-t pt-4">
+                <Label className="text-sm font-semibold flex items-center gap-1.5 mb-3">
+                  <FileSignature className="w-4 h-4" />
+                  Digital Signatures
+                </Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="border rounded-lg p-3 space-y-2" data-testid="section-seller-signature">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Seller Signature</p>
+                    {viewDoc.sellerSignature ? (
+                      <div className="space-y-1.5">
+                        <div className="bg-white border rounded p-2 flex justify-center">
+                          <img src={viewDoc.sellerSignature} alt="Seller Signature" className="max-h-16 object-contain" data-testid="img-seller-signature" />
+                        </div>
+                        <p className="text-xs text-muted-foreground" data-testid="text-seller-signed-name">
+                          Signed by: <span className="font-medium text-foreground">{viewDoc.sellerSignedName}</span>
+                        </p>
+                        {viewDoc.sellerSignedAt && (
+                          <p className="text-xs text-muted-foreground" data-testid="text-seller-signed-date">
+                            Date: {new Date(viewDoc.sellerSignedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px]">Signed</Badge>
+                          <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] text-destructive" onClick={() => { if (confirm("Remove seller signature?")) removeSignature.mutate({ id: viewDoc.id, party: "seller" }); }} data-testid="button-remove-seller-sig">
+                            <X className="w-3 h-3 mr-0.5" />Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="bg-muted/50 border border-dashed rounded p-4 flex items-center justify-center min-h-[60px]">
+                          <p className="text-xs text-muted-foreground">Not yet signed</p>
+                        </div>
+                        <Button variant="outline" size="sm" className="w-full" onClick={() => openSignDialog(viewDoc.id, "seller")} data-testid="button-sign-seller">
+                          <FileSignature className="w-3.5 h-3.5 mr-1.5" />
+                          Sign as Seller
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="border rounded-lg p-3 space-y-2" data-testid="section-buyer-signature">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Buyer Signature</p>
+                    {viewDoc.buyerSignature ? (
+                      <div className="space-y-1.5">
+                        <div className="bg-white border rounded p-2 flex justify-center">
+                          <img src={viewDoc.buyerSignature} alt="Buyer Signature" className="max-h-16 object-contain" data-testid="img-buyer-signature" />
+                        </div>
+                        <p className="text-xs text-muted-foreground" data-testid="text-buyer-signed-name">
+                          Signed by: <span className="font-medium text-foreground">{viewDoc.buyerSignedName}</span>
+                        </p>
+                        {viewDoc.buyerSignedAt && (
+                          <p className="text-xs text-muted-foreground" data-testid="text-buyer-signed-date">
+                            Date: {new Date(viewDoc.buyerSignedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px]">Signed</Badge>
+                          <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] text-destructive" onClick={() => { if (confirm("Remove buyer signature?")) removeSignature.mutate({ id: viewDoc.id, party: "buyer" }); }} data-testid="button-remove-buyer-sig">
+                            <X className="w-3 h-3 mr-0.5" />Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="bg-muted/50 border border-dashed rounded p-4 flex items-center justify-center min-h-[60px]">
+                          <p className="text-xs text-muted-foreground">Not yet signed</p>
+                        </div>
+                        <Button variant="outline" size="sm" className="w-full" onClick={() => openSignDialog(viewDoc.id, "buyer")} data-testid="button-sign-buyer">
+                          <FileSignature className="w-3.5 h-3.5 mr-1.5" />
+                          Sign as Buyer
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {viewDoc.buyerSignature && viewDoc.sellerSignature && (
+                  <p className="text-xs text-center text-green-700 dark:text-green-400 mt-2 font-medium" data-testid="text-fully-signed">
+                    <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" />
+                    Document fully signed by both parties
+                  </p>
+                )}
+              </div>
+
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setViewDoc(null)} data-testid="button-close-view">
                   <X className="w-3.5 h-3.5 mr-1.5" />
@@ -1158,6 +1299,38 @@ export default function DocumentGenerator() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!signParty && !!signDocId} onOpenChange={(open) => { if (!open) { setSignParty(null); setSignDocId(null); setSignerName(""); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" data-testid="text-sign-dialog-title">
+              <FileSignature className="w-5 h-5 text-primary" />
+              Sign as {signParty === "buyer" ? "Buyer" : "Seller"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Full Name of Signatory</Label>
+              <Input
+                value={signerName}
+                onChange={(e) => setSignerName(e.target.value)}
+                placeholder="Enter your full name"
+                data-testid="input-signer-name"
+              />
+            </div>
+            <div>
+              <Label className="mb-2 block">Draw Your Signature</Label>
+              <SignaturePad
+                onSave={handleSignature}
+                onCancel={() => { setSignParty(null); setSignDocId(null); setSignerName(""); }}
+              />
+            </div>
+            {signDoc.isPending && (
+              <p className="text-sm text-center text-muted-foreground">Applying signature and regenerating documents...</p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 

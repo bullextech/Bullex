@@ -858,6 +858,103 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/documents/:id/sign", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const doc = await storage.getDocumentById(req.params.id);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      const { party, signature, name } = req.body;
+      if (!party || !["buyer", "seller"].includes(party)) {
+        return res.status(400).json({ message: "Party must be 'buyer' or 'seller'" });
+      }
+      if (!signature || !signature.startsWith("data:image/")) {
+        return res.status(400).json({ message: "Invalid signature data" });
+      }
+      if (!name || !name.trim()) {
+        return res.status(400).json({ message: "Signer name is required" });
+      }
+      const now = new Date();
+      const updateData: Record<string, any> = {};
+      if (party === "buyer") {
+        updateData.buyerSignature = signature;
+        updateData.buyerSignedAt = now;
+        updateData.buyerSignedName = name.trim();
+      } else {
+        updateData.sellerSignature = signature;
+        updateData.sellerSignedAt = now;
+        updateData.sellerSignedName = name.trim();
+      }
+      const updated = await storage.updateDocument(req.params.id, updateData);
+
+      if (updated.content) {
+        try {
+          const { regenerateWithSignatures } = await import("./documentFileGenerator");
+          await regenerateWithSignatures(
+            updated.id,
+            updated.title,
+            updated.content,
+            updated.buyerSignature || undefined,
+            updated.sellerSignature || undefined,
+            updated.buyerSignedName || undefined,
+            updated.sellerSignedName || undefined,
+            updated.buyerSignedAt ? new Date(updated.buyerSignedAt) : undefined,
+            updated.sellerSignedAt ? new Date(updated.sellerSignedAt) : undefined,
+          );
+        } catch (regenErr: any) {
+          console.error("Failed to regenerate files with signature:", regenErr.message);
+        }
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to sign document" });
+    }
+  });
+
+  app.delete("/api/documents/:id/sign/:party", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const doc = await storage.getDocumentById(req.params.id);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      const { party } = req.params;
+      if (!["buyer", "seller"].includes(party)) {
+        return res.status(400).json({ message: "Party must be 'buyer' or 'seller'" });
+      }
+      const updateData: Record<string, any> = {};
+      if (party === "buyer") {
+        updateData.buyerSignature = null;
+        updateData.buyerSignedAt = null;
+        updateData.buyerSignedName = null;
+      } else {
+        updateData.sellerSignature = null;
+        updateData.sellerSignedAt = null;
+        updateData.sellerSignedName = null;
+      }
+      const updated = await storage.updateDocument(req.params.id, updateData);
+
+      if (updated.content) {
+        try {
+          const { regenerateWithSignatures } = await import("./documentFileGenerator");
+          await regenerateWithSignatures(
+            updated.id,
+            updated.title,
+            updated.content,
+            updated.buyerSignature || undefined,
+            updated.sellerSignature || undefined,
+            updated.buyerSignedName || undefined,
+            updated.sellerSignedName || undefined,
+            updated.buyerSignedAt ? new Date(updated.buyerSignedAt) : undefined,
+            updated.sellerSignedAt ? new Date(updated.sellerSignedAt) : undefined,
+          );
+        } catch (regenErr: any) {
+          console.error("Failed to regenerate files after removing signature:", regenErr.message);
+        }
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to remove signature" });
+    }
+  });
+
   app.get("/api/kyc-documents", async (req, res) => {
     try {
       const { documentType } = req.query;
