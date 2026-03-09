@@ -1119,7 +1119,7 @@ export async function registerRoutes(
   app.patch("/api/trade-enquiries/:id/status", requireAuth, async (req: Request, res: Response) => {
     try {
       const { status } = req.body;
-      const valid = ["open", "under_review", "quoted", "closed", "cancelled"];
+      const valid = ["active", "closed"];
       if (!valid.includes(status)) return res.status(400).json({ message: "Invalid status" });
       const existing = await storage.getTradeEnquiryById(req.params.id);
       if (!existing) return res.status(404).json({ message: "Enquiry not found" });

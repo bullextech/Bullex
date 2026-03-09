@@ -196,7 +196,7 @@ export const tradeEnquiries = pgTable("trade_enquiries", {
   additionalInfo: text("additional_info"),
   createdBy: text("created_by"),
   email: text("email"),
-  status: text("status").notNull().default("open"),
+  status: text("status").notNull().default("active"),
   clientResponse: text("client_response"),
   clientRespondedBy: text("client_responded_by"),
   clientRespondedAt: timestamp("client_responded_at"),

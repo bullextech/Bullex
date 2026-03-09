@@ -262,10 +262,30 @@ export default function DocumentGenerator() {
     generateDoc.mutate(buildPayload());
   };
 
+  const urlEnqProduct = urlParams.get("enqProduct") || "";
+  const urlEnqQuantity = urlParams.get("enqQuantity") || "";
+  const urlEnqOrigin = urlParams.get("enqOrigin") || "";
+  const urlEnqIncoterm = urlParams.get("enqIncoterm") || "";
+  const urlEnqSpecs = urlParams.get("enqSpecs") || "";
+  const urlEnqValidity = urlParams.get("enqValidity") || "";
+  const urlEnqCreatedBy = urlParams.get("enqCreatedBy") || "";
+  const urlEnqEmail = urlParams.get("enqEmail") || "";
+
   const openTemplateDialog = (dt: typeof docTypes[0]) => {
     setSelectedType(dt);
     if (urlEnquiryRef) {
-      setTitle(urlEnquiryRef);
+      setTitle(`${dt.short} - ${urlEnquiryRef}`);
+      setCommodity(urlEnqProduct);
+      setQuantity(urlEnqQuantity.trim());
+      setOrigin(urlEnqOrigin);
+      setLoadingPort(urlEnqOrigin);
+      setIncoterm(urlEnqIncoterm);
+      setQualitySpecs(urlEnqSpecs);
+      setValidity(urlEnqValidity);
+      setRefPerson(urlEnqCreatedBy);
+      if (urlEnqEmail) {
+        setBuyerContact(urlEnqEmail);
+      }
     } else if (urlTradeRef && tradePrefilled) {
       setTitle(`${dt.short} - ${urlTradeRef}`);
     } else {

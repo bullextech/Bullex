@@ -21,20 +21,26 @@ const INCOTERM_OPTIONS = ["FOB", "CIF", "CFR", "EXW", "FCA", "CPT", "CIP", "DAP"
 const UNIT_OPTIONS = ["MT", "KG", "LBS", "BBL", "GAL", "LTR", "OZ", "TON"];
 
 const STATUS_COLORS: Record<string, string> = {
+  active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   open: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  under_review: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  quoted: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  under_review: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  quoted: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   closed: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
-  cancelled: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  cancelled: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  open: "Open",
-  under_review: "Under Review",
-  quoted: "Quoted",
+  active: "Active",
+  open: "Active",
+  under_review: "Active",
+  quoted: "Active",
   closed: "Closed",
-  cancelled: "Cancelled",
+  cancelled: "Closed",
 };
+
+function isActive(status: string) {
+  return status !== "closed" && status !== "cancelled";
+}
 
 interface EnquiryForm {
   side: "buy" | "sell";
@@ -143,7 +149,7 @@ export default function TradeEnquiries() {
       e.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
       e.enquiryRef.toLowerCase().includes(searchTerm.toLowerCase()) ||
       e.producer?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || e.status === statusFilter;
+    const matchesStatus = statusFilter === "all" || (statusFilter === "active" ? isActive(e.status) : !isActive(e.status));
     const matchesSide = sideFilter === "all" || e.side === sideFilter;
     return matchesSearch && matchesStatus && matchesSide;
   });
@@ -401,12 +407,9 @@ export default function TradeEnquiries() {
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="open">Open</SelectItem>
-            <SelectItem value="under_review">Under Review</SelectItem>
-            <SelectItem value="quoted">Quoted</SelectItem>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
             <SelectItem value="closed">Closed</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
         <div className="text-sm text-muted-foreground" data-testid="text-enquiry-count">
@@ -553,11 +556,8 @@ function EnquiryCard({
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="under_review">Under Review</SelectItem>
-                <SelectItem value="quoted">Quoted</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="closed">Closed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
             <Button variant="ghost" size="sm" className="text-destructive" onClick={onDelete} data-testid={`button-delete-${enquiry.id}`}>
@@ -818,23 +818,22 @@ function EnquiryDetailDialog({
 
           <div className="flex items-center gap-2 pt-2 border-t">
             <Select onValueChange={onStatusChange}>
-              <SelectTrigger className="w-40" data-testid="select-detail-status">
+              <SelectTrigger className="w-32" data-testid="select-detail-status">
                 <SelectValue placeholder="Change Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="under_review">Under Review</SelectItem>
-                <SelectItem value="quoted">Quoted</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="closed">Closed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
-            <a href={`/documents?enquiryRef=${enquiry.enquiryRef}`} data-testid="link-generate-doc">
-              <Button variant="outline" size="sm">
-                <FileText className="w-3.5 h-3.5 mr-1.5" />
-                Generate Document
-              </Button>
-            </a>
+            {isActive(enquiry.status) && (
+              <a href={`/documents?enquiryRef=${encodeURIComponent(enquiry.enquiryRef)}&enqProduct=${encodeURIComponent(enquiry.product || "")}&enqQuantity=${encodeURIComponent(enquiry.quantity ? (enquiry.quantity + " " + (enquiry.unit || "MT")) : "")}&enqOrigin=${encodeURIComponent(enquiry.loadingPort || "")}&enqIncoterm=${encodeURIComponent(enquiry.incoterms || "")}&enqSpecs=${encodeURIComponent(enquiry.specifications || "")}&enqValidity=${encodeURIComponent(enquiry.validity || "")}&enqCreatedBy=${encodeURIComponent(enquiry.createdBy || "")}&enqEmail=${encodeURIComponent(enquiry.email || "")}`} data-testid="link-generate-doc">
+                <Button variant="outline" size="sm">
+                  <FileText className="w-3.5 h-3.5 mr-1.5" />
+                  Generate Document
+                </Button>
+              </a>
+            )}
             <div className="flex-1" />
             <Button variant="destructive" size="sm" onClick={onDelete} data-testid="button-detail-delete">
               <Trash2 className="w-3.5 h-3.5 mr-1.5" />
