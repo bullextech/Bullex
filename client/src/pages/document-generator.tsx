@@ -477,7 +477,7 @@ export default function DocumentGenerator() {
       </Card>
 
       <Dialog open={!!selectedType} onOpenChange={(open) => { if (!open) { resetForm(); } }}>
-        <DialogContent className={reviewContent ? "max-w-3xl max-h-[90vh] overflow-y-auto" : "max-w-lg max-h-[85vh] overflow-y-auto"}>
+        <DialogContent className={reviewContent ? "max-w-3xl max-h-[90vh] overflow-y-auto" : selectedType?.value === "DEAL_RECAP" ? "max-w-2xl max-h-[90vh] overflow-y-auto" : "max-w-lg max-h-[85vh] overflow-y-auto"}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" data-testid="text-generate-dialog-title">
               {selectedType && (() => { const Icon = selectedType.icon; return <Icon className="w-5 h-5 text-primary" />; })()}
@@ -505,7 +505,257 @@ export default function DocumentGenerator() {
               </div>
             </div>
           )}
-          {selectedType && !reviewContent && (
+          {selectedType && !reviewContent && selectedType.value === "DEAL_RECAP" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">{selectedType.description}</p>
+              <div className="space-y-2">
+                <Label>Document Title *</Label>
+                <Input placeholder="Enter Deal Recap document title" value={title} onChange={(e) => setTitle(e.target.value)} data-testid="input-doc-title" />
+              </div>
+
+              <Accordion type="multiple" defaultValue={["ch1","ch2","ch3","ch4","signatory","annex"]} className="w-full">
+
+                <AccordionItem value="ch1" className="border rounded-md mb-2">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                    <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Chapter I — Introductory & Background</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="grid grid-cols-[140px_1fr] text-xs bg-muted/60 font-semibold border-b">
+                        <div className="p-2 border-r">Item</div><div className="p-2">Description</div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Contract Reference</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Auto-filled from trade or enter manually" value={urlTradeRef || ""} readOnly={!!urlTradeRef} data-testid="input-contract-ref" /></div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Effective Date</div>
+                        <div className="p-2 text-xs text-muted-foreground flex items-center">Date of last authorized signature</div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Seller</div>
+                        <div className="p-1">
+                          {approvedClients.length > 0 && (
+                            <Select onValueChange={(val) => { const kyc = approvedClients.find(k => k.id === val); if (kyc) fillFromKyc(kyc, "seller"); }}>
+                              <SelectTrigger className="h-7 text-xs mb-1" data-testid="select-seller-kyc-trigger"><SelectValue placeholder="Select from KYC..." /></SelectTrigger>
+                              <SelectContent>{approvedClients.map((k) => (<SelectItem key={k.id} value={k.id}>{k.companyName}</SelectItem>))}</SelectContent>
+                            </Select>
+                          )}
+                          <Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Seller company name" value={sellerName} onChange={(e) => setSellerName(e.target.value)} data-testid="input-seller-name" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Buyer</div>
+                        <div className="p-1">
+                          {approvedClients.length > 0 && (
+                            <Select onValueChange={(val) => { const kyc = approvedClients.find(k => k.id === val); if (kyc) fillFromKyc(kyc, "buyer"); }}>
+                              <SelectTrigger className="h-7 text-xs mb-1" data-testid="select-buyer-kyc-trigger"><SelectValue placeholder="Select from KYC..." /></SelectTrigger>
+                              <SelectContent>{approvedClients.map((k) => (<SelectItem key={k.id} value={k.id}>{k.companyName}</SelectItem>))}</SelectContent>
+                            </Select>
+                          )}
+                          <Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Buyer company name" value={buyerName} onChange={(e) => setBuyerName(e.target.value)} data-testid="input-buyer-name" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Legal Model</div>
+                        <div className="p-2 text-xs text-muted-foreground flex items-center">Sales and Purchase Agreement (SPA)</div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr]">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Recap Validity</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. Valid for 5 calendar days from issuance" value={recapValidity} onChange={(e) => setRecapValidity(e.target.value)} data-testid="input-recap-validity" /></div>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="ch2" className="border rounded-md mb-2">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                    <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Chapter II — Scope & Commercial Terms</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="grid grid-cols-[140px_1fr] text-xs bg-muted/60 font-semibold border-b">
+                        <div className="p-2 border-r">Item</div><div className="p-2">Description</div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Commodity</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. Petcoke, Iron Ore, ULSD" value={commodity} onChange={(e) => setCommodity(e.target.value)} data-testid="input-commodity" /></div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Country of Origin</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. Russia, Guinea, Australia" value={origin} onChange={(e) => setOrigin(e.target.value)} data-testid="input-origin" /></div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Quality / Spec</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. Anode Grade, Fe 63.5% min" value={qualitySpecs} onChange={(e) => setQualitySpecs(e.target.value)} data-testid="input-quality-specs" /></div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Delivery Basis</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. FOB Vessel, CIF Discharge Port" value={deliveryBasis} onChange={(e) => setDeliveryBasis(e.target.value)} data-testid="input-delivery-basis" /></div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr]">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Contractual Qty</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. 50,000 MT +/- 10%" value={quantity} onChange={(e) => setQuantity(e.target.value)} data-testid="input-quantity" /></div>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="ch3" className="border rounded-md mb-2">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                    <span className="flex items-center gap-1.5"><BadgeDollarSign className="w-3.5 h-3.5" /> Chapter III — Financial & Operational Arrangements</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="grid grid-cols-[140px_1fr] text-xs bg-muted/60 font-semibold border-b">
+                        <div className="p-2 border-r">Item</div><div className="p-2">Description</div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Price & Currency</div>
+                        <div className="p-1 flex gap-1">
+                          <Select value={currency} onValueChange={setCurrency}>
+                            <SelectTrigger className="h-8 text-xs w-20" data-testid="select-currency"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="USD">USD</SelectItem>
+                              <SelectItem value="EUR">EUR</SelectItem>
+                              <SelectItem value="GBP">GBP</SelectItem>
+                              <SelectItem value="AED">AED</SelectItem>
+                              <SelectItem value="CNY">CNY</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0 flex-1" placeholder="e.g. 250 per MT" value={price} onChange={(e) => setPrice(e.target.value)} data-testid="input-price" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Payment Terms</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. LC at Sight, PB: 2%" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} data-testid="input-payment-terms" /></div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Loading Window</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. 10-15th March 2026" value={loadingWindow} onChange={(e) => setLoadingWindow(e.target.value)} data-testid="input-loading-window" /></div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr]">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Shipping Terms</div>
+                        <div className="p-1"><Textarea className="text-xs border-0 shadow-none focus-visible:ring-0 min-h-[60px]" placeholder={"Delivery Term: CIF\nPort of Discharge (POD): Qingdao, China"} value={shippingTerms} onChange={(e) => setShippingTerms(e.target.value)} rows={2} data-testid="input-shipping-terms" /></div>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="ch4" className="border rounded-md mb-2">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                    <span className="flex items-center gap-1.5"><Landmark className="w-3.5 h-3.5" /> Chapter IV — Miscellaneous & Boilerplate</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="grid grid-cols-[140px_1fr] text-xs bg-muted/60 font-semibold border-b">
+                        <div className="p-2 border-r">Item</div><div className="p-2">Description</div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Governing Law</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. DIFC Dubai, English Law, LCIA" value={governingLaw} onChange={(e) => setGoverningLaw(e.target.value)} data-testid="input-governing-law" /></div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr]">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Industry Standards</div>
+                        <div className="p-2 text-xs text-muted-foreground flex items-center">Applicable international industry standards and ICC rules</div>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="signatory" className="border rounded-md mb-2">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                    <span className="flex items-center gap-1.5"><FileSignature className="w-3.5 h-3.5" /> Signatory Details</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="border rounded-md overflow-hidden">
+                        <div className="text-xs font-semibold p-2 bg-muted/60 border-b">For and on behalf of the Seller</div>
+                        <div className="p-2 space-y-2">
+                          <Input className="h-8 text-xs" placeholder="Seller company name" value={sellerName} onChange={(e) => setSellerName(e.target.value)} data-testid="input-seller-name-sig" />
+                          <Input className="h-8 text-xs" placeholder="Name & email (e.g. VK — VK@BULLFROG.AE)" value={sellerContact} onChange={(e) => setSellerContact(e.target.value)} data-testid="input-seller-contact" />
+                          <Input className="h-8 text-xs" placeholder="Seller address" value={sellerAddress} onChange={(e) => setSellerAddress(e.target.value)} data-testid="input-seller-address" />
+                          <Input className="h-8 text-xs" placeholder="Bank name" value={sellerBank} onChange={(e) => setSellerBank(e.target.value)} data-testid="input-seller-bank" />
+                          <Input className="h-8 text-xs" placeholder="SWIFT / BIC code" value={sellerSwift} onChange={(e) => setSellerSwift(e.target.value)} data-testid="input-seller-swift" />
+                        </div>
+                      </div>
+                      <div className="border rounded-md overflow-hidden">
+                        <div className="text-xs font-semibold p-2 bg-muted/60 border-b">For and on behalf of the Buyer</div>
+                        <div className="p-2 space-y-2">
+                          <Input className="h-8 text-xs" placeholder="Buyer company name" value={buyerName} onChange={(e) => setBuyerName(e.target.value)} data-testid="input-buyer-name-sig" />
+                          <Input className="h-8 text-xs" placeholder="Name & email (e.g. VK — VK@BULLFROG.AE)" value={buyerContact} onChange={(e) => setBuyerContact(e.target.value)} data-testid="input-buyer-contact" />
+                          <Input className="h-8 text-xs" placeholder="Buyer address" value={buyerAddress} onChange={(e) => setBuyerAddress(e.target.value)} data-testid="input-buyer-address" />
+                          <Input className="h-8 text-xs" placeholder="Bank name" value={buyerBank} onChange={(e) => setBuyerBank(e.target.value)} data-testid="input-buyer-bank" />
+                          <Input className="h-8 text-xs" placeholder="SWIFT / BIC code" value={buyerSwift} onChange={(e) => setBuyerSwift(e.target.value)} data-testid="input-buyer-swift" />
+                        </div>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="annex" className="border rounded-md mb-2">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                    <span className="flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> Annex I — Product Specification & Sampling</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3 space-y-3">
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="grid grid-cols-[100px_1fr_1fr_1fr] text-xs bg-muted/60 font-semibold border-b">
+                        <div className="p-2 border-r">Parameter</div>
+                        <div className="p-2 border-r">Guaranteed Spec</div>
+                        <div className="p-2 border-r">Typical Spec</div>
+                        <div className="p-2">Rejection Limit</div>
+                      </div>
+                      {["Moisture", "Ash", "Volatile Matter", "Fixed Carbon", "Sulphur", "Calorific Value", "Size Distribution"].map((param, idx) => {
+                        const specLines = annexSpecs.split("\n");
+                        const line = specLines[idx] || "";
+                        const cells = line.split("|").map(c => c.trim());
+                        const guaranteed = cells[1] || "";
+                        const typical = cells[2] || "";
+                        const rejection = cells[3] || "";
+                        const updateSpecRow = (colIdx: number, val: string) => {
+                          const rows = annexSpecs.split("\n");
+                          while (rows.length <= idx) rows.push("");
+                          const rowCells = rows[idx].split("|").map(c => c.trim());
+                          while (rowCells.length < 4) rowCells.push("");
+                          rowCells[0] = param;
+                          rowCells[colIdx] = val;
+                          rows[idx] = rowCells.join(" | ");
+                          setAnnexSpecs(rows.filter((r, i) => i < 7 || r.trim()).join("\n"));
+                        };
+                        return (
+                          <div key={param} className="grid grid-cols-[100px_1fr_1fr_1fr] border-b last:border-b-0">
+                            <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">{param}</div>
+                            <div className="p-0.5 border-r"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="-" value={guaranteed} onChange={(e) => updateSpecRow(1, e.target.value)} data-testid={`input-spec-guaranteed-${idx}`} /></div>
+                            <div className="p-0.5 border-r"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="-" value={typical} onChange={(e) => updateSpecRow(2, e.target.value)} data-testid={`input-spec-typical-${idx}`} /></div>
+                            <div className="p-0.5"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="-" value={rejection} onChange={(e) => updateSpecRow(3, e.target.value)} data-testid={`input-spec-rejection-${idx}`} /></div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <Textarea className="text-xs" placeholder="Quality Premiums & Penalties (e.g. CV above 8000: Premium USD 1.00/MT per 100 kcal)" value={qualityPremiums} onChange={(e) => setQualityPremiums(e.target.value)} rows={3} data-testid="input-quality-premiums" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input className="h-8 text-xs" placeholder="Inspection Agency (e.g. SGS, Intertek)" value={analysisAgency} onChange={(e) => setAnalysisAgency(e.target.value)} data-testid="input-analysis-agency" />
+                      <Input className="h-8 text-xs" placeholder="Agency Contact / Email" value={analysisAgencyContact} onChange={(e) => setAnalysisAgencyContact(e.target.value)} data-testid="input-analysis-agency-contact" />
+                    </div>
+                    <Textarea className="text-xs" placeholder="Special Notes (optional)" value={specialNote} onChange={(e) => setSpecialNote(e.target.value)} rows={2} data-testid="input-special-note" />
+                  </AccordionContent>
+                </AccordionItem>
+
+              </Accordion>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={resetForm} data-testid="button-cancel-generate">
+                  <X className="w-3.5 h-3.5 mr-1.5" />
+                  Cancel
+                </Button>
+                <Button onClick={handleReview} disabled={previewDoc.isPending} data-testid="button-review-doc">
+                  <Eye className="w-3.5 h-3.5 mr-1.5" />
+                  {previewDoc.isPending ? "Loading Preview..." : "Review Deal Recap"}
+                </Button>
+              </div>
+            </div>
+          )}
+          {selectedType && !reviewContent && selectedType.value !== "DEAL_RECAP" && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">{selectedType.description}</p>
 
@@ -519,7 +769,7 @@ export default function DocumentGenerator() {
                 />
               </div>
 
-              <Accordion type="multiple" defaultValue={selectedType?.value === "LOI" || selectedType?.value === "DEAL_RECAP" ? ["product", "buyer", "seller"] : ["product"]} className="w-full">
+              <Accordion type="multiple" defaultValue={selectedType?.value === "LOI" ? ["product", "buyer", "seller"] : ["product"]} className="w-full">
                 <AccordionItem value="product" className="border-b-0">
                   <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">
                     <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Product Details</span>
@@ -561,17 +811,6 @@ export default function DocumentGenerator() {
                         <Textarea placeholder="Documents for Payment (e.g. Commercial Invoice, Packing List, Certificate of Origin, Assay Report, etc.)" value={docsForPayment} onChange={(e) => setDocsForPayment(e.target.value)} rows={4} data-testid="input-docs-for-payment" />
                         <Textarea placeholder="Other Terms & Conditions (e.g. For DLC, after signing of SPA, Seller must arrange RWA by MT199...)" value={otherTerms} onChange={(e) => setOtherTerms(e.target.value)} rows={3} data-testid="input-other-terms" />
                         <Textarea placeholder="Compliance (e.g. Seller must send KYC documents to compliance@bullfrog.ae upon signing of SPA...)" value={compliance} onChange={(e) => setCompliance(e.target.value)} rows={2} data-testid="input-compliance" />
-                      </>
-                    )}
-                    {selectedType?.value === "DEAL_RECAP" && (
-                      <>
-                        <Input placeholder="Recap Validity (e.g. Valid for 5 calendar days from issuance)" value={recapValidity} onChange={(e) => setRecapValidity(e.target.value)} data-testid="input-recap-validity" />
-                        <Input placeholder="Delivery Basis (e.g. FOB Vessel, CIF Discharge Port)" value={deliveryBasis} onChange={(e) => setDeliveryBasis(e.target.value)} data-testid="input-delivery-basis" />
-                        <Input placeholder="Loading Window (e.g. 15-30 April 2026)" value={loadingWindow} onChange={(e) => setLoadingWindow(e.target.value)} data-testid="input-loading-window" />
-                        <Textarea placeholder="Shipping Terms (e.g. Delivery Term: CIF&#10;Port of Discharge (POD): Qingdao, China)" value={shippingTerms} onChange={(e) => setShippingTerms(e.target.value)} rows={3} data-testid="input-shipping-terms" />
-                        <Input placeholder="Governing Law & Jurisdiction (e.g. English Law, LCIA Arbitration)" value={governingLaw} onChange={(e) => setGoverningLaw(e.target.value)} data-testid="input-governing-law" />
-                        <Textarea placeholder="Annex I — Product Specification Table (e.g. Moisture: 8% max | Ash: 12% max | Sulphur: 1.5% max | CV: 6000 kcal/kg)" value={annexSpecs} onChange={(e) => setAnnexSpecs(e.target.value)} rows={5} data-testid="input-annex-specs" />
-                        <Textarea placeholder="Quality Premiums & Penalties (e.g. CV above 6200: +$2/MT | CV below 5800: -$3/MT | Moisture above 10%: rejection)" value={qualityPremiums} onChange={(e) => setQualityPremiums(e.target.value)} rows={3} data-testid="input-quality-premiums" />
                       </>
                     )}
                     <div className="grid grid-cols-2 gap-3">
