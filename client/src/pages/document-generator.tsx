@@ -114,7 +114,9 @@ export default function DocumentGenerator() {
   const [editStatus, setEditStatus] = useState("");
   const [reviewContent, setReviewContent] = useState<string | null>(null);
 
-  const urlTradeRef = new URLSearchParams(window.location.search).get("tradeRef");
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlTradeRef = urlParams.get("tradeRef");
+  const urlEnquiryRef = urlParams.get("enquiryRef");
   const [tradePrefilled, setTradePrefilled] = useState(false);
 
   const { data: allTrades } = useQuery<Trade[]>({
@@ -262,7 +264,9 @@ export default function DocumentGenerator() {
 
   const openTemplateDialog = (dt: typeof docTypes[0]) => {
     setSelectedType(dt);
-    if (urlTradeRef && tradePrefilled) {
+    if (urlEnquiryRef) {
+      setTitle(urlEnquiryRef);
+    } else if (urlTradeRef && tradePrefilled) {
       setTitle(`${dt.short} - ${urlTradeRef}`);
     } else {
       setTitle("");

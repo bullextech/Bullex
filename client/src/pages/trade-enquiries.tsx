@@ -829,6 +829,12 @@ function EnquiryDetailDialog({
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
+            <a href={`/documents?enquiryRef=${enquiry.enquiryRef}`} data-testid="link-generate-doc">
+              <Button variant="outline" size="sm">
+                <FileText className="w-3.5 h-3.5 mr-1.5" />
+                Generate Document
+              </Button>
+            </a>
             <div className="flex-1" />
             <Button variant="destructive" size="sm" onClick={onDelete} data-testid="button-detail-delete">
               <Trash2 className="w-3.5 h-3.5 mr-1.5" />
