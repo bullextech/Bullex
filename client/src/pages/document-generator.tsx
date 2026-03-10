@@ -49,6 +49,8 @@ import {
   PackageCheck,
   Download,
   Package,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -85,6 +87,37 @@ export default function DocumentGenerator() {
   const [origin, setOrigin] = useState("");
   const [quantity, setQuantity] = useState("");
   const [qualitySpecs, setQualitySpecs] = useState("");
+  const emptySpecRows = () => [
+    { parameter: "", specification: "", rejection: "" },
+    { parameter: "", specification: "", rejection: "" },
+    { parameter: "", specification: "", rejection: "" },
+    { parameter: "", specification: "", rejection: "" },
+    { parameter: "", specification: "", rejection: "" },
+  ];
+  const [specRows, setSpecRows] = useState(emptySpecRows());
+  const updateSpecRow = (idx: number, field: string, val: string) => {
+    const updated = [...specRows];
+    (updated[idx] as any)[field] = val;
+    setSpecRows(updated);
+    const serialized = updated
+      .filter(r => r.parameter || r.specification || r.rejection)
+      .map(r => `${r.parameter}: ${r.specification}${r.rejection ? ` (Rejection: ${r.rejection})` : ""}`)
+      .join("\n");
+    setQualitySpecs(serialized);
+  };
+  const addSpecRow = () => {
+    setSpecRows([...specRows, { parameter: "", specification: "", rejection: "" }]);
+  };
+  const removeSpecRow = (idx: number) => {
+    if (specRows.length <= 1) return;
+    const updated = specRows.filter((_, i) => i !== idx);
+    setSpecRows(updated);
+    const serialized = updated
+      .filter(r => r.parameter || r.specification || r.rejection)
+      .map(r => `${r.parameter}: ${r.specification}${r.rejection ? ` (Rejection: ${r.rejection})` : ""}`)
+      .join("\n");
+    setQualitySpecs(serialized);
+  };
   const [loadingPort, setLoadingPort] = useState("");
   const [dischargePort, setDischargePort] = useState("");
   const [price, setPrice] = useState("");
@@ -175,7 +208,7 @@ export default function DocumentGenerator() {
     setTitle("");
     setBuyerName(""); setBuyerAddress(""); setBuyerContact(""); setBuyerBank(""); setBuyerSwift("");
     setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
-    setCommodity(""); setOrigin(""); setQuantity(""); setQualitySpecs(""); setLoadingPort(""); setDischargePort("");
+    setCommodity(""); setOrigin(""); setQuantity(""); setQualitySpecs(""); setSpecRows(emptySpecRows()); setLoadingPort(""); setDischargePort("");
     setPrice(""); setCurrency("USD"); setIncoterm(""); setLaycan(""); setPaymentTerms("");
     setAnalysisAgency(""); setAnalysisAgencyContact(""); setValidity(""); setRefPerson("");
     setContractConfirmation(""); setDocsForPayment(""); setOtherTerms(""); setCompliance("");
@@ -988,10 +1021,38 @@ export default function DocumentGenerator() {
                         <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Contract Confirmation</div>
                         <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. Subject to Producer's Confirmation of cargo" value={contractConfirmation} onChange={(e) => setContractConfirmation(e.target.value)} data-testid="input-contract-confirmation" /></div>
                       </div>
-                      <div className="grid grid-cols-[40px_130px_1fr] border-b">
-                        <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">08</div>
-                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Commodity Specifications</div>
-                        <div className="p-1"><Textarea className="text-xs border-0 shadow-none focus-visible:ring-0 min-h-[40px]" placeholder="e.g. Al2O3: 45% min, SiO2: 3.5% max, Fe2O3: 18% max" value={qualitySpecs} onChange={(e) => setQualitySpecs(e.target.value)} rows={2} data-testid="input-quality-specs" /></div>
+                      <div className="border-b">
+                        <div className="grid grid-cols-[40px_1fr] border-b">
+                          <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">08</div>
+                          <div className="p-2 text-xs font-medium text-muted-foreground">Commodity Specifications</div>
+                        </div>
+                        <div className="px-2 py-1.5">
+                          <div className="border rounded-md overflow-hidden">
+                            <div className="grid grid-cols-[1fr_1fr_1fr_32px] bg-muted/50 border-b">
+                              <div className="p-1.5 text-[10px] font-semibold text-muted-foreground uppercase">Parameter</div>
+                              <div className="p-1.5 text-[10px] font-semibold text-muted-foreground uppercase border-l">Specification</div>
+                              <div className="p-1.5 text-[10px] font-semibold text-muted-foreground uppercase border-l">Rejection Limit</div>
+                              <div className="border-l"></div>
+                            </div>
+                            {specRows.map((row, idx) => (
+                              <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_32px] border-b last:border-b-0">
+                                <div className="p-0.5"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. Al2O3" value={row.parameter} onChange={(e) => updateSpecRow(idx, "parameter", e.target.value)} data-testid={`input-spec-param-${idx}`} /></div>
+                                <div className="p-0.5 border-l"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. 45% min" value={row.specification} onChange={(e) => updateSpecRow(idx, "specification", e.target.value)} data-testid={`input-spec-value-${idx}`} /></div>
+                                <div className="p-0.5 border-l"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. < 40%" value={row.rejection} onChange={(e) => updateSpecRow(idx, "rejection", e.target.value)} data-testid={`input-spec-reject-${idx}`} /></div>
+                                <div className="flex items-center justify-center border-l">
+                                  {specRows.length > 1 && (
+                                    <button type="button" onClick={() => removeSpecRow(idx)} className="text-muted-foreground hover:text-destructive" data-testid={`button-remove-spec-${idx}`}>
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <Button type="button" variant="ghost" size="sm" className="mt-1 h-6 text-[10px] text-muted-foreground" onClick={addSpecRow} data-testid="button-add-spec-row">
+                            <Plus className="w-3 h-3 mr-1" />Add Row
+                          </Button>
+                        </div>
                       </div>
                       <div className="grid grid-cols-[40px_130px_1fr] border-b">
                         <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">09</div>
