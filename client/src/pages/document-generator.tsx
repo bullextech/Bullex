@@ -108,6 +108,7 @@ export default function DocumentGenerator() {
   const [annexSpecs, setAnnexSpecs] = useState("");
   const [qualityPremiums, setQualityPremiums] = useState("");
   const [specialNote, setSpecialNote] = useState("");
+  const [loiIssueNumber, setLoiIssueNumber] = useState("");
   const [viewDoc, setViewDoc] = useState<Doc | null>(null);
   const [editDoc, setEditDoc] = useState<Doc | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -352,6 +353,17 @@ export default function DocumentGenerator() {
     }
   };
 
+  useEffect(() => {
+    if (docType === "LOI" && buyerName.trim().length >= 1) {
+      fetch(`/api/documents/next-loi-number?buyerName=${encodeURIComponent(buyerName)}`, { credentials: "include" })
+        .then(r => r.json())
+        .then(d => { if (d.issueNumber) setLoiIssueNumber(d.issueNumber); })
+        .catch(() => {});
+    } else {
+      setLoiIssueNumber("");
+    }
+  }, [docType, buyerName]);
+
   const fetchFreshDoc = async (id: string): Promise<Doc> => {
     const res = await fetch(`/api/documents/${id}`);
     if (!res.ok) throw new Error("Failed to fetch document");
@@ -478,7 +490,7 @@ export default function DocumentGenerator() {
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {doc.tradeRef ? `Trade: ${doc.tradeRef}` : "Standalone"}
+                        {doc.issueNumber ? doc.issueNumber : doc.tradeRef ? `Trade: ${doc.tradeRef}` : "Standalone"}
                         {" "}&middot;{" "}
                         {new Date(doc.createdAt).toLocaleDateString()}
                       </p>
@@ -876,7 +888,10 @@ export default function DocumentGenerator() {
                       </div>
                       <div className="grid grid-cols-[140px_1fr] border-b">
                         <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center bg-muted/30">LOI Issue No. & Date</div>
-                        <div className="p-2 text-xs text-muted-foreground flex items-center">{urlTradeRef || "Auto-generated"} &nbsp;&nbsp; {new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</div>
+                        <div className="p-2 text-xs flex items-center gap-2" data-testid="text-loi-issue-number">
+                          <span className={loiIssueNumber ? "font-semibold text-foreground" : "text-muted-foreground"}>{loiIssueNumber || "Enter buyer name to generate"}</span>
+                          <span className="text-muted-foreground">{new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</span>
+                        </div>
                       </div>
                       <div className="grid grid-cols-[140px_1fr] border-b">
                         <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center bg-muted/30">Valid Till</div>

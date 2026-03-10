@@ -725,6 +725,22 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/documents/next-loi-number", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const buyerName = (req.query.buyerName as string || "").trim();
+      const prefix = buyerName.substring(0, 3).toUpperCase() || "XXX";
+      const now = new Date();
+      const ddmm = `${String(now.getDate()).padStart(2, "0")}${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const allDocs = await storage.getDocuments();
+      const loiDocs = allDocs.filter(d => d.docType === "LOI" && d.issueNumber);
+      const serial = 181 + loiDocs.length;
+      const issueNumber = `IMP-${prefix}-${ddmm}-${serial}`;
+      res.json({ issueNumber });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to generate LOI number" });
+    }
+  });
+
   app.get("/api/documents", async (_req, res) => {
     try {
       const result = await storage.getDocuments();
@@ -762,11 +778,24 @@ export async function registerRoutes(
         const trades = await storage.getTrades();
         trade = trades.find(t => t.tradeRef === parsed.data.tradeRef);
       }
-      const content = generateDocumentContent(parsed.data.docType, trade, buyerDetails, sellerDetails, productDetails);
+      let issueNumber: string | null = null;
+      if (parsed.data.docType === "LOI") {
+        const buyName = (buyerDetails?.name || "").trim();
+        const prefix = buyName.substring(0, 3).toUpperCase() || "XXX";
+        const now = new Date();
+        const ddmm = `${String(now.getDate()).padStart(2, "0")}${String(now.getMonth() + 1).padStart(2, "0")}`;
+        const allDocs = await storage.getDocuments();
+        const loiDocs = allDocs.filter(d => d.docType === "LOI" && d.issueNumber);
+        const serial = 181 + loiDocs.length;
+        issueNumber = `IMP-${prefix}-${ddmm}-${serial}`;
+      }
+
+      const content = generateDocumentContent(parsed.data.docType, trade, buyerDetails, sellerDetails, { ...productDetails, loiIssueNumber: issueNumber });
       const result = await storage.createDocument({
         ...parsed.data,
         content,
         status: "draft",
+        issueNumber,
         buyerEmail: buyerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || null,
         sellerEmail: sellerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || null,
       });

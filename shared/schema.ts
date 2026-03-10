@@ -133,6 +133,7 @@ export const documents = pgTable("documents", {
   sellerSignedAt: timestamp("seller_signed_at"),
   buyerSignedName: text("buyer_signed_name"),
   sellerSignedName: text("seller_signed_name"),
+  issueNumber: text("issue_number"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -36,6 +36,7 @@ export interface ProductDetails {
   annexSpecs?: string;
   qualityPremiums?: string;
   specialNote?: string;
+  loiIssueNumber?: string | null;
 }
 
 const today = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
@@ -458,7 +459,7 @@ Issued to Seller
 
 
   LOI Issue No. and Date
-  ${trade?.tradeRef || "_______________"} , ${today()}
+  ${product?.loiIssueNumber || trade?.tradeRef || "_______________"} , ${today()}
 
   Valid Till
   ${validTill}
