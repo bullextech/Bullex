@@ -71,9 +71,10 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
   - **SCO template**: Seller's conditional offer with commodity parameters table (9 items) + issuer signatory section
   - **Review flow**: Fill form → Review (preview generated content) → Back to Edit or Generate DOCX
   - **Document Workflow**: LOI → SCO → Deal Recap → SPA lifecycle with send/accept/reject/amend flow
-  - **Document Send**: Signed documents can be sent to counterparty via email with recipient email input
+  - **Document Send**: Send button on each signed document in the list + in document view dialog. Select registered client + email. Sends email notification and pushes to Client Portal. Uses sentToClientId to link doc to KYC client.
+  - **Client Portal Documents**: "Documents Pending Your Review" section shows sent documents. Clients can Accept or Request Amendment (with notes dialog).
   - **Accept/Reject**: Recipients can accept (triggers next doc creation) or reject with amendment notes
-  - **Create Next**: After acceptance, "Create SCO" / "Create Deal Recap" / "Create SPA" buttons appear
+  - **Generate Next**: After acceptance, "Generate SCO" / "Generate Deal Recap" / "Generate SPA" buttons appear inline in the document list
   - **Amendment Flow**: Rejected docs show amendment notes, can be amended and resent
 - **Document Vault**: All documents uploaded through blockchain trading pipeline
 - **Blockchain Ledger**: Block explorer with accordion-based block details, shows both Trade and KYC blocks with type badges
@@ -95,7 +96,7 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 - `trades` - Commodity trades (tradeRef BFG-YYYY-XXXX, buyer/seller, origin/destination, incoterm, blockchain hash, stageDocuments JSONB)
 - `blocks` - Blockchain blocks (hash, previous hash, nonce, verification, dataType: "trade"|"kyc", dataId, dataSummary)
 - `kyc_change_requests` - Change requests for approved KYC applications (kycApplicationId, changedFields JSONB, reason, status: pending|approved|rejected, adminNotes, reviewedAt)
-- `documents` - Trade documents (Deal Recap, FCO, SCO, ICPO, SPA, LOI, POP, POF, BCL) with docxPath, pdfPath, buyerEmail, sellerEmail, buyerSignature/sellerSignature (base64 PNG), buyerSignedName/sellerSignedName, buyerSignedAt/sellerSignedAt, enquiryRef, dealRecapNumber, sentTo, recipientResponse (pending|accepted|rejected), recipientRespondedAt, recipientAmendmentNotes, parentDocId
+- `documents` - Trade documents (Deal Recap, FCO, SCO, ICPO, SPA, LOI, POP, POF, BCL) with docxPath, pdfPath, buyerEmail, sellerEmail, buyerSignature/sellerSignature (base64 PNG), buyerSignedName/sellerSignedName, buyerSignedAt/sellerSignedAt, enquiryRef, dealRecapNumber, sentTo, sentToClientId (links to KYC app id), recipientResponse (pending|accepted|rejected), recipientRespondedAt, recipientAmendmentNotes, parentDocId
 - `trade_enquiries` - Trade enquiry records (enquiryRef format: [Party3]-[Product3]-DDMM-NNN, product, specifications, producer, quantity, unit, loadingPort, incoterms, validity, additionalInfo, status: open|under_review|quoted|closed|cancelled)
 - `trade_enquiry_documents` - Files attached to trade enquiries (enquiryId, originalName, storedName, mimeType, size)
 

@@ -342,21 +342,23 @@ export default function DocumentGenerator() {
 
   const [sendDocId, setSendDocId] = useState<string | null>(null);
   const [sendEmail, setSendEmail] = useState("");
+  const [sendClientId, setSendClientId] = useState("");
   const [respondDocId, setRespondDocId] = useState<string | null>(null);
   const [respondAction, setRespondAction] = useState<"accepted" | "rejected" | null>(null);
   const [amendmentNotes, setAmendmentNotes] = useState("");
 
   const sendDoc = useMutation({
-    mutationFn: async ({ id, recipientEmail }: { id: string; recipientEmail: string }) => {
-      const res = await apiRequest("POST", `/api/documents/${id}/send`, { recipientEmail });
+    mutationFn: async ({ id, recipientEmail, clientId }: { id: string; recipientEmail: string; clientId?: string }) => {
+      const res = await apiRequest("POST", `/api/documents/${id}/send`, { recipientEmail, clientId });
       return res.json();
     },
     onSuccess: (updated: Doc) => {
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       setSendDocId(null);
       setSendEmail("");
+      setSendClientId("");
       setViewDoc(updated);
-      toast({ title: "Document Sent", description: "Document has been sent to the recipient." });
+      toast({ title: "Document Sent", description: "Document has been sent to the client for review." });
     },
     onError: (error: Error) => {
       toast({ title: "Send Failed", description: error.message, variant: "destructive" });
@@ -667,6 +669,33 @@ export default function DocumentGenerator() {
                         Amendment Needed
                       </Badge>
                     )}
+                    {(doc.status === "draft" || doc.status === "rejected") && (doc.buyerSignature || doc.sellerSignature) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-primary hover:text-primary/80"
+                        onClick={() => { setSendDocId(doc.id); setSendEmail(doc.sellerEmail || doc.buyerEmail || ""); setSendClientId(""); }}
+                        title="Send to client"
+                        data-testid={`button-send-${doc.id}`}
+                      >
+                        <Send className="w-3.5 h-3.5 mr-1" />
+                        Send
+                      </Button>
+                    )}
+                    {doc.status === "accepted" && (() => { const next = getNextDocType(doc); return next ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-green-600 hover:text-green-700"
+                        onClick={() => createNextDoc.mutate({ id: doc.id, nextDocType: next })}
+                        disabled={createNextDoc.isPending}
+                        title={`Generate ${next}`}
+                        data-testid={`button-generate-next-${doc.id}`}
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        Generate {next}
+                      </Button>
+                    ) : null; })()}
                     {doc.docxPath && (
                       <Button
                         variant="ghost"
@@ -1569,9 +1598,9 @@ export default function DocumentGenerator() {
                   Close
                 </Button>
                 {canSend(viewDoc) && (
-                  <Button variant="outline" onClick={() => { setSendDocId(viewDoc.id); setSendEmail(viewDoc.sellerEmail || viewDoc.buyerEmail || ""); }} data-testid="button-send-doc">
+                  <Button variant="outline" onClick={() => { setSendDocId(viewDoc.id); setSendEmail(viewDoc.sellerEmail || viewDoc.buyerEmail || ""); setSendClientId(""); }} data-testid="button-send-doc">
                     <Send className="w-3.5 h-3.5 mr-1.5" />
-                    Send to Counterparty
+                    Send to Client
                   </Button>
                 )}
                 {(viewDoc.status === "rejected" || viewDoc.status === "draft") && (
@@ -1685,16 +1714,33 @@ export default function DocumentGenerator() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!sendDocId} onOpenChange={(open) => { if (!open) { setSendDocId(null); setSendEmail(""); } }}>
+      <Dialog open={!!sendDocId} onOpenChange={(open) => { if (!open) { setSendDocId(null); setSendEmail(""); setSendClientId(""); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" data-testid="text-send-dialog-title">
               <Send className="w-5 h-5 text-primary" />
-              Send Document
+              Send Document to Client
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Send this document to the counterparty for review and acceptance.</p>
+            <p className="text-sm text-muted-foreground">Send this document to a registered client for review and acceptance. The document will appear in their Client Portal and an email notification will be sent.</p>
+            <div className="space-y-2">
+              <Label>Select Client</Label>
+              <Select value={sendClientId} onValueChange={(val) => {
+                setSendClientId(val);
+                const client = approvedClients.find((c) => c.id === val);
+                if (client) setSendEmail(client.contactEmail || client.signatoryEmail || "");
+              }}>
+                <SelectTrigger data-testid="select-send-client">
+                  <SelectValue placeholder="Choose a registered client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {approvedClients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.companyName} — {c.contactName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label>Recipient Email</Label>
               <Input
@@ -1706,12 +1752,12 @@ export default function DocumentGenerator() {
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => { setSendDocId(null); setSendEmail(""); }} data-testid="button-cancel-send">
+              <Button variant="outline" onClick={() => { setSendDocId(null); setSendEmail(""); setSendClientId(""); }} data-testid="button-cancel-send">
                 Cancel
               </Button>
-              <Button onClick={() => { if (sendDocId && sendEmail) sendDoc.mutate({ id: sendDocId, recipientEmail: sendEmail }); }} disabled={!sendEmail || sendDoc.isPending} data-testid="button-confirm-send">
+              <Button onClick={() => { if (sendDocId && sendEmail) sendDoc.mutate({ id: sendDocId, recipientEmail: sendEmail, clientId: sendClientId || undefined }); }} disabled={!sendEmail || sendDoc.isPending} data-testid="button-confirm-send">
                 <Send className="w-3.5 h-3.5 mr-1.5" />
-                {sendDoc.isPending ? "Sending..." : "Send"}
+                {sendDoc.isPending ? "Sending..." : "Send to Client"}
               </Button>
             </div>
           </div>

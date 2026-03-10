@@ -137,6 +137,7 @@ export const documents = pgTable("documents", {
   issueNumber: text("issue_number"),
   dealRecapNumber: text("deal_recap_number"),
   sentTo: text("sent_to"),
+  sentToClientId: text("sent_to_client_id"),
   recipientResponse: text("recipient_response"),
   recipientRespondedAt: timestamp("recipient_responded_at"),
   recipientAmendmentNotes: text("recipient_amendment_notes"),

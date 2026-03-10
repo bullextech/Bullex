@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Building2,
   FileText,
@@ -26,6 +28,9 @@ import {
   Info,
   CheckCircle2,
   XCircle,
+  FileCheck,
+  Send,
+  Pencil,
 } from "lucide-react";
 import { useClientAuth } from "@/hooks/use-client-auth";
 import ClientLogin from "./client-login";
@@ -78,6 +83,23 @@ interface ClientEnquiry {
   clientResponse: string | null;
   clientRespondedBy: string | null;
   clientRespondedAt: string | null;
+  createdAt: string;
+}
+
+interface ClientDocument {
+  id: string;
+  docType: string;
+  title: string;
+  status: string;
+  enquiryRef: string | null;
+  tradeRef: string | null;
+  issueNumber: string | null;
+  dealRecapNumber: string | null;
+  recipientResponse: string | null;
+  recipientAmendmentNotes: string | null;
+  sentTo: string | null;
+  docxPath: string | null;
+  pdfPath: string | null;
   createdAt: string;
 }
 
@@ -492,6 +514,144 @@ function EnquiryCard({ enquiry }: { enquiry: ClientEnquiry }) {
   );
 }
 
+const docTypeLabels: Record<string, string> = {
+  LOI: "Letter of Intent",
+  FCO: "Full Corporate Offer",
+  SCO: "Soft Corporate Offer",
+  DEAL_RECAP: "Deal Recap",
+  ICPO: "Purchase Order",
+  SPA: "Sales & Purchase Agreement",
+  LC: "Letter of Credit",
+  POP: "Proof of Product",
+  POF: "Proof of Funds",
+  BCL: "Bank Comfort Letter",
+};
+
+function ClientDocumentCard({ doc }: { doc: ClientDocument }) {
+  const { toast } = useToast();
+  const [showAmendDialog, setShowAmendDialog] = useState(false);
+  const [amendNotes, setAmendNotes] = useState("");
+
+  const respondMutation = useMutation({
+    mutationFn: async ({ response, notes }: { response: string; notes?: string }) => {
+      const res = await apiRequest("POST", `/api/client/documents/${doc.id}/respond`, { response, amendmentNotes: notes });
+      return res.json();
+    },
+    onSuccess: (_data, { response }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client/documents"] });
+      setShowAmendDialog(false);
+      setAmendNotes("");
+      toast({ title: response === "accepted" ? "Document Accepted" : "Amendment Requested" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to respond", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const created = new Date(doc.createdAt).toLocaleDateString("en-GB", {
+    day: "2-digit", month: "short", year: "numeric",
+  });
+
+  return (
+    <>
+      <Card className="border" data-testid={`card-client-doc-${doc.id}`}>
+        <CardContent className="p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <FileCheck className="w-5 h-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-sm" data-testid={`text-doc-title-${doc.id}`}>{doc.title}</span>
+                  <Badge variant="secondary" className="text-[10px]">{doc.docType}</Badge>
+                  <Badge className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                    <Send className="w-3 h-3 mr-0.5" />
+                    Awaiting Response
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {docTypeLabels[doc.docType] || doc.docType}
+                  {doc.issueNumber && ` — ${doc.issueNumber}`}
+                  {doc.dealRecapNumber && ` — ${doc.dealRecapNumber}`}
+                  {" · "}{created}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => window.open(`/api/client/documents/${doc.id}/download`, "_blank")}
+                title="Download"
+                data-testid={`button-download-client-doc-${doc.id}`}
+              >
+                <Download className="w-4 h-4 text-blue-600" />
+              </Button>
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => respondMutation.mutate({ response: "accepted" })}
+                disabled={respondMutation.isPending}
+                data-testid={`button-accept-doc-${doc.id}`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                Accept
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowAmendDialog(true)}
+                data-testid={`button-amend-doc-${doc.id}`}
+              >
+                <Pencil className="w-3.5 h-3.5 mr-1" />
+                Request Amendment
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={showAmendDialog} onOpenChange={setShowAmendDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-orange-600" />
+              Request Amendment
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Please describe the changes you require for <strong>{doc.title}</strong>. The document will be sent back for revision.
+            </p>
+            <Textarea
+              value={amendNotes}
+              onChange={(e) => setAmendNotes(e.target.value)}
+              placeholder="Describe the amendments needed..."
+              rows={4}
+              data-testid="textarea-client-amendment-notes"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setShowAmendDialog(false); setAmendNotes(""); }}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => respondMutation.mutate({ response: "rejected", notes: amendNotes })}
+                disabled={!amendNotes.trim() || respondMutation.isPending}
+                data-testid="button-confirm-amendment"
+              >
+                {respondMutation.isPending ? "Submitting..." : "Submit Amendment Request"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export default function ClientPortal() {
   const { authenticated, loading, username, companyName, logout } = useClientAuth();
 
@@ -519,6 +679,16 @@ export default function ClientPortal() {
     queryKey: ["/api/client/enquiries"],
     queryFn: async () => {
       const res = await fetch("/api/client/enquiries", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    enabled: authenticated,
+  });
+
+  const { data: clientDocs, isLoading: docsLoading } = useQuery<ClientDocument[]>({
+    queryKey: ["/api/client/documents"],
+    queryFn: async () => {
+      const res = await fetch("/api/client/documents", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
@@ -652,6 +822,30 @@ export default function ClientPortal() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {clientDocs && clientDocs.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-4 flex items-center gap-2" data-testid="text-docs-heading">
+              <FileCheck className="w-4 h-4" />
+              Documents Pending Your Review
+            </h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              The following documents have been sent to you for review. Please accept or request amendments.
+            </p>
+            {docsLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-20" />
+                <Skeleton className="h-20" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {clientDocs.map((doc) => (
+                  <ClientDocumentCard key={doc.id} doc={doc} />
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         <div className="mb-8">

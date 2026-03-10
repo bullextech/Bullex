@@ -336,6 +336,74 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/client/documents", requireClientAuth, async (req, res) => {
+    try {
+      const kycId = req.session.clientKycId!;
+      const allDocs = await storage.getDocuments();
+      const clientDocs = allDocs.filter((d) => d.sentToClientId === kycId && d.status === "sent");
+      res.json(clientDocs);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  app.post("/api/client/documents/:id/respond", requireClientAuth, async (req, res) => {
+    try {
+      const doc = await storage.getDocumentById(req.params.id);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+
+      const kycId = req.session.clientKycId!;
+      if (doc.sentToClientId !== kycId) {
+        return res.status(403).json({ message: "This document was not sent to you" });
+      }
+      if (doc.status !== "sent" || doc.recipientResponse !== "pending") {
+        return res.status(400).json({ message: "Document is not awaiting your response" });
+      }
+
+      const { response, amendmentNotes } = req.body;
+      if (!["accepted", "rejected"].includes(response)) {
+        return res.status(400).json({ message: "Response must be 'accepted' or 'rejected'" });
+      }
+
+      const updateData: Record<string, any> = {
+        recipientResponse: response,
+        recipientRespondedAt: new Date(),
+        status: response === "accepted" ? "accepted" : "rejected",
+      };
+      if (response === "rejected" && amendmentNotes) {
+        updateData.recipientAmendmentNotes = amendmentNotes;
+      }
+      const updated = await storage.updateDocument(doc.id, updateData);
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to respond to document" });
+    }
+  });
+
+  app.get("/api/client/documents/:id/download", requireClientAuth, async (req, res) => {
+    try {
+      const doc = await storage.getDocumentById(req.params.id);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+
+      const kycId = req.session.clientKycId!;
+      if (doc.sentToClientId !== kycId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const filePath = doc.pdfPath || doc.docxPath;
+      if (!filePath) return res.status(404).json({ message: "No file available" });
+
+      const fs = await import("fs");
+      const path = await import("path");
+      const fullPath = path.default.resolve(filePath);
+      if (!fs.default.existsSync(fullPath)) return res.status(404).json({ message: "File not found" });
+
+      res.download(fullPath);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to download document" });
+    }
+  });
+
   seedDatabase().catch((err) => console.error("Seed error:", err));
 
   function sanitizeKyc(kyc: any) {
@@ -1093,13 +1161,14 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Document must be signed before sending" });
       }
 
-      const { recipientEmail } = req.body;
+      const { recipientEmail, clientId } = req.body;
       if (!recipientEmail) {
         return res.status(400).json({ message: "Recipient email is required" });
       }
 
       const updated = await storage.updateDocument(doc.id, {
         sentTo: recipientEmail,
+        sentToClientId: clientId || null,
         recipientResponse: "pending",
         recipientAmendmentNotes: null,
         status: "sent",
