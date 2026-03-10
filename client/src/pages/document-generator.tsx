@@ -323,6 +323,12 @@ export default function DocumentGenerator() {
   const urlEnqCreatedBy = urlParams.get("enqCreatedBy") || "";
   const urlEnqEmail = urlParams.get("enqEmail") || "";
 
+  const getLoiDefaultValidity = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) + " (2000HRS Dubai Time)";
+  };
+
   const openTemplateDialog = (dt: typeof docTypes[0]) => {
     setSelectedType(dt);
     if (urlEnquiryRef) {
@@ -333,20 +339,22 @@ export default function DocumentGenerator() {
       setLoadingPort(urlEnqOrigin);
       setIncoterm(urlEnqIncoterm);
       setQualitySpecs(urlEnqSpecs);
-      setValidity(urlEnqValidity);
+      setValidity(dt.value === "LOI" ? (urlEnqValidity || getLoiDefaultValidity()) : urlEnqValidity);
       setRefPerson(urlEnqCreatedBy);
       if (urlEnqEmail) {
         setBuyerContact(urlEnqEmail);
       }
     } else if (urlTradeRef && tradePrefilled) {
       setTitle(`${dt.short} - ${urlTradeRef}`);
+      if (dt.value === "LOI") setValidity(getLoiDefaultValidity());
     } else {
       setTitle("");
       setBuyerName(""); setBuyerAddress(""); setBuyerContact(""); setBuyerBank(""); setBuyerSwift("");
       setSellerName(""); setSellerAddress(""); setSellerContact(""); setSellerBank(""); setSellerSwift("");
       setCommodity(""); setOrigin(""); setQuantity(""); setQualitySpecs(""); setLoadingPort(""); setDischargePort("");
       setPrice(""); setCurrency("USD"); setIncoterm(""); setLaycan(""); setPaymentTerms("");
-      setAnalysisAgency(""); setAnalysisAgencyContact(""); setValidity(""); setRefPerson("");
+      setAnalysisAgency(""); setAnalysisAgencyContact(""); setRefPerson("");
+      setValidity(dt.value === "LOI" ? getLoiDefaultValidity() : "");
       setContractConfirmation(""); setDocsForPayment(""); setOtherTerms(""); setCompliance("");
       setRecapValidity(""); setDeliveryBasis(""); setLoadingWindow(""); setShippingTerms("");
       setGoverningLaw(""); setAnnexSpecs(""); setQualityPremiums(""); setSpecialNote("");
