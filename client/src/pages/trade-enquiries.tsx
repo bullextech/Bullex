@@ -21,25 +21,29 @@ const INCOTERM_OPTIONS = ["FOB", "CIF", "CFR", "EXW", "FCA", "CPT", "CIP", "DAP"
 const UNIT_OPTIONS = ["MT", "KG", "LBS", "BBL", "GAL", "LTR", "OZ", "TON"];
 
 const STATUS_COLORS: Record<string, string> = {
-  active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  open: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  under_review: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  quoted: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  active: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  open: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  under_review: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  quoted: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  accepted: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  rejected: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
   closed: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
   cancelled: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  active: "Active",
-  open: "Active",
-  under_review: "Active",
-  quoted: "Active",
+  active: "Pending",
+  open: "Pending",
+  under_review: "Pending",
+  quoted: "Pending",
+  accepted: "Accepted",
+  rejected: "Rejected",
   closed: "Closed",
   cancelled: "Closed",
 };
 
 function isActive(status: string) {
-  return status !== "closed" && status !== "cancelled";
+  return status !== "closed" && status !== "cancelled" && status !== "rejected";
 }
 
 interface EnquiryForm {
@@ -149,7 +153,7 @@ export default function TradeEnquiries() {
       e.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
       e.enquiryRef.toLowerCase().includes(searchTerm.toLowerCase()) ||
       e.producer?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || (statusFilter === "active" ? isActive(e.status) : !isActive(e.status));
+    const matchesStatus = statusFilter === "all" || (statusFilter === "active" ? isActive(e.status) && e.status !== "accepted" : e.status === statusFilter);
     const matchesSide = sideFilter === "all" || e.side === sideFilter;
     return matchesSearch && matchesStatus && matchesSide;
   });
@@ -408,8 +412,9 @@ export default function TradeEnquiries() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="closed">Closed</SelectItem>
+            <SelectItem value="active">Pending</SelectItem>
+            <SelectItem value="accepted">Accepted</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
           </SelectContent>
         </Select>
         <div className="text-sm text-muted-foreground" data-testid="text-enquiry-count">
@@ -551,15 +556,16 @@ function EnquiryCard({
             <Button variant="outline" size="sm" onClick={onView} data-testid={`button-view-${enquiry.id}`}>
               <Eye className="w-3.5 h-3.5 mr-1" /> View
             </Button>
-            <Select onValueChange={onStatusChange}>
-              <SelectTrigger className="h-8 text-xs w-28" data-testid={`select-status-${enquiry.id}`}>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-              </SelectContent>
-            </Select>
+            {isActive(enquiry.status) && enquiry.status !== "accepted" && (
+              <>
+                <Button size="sm" className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white" onClick={() => onStatusChange("accepted")} data-testid={`button-accept-${enquiry.id}`}>
+                  Accept
+                </Button>
+                <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={() => onStatusChange("rejected")} data-testid={`button-reject-${enquiry.id}`}>
+                  Reject
+                </Button>
+              </>
+            )}
             <Button variant="ghost" size="sm" className="text-destructive" onClick={onDelete} data-testid={`button-delete-${enquiry.id}`}>
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
@@ -817,16 +823,17 @@ function EnquiryDetailDialog({
           </div>
 
           <div className="flex items-center gap-2 pt-2 border-t">
-            <Select onValueChange={onStatusChange}>
-              <SelectTrigger className="w-32" data-testid="select-detail-status">
-                <SelectValue placeholder="Change Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-              </SelectContent>
-            </Select>
-            {isActive(enquiry.status) && (
+            {isActive(enquiry.status) && enquiry.status !== "accepted" && (
+              <>
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => onStatusChange("accepted")} data-testid="button-detail-accept">
+                  Accept
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => onStatusChange("rejected")} data-testid="button-detail-reject">
+                  Reject
+                </Button>
+              </>
+            )}
+            {enquiry.status === "accepted" && (
               <a href={`/documents?enquiryRef=${encodeURIComponent(enquiry.enquiryRef)}&enqProduct=${encodeURIComponent(enquiry.product || "")}&enqQuantity=${encodeURIComponent(enquiry.quantity ? (enquiry.quantity + " " + (enquiry.unit || "MT")) : "")}&enqOrigin=${encodeURIComponent(enquiry.loadingPort || "")}&enqIncoterm=${encodeURIComponent(enquiry.incoterms || "")}&enqSpecs=${encodeURIComponent(enquiry.specifications || "")}&enqValidity=${encodeURIComponent(enquiry.validity || "")}&enqCreatedBy=${encodeURIComponent(enquiry.createdBy || "")}&enqEmail=${encodeURIComponent(enquiry.email || "")}`} data-testid="link-generate-doc">
                 <Button variant="outline" size="sm">
                   <FileText className="w-3.5 h-3.5 mr-1.5" />
