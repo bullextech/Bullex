@@ -661,6 +661,52 @@ function buildLoiDocx(content: string): (Paragraph | Table)[] {
       spacing: { after: isItalic ? 200 : 80 },
     }));
   }
+  if (loi.buyerSignatory) {
+    children.push(new Paragraph({
+      children: [new TextRun({ text: loi.buyerSignatory, bold: true, size: 22, font: "Calibri" })],
+      spacing: { after: 200 },
+    }));
+  }
+
+  children.push(new Paragraph({ spacing: { before: 100 } }));
+  children.push(new Paragraph({
+    children: [new TextRun({ text: "Digital Signature:", size: 16, font: "Calibri", color: "555555" })],
+    spacing: { after: 60 },
+  }));
+  children.push(new Paragraph({
+    border: {
+      top: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+      left: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+      right: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+    },
+    spacing: { before: 40, after: 40 },
+    children: [new TextRun({ text: " ", size: 18 })],
+  }));
+  children.push(new Paragraph({
+    border: {
+      top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+      left: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+      right: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+    },
+    spacing: { before: 0, after: 0 },
+    children: [new TextRun({ text: " ", size: 18 })],
+  }));
+  children.push(new Paragraph({
+    border: {
+      top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+      left: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+      right: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+    },
+    spacing: { before: 0, after: 40 },
+    children: [new TextRun({ text: " ", size: 18 })],
+  }));
+  children.push(new Paragraph({
+    children: [new TextRun({ text: `Date: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}`, size: 16, font: "Calibri", color: "555555" })],
+    spacing: { before: 80, after: 200 },
+  }));
 
   return children;
 }
@@ -744,15 +790,28 @@ function buildLoiPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
     if (line.startsWith("We look forward") || line.startsWith("With warm regards")) {
       doc.font("Helvetica-Oblique").fontSize(8).fillColor("#000000").text(line, leftMargin, doc.y, { width: pageWidth });
       doc.moveDown(0.8);
-    } else if (line.startsWith("For & On Behalf")) {
-      doc.font("Helvetica-Bold").fontSize(8).text(line, leftMargin, doc.y, { width: pageWidth });
-      doc.moveDown(0.4);
     } else {
-      doc.font("Helvetica").fontSize(8).text(line, leftMargin, doc.y, { width: pageWidth });
+      doc.font("Helvetica").fontSize(8).fillColor("#000000").text(line, leftMargin, doc.y, { width: pageWidth });
       doc.moveDown(0.4);
     }
   }
+  if (loi.buyerSignatory) {
+    doc.font("Helvetica-Bold").fontSize(10).fillColor("#000000").text(loi.buyerSignatory, leftMargin, doc.y);
+    doc.moveDown(0.8);
+  }
 
+  pdfCheckPage(doc, 80);
+  doc.font("Helvetica").fontSize(7).fillColor("#555555").text("Digital Signature:", leftMargin, doc.y);
+  doc.moveDown(0.3);
+  const boxX = leftMargin;
+  const boxY = doc.y;
+  const boxW = 200;
+  const boxH = 50;
+  doc.rect(boxX, boxY, boxW, boxH).stroke("#CCCCCC");
+  doc.y = boxY + boxH + 8;
+  doc.font("Helvetica").fontSize(7).fillColor("#555555")
+    .text(`Date: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}`, leftMargin, doc.y);
+  doc.moveDown(1);
 }
 
 function buildFooterParagraphs(): Paragraph[] {
