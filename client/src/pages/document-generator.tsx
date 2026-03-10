@@ -516,10 +516,10 @@ export default function DocumentGenerator() {
                       )}
                       {doc.status}
                     </Badge>
-                    {(doc.buyerSignature || doc.sellerSignature) && (
-                      <Badge className={`text-[10px] ${doc.buyerSignature && doc.sellerSignature ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"}`} data-testid={`badge-signed-${doc.id}`}>
+                    {doc.buyerSignature && (
+                      <Badge className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" data-testid={`badge-signed-${doc.id}`}>
                         <FileSignature className="w-3 h-3 mr-0.5" />
-                        {doc.buyerSignature && doc.sellerSignature ? "Fully Signed" : "Partially Signed"}
+                        Signed
                       </Badge>
                     )}
                     {doc.docxPath && (
@@ -1232,43 +1232,9 @@ export default function DocumentGenerator() {
                   <FileSignature className="w-4 h-4" />
                   Digital Signatures
                 </Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="border rounded-lg p-3 space-y-2" data-testid="section-seller-signature">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase">Seller Signature</p>
-                    {viewDoc.sellerSignature ? (
-                      <div className="space-y-1.5">
-                        <div className="bg-white border rounded p-2 flex justify-center">
-                          <img src={viewDoc.sellerSignature} alt="Seller Signature" className="max-h-16 object-contain" data-testid="img-seller-signature" />
-                        </div>
-                        <p className="text-xs text-muted-foreground" data-testid="text-seller-signed-name">
-                          Signed by: <span className="font-medium text-foreground">{viewDoc.sellerSignedName}</span>
-                        </p>
-                        {viewDoc.sellerSignedAt && (
-                          <p className="text-xs text-muted-foreground" data-testid="text-seller-signed-date">
-                            Date: {new Date(viewDoc.sellerSignedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px]">Signed</Badge>
-                          <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] text-destructive" onClick={() => { if (confirm("Remove seller signature?")) removeSignature.mutate({ id: viewDoc.id, party: "seller" }); }} data-testid="button-remove-seller-sig">
-                            <X className="w-3 h-3 mr-0.5" />Remove
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="bg-muted/50 border border-dashed rounded p-4 flex items-center justify-center min-h-[60px]">
-                          <p className="text-xs text-muted-foreground">Not yet signed</p>
-                        </div>
-                        <Button variant="outline" size="sm" className="w-full" onClick={() => openSignDialog(viewDoc.id, "seller")} data-testid="button-sign-seller">
-                          <FileSignature className="w-3.5 h-3.5 mr-1.5" />
-                          Sign as Seller
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                <div className="grid grid-cols-1 gap-4">
                   <div className="border rounded-lg p-3 space-y-2" data-testid="section-buyer-signature">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase">Buyer Signature</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Buyer / Issuer Signature</p>
                     {viewDoc.buyerSignature ? (
                       <div className="space-y-1.5">
                         <div className="bg-white border rounded p-2 flex justify-center">
@@ -1302,12 +1268,6 @@ export default function DocumentGenerator() {
                     )}
                   </div>
                 </div>
-                {viewDoc.buyerSignature && viewDoc.sellerSignature && (
-                  <p className="text-xs text-center text-green-700 dark:text-green-400 mt-2 font-medium" data-testid="text-fully-signed">
-                    <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" />
-                    Document fully signed by both parties
-                  </p>
-                )}
               </div>
 
               <div className="flex justify-end gap-2">
