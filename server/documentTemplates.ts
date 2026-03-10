@@ -511,9 +511,6 @@ We look forward to hearing from you within the stipulated LOI Validity
 and look forward to a long term and mutually fruitful association.
 
 With warm regards,
-
-
-For & On Behalf of
 ${v(buyer?.name, trade?.buyerName)}
 
 

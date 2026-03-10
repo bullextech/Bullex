@@ -662,40 +662,6 @@ function buildLoiDocx(content: string): (Paragraph | Table)[] {
     }));
   }
 
-  children.push(new Paragraph({ spacing: { before: 400 } }));
-  children.push(new Paragraph({
-    children: [new TextRun({ text: "AUTHORIZED SIGNATORY", bold: true, size: 20, font: "Calibri" })],
-    spacing: { after: 100 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: "999999" } },
-  }));
-  children.push(new Paragraph({ spacing: { before: 200 } }));
-  children.push(new Paragraph({
-    children: [new TextRun({ text: "For & On Behalf of:", size: 16, font: "Calibri", color: "555555" })],
-    spacing: { after: 60 },
-  }));
-  if (loi.buyerSignatory) {
-    children.push(new Paragraph({
-      children: [new TextRun({ text: loi.buyerSignatory, bold: true, size: 22, font: "Calibri" })],
-      spacing: { after: 200 },
-    }));
-  }
-  children.push(new Paragraph({
-    children: [new TextRun({ text: "Signature: ___________________________", size: 18, font: "Calibri" })],
-    spacing: { after: 100 },
-  }));
-  children.push(new Paragraph({
-    children: [new TextRun({ text: "Name: ___________________________", size: 18, font: "Calibri" })],
-    spacing: { after: 100 },
-  }));
-  children.push(new Paragraph({
-    children: [new TextRun({ text: "Title: ___________________________", size: 18, font: "Calibri" })],
-    spacing: { after: 100 },
-  }));
-  children.push(new Paragraph({
-    children: [new TextRun({ text: `Date: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}`, size: 18, font: "Calibri" })],
-    spacing: { after: 200 },
-  }));
-
   return children;
 }
 
@@ -787,29 +753,6 @@ function buildLoiPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
     }
   }
 
-  doc.moveDown(1.5);
-  pdfCheckPage(doc, 120);
-  doc.font("Helvetica-Bold").fontSize(10).fillColor("#000000").text("AUTHORIZED SIGNATORY", leftMargin, doc.y, { width: pageWidth });
-  doc.moveDown(0.3);
-  const sigLineY = doc.y;
-  doc.moveTo(leftMargin, sigLineY).lineTo(leftMargin + pageWidth, sigLineY).lineWidth(1).stroke("#999999");
-  doc.moveDown(0.8);
-
-  doc.font("Helvetica").fontSize(8).fillColor("#555555").text("For & On Behalf of:", leftMargin, doc.y);
-  doc.moveDown(0.3);
-  if (loi.buyerSignatory) {
-    doc.font("Helvetica-Bold").fontSize(10).fillColor("#000000").text(loi.buyerSignatory, leftMargin, doc.y);
-    doc.moveDown(1);
-  }
-  doc.font("Helvetica").fontSize(8).fillColor("#000000");
-  doc.text("Signature: ___________________________", leftMargin, doc.y);
-  doc.moveDown(0.6);
-  doc.text("Name: ___________________________", leftMargin, doc.y);
-  doc.moveDown(0.6);
-  doc.text("Title: ___________________________", leftMargin, doc.y);
-  doc.moveDown(0.6);
-  doc.text(`Date: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}`, leftMargin, doc.y);
-  doc.moveDown(1);
 }
 
 function buildFooterParagraphs(): Paragraph[] {
