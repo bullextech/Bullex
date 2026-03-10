@@ -487,7 +487,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTradeEnquiry(enquiry: InsertTradeEnquiry): Promise<TradeEnquiry> {
-    const ref = `ENQ-${Date.now().toString(36).toUpperCase().slice(-4)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const partyName = (enquiry.createdBy || "UNK").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3).padEnd(3, "X");
+    const productName = (enquiry.product || "UNK").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3).padEnd(3, "X");
+    const now = new Date();
+    const ddmm = `${String(now.getDate()).padStart(2, "0")}${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const existing = await db.select().from(tradeEnquiries);
+    const prefix = `${partyName}-${productName}-${ddmm}`;
+    const samePrefix = existing.filter(e => e.enquiryRef.startsWith(prefix));
+    const serial = String(samePrefix.length + 1).padStart(3, "0");
+    const ref = `${prefix}-${serial}`;
     const [created] = await db.insert(tradeEnquiries).values({ ...enquiry, enquiryRef: ref }).returning();
     return created;
   }

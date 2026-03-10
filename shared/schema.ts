@@ -119,6 +119,7 @@ export const blocks = pgTable("blocks", {
 export const documents = pgTable("documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tradeRef: text("trade_ref"),
+  enquiryRef: text("enquiry_ref"),
   docType: text("doc_type").notNull(),
   title: text("title").notNull(),
   content: text("content"),
@@ -134,6 +135,12 @@ export const documents = pgTable("documents", {
   buyerSignedName: text("buyer_signed_name"),
   sellerSignedName: text("seller_signed_name"),
   issueNumber: text("issue_number"),
+  dealRecapNumber: text("deal_recap_number"),
+  sentTo: text("sent_to"),
+  recipientResponse: text("recipient_response"),
+  recipientRespondedAt: timestamp("recipient_responded_at"),
+  recipientAmendmentNotes: text("recipient_amendment_notes"),
+  parentDocId: text("parent_doc_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

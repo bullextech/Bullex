@@ -113,6 +113,56 @@ SWIFT/BIC: ${v(seller?.swift)}`;
 
 const templates: Record<string, (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => string> = {
 
+  SCO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const cur = product?.currency || trade?.currency || "USD";
+    return `SOFT CORPORATE OFFER (SCO)
+${"=".repeat(50)}
+
+Date: ${today()}
+Reference: ${trade?.tradeRef || "_______________"}
+
+TO:
+Company: ${v(buyer?.name, trade?.buyerName)}
+Address: ${v(buyer?.address)}
+Attention: ${v(buyer?.contact)}
+
+FROM (SELLER):
+Company: ${v(seller?.name, trade?.sellerName)}
+Address: ${v(seller?.address)}
+Attention: ${v(seller?.contact)}
+
+${"─".repeat(50)}
+
+We hereby offer the following commodity under the terms and conditions set forth below:
+
+Sr. │ Parameters                  │ Details
+${"─".repeat(60)}
+01  │ Commodity                   │ ${v(product?.commodity, trade?.commodity)}
+02  │ Origin                      │ ${v(product?.origin, trade?.origin)}
+03  │ Quantity                    │ ${v(product?.quantity, trade?.quantity ? `${trade.quantity} ${trade.unit || "MT"}` : undefined)}
+04  │ Incoterms                   │ ${v(product?.incoterm, trade?.incoterm)}
+05  │ Delivery Period             │ ${v(product?.laycan)}
+06  │ Price                       │ ${cur} ${v(product?.price, trade?.pricePerUnit?.toString())} per MT
+07  │ Quality Specifications      │ ${v(product?.qualitySpecs)}
+08  │ Payment Terms               │ ${v(product?.paymentTerms)}
+09  │ Inspection                  │ ${v(product?.analysisAgency, "SGS, Intertek or Bureau Veritas")}
+
+${"─".repeat(50)}
+
+This offer is valid for acceptance within seven (7) calendar days from the date of issuance.
+
+Upon acceptance of this SCO by the Buyer, both parties agree to proceed with the preparation and execution of a Deal Recap followed by a Sales & Purchase Agreement (SPA).
+
+${"─".repeat(50)}
+
+AUTHORISED SIGNATORY
+For and on behalf of: ${v(seller?.name, trade?.sellerName)}
+Name: _______________
+Title: _______________
+Date: ${today()}
+Signature: _______________`;
+  },
+
   DEAL_RECAP: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
     const cur = product?.currency || trade?.currency || "USD";
     const recapVal = product?.recapValidity?.trim() || "Valid for acceptance for five (5) calendar days from issuance, subject to Seller's confirmation and product availability.";

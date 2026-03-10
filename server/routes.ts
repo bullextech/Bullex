@@ -741,7 +741,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/documents", async (_req, res) => {
+  app.get("/api/documents", requireAuth, async (_req, res) => {
     try {
       const result = await storage.getDocuments();
       res.json(result);
@@ -790,12 +790,29 @@ export async function registerRoutes(
         issueNumber = `IMP-${prefix}-${ddmm}-${serial}`;
       }
 
+      let dealRecapNumber: string | null = null;
+      if (parsed.data.docType === "DEAL_RECAP" || parsed.data.docType === "SPA") {
+        const buyName3 = (buyerDetails?.name || "XXX").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3).padEnd(3, "X");
+        const sellName3 = (sellerDetails?.name || "XXX").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3).padEnd(3, "X");
+        const now = new Date();
+        const ddmm = `${String(now.getDate()).padStart(2, "0")}${String(now.getMonth() + 1).padStart(2, "0")}`;
+        const allDocs = await storage.getDocuments();
+        const prefix = `${buyName3}/${sellName3}-${ddmm}`;
+        const samePrefix = allDocs.filter(d => d.dealRecapNumber && d.dealRecapNumber.startsWith(prefix));
+        const serial = String(samePrefix.length + 1).padStart(3, "0");
+        dealRecapNumber = `${prefix}-${serial}`;
+      }
+
+      const enquiryRef = req.body.enquiryRef || null;
+
       const content = generateDocumentContent(parsed.data.docType, trade, buyerDetails, sellerDetails, { ...productDetails, loiIssueNumber: issueNumber });
       const result = await storage.createDocument({
         ...parsed.data,
         content,
         status: "draft",
         issueNumber,
+        dealRecapNumber,
+        enquiryRef,
         buyerEmail: buyerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || null,
         sellerEmail: sellerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || null,
       });
@@ -835,7 +852,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/documents/:id", async (req, res) => {
+  app.get("/api/documents/:id", requireAuth, async (req, res) => {
     try {
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
@@ -849,6 +866,9 @@ export async function registerRoutes(
     try {
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
+      if (["sent", "accepted"].includes(doc.status)) {
+        return res.status(400).json({ message: `Cannot edit document in '${doc.status}' state` });
+      }
       const allowedStatuses = ["draft", "review", "final"];
       const { title, content, status } = req.body;
       const updateData: Record<string, any> = {};
@@ -1048,6 +1068,190 @@ export async function registerRoutes(
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to remove signature" });
+    }
+  });
+
+  app.post("/api/documents/:id/send", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const doc = await storage.getDocumentById(req.params.id);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+
+      if (!["draft", "final", "rejected"].includes(doc.status)) {
+        return res.status(400).json({ message: `Cannot send document in '${doc.status}' state. Must be draft, final, or rejected.` });
+      }
+
+      const isBuyerDoc = ["LOI", "ICPO"].includes(doc.docType);
+      const isSellerDoc = ["FCO", "SCO"].includes(doc.docType);
+
+      if (isBuyerDoc && !doc.buyerSignature) {
+        return res.status(400).json({ message: "Document must be signed by the buyer before sending" });
+      }
+      if (isSellerDoc && !doc.sellerSignature) {
+        return res.status(400).json({ message: "Document must be signed by the seller before sending" });
+      }
+      if (!isBuyerDoc && !isSellerDoc && !doc.buyerSignature && !doc.sellerSignature) {
+        return res.status(400).json({ message: "Document must be signed before sending" });
+      }
+
+      const { recipientEmail } = req.body;
+      if (!recipientEmail) {
+        return res.status(400).json({ message: "Recipient email is required" });
+      }
+
+      const updated = await storage.updateDocument(doc.id, {
+        sentTo: recipientEmail,
+        recipientResponse: "pending",
+        recipientAmendmentNotes: null,
+        status: "sent",
+      });
+
+      if (recipientEmail) {
+        const senderName = isBuyerDoc ? "Buyer" : "Seller";
+        const pdfOrDocx = doc.pdfPath || doc.docxPath;
+        if (pdfOrDocx) {
+          sendDocumentEmail(recipientEmail, "Recipient", doc.docType, doc.title, senderName, pdfOrDocx)
+            .catch(err => console.error("[docs] Failed to email recipient:", err));
+        }
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to send document" });
+    }
+  });
+
+  app.post("/api/documents/:id/respond", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const doc = await storage.getDocumentById(req.params.id);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+
+      if (doc.status !== "sent" || doc.recipientResponse !== "pending") {
+        return res.status(400).json({ message: "Document must be in 'sent' state with 'pending' response to accept/reject" });
+      }
+
+      const { response, amendmentNotes } = req.body;
+      if (!["accepted", "rejected"].includes(response)) {
+        return res.status(400).json({ message: "Response must be 'accepted' or 'rejected'" });
+      }
+
+      const updateData: Record<string, any> = {
+        recipientResponse: response,
+        recipientRespondedAt: new Date(),
+        status: response === "accepted" ? "accepted" : "rejected",
+      };
+      if (response === "rejected" && amendmentNotes) {
+        updateData.recipientAmendmentNotes = amendmentNotes;
+      }
+      const updated = await storage.updateDocument(doc.id, updateData);
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to respond to document" });
+    }
+  });
+
+  app.post("/api/documents/:id/create-next", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const parentDoc = await storage.getDocumentById(req.params.id);
+      if (!parentDoc) return res.status(404).json({ message: "Parent document not found" });
+      if (parentDoc.recipientResponse !== "accepted") {
+        return res.status(400).json({ message: "Parent document must be accepted first" });
+      }
+
+      const allowedTransitions: Record<string, string> = {
+        LOI: "SCO",
+        SCO: "DEAL_RECAP",
+        FCO: "DEAL_RECAP",
+        DEAL_RECAP: "SPA",
+      };
+      const expectedNext = allowedTransitions[parentDoc.docType];
+      const { nextDocType } = req.body;
+      if (!expectedNext || nextDocType !== expectedNext) {
+        return res.status(400).json({ message: `Invalid transition: ${parentDoc.docType} can only create ${expectedNext || "nothing"}` });
+      }
+
+      const parsedContent: Record<string, string> = {};
+      try {
+        const lines = (parentDoc.content || "").split("\n");
+        for (const line of lines) {
+          const m1 = line.match(/^(?:Company|Attention|Address):\s*(.+)$/);
+          const m2 = line.match(/^[\s│]*([^│:]+?)\s*│\s*(.+)$/);
+          const m3 = line.match(/^([^:]+):\s*(.+)$/);
+          if (m2) parsedContent[m2[1].trim()] = m2[2].trim();
+          else if (m3) parsedContent[m3[1].trim()] = m3[2].trim();
+        }
+      } catch {}
+
+      const buyerName = parsedContent["Buyer"] || parsedContent["Buyer Name"] || parsedContent["Issued by Buyer"] || "";
+      const sellerName = parsedContent["Seller"] || parsedContent["Seller Name"] || parsedContent["FROM (SELLER)"] || "";
+      const commodity = parsedContent["Commodity"] || "";
+      const origin = parsedContent["Origin"] || parsedContent["Country of Origin"] || "";
+      const quantity = parsedContent["Quantity"] || parsedContent["Contractual Qty"] || "";
+      const incoterm = parsedContent["Incoterms"] || parsedContent["Incoterms Terms"] || parsedContent["Purchase Incoterms"] || "";
+      const price = parsedContent["Price"] || parsedContent["Price & Currency"] || "";
+      const paymentTerms = parsedContent["Payment Terms"] || "";
+      const qualitySpecs = parsedContent["Quality Specifications"] || parsedContent["Quality / Spec"] || parsedContent["Commodity Specifications"] || "";
+
+      let dealRecapNumber: string | null = null;
+      let enquiryRef = parentDoc.enquiryRef || null;
+
+      if (nextDocType === "DEAL_RECAP" || nextDocType === "SPA") {
+        const buyerName3 = (buyerName || "XXX").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3).padEnd(3, "X");
+        const sellerName3 = (sellerName || "XXX").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3).padEnd(3, "X");
+        const now = new Date();
+        const ddmm = `${String(now.getDate()).padStart(2, "0")}${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+        if (nextDocType === "SPA" && parentDoc.dealRecapNumber) {
+          dealRecapNumber = parentDoc.dealRecapNumber;
+        } else {
+          const allDocs = await storage.getDocuments();
+          const prefix = `${buyerName3}/${sellerName3}-${ddmm}`;
+          const samePrefix = allDocs.filter(d => d.dealRecapNumber && d.dealRecapNumber.startsWith(prefix));
+          const serial = String(samePrefix.length + 1).padStart(3, "0");
+          dealRecapNumber = `${prefix}-${serial}`;
+        }
+      }
+
+      const buyerDetails = { name: buyerName, address: "", contact: parentDoc.buyerEmail || "", bank: "", swift: "" };
+      const sellerDetails = { name: sellerName, address: "", contact: parentDoc.sellerEmail || "", bank: "", swift: "" };
+      const productDetails = { commodity, origin, quantity, incoterm, price, paymentTerms, qualitySpecs, currency: "USD" };
+
+      let trade: Trade | undefined;
+      if (parentDoc.tradeRef) {
+        const trades = await storage.getTrades();
+        trade = trades.find(t => t.tradeRef === parentDoc.tradeRef);
+      }
+
+      const content = generateDocumentContent(nextDocType, trade, buyerDetails, sellerDetails, productDetails);
+
+      const title = `${nextDocType} - ${dealRecapNumber || parentDoc.title}`;
+      const result = await storage.createDocument({
+        docType: nextDocType,
+        title,
+        tradeRef: parentDoc.tradeRef,
+        enquiryRef,
+        dealRecapNumber,
+        parentDocId: parentDoc.id,
+        status: "draft",
+        content: content || `Document created from ${parentDoc.docType}: ${parentDoc.title}`,
+        buyerEmail: parentDoc.buyerEmail,
+        sellerEmail: parentDoc.sellerEmail,
+      });
+
+      try {
+        const docxPath = await generateDocx(result.id, result.title, result.content || "");
+        let pdfPath: string | undefined;
+        if (nextDocType !== "LOI") {
+          pdfPath = await generatePdf(result.id, result.title, result.content || "");
+        }
+        const updated = await storage.updateDocument(result.id, { docxPath, ...(pdfPath ? { pdfPath } : {}) });
+        res.json(updated);
+      } catch (fileErr) {
+        console.error("[docs] File generation error (document still created):", fileErr);
+        res.json(result);
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to create next document" });
     }
   });
 

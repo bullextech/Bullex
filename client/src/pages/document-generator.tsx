@@ -51,6 +51,12 @@ import {
   Package,
   Plus,
   Trash2,
+  ArrowRight,
+  AlertCircle,
+  Mail,
+  ThumbsUp,
+  ThumbsDown,
+  MessageSquare,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -60,6 +66,7 @@ import type { Document as Doc, KycApplication, Trade } from "@shared/schema";
 const docTypes = [
   { value: "LOI", label: "Purchase Letter of Intent", short: "LOI", description: "Buyer's formal expression of intent to purchase a commodity with full trade terms", icon: ScrollText },
   { value: "FCO", label: "Full Corporate Offer", short: "FCO", description: "Binding irrevocable offer with complete trade terms and conditions", icon: ShieldCheck },
+  { value: "SCO", label: "Soft Corporate Offer", short: "SCO", description: "Seller's conditional offer issued in response to an accepted LOI", icon: Handshake },
   { value: "DEAL_RECAP", label: "Deal Recap", short: "Deal Recap", description: "Comprehensive summary of agreed trade terms between buyer and seller", icon: Send },
   { value: "ICPO", label: "Irrevocable Corporate Purchase Order", short: "ICPO", description: "Buyer's binding commitment to purchase the specified commodity", icon: ClipboardList },
   { value: "SPA", label: "Sales & Purchase Agreement", short: "SPA", description: "Full legal contract between buyer and seller covering all trade terms", icon: FileSignature },
@@ -221,6 +228,7 @@ export default function DocumentGenerator() {
     docType: selectedType!.value,
     title,
     tradeRef: urlTradeRef || undefined,
+    enquiryRef: urlEnquiryRef || undefined,
     buyerDetails: {
       name: buyerName, address: buyerAddress, contact: buyerContact,
       bank: buyerBank, swift: buyerSwift,
@@ -331,6 +339,89 @@ export default function DocumentGenerator() {
       toast({ title: "Conversion Failed", description: error.message, variant: "destructive" });
     },
   });
+
+  const [sendDocId, setSendDocId] = useState<string | null>(null);
+  const [sendEmail, setSendEmail] = useState("");
+  const [respondDocId, setRespondDocId] = useState<string | null>(null);
+  const [respondAction, setRespondAction] = useState<"accepted" | "rejected" | null>(null);
+  const [amendmentNotes, setAmendmentNotes] = useState("");
+
+  const sendDoc = useMutation({
+    mutationFn: async ({ id, recipientEmail }: { id: string; recipientEmail: string }) => {
+      const res = await apiRequest("POST", `/api/documents/${id}/send`, { recipientEmail });
+      return res.json();
+    },
+    onSuccess: (updated: Doc) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      setSendDocId(null);
+      setSendEmail("");
+      setViewDoc(updated);
+      toast({ title: "Document Sent", description: "Document has been sent to the recipient." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Send Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const respondToDoc = useMutation({
+    mutationFn: async ({ id, response, notes }: { id: string; response: string; notes?: string }) => {
+      const res = await apiRequest("POST", `/api/documents/${id}/respond`, { response, amendmentNotes: notes });
+      return res.json();
+    },
+    onSuccess: (updated: Doc) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      setRespondDocId(null);
+      setRespondAction(null);
+      setAmendmentNotes("");
+      setViewDoc(updated);
+      toast({ title: "Response Recorded", description: `Document has been ${updated.recipientResponse}.` });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Response Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const createNextDoc = useMutation({
+    mutationFn: async ({ id, nextDocType }: { id: string; nextDocType: string }) => {
+      const res = await apiRequest("POST", `/api/documents/${id}/create-next`, { nextDocType });
+      return res.json();
+    },
+    onSuccess: (newDoc: Doc) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      setViewDoc(newDoc);
+      toast({ title: "Document Created", description: `${newDoc.docType} has been created from accepted document.` });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Creation Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const getStatusBadge = (doc: Doc) => {
+    const s = doc.status;
+    const r = doc.recipientResponse;
+    if (s === "accepted" || r === "accepted") return { label: "Accepted", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", icon: ThumbsUp };
+    if (s === "rejected" || r === "rejected") return { label: "Rejected", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200", icon: ThumbsDown };
+    if (s === "sent" || r === "pending") return { label: "Sent", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200", icon: Mail };
+    if (s === "final") return { label: "Final", color: "bg-primary text-primary-foreground", icon: CheckCircle2 };
+    return { label: s, color: "", icon: Clock };
+  };
+
+  const getNextDocType = (doc: Doc): string | null => {
+    if (doc.recipientResponse !== "accepted") return null;
+    if (doc.docType === "LOI") return "SCO";
+    if (doc.docType === "SCO" || doc.docType === "FCO") return "DEAL_RECAP";
+    if (doc.docType === "DEAL_RECAP") return "SPA";
+    return null;
+  };
+
+  const canSend = (doc: Doc): boolean => {
+    if (doc.status === "sent" || doc.status === "accepted" || doc.status === "rejected" || doc.status === "final") return false;
+    const isBuyerDoc = ["LOI", "ICPO"].includes(doc.docType);
+    const isSellerDoc = ["FCO", "SCO"].includes(doc.docType);
+    if (isBuyerDoc) return !!doc.buyerSignature;
+    if (isSellerDoc) return !!doc.sellerSignature;
+    return !!(doc.buyerSignature || doc.sellerSignature);
+  };
 
   const openSignDialog = (docId: string, party: "buyer" | "seller") => {
     setSignDocId(docId);
@@ -456,9 +547,10 @@ export default function DocumentGenerator() {
 
   const handleSaveAmend = () => {
     if (!editDoc) return;
+    const newStatus = editDoc.status === "rejected" ? "draft" : editStatus;
     updateDoc.mutate({
       id: editDoc.id,
-      data: { title: editTitle, content: editContent, status: editStatus },
+      data: { title: editTitle, content: editContent, status: newStatus },
     });
   };
 
@@ -546,28 +638,33 @@ export default function DocumentGenerator() {
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {doc.issueNumber ? doc.issueNumber : doc.tradeRef ? `Trade: ${doc.tradeRef}` : "Standalone"}
+                        {doc.issueNumber ? doc.issueNumber : doc.dealRecapNumber ? doc.dealRecapNumber : doc.enquiryRef ? `Enq: ${doc.enquiryRef}` : doc.tradeRef ? `Trade: ${doc.tradeRef}` : "Standalone"}
                         {" "}&middot;{" "}
                         {new Date(doc.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge
-                      variant={doc.status === "final" ? "default" : "secondary"}
-                      className="text-[10px] capitalize"
-                    >
-                      {doc.status === "final" ? (
-                        <CheckCircle2 className="w-3 h-3 mr-0.5" />
-                      ) : (
-                        <Clock className="w-3 h-3 mr-0.5" />
-                      )}
-                      {doc.status}
-                    </Badge>
+                    {(() => {
+                      const sb = getStatusBadge(doc);
+                      const SbIcon = sb.icon;
+                      return (
+                        <Badge className={`text-[10px] capitalize ${sb.color}`} data-testid={`badge-status-${doc.id}`}>
+                          <SbIcon className="w-3 h-3 mr-0.5" />
+                          {sb.label}
+                        </Badge>
+                      );
+                    })()}
                     {doc.buyerSignature && (
                       <Badge className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" data-testid={`badge-signed-${doc.id}`}>
                         <FileSignature className="w-3 h-3 mr-0.5" />
                         Signed
+                      </Badge>
+                    )}
+                    {doc.recipientResponse === "rejected" && (
+                      <Badge className="text-[10px] bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" data-testid={`badge-rejected-${doc.id}`}>
+                        <AlertCircle className="w-3 h-3 mr-0.5" />
+                        Amendment Needed
                       </Badge>
                     )}
                     {doc.docxPath && (
@@ -1360,11 +1457,11 @@ export default function DocumentGenerator() {
                 </div>
               </div>
 
-              {viewDoc.docType === "LOI" && viewDoc.buyerSignature && !viewDoc.pdfPath && (
+              {viewDoc.docType === "LOI" && viewDoc.buyerSignature && !viewDoc.pdfPath && viewDoc.status !== "sent" && viewDoc.status !== "accepted" && (
                 <div className="border-t pt-4">
                   <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg p-4 text-center space-y-3">
                     <p className="text-sm font-medium text-orange-800 dark:text-orange-200">LOI is signed and ready to finalize</p>
-                    <p className="text-xs text-orange-600 dark:text-orange-400">Convert to PDF to complete the LOI. This will generate the final PDF with the digital signature embedded and mark the document as complete.</p>
+                    <p className="text-xs text-orange-600 dark:text-orange-400">Convert to PDF to complete the LOI. This will generate the final PDF with the digital signature embedded.</p>
                     <Button
                       className="bg-orange-600 hover:bg-orange-700 text-white"
                       onClick={() => convertToPdf.mutate(viewDoc.id)}
@@ -1377,12 +1474,12 @@ export default function DocumentGenerator() {
                   </div>
                 </div>
               )}
-              {viewDoc.docType === "LOI" && viewDoc.pdfPath && viewDoc.status === "final" && (
+              {viewDoc.pdfPath && viewDoc.status === "final" && (
                 <div className="border-t pt-4">
                   <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-5 h-5 text-green-600" />
-                      <p className="text-sm font-medium text-green-800 dark:text-green-200">LOI Complete</p>
+                      <p className="text-sm font-medium text-green-800 dark:text-green-200">{viewDoc.docType} Complete</p>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => window.open(`/api/documents/${viewDoc.id}/download/pdf`, "_blank")} data-testid="button-download-final-pdf">
                       <FileText className="w-3.5 h-3.5 mr-1.5 text-red-600" />
@@ -1392,15 +1489,97 @@ export default function DocumentGenerator() {
                 </div>
               )}
 
+              {viewDoc.recipientResponse === "rejected" && viewDoc.recipientAmendmentNotes && (
+                <div className="border-t pt-4">
+                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                      <p className="text-sm font-semibold text-red-800 dark:text-red-200">Amendment Requested</p>
+                    </div>
+                    <p className="text-xs text-red-700 dark:text-red-300 whitespace-pre-wrap" data-testid="text-amendment-notes">{viewDoc.recipientAmendmentNotes}</p>
+                    <p className="text-xs text-red-500 dark:text-red-400">Amend the document and resend to the counterparty.</p>
+                  </div>
+                </div>
+              )}
+
+              {viewDoc.sentTo && viewDoc.recipientResponse === "pending" && (
+                <div className="border-t pt-4">
+                  <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-blue-600" />
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Awaiting Response</p>
+                    </div>
+                    <p className="text-xs text-blue-600 dark:text-blue-400">Sent to: {viewDoc.sentTo}</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => { setRespondDocId(viewDoc.id); setRespondAction("accepted"); }} data-testid="button-accept-doc">
+                        <ThumbsUp className="w-3.5 h-3.5 mr-1" />
+                        Accept
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => { setRespondDocId(viewDoc.id); setRespondAction("rejected"); }} data-testid="button-reject-doc">
+                        <ThumbsDown className="w-3.5 h-3.5 mr-1" />
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {viewDoc.recipientResponse === "accepted" && (() => {
+                const next = getNextDocType(viewDoc);
+                if (!next) return null;
+                return (
+                  <div className="border-t pt-4">
+                    <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <p className="text-sm font-medium text-green-800 dark:text-green-200">{viewDoc.docType} Accepted</p>
+                      </div>
+                      <p className="text-xs text-green-600 dark:text-green-400">Proceed to create the next document in the workflow.</p>
+                      <Button size="sm" onClick={() => createNextDoc.mutate({ id: viewDoc.id, nextDocType: next })} disabled={createNextDoc.isPending} data-testid="button-create-next-doc">
+                        <ArrowRight className="w-3.5 h-3.5 mr-1" />
+                        {createNextDoc.isPending ? "Creating..." : `Create ${next}`}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {(viewDoc.enquiryRef || viewDoc.dealRecapNumber || viewDoc.parentDocId) && (
+                <div className="border-t pt-4">
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    {viewDoc.enquiryRef && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Enquiry Reference</Label>
+                        <p className="font-medium" data-testid="text-enquiry-ref">{viewDoc.enquiryRef}</p>
+                      </div>
+                    )}
+                    {viewDoc.dealRecapNumber && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Deal Recap / SPA Number</Label>
+                        <p className="font-medium" data-testid="text-deal-recap-number">{viewDoc.dealRecapNumber}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setViewDoc(null)} data-testid="button-close-view">
                   <X className="w-3.5 h-3.5 mr-1.5" />
                   Close
                 </Button>
-                <Button onClick={() => openEdit(viewDoc)} data-testid="button-edit-from-view">
-                  <Pencil className="w-3.5 h-3.5 mr-1.5" />
-                  Amend
-                </Button>
+                {canSend(viewDoc) && (
+                  <Button variant="outline" onClick={() => { setSendDocId(viewDoc.id); setSendEmail(viewDoc.sellerEmail || viewDoc.buyerEmail || ""); }} data-testid="button-send-doc">
+                    <Send className="w-3.5 h-3.5 mr-1.5" />
+                    Send to Counterparty
+                  </Button>
+                )}
+                {(viewDoc.status === "rejected" || viewDoc.status === "draft") && (
+                  <Button onClick={() => openEdit(viewDoc)} data-testid="button-edit-from-view">
+                    <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                    Amend
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -1503,6 +1682,83 @@ export default function DocumentGenerator() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!sendDocId} onOpenChange={(open) => { if (!open) { setSendDocId(null); setSendEmail(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" data-testid="text-send-dialog-title">
+              <Send className="w-5 h-5 text-primary" />
+              Send Document
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Send this document to the counterparty for review and acceptance.</p>
+            <div className="space-y-2">
+              <Label>Recipient Email</Label>
+              <Input
+                type="email"
+                value={sendEmail}
+                onChange={(e) => setSendEmail(e.target.value)}
+                placeholder="Enter recipient email address"
+                data-testid="input-send-email"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setSendDocId(null); setSendEmail(""); }} data-testid="button-cancel-send">
+                Cancel
+              </Button>
+              <Button onClick={() => { if (sendDocId && sendEmail) sendDoc.mutate({ id: sendDocId, recipientEmail: sendEmail }); }} disabled={!sendEmail || sendDoc.isPending} data-testid="button-confirm-send">
+                <Send className="w-3.5 h-3.5 mr-1.5" />
+                {sendDoc.isPending ? "Sending..." : "Send"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!respondDocId && !!respondAction} onOpenChange={(open) => { if (!open) { setRespondDocId(null); setRespondAction(null); setAmendmentNotes(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" data-testid="text-respond-dialog-title">
+              {respondAction === "accepted" ? <ThumbsUp className="w-5 h-5 text-green-600" /> : <ThumbsDown className="w-5 h-5 text-red-600" />}
+              {respondAction === "accepted" ? "Accept Document" : "Reject Document"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {respondAction === "accepted" ? (
+              <p className="text-sm text-muted-foreground">Accepting this document will allow the next step in the document workflow to proceed.</p>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Rejecting this document will send it back for amendment. Please provide notes explaining what changes are needed.</p>
+                <div className="space-y-2">
+                  <Label>Amendment Notes</Label>
+                  <Textarea
+                    value={amendmentNotes}
+                    onChange={(e) => setAmendmentNotes(e.target.value)}
+                    placeholder="Describe the changes required..."
+                    rows={4}
+                    data-testid="textarea-amendment-notes"
+                  />
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setRespondDocId(null); setRespondAction(null); setAmendmentNotes(""); }} data-testid="button-cancel-respond">
+                Cancel
+              </Button>
+              <Button
+                className={respondAction === "accepted" ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                variant={respondAction === "rejected" ? "destructive" : "default"}
+                onClick={() => { if (respondDocId && respondAction) respondToDoc.mutate({ id: respondDocId, response: respondAction, notes: amendmentNotes }); }}
+                disabled={respondToDoc.isPending || (respondAction === "rejected" && !amendmentNotes.trim())}
+                data-testid="button-confirm-respond"
+              >
+                {respondToDoc.isPending ? "Processing..." : respondAction === "accepted" ? "Confirm Accept" : "Confirm Reject"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
