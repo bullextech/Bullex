@@ -362,7 +362,7 @@ export default function DocumentGenerator() {
   };
 
   useEffect(() => {
-    if (docType === "LOI" && buyerName.trim().length >= 1) {
+    if (selectedType?.value === "LOI" && buyerName.trim().length >= 1) {
       fetch(`/api/documents/next-loi-number?buyerName=${encodeURIComponent(buyerName)}`, { credentials: "include" })
         .then(r => r.json())
         .then(d => { if (d.issueNumber) setLoiIssueNumber(d.issueNumber); })
@@ -370,7 +370,7 @@ export default function DocumentGenerator() {
     } else {
       setLoiIssueNumber("");
     }
-  }, [docType, buyerName]);
+  }, [selectedType?.value, buyerName]);
 
   const fetchFreshDoc = async (id: string): Promise<Doc> => {
     const res = await fetch(`/api/documents/${id}`);
