@@ -261,7 +261,7 @@ export default function TradeEnquiries() {
                 <Label htmlFor="product">Product / Commodity *</Label>
                 <Input
                   id="product"
-                  placeholder="e.g. Bauxite, Iron Ore, ULSD"
+                  placeholder="e.g. Iron Ore, Copper Cathode, Gasoil 10ppm"
                   value={form.product}
                   onChange={(e) => setForm({ ...form, product: e.target.value })}
                   data-testid="input-product"

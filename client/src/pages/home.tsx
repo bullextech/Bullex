@@ -72,16 +72,16 @@ const features = [
 
 const divisions = [
   { icon: Mountain, name: "Minerals", products: "Iron Ore, Bauxite, Manganese Ore", color: "text-stone-600 dark:text-stone-400" },
-  { icon: Gem, name: "Metals", products: "Copper Cathodes, Aluminium", color: "text-sky-700 dark:text-sky-400" },
-  { icon: Flame, name: "Energy Products", products: "ULSD, HSGO, LPG", color: "text-red-800 dark:text-red-400" },
-  { icon: Droplets, name: "Petrochemicals", products: "Bitumen, Petcoke, Sulphur", color: "text-slate-600 dark:text-slate-400" },
+  { icon: Gem, name: "Metals", products: "Copper Cathode, Copper Concentrate, Aluminium Ingots", color: "text-sky-700 dark:text-sky-400" },
+  { icon: Flame, name: "Energy Products", products: "Gasoil 10ppm, Gasoil 50ppm, LHC, HSFO, HSGO", color: "text-red-800 dark:text-red-400" },
+  { icon: Droplets, name: "Petrochemicals", products: "Petcoke \u2013 Anode Grade, Petcoke \u2013 Fuel Grade", color: "text-slate-600 dark:text-slate-400" },
   { icon: Sprout, name: "Fertilizers", products: "NPK", color: "text-teal-700 dark:text-teal-400" },
 ];
 
 const stats = [
   { value: "5", label: "Trading Divisions" },
-  { value: "13", label: "Active Commodities" },
-  { value: "12", label: "Tokenised Assets" },
+  { value: "14", label: "Active Commodities" },
+  { value: "14", label: "Tokenised Assets" },
   { value: "100%", label: "Blockchain Verified" },
 ];
 
@@ -416,9 +416,9 @@ export default function Home() {
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Sample tokens include{" "}
                   <span className="font-mono text-foreground">BFG-IRO</span> (Iron Ore),{" "}
-                  <span className="font-mono text-foreground">BFG-CPC</span> (Copper Cathodes),{" "}
-                  <span className="font-mono text-foreground">BFG-ULS</span> (ULSD),{" "}
-                  <span className="font-mono text-foreground">BFG-BIT</span> (Bitumen), and{" "}
+                  <span className="font-mono text-foreground">BFG-CPC</span> (Copper Cathode),{" "}
+                  <span className="font-mono text-foreground">BFG-G10</span> (Gasoil 10ppm),{" "}
+                  <span className="font-mono text-foreground">BFG-PCA</span> (Petcoke – Anode Grade), and{" "}
                   <span className="font-mono text-foreground">BFG-NPK</span> (NPK) — all conforming
                   to the BFG-20 token standard.
                 </p>
@@ -472,10 +472,10 @@ export default function Home() {
                   <label className="text-xs font-bold uppercase tracking-wider text-primary">Commodity Category *</label>
                   <select className="flex h-12 w-full border border-border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded-none" value={supplyForm.commodity} onChange={(e) => setSupplyForm({ ...supplyForm, commodity: e.target.value })} data-testid="supply-select-commodity">
                     <option value="">Select category...</option>
-                    <option value="minerals">Minerals (Iron Ore, Bauxite, Manganese)</option>
-                    <option value="metals">Metals (Copper, Aluminium)</option>
-                    <option value="energy">Energy Products (ULSD, HSGO, LPG)</option>
-                    <option value="petchem">Petrochemicals (Bitumen, Petcoke, Sulphur)</option>
+                    <option value="minerals">Minerals (Iron Ore, Bauxite, Manganese Ore)</option>
+                    <option value="metals">Metals (Copper Cathode, Copper Concentrate, Aluminium Ingots)</option>
+                    <option value="energy">Energy Products (Gasoil 10ppm, Gasoil 50ppm, LHC, HSFO, HSGO)</option>
+                    <option value="petchem">Petrochemicals (Petcoke – Anode Grade, Petcoke – Fuel Grade)</option>
                     <option value="fertilizers">Fertilizers (NPK)</option>
                   </select>
                 </div>

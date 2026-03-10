@@ -9,7 +9,7 @@ import { insertTradeSchema, insertKycSchema, insertDocumentSchema, type Trade } 
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail } from "./email";
 import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures } from "./documentFileGenerator";
 
 declare module "express-session" {
@@ -274,8 +274,35 @@ export async function registerRoutes(
         companyName
       );
 
-      if (response === "accepted") {
+      if (response === "accepted" && enquiry.status !== "accepted") {
         try {
+          const categoryMap: Record<string, string> = {
+            "Iron Ore": "minerals", "Bauxite": "minerals", "Manganese Ore": "minerals",
+            "Copper Cathode": "metals", "Copper Concentrate": "metals", "Aluminium Ingots": "metals",
+            "Gasoil 10ppm": "energy", "Gasoil 50ppm": "energy", "LHC": "energy", "HSFO": "energy", "HSGO": "energy",
+            "Petcoke – Anode Grade": "petrochemicals", "Petcoke – Fuel Grade": "petrochemicals",
+            "NPK": "fertilizers",
+          };
+          const commodityCategory = categoryMap[enquiry.product] || "minerals";
+          const isBuyer = enquiry.side === "buy";
+          const buyerName = isBuyer ? (enquiry.createdBy || companyName) : companyName;
+          const sellerName = !isBuyer ? (enquiry.createdBy || companyName) : companyName;
+
+          const trade = await storage.createPreDealTrade({
+            commodity: enquiry.product,
+            commodityCategory,
+            quantity: parseFloat(enquiry.quantity || "0") || 0,
+            unit: enquiry.unit || "MT",
+            pricePerUnit: 0,
+            totalValue: 0,
+            currency: "USD",
+            buyerName,
+            sellerName,
+            origin: enquiry.loadingPort || "TBD",
+            destination: "TBD",
+            incoterm: enquiry.incoterms || "FOB",
+          });
+
           const latestBlock = await storage.getLatestBlock();
           const previousHash = latestBlock ? latestBlock.hash : GENESIS_HASH;
           const blockNumber = latestBlock ? latestBlock.blockNumber + 1 : 1;
@@ -290,7 +317,7 @@ export async function registerRoutes(
             timestamp
           );
 
-          const tradeData = `${enquiry.enquiryRef}:${enquiry.product}:${enquiry.side}:${enquiry.quantity || "N/A"}:${companyName}:${enquiryHash}`;
+          const tradeData = `${enquiry.enquiryRef}:${enquiry.product}:TRADE_INITIATED:${trade.tradeRef}:${enquiryHash}`;
           const { hash: blockHash, nonce } = mineBlock(blockNumber, previousHash, timestamp, tradeData, 2);
 
           await storage.createBlock({
@@ -300,14 +327,14 @@ export async function registerRoutes(
             nonce,
             tradeCount: 1,
             verified: true,
-            dataType: "trade_enquiry",
-            dataId: enquiry.id,
-            dataSummary: `${enquiry.enquiryRef} | ${enquiry.side.toUpperCase()} ${enquiry.product} | Accepted by ${companyName}`,
+            dataType: "trade",
+            dataId: trade.id,
+            dataSummary: `Trade ${trade.tradeRef} initiated from ${enquiry.enquiryRef} | ${enquiry.side.toUpperCase()} ${enquiry.product} | Accepted by ${companyName}`,
           });
 
-          console.log(`[blockchain] Trade enquiry block minted for ${enquiry.enquiryRef}, block #${blockNumber}`);
+          console.log(`[trade] Auto-created trade ${trade.tradeRef} from enquiry ${enquiry.enquiryRef}, blockchain block #${blockNumber}`);
         } catch (err: any) {
-          console.error("[blockchain] Enquiry trade block minting failed:", err.message);
+          console.error("[trade] Auto-create trade from client acceptance failed:", err.message);
         }
       }
 
@@ -374,6 +401,17 @@ export async function registerRoutes(
         updateData.recipientAmendmentNotes = amendmentNotes;
       }
       const updated = await storage.updateDocument(doc.id, updateData);
+
+      if (response === "rejected" && amendmentNotes) {
+        const clientCompanyName = req.session.clientCompanyName || "Client";
+        const notifyEmails = [doc.buyerEmail, doc.sellerEmail, "trade@bullex.tech"].filter(Boolean) as string[];
+        const uniqueEmails = [...new Set(notifyEmails)];
+        for (const email of uniqueEmails) {
+          sendAmendmentRequestedEmail(email, "Trade Desk", doc.docType, doc.title, amendmentNotes, clientCompanyName)
+            .catch(err => console.error("[docs] Failed to send amendment email to", email, err));
+        }
+      }
+
       res.json(updated);
     } catch (error) {
       res.status(500).json({ message: "Failed to respond to document" });
@@ -1181,6 +1219,8 @@ export async function registerRoutes(
           sendDocumentEmail(recipientEmail, "Recipient", doc.docType, doc.title, senderName, pdfOrDocx)
             .catch(err => console.error("[docs] Failed to email recipient:", err));
         }
+        sendSignaturePendingEmail(recipientEmail, "Recipient", doc.docType, doc.title)
+          .catch(err => console.error("[docs] Failed to send signature pending email:", err));
       }
 
       res.json(updated);
@@ -1590,6 +1630,72 @@ export async function registerRoutes(
       const existing = await storage.getTradeEnquiryById(req.params.id);
       if (!existing) return res.status(404).json({ message: "Enquiry not found" });
       const updated = await storage.updateTradeEnquiryStatus(req.params.id, status);
+
+      if (status === "accepted" && existing.status !== "accepted") {
+        try {
+          const categoryMap: Record<string, string> = {
+            "Iron Ore": "minerals", "Bauxite": "minerals", "Manganese Ore": "minerals",
+            "Copper Cathode": "metals", "Copper Concentrate": "metals", "Aluminium Ingots": "metals",
+            "Gasoil 10ppm": "energy", "Gasoil 50ppm": "energy", "LHC": "energy", "HSFO": "energy", "HSGO": "energy",
+            "Petcoke – Anode Grade": "petrochemicals", "Petcoke – Fuel Grade": "petrochemicals",
+            "NPK": "fertilizers",
+          };
+          const commodityCategory = categoryMap[existing.product] || "minerals";
+
+          const isBuyer = existing.side === "buy";
+          const buyerName = isBuyer ? (existing.createdBy || "TBD") : "TBD";
+          const sellerName = !isBuyer ? (existing.createdBy || "TBD") : "TBD";
+
+          const trade = await storage.createPreDealTrade({
+            commodity: existing.product,
+            commodityCategory,
+            quantity: parseFloat(existing.quantity || "0") || 0,
+            unit: existing.unit || "MT",
+            pricePerUnit: 0,
+            totalValue: 0,
+            currency: "USD",
+            buyerName,
+            sellerName,
+            origin: existing.loadingPort || "TBD",
+            destination: "TBD",
+            incoterm: existing.incoterms || "FOB",
+          });
+
+          const latestBlock = await storage.getLatestBlock();
+          const previousHash = latestBlock ? latestBlock.hash : GENESIS_HASH;
+          const blockNumber = latestBlock ? latestBlock.blockNumber + 1 : 1;
+          const timestamp = new Date().toISOString();
+
+          const enquiryHash = generateEnquiryTradeHash(
+            existing.enquiryRef,
+            existing.product,
+            existing.side,
+            existing.quantity,
+            existing.createdBy || "Admin",
+            timestamp
+          );
+
+          const tradeData = `${existing.enquiryRef}:${existing.product}:TRADE_INITIATED:${trade.tradeRef}:${enquiryHash}`;
+          const { hash: blockHash, nonce } = mineBlock(blockNumber, previousHash, timestamp, tradeData, 2);
+
+          await storage.createBlock({
+            blockNumber,
+            hash: blockHash,
+            previousHash,
+            nonce,
+            tradeCount: 1,
+            verified: true,
+            dataType: "trade",
+            dataId: trade.id,
+            dataSummary: `Trade ${trade.tradeRef} initiated from ${existing.enquiryRef} | ${existing.side.toUpperCase()} ${existing.product}`,
+          });
+
+          console.log(`[trade] Auto-created trade ${trade.tradeRef} from enquiry ${existing.enquiryRef}, blockchain block #${blockNumber}`);
+        } catch (err: any) {
+          console.error("[trade] Auto-create trade failed:", err.message);
+        }
+      }
+
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

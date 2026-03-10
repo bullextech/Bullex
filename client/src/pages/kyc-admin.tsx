@@ -779,14 +779,16 @@ export default function KycAdmin() {
                                       <SelectValue placeholder="Assign a category..." />
                                     </SelectTrigger>
                                     <SelectContent>
+                                      <SelectItem value="Producer">Producer</SelectItem>
                                       <SelectItem value="Buyer">Buyer</SelectItem>
                                       <SelectItem value="Seller">Seller</SelectItem>
-                                      <SelectItem value="Broker">Broker</SelectItem>
-                                      <SelectItem value="Investor">Investor</SelectItem>
-                                      <SelectItem value="Producer">Producer</SelectItem>
-                                      <SelectItem value="Trader">Trader</SelectItem>
-                                      <SelectItem value="Custodian">Custodian</SelectItem>
-                                      <SelectItem value="Auditor">Auditor</SelectItem>
+                                      <SelectItem value="Analysis Agency">Analysis Agency</SelectItem>
+                                      <SelectItem value="Port Agent">Port Agent</SelectItem>
+                                      <SelectItem value="Shipping Agent">Shipping Agent</SelectItem>
+                                      <SelectItem value="Chartering Broker">Chartering Broker</SelectItem>
+                                      <SelectItem value="Ship Owner">Ship Owner</SelectItem>
+                                      <SelectItem value="Custom Clearing Agent">Custom Clearing Agent</SelectItem>
+                                      <SelectItem value="Stevedoring Agent">Stevedoring Agent</SelectItem>
                                     </SelectContent>
                                   </Select>
                                 </div>

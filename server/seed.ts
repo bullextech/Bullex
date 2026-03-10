@@ -23,7 +23,7 @@ const seedTrades = [
     },
   },
   {
-    commodity: "Copper Cathodes",
+    commodity: "Copper Cathode",
     commodityCategory: "metals",
     quantity: 5000,
     unit: "MT",
@@ -42,7 +42,7 @@ const seedTrades = [
     },
   },
   {
-    commodity: "ULSD",
+    commodity: "Gasoil 10ppm",
     commodityCategory: "energy",
     quantity: 30000,
     unit: "MT",
@@ -62,7 +62,7 @@ const seedTrades = [
     },
   },
   {
-    commodity: "Bitumen",
+    commodity: "Petcoke \u2013 Fuel Grade",
     commodityCategory: "petrochemicals",
     quantity: 15000,
     unit: "MT",
@@ -107,8 +107,8 @@ const seedDocs = [
   { docType: "DEAL_RECAP", title: "Deal Recap - Iron Ore 50,000 MT Guinea-China", tradeIndex: 0, status: "final" },
   { docType: "FCO", title: "FCO - Iron Ore 50,000 MT Guinea-China", tradeIndex: 0, status: "final" },
   { docType: "SPA", title: "SPA - Iron Ore Supply Agreement", tradeIndex: 0, status: "final" },
-  { docType: "ICPO", title: "ICPO - Copper Cathodes 5,000 MT", tradeIndex: 1, status: "final" },
-  { docType: "LOI", title: "LOI - ULSD Supply Vietnam", tradeIndex: 2, status: "draft" },
+  { docType: "ICPO", title: "ICPO - Copper Cathode 5,000 MT", tradeIndex: 1, status: "final" },
+  { docType: "LOI", title: "LOI - Gasoil 10ppm Supply Vietnam", tradeIndex: 2, status: "draft" },
   { docType: "DEAL_RECAP", title: "Deal Recap - Bauxite 75,000 MT Guinea-China", tradeIndex: 4, status: "draft" },
 ];
 

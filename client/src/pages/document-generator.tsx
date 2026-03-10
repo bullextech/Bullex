@@ -869,7 +869,7 @@ export default function DocumentGenerator() {
                       </div>
                       <div className="grid grid-cols-[140px_1fr] border-b">
                         <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Commodity</div>
-                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. Petcoke, Iron Ore, ULSD" value={commodity} onChange={(e) => setCommodity(e.target.value)} data-testid="input-commodity" /></div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. Iron Ore, Copper Cathode, Gasoil 10ppm" value={commodity} onChange={(e) => setCommodity(e.target.value)} data-testid="input-commodity" /></div>
                       </div>
                       <div className="grid grid-cols-[140px_1fr] border-b">
                         <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Country of Origin</div>
@@ -1132,7 +1132,7 @@ export default function DocumentGenerator() {
                       <div className="grid grid-cols-[40px_130px_1fr] border-b">
                         <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">01</div>
                         <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Commodity</div>
-                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. Bauxite, Iron Ore, Copper Cathode" value={commodity} onChange={(e) => setCommodity(e.target.value)} data-testid="input-commodity" /></div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. Iron Ore, Copper Concentrate, Gasoil 50ppm" value={commodity} onChange={(e) => setCommodity(e.target.value)} data-testid="input-commodity" /></div>
                       </div>
                       <div className="grid grid-cols-[40px_130px_1fr] border-b">
                         <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">02</div>
@@ -1306,7 +1306,7 @@ export default function DocumentGenerator() {
                     <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Product Details</span>
                   </AccordionTrigger>
                   <AccordionContent className="space-y-3 pb-3">
-                    <Input placeholder="Commodity (e.g. Iron Ore, Bauxite, ULSD)" value={commodity} onChange={(e) => setCommodity(e.target.value)} data-testid="input-commodity" />
+                    <Input placeholder="Commodity (e.g. Iron Ore, Copper Cathode, Gasoil 10ppm)" value={commodity} onChange={(e) => setCommodity(e.target.value)} data-testid="input-commodity" />
                     <Input placeholder="Origin (e.g. Guinea, Zambia)" value={origin} onChange={(e) => setOrigin(e.target.value)} data-testid="input-origin" />
                     <Input placeholder="Quantity (e.g. 50,000 MT)" value={quantity} onChange={(e) => setQuantity(e.target.value)} data-testid="input-quantity" />
                     <Textarea placeholder="Quality Specifications (e.g. Fe 63.5% min, moisture 8% max, Al2O3 2.5% max)" value={qualitySpecs} onChange={(e) => setQualitySpecs(e.target.value)} rows={3} data-testid="input-quality-specs" />

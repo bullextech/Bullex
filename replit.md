@@ -82,11 +82,21 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 - **Participants**: Approved KYC participants displayed as cards on Platform page with category & products badges
 
 ## Commodity Categories
-- Minerals: Iron Ore, Bauxite, Manganese
-- Metals: Copper Cathodes, Aluminium Ingots
-- Energy Products: ULSD, HSGO, LPG
-- Petrochemicals: Bitumen, Petcoke, Sulphur
+- Minerals: Iron Ore, Bauxite, Manganese Ore
+- Metals: Copper Cathode, Copper Concentrate, Aluminium Ingots
+- Energy Products: Gasoil 10ppm, Gasoil 50ppm, LHC, HSFO, HSGO
+- Petrochemicals: Petcoke – Anode Grade, Petcoke – Fuel Grade
 - Fertilizers: NPK
+
+## Participant Categories
+Producer, Buyer, Seller, Analysis Agency, Port Agent, Shipping Agent, Chartering Broker, Ship Owner, Custom Clearing Agent, Stevedoring Agent
+
+## Email Notifications
+- KYC confirmation, approval, rejection emails
+- Change request approved/rejected emails
+- Document email with PDF attachment
+- Signature pending email (sent when document is sent to client for review)
+- Amendment requested email (sent to trade desk when client requests amendment)
 
 ## Data Model
 - `users` - User accounts

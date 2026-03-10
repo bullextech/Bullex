@@ -1,0 +1,205 @@
+Bullex Platform – System Workflow for Development Team
+(Derived from Bullex Document Flow) 
+Bullex Document Flow
+1. User Registration & KYC Module
+Step 1: User Registration
+All participants must register and complete KYC verification before accessing the platform.
+Participant Categories
+Producer
+Buyer
+Seller
+Analysis Agency
+Port Agent
+Shipping Agent
+Chartering Broker
+Ship Owner
+Custom Clearing Agent
+Stevedoring Agent
+Product Categories
+Iron Ore
+Bauxite
+Manganese Ore
+Copper Cathode
+Copper Concentrate
+Aluminium Ingots
+NPK
+Petcoke – Anode Grade
+Petcoke – Fuel Grade
+Gasoil 10ppm
+Gasoil 50ppm
+LHC (Low Hydrocarbon)
+HSFO (High Sulphur Fuel Oil)
+HSGO (High Sulphur Gas Oil 20000ppm)
+System Logic
+User Registration → KYC Submission → Admin Verification → KYC Approved → User Activated
+Only approved KYC users can access trading features.
+2. Enquiry Creation Module
+Rule
+Only KYC-approved users can create enquiries.
+Types
+Buy Enquiry
+Sell Enquiry
+Enquiry Fields
+Product
+Quantity
+Specification
+Delivery Terms
+Validity Period
+Created By
+Enquiry Number (Auto Generated)
+Enquiry Visibility Logic
+Example:
+If Product = Bauxite
+Visible only to users registered in Bauxite category
+Enquiry Number Format
+[First 3 Letters of Party] + [Product Name] + [DDMM] + [Serial]
+
+Example:
+BUL-BAUX-1203-001
+3. Enquiry Lifecycle
+Flow
+Create Enquiry
+      ↓
+Visible to relevant participants
+      ↓
+Interested Party Accepts Enquiry
+      ↓
+Initiate Trade
+Expiry Logic
+If Validity Expired
+→ Enquiry automatically closes
+Only Enquiry Creator can extend validity.
+4. Additional Information / Amendment Module
+If a participant needs more information:
+Participant → Request Additional Information
+      ↓
+Creator/Admin can amend enquiry
+      ↓
+Updated Enquiry visible again
+If the participant accepts the update:
+Proceed to Initiate Trade
+5. Trade Initiation (Blockchain Entry)
+When enquiry is accepted:
+Initiate Trade
+      ↓
+Create Blockchain Block
+      ↓
+Immutable Record Created
+Blockchain block will contain:
+Enquiry Data
+Parties involved
+Timestamp
+Product Details
+Trade Reference ID
+6. Document Generation Engine
+Once blockchain block is created, system enables:
+Generate Documents
+Documents generated sequentially.
+7. Document Workflow
+Stage 1 – LOI (Letter of Intent)
+Condition:
+If Seller posted enquiry
+AND Buyer accepted
+Process:
+System Generates LOI
+      ↓
+Buyer digitally signs
+      ↓
+LOI sent to Seller (Email + Dashboard)
+Stage 2 – LOI Response
+Seller options:
+Accept LOI
+Reject with amendment request
+If rejected:
+Buyer edits LOI
+→ Resubmit to Seller
+Once accepted:
+Proceed to SCO
+Stage 3 – SCO (Soft Corporate Offer)
+Seller Generates SCO
+      ↓
+Sent to Buyer
+      ↓
+Buyer Accepts
+Once accepted:
+Proceed to Deal Recap
+Stage 4 – Deal Recap
+Seller Initiates Deal Recap
+      ↓
+Document Generated
+      ↓
+Available to Buyer + Seller
+      ↓
+Digital Signing by both
+If amendment requested:
+Deal Recap Edited
+→ Re-signed
+Once both sign:
+Generate SPA
+Stage 5 – SPA (Sale Purchase Agreement)
+System Generates SPA
+      ↓
+SPA Number = Deal Recap Number
+      ↓
+Digital Signing
+8. Document Numbering Logic
+Enquiry Number
+[Party Prefix] + [Product] + [DateMonth] + [Serial]
+Example
+BUL-BAUX-1203-001
+SCO
+Must include:
+Enquiry Reference Number
+Deal Recap Number
+[Buyer3Letters]/[Seller3Letters]/[DDMM]/[Serial]
+
+Example:
+ABC/XYZ/1203/001
+SPA Number
+Same as Deal Recap Number
+9. Digital Signature System
+All documents must include:
+Issuing party digital signature
+Timestamp
+Blockchain hash reference
+10. Notification System
+System must notify parties via:
+Email
+and
+Dashboard Alerts
+For:
+Enquiry Acceptance
+Document Generated
+Signature Pending
+Amendment Requested
+11. High Level Platform Flow
+User Registration
+      ↓
+KYC Approval
+      ↓
+Create Enquiry
+      ↓
+Enquiry Accepted
+      ↓
+Initiate Trade
+      ↓
+Blockchain Record
+      ↓
+Generate LOI
+      ↓
+Generate SCO
+      ↓
+Generate Deal Recap
+      ↓
+Generate SPA
+12. Suggested System Modules (For Developers)
+User & KYC Module
+Product Registry
+Enquiry Engine
+Trade Matching Engine
+Blockchain Trade Recorder
+Document Generator
+Digital Signature Module
+Notification Engine
+Contract Repository
+Audit Trail System

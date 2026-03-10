@@ -542,18 +542,15 @@ export default function KYC() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Producer">Producer</SelectItem>
-                      <SelectItem value="Seller">Seller</SelectItem>
-                      <SelectItem value="Co Seller">Co Seller</SelectItem>
                       <SelectItem value="Buyer">Buyer</SelectItem>
-                      <SelectItem value="Co Buyer">Co Buyer</SelectItem>
+                      <SelectItem value="Seller">Seller</SelectItem>
                       <SelectItem value="Analysis Agency">Analysis Agency</SelectItem>
-                      <SelectItem value="Collateral Manager">Collateral Manager</SelectItem>
-                      <SelectItem value="Shipping Agency">Shipping Agency</SelectItem>
-                      <SelectItem value="Stevedoring Agency">Stevedoring Agency</SelectItem>
-                      <SelectItem value="Custom House Agent (CHA)">Custom House Agent (CHA)</SelectItem>
-                      <SelectItem value="Chartering Companies">Chartering Companies</SelectItem>
-                      <SelectItem value="Chartering Brokers">Chartering Brokers</SelectItem>
+                      <SelectItem value="Port Agent">Port Agent</SelectItem>
+                      <SelectItem value="Shipping Agent">Shipping Agent</SelectItem>
+                      <SelectItem value="Chartering Broker">Chartering Broker</SelectItem>
                       <SelectItem value="Ship Owner">Ship Owner</SelectItem>
+                      <SelectItem value="Custom Clearing Agent">Custom Clearing Agent</SelectItem>
+                      <SelectItem value="Stevedoring Agent">Stevedoring Agent</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

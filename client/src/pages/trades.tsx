@@ -115,10 +115,10 @@ const stageDefinitions = [
 const statusFlow = stageDefinitions.map((s) => s.key);
 
 const commodityCategories = [
-  { value: "minerals", label: "Minerals", items: ["Iron Ore", "Bauxite", "Manganese"] },
-  { value: "metals", label: "Metals", items: ["Copper Cathodes", "Aluminium Ingots"] },
-  { value: "energy", label: "Energy Products", items: ["ULSD", "HSGO", "LPG"] },
-  { value: "petrochemicals", label: "Petrochemicals", items: ["Bitumen", "Petcoke", "Sulphur"] },
+  { value: "minerals", label: "Minerals", items: ["Iron Ore", "Bauxite", "Manganese Ore"] },
+  { value: "metals", label: "Metals", items: ["Copper Cathode", "Copper Concentrate", "Aluminium Ingots"] },
+  { value: "energy", label: "Energy Products", items: ["Gasoil 10ppm", "Gasoil 50ppm", "LHC (Low Hydrocarbon)", "HSFO (High Sulphur Fuel Oil)", "HSGO (High Sulphur Gas Oil 20000ppm)"] },
+  { value: "petrochemicals", label: "Petrochemicals", items: ["Petcoke \u2013 Anode Grade", "Petcoke \u2013 Fuel Grade"] },
   { value: "fertilizers", label: "Fertilizers", items: ["NPK"] },
 ];
 

@@ -155,7 +155,7 @@ export default function Contact() {
                   },
                   {
                     title: "Commodity Divisions",
-                    desc: "Inquiries about tokenised commodities across Minerals, Metals, Energy Products, Petrochemicals, and Fertilizers.",
+                    desc: "Inquiries about tokenised commodities across Minerals, Metals, Energy Products, Petrochemicals, and Fertilizers. Including Iron Ore, Copper Cathode, Gasoil, Petcoke, and NPK.",
                   },
                   {
                     title: "Documentation & Compliance",

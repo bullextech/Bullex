@@ -287,6 +287,102 @@ export async function sendChangeRequestRejectedEmail(
   return sendEmail(to, `KYC Change Request Rejected – ${companyName}`, emailWrapper(body));
 }
 
+export async function sendSignaturePendingEmail(
+  to: string,
+  recipientName: string,
+  docType: string,
+  docTitle: string
+): Promise<boolean> {
+  const docTypeLabels: Record<string, string> = {
+    DEAL_RECAP: "Deal Recap",
+    FCO: "Full Corporate Offer",
+    SCO: "Soft Corporate Offer",
+    ICPO: "Irrevocable Corporate Purchase Order",
+    SPA: "Sales & Purchase Agreement",
+    LOI: "Letter of Intent",
+    POP: "Proof of Product",
+    POF: "Proof of Funds",
+    BCL: "Bank Comfort Letter",
+  };
+  const fullType = docTypeLabels[docType] || docType;
+
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Document Awaiting Your Review</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${recipientName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      A trade document has been sent to you for review and acceptance via the Bullex Trading Platform:
+    </p>
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+        <tr><td style="color: #64748b; padding: 6px 0; width: 120px;">Document Type:</td><td style="color: #1e293b; font-weight: 600;">${fullType} (${docType})</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Title:</td><td style="color: #1e293b; font-weight: 600;">${docTitle}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Date Sent:</td><td style="color: #1e293b; font-weight: 600;">${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</td></tr>
+      </table>
+    </div>
+    <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #92400e; margin: 0; font-weight: 600;">Action Required</p>
+      <p style="color: #a16207; margin: 8px 0 0; font-size: 14px;">
+        Please log in to your Client Portal to review this document. You can accept the document or request amendments if changes are needed.
+      </p>
+    </div>
+    <p style="color: #475569; line-height: 1.6;">
+      For any trade inquiries, please contact our trade desk at
+      <a href="mailto:trade@bullex.tech" style="color: #2563eb;">trade@bullex.tech</a>.
+    </p>
+  `;
+  return sendEmail(to, `Action Required: ${fullType} (${docType}) – ${docTitle}`, emailWrapper(body));
+}
+
+export async function sendAmendmentRequestedEmail(
+  to: string,
+  recipientName: string,
+  docType: string,
+  docTitle: string,
+  amendmentNotes: string,
+  requestedBy: string
+): Promise<boolean> {
+  const docTypeLabels: Record<string, string> = {
+    DEAL_RECAP: "Deal Recap",
+    FCO: "Full Corporate Offer",
+    SCO: "Soft Corporate Offer",
+    ICPO: "Irrevocable Corporate Purchase Order",
+    SPA: "Sales & Purchase Agreement",
+    LOI: "Letter of Intent",
+    POP: "Proof of Product",
+    POF: "Proof of Funds",
+    BCL: "Bank Comfort Letter",
+  };
+  const fullType = docTypeLabels[docType] || docType;
+
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Amendment Requested</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${recipientName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      An amendment has been requested for the following trade document on the Bullex Trading Platform:
+    </p>
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+        <tr><td style="color: #64748b; padding: 6px 0; width: 120px;">Document Type:</td><td style="color: #1e293b; font-weight: 600;">${fullType} (${docType})</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Title:</td><td style="color: #1e293b; font-weight: 600;">${docTitle}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Requested By:</td><td style="color: #1e293b; font-weight: 600;">${requestedBy}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Date:</td><td style="color: #1e293b; font-weight: 600;">${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</td></tr>
+      </table>
+    </div>
+    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #991b1b; margin: 0; font-weight: 600;">Amendment Notes</p>
+      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">${amendmentNotes}</p>
+    </div>
+    <p style="color: #475569; line-height: 1.6;">
+      Please review the requested changes and amend the document accordingly. Once amended, the document can be resent for approval.
+    </p>
+    <p style="color: #475569; line-height: 1.6;">
+      For any trade inquiries, please contact our trade desk at
+      <a href="mailto:trade@bullex.tech" style="color: #2563eb;">trade@bullex.tech</a>.
+    </p>
+  `;
+  return sendEmail(to, `Amendment Requested: ${fullType} (${docType}) – ${docTitle}`, emailWrapper(body));
+}
+
 export async function sendDocumentEmail(
   to: string,
   recipientName: string,

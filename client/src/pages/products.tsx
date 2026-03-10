@@ -52,14 +52,19 @@ const divisions = [
       "High-purity refined metal tokens backed 1:1 by LME-registered physical inventory — direct exposure to base metal markets for retail and institutional investors.",
     products: [
       {
-        name: "Copper Cathodes",
+        name: "Copper Cathode",
         token: "BFG-CPC",
         desc: "Grade A refined copper (99.99% purity) standard LME registered, vital for electrical and industrial applications. 1 token = 1 MT.",
       },
       {
-        name: "Aluminium",
+        name: "Copper Concentrate",
+        token: "BFG-CCN",
+        desc: "Beneficiated copper ore concentrate for smelting and refining operations, sourced from established mining jurisdictions. 1 token = 1 MT.",
+      },
+      {
+        name: "Aluminium Ingots",
         token: "BFG-ALU",
-        desc: "High-quality primary aluminium ingots and alloys for diverse manufacturing requirements. 1 token = 1 MT.",
+        desc: "High-quality primary aluminium ingots for diverse manufacturing requirements. 1 token = 1 MT.",
       },
     ],
   },
@@ -74,24 +79,29 @@ const divisions = [
       "Energy commodity tokens providing direct exposure to global fuel and gas markets — tokenised with 1:1 physical backing and transparent settlement.",
     products: [
       {
-        name: "ULSD 10ppm",
-        token: "BFG-ULS",
-        desc: "Ultra-Low Sulfur Diesel meeting stringent environmental standards for modern transportation and industry. 1 token = 1 BBL.",
+        name: "Gasoil 10ppm",
+        token: "BFG-G10",
+        desc: "Ultra-low sulphur gasoil meeting stringent environmental standards for modern transportation and industry. 1 token = 1 BBL.",
       },
       {
-        name: "ULSD 50ppm",
-        token: "BFG-ULS",
-        desc: "High-quality low sulfur diesel fuel optimized for various global market requirements. 1 token = 1 BBL.",
+        name: "Gasoil 50ppm",
+        token: "BFG-G50",
+        desc: "Low sulphur gasoil optimized for various global market requirements. 1 token = 1 BBL.",
       },
       {
-        name: "HSGO 20,000ppm",
+        name: "LHC (Low Hydrocarbon)",
+        token: "BFG-LHC",
+        desc: "Low hydrocarbon fuel product for specialised industrial and energy applications. 1 token = 1 MT.",
+      },
+      {
+        name: "HSFO (High Sulphur Fuel Oil)",
+        token: "BFG-HSF",
+        desc: "High sulphur fuel oil for marine bunkering and power generation applications. 1 token = 1 MT.",
+      },
+      {
+        name: "HSGO (High Sulphur Gas Oil 20000ppm)",
         token: "BFG-HSG",
-        desc: "High Sulfur Gas Oil suitable for power generation and industrial heating applications. 1 token = 1 BBL.",
-      },
-      {
-        name: "LPG",
-        token: "BFG-LPG",
-        desc: "Liquefied Petroleum Gas providing clean, efficient energy for commercial and residential applications. 1 token = 1 MT.",
+        desc: "High sulphur gas oil suitable for power generation and industrial heating applications. 1 token = 1 BBL.",
       },
     ],
   },
@@ -106,19 +116,14 @@ const divisions = [
       "Petrochemical derivative tokens for infrastructure development and manufacturing sectors — fractional positions with blockchain-verified provenance.",
     products: [
       {
-        name: "Bitumen",
-        token: "BFG-BIT",
-        desc: "Various penetration and performance grades critical for road construction and waterproofing. 1 token = 1 MT.",
+        name: "Petcoke \u2013 Anode Grade",
+        token: "BFG-PCA",
+        desc: "Premium anode grade petroleum coke for aluminium smelting and carbon anode production. 1 token = 1 MT.",
       },
       {
-        name: "Petcoke",
-        token: "BFG-PCK",
-        desc: "Petroleum coke utilized globally as an efficient energy source for cement and power generation. 1 token = 1 MT.",
-      },
-      {
-        name: "Sulphur",
-        token: "BFG-SUL",
-        desc: "Industrial grade sulphur for fertilizer production, chemical manufacturing, and industrial processing. 1 token = 1 MT.",
+        name: "Petcoke \u2013 Fuel Grade",
+        token: "BFG-PCF",
+        desc: "Fuel grade petroleum coke utilized globally as an efficient energy source for cement and power generation. 1 token = 1 MT.",
       },
     ],
   },
