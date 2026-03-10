@@ -801,22 +801,28 @@ export async function registerRoutes(
       });
 
       try {
+        const isLoi = parsed.data.docType === "LOI";
         const docxPath = await generateDocx(result.id, result.title, content);
-        const pdfPath = await generatePdf(result.id, result.title, content);
-        const updated = await storage.updateDocument(result.id, { docxPath, pdfPath });
+        let pdfPath: string | undefined;
+        if (!isLoi) {
+          pdfPath = await generatePdf(result.id, result.title, content);
+        }
+        const updated = await storage.updateDocument(result.id, { docxPath, ...(pdfPath ? { pdfPath } : {}) });
 
         const buyerEmail = buyerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0];
         const sellerEmail = sellerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0];
         const buyerName = buyerDetails?.name || "Buyer";
         const sellerName = sellerDetails?.name || "Seller";
 
-        if (buyerEmail) {
-          sendDocumentEmail(buyerEmail, buyerName, parsed.data.docType, result.title, "Buyer", pdfPath)
-            .catch(err => console.error("[docs] Failed to email buyer:", err));
-        }
-        if (sellerEmail) {
-          sendDocumentEmail(sellerEmail, sellerName, parsed.data.docType, result.title, "Seller", pdfPath)
-            .catch(err => console.error("[docs] Failed to email seller:", err));
+        if (pdfPath) {
+          if (buyerEmail) {
+            sendDocumentEmail(buyerEmail, buyerName, parsed.data.docType, result.title, "Buyer", pdfPath)
+              .catch(err => console.error("[docs] Failed to email buyer:", err));
+          }
+          if (sellerEmail) {
+            sendDocumentEmail(sellerEmail, sellerName, parsed.data.docType, result.title, "Seller", pdfPath)
+              .catch(err => console.error("[docs] Failed to email seller:", err));
+          }
         }
 
         res.json(updated);
@@ -912,6 +918,39 @@ export async function registerRoutes(
       res.sendFile(filePath);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to download PDF" });
+    }
+  });
+
+  app.post("/api/documents/:id/convert-pdf", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const doc = await storage.getDocumentById(req.params.id);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      if (!doc.content) return res.status(400).json({ message: "Document has no content" });
+      if (!doc.buyerSignature) return res.status(400).json({ message: "Document must be signed before converting to PDF" });
+
+      const result = await regenerateWithSignatures(
+        doc.id, doc.title, doc.content,
+        doc.buyerSignature || undefined, undefined,
+        doc.buyerSignedName || undefined, undefined,
+        doc.buyerSignedAt ? new Date(doc.buyerSignedAt) : undefined, undefined,
+      );
+
+      const updated = await storage.updateDocument(doc.id, { pdfPath: result.pdfPath, status: "final" });
+
+      const buyerEmail = doc.buyerEmail;
+      const sellerEmail = doc.sellerEmail;
+      if (buyerEmail) {
+        sendDocumentEmail(buyerEmail, doc.buyerSignedName || "Buyer", doc.docType, doc.title, "Buyer", result.pdfPath)
+          .catch(err => console.error("[docs] Failed to email buyer:", err));
+      }
+      if (sellerEmail) {
+        sendDocumentEmail(sellerEmail, "Seller", doc.docType, doc.title, "Seller", result.pdfPath)
+          .catch(err => console.error("[docs] Failed to email seller:", err));
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to convert to PDF" });
     }
   });
 

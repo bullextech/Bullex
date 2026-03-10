@@ -317,6 +317,21 @@ export default function DocumentGenerator() {
     },
   });
 
+  const convertToPdf = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/documents/${id}/convert-pdf`);
+      return res.json();
+    },
+    onSuccess: (updated: Doc) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      setViewDoc(updated);
+      toast({ title: "PDF Generated", description: "LOI has been converted to PDF and marked as complete." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Conversion Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const openSignDialog = (docId: string, party: "buyer" | "seller") => {
     setSignDocId(docId);
     setSignParty(party);
@@ -565,6 +580,20 @@ export default function DocumentGenerator() {
                         data-testid={`button-download-docx-${doc.id}`}
                       >
                         <Download className="w-4 h-4 text-blue-600" />
+                      </Button>
+                    )}
+                    {doc.docType === "LOI" && doc.buyerSignature && !doc.pdfPath && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-orange-600 hover:text-orange-700"
+                        onClick={() => convertToPdf.mutate(doc.id)}
+                        disabled={convertToPdf.isPending}
+                        title="Convert signed LOI to PDF"
+                        data-testid={`button-convert-pdf-${doc.id}`}
+                      >
+                        <FileCheck className="w-4 h-4 mr-1" />
+                        {convertToPdf.isPending ? "Converting..." : "Convert to PDF"}
                       </Button>
                     )}
                     {doc.pdfPath && (
@@ -1330,6 +1359,38 @@ export default function DocumentGenerator() {
                   </div>
                 </div>
               </div>
+
+              {viewDoc.docType === "LOI" && viewDoc.buyerSignature && !viewDoc.pdfPath && (
+                <div className="border-t pt-4">
+                  <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg p-4 text-center space-y-3">
+                    <p className="text-sm font-medium text-orange-800 dark:text-orange-200">LOI is signed and ready to finalize</p>
+                    <p className="text-xs text-orange-600 dark:text-orange-400">Convert to PDF to complete the LOI. This will generate the final PDF with the digital signature embedded and mark the document as complete.</p>
+                    <Button
+                      className="bg-orange-600 hover:bg-orange-700 text-white"
+                      onClick={() => convertToPdf.mutate(viewDoc.id)}
+                      disabled={convertToPdf.isPending}
+                      data-testid="button-convert-pdf-view"
+                    >
+                      <FileCheck className="w-4 h-4 mr-1.5" />
+                      {convertToPdf.isPending ? "Converting..." : "Convert to PDF & Complete LOI"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {viewDoc.docType === "LOI" && viewDoc.pdfPath && viewDoc.status === "final" && (
+                <div className="border-t pt-4">
+                  <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                      <p className="text-sm font-medium text-green-800 dark:text-green-200">LOI Complete</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => window.open(`/api/documents/${viewDoc.id}/download/pdf`, "_blank")} data-testid="button-download-final-pdf">
+                      <FileText className="w-3.5 h-3.5 mr-1.5 text-red-600" />
+                      Download PDF
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setViewDoc(null)} data-testid="button-close-view">
