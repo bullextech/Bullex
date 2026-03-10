@@ -10,7 +10,7 @@ import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateE
 import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
 import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail } from "./email";
-import { generateDocx, generatePdf, getDocFilePath } from "./documentFileGenerator";
+import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures } from "./documentFileGenerator";
 
 declare module "express-session" {
   interface SessionData {
@@ -863,8 +863,22 @@ export async function registerRoutes(
     try {
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
-      const filePath = doc.docxPath ? getDocFilePath(doc.docxPath) : null;
-      if (!filePath) return res.status(404).json({ message: "DOCX file not available" });
+      if (!doc.content) return res.status(404).json({ message: "Document content not available" });
+      if (doc.buyerSignature) {
+        const result = await regenerateWithSignatures(
+          doc.id, doc.title, doc.content,
+          doc.buyerSignature || undefined, undefined,
+          doc.buyerSignedName || undefined, undefined,
+          doc.buyerSignedAt ? new Date(doc.buyerSignedAt) : undefined, undefined,
+        );
+        const filePath = getDocFilePath(result.docxPath);
+        res.setHeader("Content-Disposition", `attachment; filename="${doc.docType}_${doc.title.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_")}.docx"`);
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        return res.sendFile(filePath);
+      }
+      const docxPath = await generateDocx(doc.id, doc.title, doc.content);
+      await storage.updateDocument(doc.id, { docxPath });
+      const filePath = getDocFilePath(docxPath);
       res.setHeader("Content-Disposition", `attachment; filename="${doc.docType}_${doc.title.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_")}.docx"`);
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
       res.sendFile(filePath);
@@ -877,8 +891,22 @@ export async function registerRoutes(
     try {
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
-      const filePath = doc.pdfPath ? getDocFilePath(doc.pdfPath) : null;
-      if (!filePath) return res.status(404).json({ message: "PDF file not available" });
+      if (!doc.content) return res.status(404).json({ message: "Document content not available" });
+      if (doc.buyerSignature) {
+        const result = await regenerateWithSignatures(
+          doc.id, doc.title, doc.content,
+          doc.buyerSignature || undefined, undefined,
+          doc.buyerSignedName || undefined, undefined,
+          doc.buyerSignedAt ? new Date(doc.buyerSignedAt) : undefined, undefined,
+        );
+        const filePath = getDocFilePath(result.pdfPath);
+        res.setHeader("Content-Disposition", `attachment; filename="${doc.docType}_${doc.title.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_")}.pdf"`);
+        res.setHeader("Content-Type", "application/pdf");
+        return res.sendFile(filePath);
+      }
+      const pdfPath = await generatePdf(doc.id, doc.title, doc.content);
+      await storage.updateDocument(doc.id, { pdfPath });
+      const filePath = getDocFilePath(pdfPath);
       res.setHeader("Content-Disposition", `attachment; filename="${doc.docType}_${doc.title.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_")}.pdf"`);
       res.setHeader("Content-Type", "application/pdf");
       res.sendFile(filePath);
