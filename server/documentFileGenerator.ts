@@ -653,19 +653,17 @@ function buildLoiDocx(content: string): (Paragraph | Table)[] {
     }));
   }
 
+  const skipPatterns = /^(AUTHORISED SIGNATORY|Name:|Title:|Date:|Signature:|For & On Behalf)/i;
   children.push(new Paragraph({ spacing: { before: 500 } }));
+  let issuerName = loi.buyerSignatory;
   for (const line of loi.closingLines) {
+    if (skipPatterns.test(line)) continue;
     const isItalic = line.startsWith("We look forward") || line.startsWith("With warm regards");
     children.push(new Paragraph({
       children: [new TextRun({ text: line, size: 18, font: "Calibri", italics: isItalic })],
       spacing: { after: isItalic ? 200 : 80 },
     }));
-  }
-  if (loi.buyerSignatory) {
-    children.push(new Paragraph({
-      children: [new TextRun({ text: loi.buyerSignatory, bold: true, size: 22, font: "Calibri" })],
-      spacing: { after: 200 },
-    }));
+    if (!isItalic && line.trim()) issuerName = line;
   }
 
   children.push(new Paragraph({ spacing: { before: 100 } }));
@@ -784,8 +782,10 @@ function buildLoiPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
     doc.moveDown(1);
   }
 
+  const pdfSkipPatterns = /^(AUTHORISED SIGNATORY|Name:|Title:|Date:|Signature:|For & On Behalf)/i;
   doc.moveDown(1.5);
   for (const line of loi.closingLines) {
+    if (pdfSkipPatterns.test(line)) continue;
     pdfCheckPage(doc, 20);
     if (line.startsWith("We look forward") || line.startsWith("With warm regards")) {
       doc.font("Helvetica-Oblique").fontSize(8).fillColor("#000000").text(line, leftMargin, doc.y, { width: pageWidth });
@@ -794,10 +794,6 @@ function buildLoiPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
       doc.font("Helvetica").fontSize(8).fillColor("#000000").text(line, leftMargin, doc.y, { width: pageWidth });
       doc.moveDown(0.4);
     }
-  }
-  if (loi.buyerSignatory) {
-    doc.font("Helvetica-Bold").fontSize(10).fillColor("#000000").text(loi.buyerSignatory, leftMargin, doc.y);
-    doc.moveDown(0.8);
   }
 
   pdfCheckPage(doc, 80);
