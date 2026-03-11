@@ -65,7 +65,7 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 - **Contact**: team@bullex.tech, tokenisation inquiries, investor onboarding, Dubai office
 - **KYC Registration**: 10-section institutional KYC form
 - **Blockchain Trading**: Commodity trade execution with blockchain verification
-- **Document Generator**: Generate Deal Recap, FCO, SCO, ICPO, SPA, LOI, POP, POF, BCL with DOCX/PDF output, auto-email to buyer/seller with PDF attachment, KYC client auto-fill, Review step (preview content before generating DOCX), Digital Signatures (draw-to-sign for buyer/seller with embedded signatures in regenerated PDF/DOCX)
+- **Document Generator**: Generate Deal Recap, FCO, SCO, ICPO, SPA, LOI, POP, POF, BCL with DOCX/PDF output, auto-email with PDF attachment, KYC client auto-fill, Review step (preview content before generating DOCX), Digital Signatures (draw-to-sign buyer/admin signature for all doc types, embedded in regenerated PDF/DOCX), Convert to PDF available for all doc types after signing
   - **Deal Recap template**: 4 chapters (Introductory & Background, Scope & Commercial Terms, Financial & Operational Arrangements, Miscellaneous & Boilerplate) + dual signatory block + Annex I (Product Specification, Quality Premiums/Penalties, Sampling/Quality/Moisture/Quantity procedures)
   - **LOI template**: 12-row editable table with 3 sections (Issued to Seller, LOI Details, Issued by Buyer) + LOI-specific fields (validity, refPerson, contractConfirmation, docsForPayment, otherTerms, compliance)
   - **SCO template**: Seller's conditional offer with commodity parameters table (9 items) + issuer signatory section

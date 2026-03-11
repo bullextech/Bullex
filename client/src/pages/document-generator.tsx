@@ -417,12 +417,8 @@ export default function DocumentGenerator() {
   };
 
   const canSend = (doc: Doc): boolean => {
-    if (doc.status === "sent" || doc.status === "accepted" || doc.status === "rejected" || doc.status === "final") return false;
-    const isBuyerDoc = ["LOI", "ICPO"].includes(doc.docType);
-    const isSellerDoc = ["FCO", "SCO"].includes(doc.docType);
-    if (isBuyerDoc) return !!doc.buyerSignature;
-    if (isSellerDoc) return !!doc.sellerSignature;
-    return !!(doc.buyerSignature || doc.sellerSignature);
+    if (doc.status === "sent" || doc.status === "accepted" || doc.status === "final") return false;
+    return !!doc.buyerSignature;
   };
 
   const openSignDialog = (docId: string, party: "buyer" | "seller") => {
@@ -669,7 +665,7 @@ export default function DocumentGenerator() {
                         Amendment Needed
                       </Badge>
                     )}
-                    {(doc.status === "draft" || doc.status === "rejected") && (doc.buyerSignature || doc.sellerSignature) && (
+                    {canSend(doc) && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -708,14 +704,14 @@ export default function DocumentGenerator() {
                         <Download className="w-4 h-4 text-blue-600" />
                       </Button>
                     )}
-                    {doc.docType === "LOI" && doc.buyerSignature && !doc.pdfPath && (
+                    {doc.buyerSignature && !doc.pdfPath && (
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-8 text-xs text-orange-600 hover:text-orange-700"
                         onClick={() => convertToPdf.mutate(doc.id)}
                         disabled={convertToPdf.isPending}
-                        title="Convert signed LOI to PDF"
+                        title="Convert to PDF"
                         data-testid={`button-convert-pdf-${doc.id}`}
                       >
                         <FileCheck className="w-4 h-4 mr-1" />
@@ -1486,11 +1482,11 @@ export default function DocumentGenerator() {
                 </div>
               </div>
 
-              {viewDoc.docType === "LOI" && viewDoc.buyerSignature && !viewDoc.pdfPath && viewDoc.status !== "sent" && viewDoc.status !== "accepted" && (
+              {viewDoc.buyerSignature && !viewDoc.pdfPath && viewDoc.status !== "sent" && viewDoc.status !== "accepted" && (
                 <div className="border-t pt-4">
                   <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg p-4 text-center space-y-3">
-                    <p className="text-sm font-medium text-orange-800 dark:text-orange-200">LOI is signed and ready to finalize</p>
-                    <p className="text-xs text-orange-600 dark:text-orange-400">Convert to PDF to complete the LOI. This will generate the final PDF with the digital signature embedded.</p>
+                    <p className="text-sm font-medium text-orange-800 dark:text-orange-200">{viewDoc.docType} is signed and ready to finalize</p>
+                    <p className="text-xs text-orange-600 dark:text-orange-400">Convert to PDF to finalize the document. This will generate the final PDF with the digital signature embedded.</p>
                     <Button
                       className="bg-orange-600 hover:bg-orange-700 text-white"
                       onClick={() => convertToPdf.mutate(viewDoc.id)}
@@ -1498,7 +1494,7 @@ export default function DocumentGenerator() {
                       data-testid="button-convert-pdf-view"
                     >
                       <FileCheck className="w-4 h-4 mr-1.5" />
-                      {convertToPdf.isPending ? "Converting..." : "Convert to PDF & Complete LOI"}
+                      {convertToPdf.isPending ? "Converting..." : `Convert to PDF & Complete ${viewDoc.docType}`}
                     </Button>
                   </div>
                 </div>

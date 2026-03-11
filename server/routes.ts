@@ -1186,16 +1186,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: `Cannot send document in '${doc.status}' state. Must be draft, final, or rejected.` });
       }
 
-      const isBuyerDoc = ["LOI", "ICPO"].includes(doc.docType);
-      const isSellerDoc = ["FCO", "SCO"].includes(doc.docType);
-
-      if (isBuyerDoc && !doc.buyerSignature) {
-        return res.status(400).json({ message: "Document must be signed by the buyer before sending" });
-      }
-      if (isSellerDoc && !doc.sellerSignature) {
-        return res.status(400).json({ message: "Document must be signed by the seller before sending" });
-      }
-      if (!isBuyerDoc && !isSellerDoc && !doc.buyerSignature && !doc.sellerSignature) {
+      if (!doc.buyerSignature) {
         return res.status(400).json({ message: "Document must be signed before sending" });
       }
 
@@ -1213,10 +1204,9 @@ export async function registerRoutes(
       });
 
       if (recipientEmail) {
-        const senderName = isBuyerDoc ? "Buyer" : "Seller";
         const pdfOrDocx = doc.pdfPath || doc.docxPath;
         if (pdfOrDocx) {
-          sendDocumentEmail(recipientEmail, "Recipient", doc.docType, doc.title, senderName, pdfOrDocx)
+          sendDocumentEmail(recipientEmail, "Recipient", doc.docType, doc.title, "Bullex Trading", pdfOrDocx)
             .catch(err => console.error("[docs] Failed to email recipient:", err));
         }
         sendSignaturePendingEmail(recipientEmail, "Recipient", doc.docType, doc.title)
