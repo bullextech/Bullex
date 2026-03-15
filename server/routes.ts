@@ -12,6 +12,66 @@ import { seedDatabase } from "./seed";
 import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail } from "./email";
 import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures } from "./documentFileGenerator";
 
+const ADMIN_CHECKLISTS: Record<string, string[]> = {
+  LOI: [
+    "Buyer details verified against KYC records",
+    "Product specification matches enquiry",
+    "Quantity and unit are correct",
+    "Price and payment terms acceptable",
+    "Laycan / delivery timeline is feasible",
+    "Port of loading and discharge correct",
+    "Enquiry reference number present and valid",
+  ],
+  SCO: [
+    "Seller details verified against KYC records",
+    "LOI reference correctly cited",
+    "Product grade and specifications complete",
+    "Quantity, price, and unit match LOI",
+    "Inspection clause included",
+    "Laycan dates consistent with LOI",
+    "Payment terms match LOI",
+  ],
+  FCO: [
+    "Seller details verified against KYC records",
+    "Product grade and specifications complete",
+    "Quantity, price, and unit specified",
+    "Payment and delivery terms defined",
+    "Validity period stated",
+    "Inspection clause included",
+    "Signatory authorized",
+  ],
+  DEAL_RECAP: [
+    "Buyer and Seller details correct",
+    "LOI and SCO references cited",
+    "Product, qty, price match all prior documents",
+    "Total contract value calculated correctly",
+    "Payment, laycan, inspection terms consistent",
+    "Arbitration and governing law clause present",
+    "Deal Recap number format correct",
+  ],
+  SPA: [
+    "Deal Recap reference number cited",
+    "All commercial terms match Deal Recap",
+    "Force majeure clause included",
+    "Penalty and dispute resolution defined",
+    "Both party signatories identified",
+    "SPA number matches Deal Recap number",
+    "Governing law and jurisdiction confirmed",
+  ],
+};
+const DEFAULT_CHECKLIST = [
+  "Document details complete and accurate",
+  "Trade reference verified",
+  "Counterparty details correct",
+  "Terms and conditions reviewed",
+  "Compliance requirements met",
+];
+
+function buildAdminChecks(docType: string): Array<{ label: string; checked: boolean }> {
+  const labels = ADMIN_CHECKLISTS[docType] || DEFAULT_CHECKLIST;
+  return labels.map(label => ({ label, checked: false }));
+}
+
 declare module "express-session" {
   interface SessionData {
     authenticated: boolean;
@@ -912,10 +972,12 @@ export async function registerRoutes(
       const enquiryRef = req.body.enquiryRef || null;
 
       const content = generateDocumentContent(parsed.data.docType, trade, buyerDetails, sellerDetails, { ...productDetails, loiIssueNumber: issueNumber });
+      const adminChecks = buildAdminChecks(parsed.data.docType);
       const result = await storage.createDocument({
         ...parsed.data,
         content,
-        status: "draft",
+        status: "pending_review",
+        adminChecks,
         issueNumber,
         dealRecapNumber,
         enquiryRef,
@@ -1080,10 +1142,33 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/documents/:id/admin-review", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const doc = await storage.getDocumentById(req.params.id);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      const { adminChecks, adminReviewNotes, action } = req.body;
+      const updateData: Record<string, any> = {};
+      if (Array.isArray(adminChecks)) updateData.adminChecks = adminChecks;
+      if (typeof adminReviewNotes === "string") updateData.adminReviewNotes = adminReviewNotes;
+      if (action === "approve") {
+        updateData.status = "draft";
+      } else if (action === "reject") {
+        updateData.status = "rejected";
+      }
+      const updated = await storage.updateDocument(req.params.id, updateData);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update admin review" });
+    }
+  });
+
   app.post("/api/documents/:id/sign", requireAuth, async (req: Request, res: Response) => {
     try {
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
+      if (doc.status === "pending_review") {
+        return res.status(400).json({ message: "Document must be approved by admin before signing." });
+      }
       const { party, signature, name } = req.body;
       if (!party || !["buyer", "seller"].includes(party)) {
         return res.status(400).json({ message: "Party must be 'buyer' or 'seller'" });
@@ -1331,7 +1416,8 @@ export async function registerRoutes(
         enquiryRef,
         dealRecapNumber,
         parentDocId: parentDoc.id,
-        status: "draft",
+        status: "pending_review",
+        adminChecks: buildAdminChecks(nextDocType),
         content: content || `Document created from ${parentDoc.docType}: ${parentDoc.title}`,
         buyerEmail: parentDoc.buyerEmail,
         sellerEmail: parentDoc.sellerEmail,

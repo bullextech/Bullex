@@ -1,0 +1,2614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bullex Tech — Trade Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- Firebase SDK v9 (compat mode — works in single HTML file) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+// ============================================================
+// FIREBASE CONFIGURATION
+// Replace these values with your Firebase project credentials.
+// Get them from: Firebase Console → Project Settings → Your Apps
+// ============================================================
+const FIREBASE_CONFIG = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+
+// ---- DO NOT EDIT BELOW THIS LINE ----
+const FB_CONFIGURED = !FIREBASE_CONFIG.apiKey.includes('YOUR_');
+let db, auth, fbApp;
+if (FB_CONFIGURED) {
+  fbApp = firebase.initializeApp(FIREBASE_CONFIG);
+  db    = firebase.firestore();
+  auth  = firebase.auth();
+  // Enable offline persistence (works even when offline)
+  db.enablePersistence().catch(()=>{});
+}
+</script>
+<style>
+  :root{--bg:#08090d;--surface:#0f1117;--surface2:#161922;--border:#1e2330;--accent:#f0a500;--accent2:#00d4a0;--accent3:#4a9eff;--text:#e8eaf0;--muted:#5a6175;--danger:#ff4757;--success:#2ed573;--warning:#ffa502;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(240,165,0,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(240,165,0,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;}
+  .shell{display:flex;min-height:100vh;position:relative;z-index:1;}
+  .sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;}
+  .logo{padding:20px 18px 16px;border-bottom:1px solid var(--border);}
+  .logo-mark{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;letter-spacing:-0.5px;color:var(--accent);}
+  .logo-mark span{color:var(--text);}
+  .logo-sub{font-size:10px;color:var(--muted);letter-spacing:2px;margin-top:2px;}
+  .nav{flex:1;padding:12px 0;overflow-y:auto;}
+  .nav-section{padding:4px 18px 6px;font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:10px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:8px 18px;cursor:pointer;color:var(--muted);transition:all 0.15s;border-left:2px solid transparent;font-size:12px;}
+  .nav-item:hover{color:var(--text);background:var(--surface2);}
+  .nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(240,165,0,0.06);}
+  .nav-icon{width:16px;text-align:center;font-size:14px;}
+  .nav-badge{margin-left:auto;background:var(--danger);color:#fff;font-size:9px;padding:1px 6px;border-radius:10px;}
+  .user-info{padding:14px 18px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  .avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:#000;}
+  .user-name{font-size:12px;font-weight:500;}
+  .user-role{font-size:10px;color:var(--muted);}
+  .kyc-badge{margin-left:auto;background:rgba(46,213,115,0.15);color:var(--success);font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid rgba(46,213,115,0.3);}
+  .main{margin-left:220px;flex:1;display:flex;flex-direction:column;}
+  .topbar{height:52px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;flex:1;}
+  .topbar-actions{display:flex;gap:8px;align-items:center;}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:5px;border:none;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;transition:all 0.15s;}
+  .btn-primary{background:var(--accent);color:#000;}.btn-primary:hover{background:#d49300;}
+  .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}.btn-secondary:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-danger{background:rgba(255,71,87,0.12);color:var(--danger);border:1px solid rgba(255,71,87,0.3);}
+  .btn-success{background:rgba(46,213,115,0.12);color:var(--success);border:1px solid rgba(46,213,115,0.3);}
+  .btn-warning{background:rgba(255,165,2,0.12);color:var(--warning);border:1px solid rgba(255,165,2,0.3);}
+  .btn-sm{padding:4px 10px;font-size:11px;}
+  .content{padding:24px;flex:1;}
+  .page{display:none;}.page.active{display:block;}
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;position:relative;overflow:hidden;}
+  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+  .stat-card.gold::before{background:var(--accent);}.stat-card.teal::before{background:var(--accent2);}.stat-card.blue::before{background:var(--accent3);}.stat-card.red::before{background:var(--danger);}
+  .stat-label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+  .stat-value{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;margin:4px 0;}
+  .stat-change{font-size:11px;color:var(--muted);}.stat-change.up{color:var(--success);}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px;}
+  .card-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;}
+  .card-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;flex:1;}
+  .card-body{padding:0;}
+  table{width:100%;border-collapse:collapse;}
+  th{padding:10px 16px;text-align:left;font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--surface2);}
+  td{padding:11px 16px;border-bottom:1px solid rgba(30,35,48,0.6);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}tr:hover td{background:rgba(255,255,255,0.02);}
+  .badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:500;}
+  .badge-active{background:rgba(0,212,160,0.15);color:var(--accent2);border:1px solid rgba(0,212,160,0.3);}
+  .badge-pending{background:rgba(240,165,0,0.15);color:var(--accent);border:1px solid rgba(240,165,0,0.3);}
+  .badge-closed{background:rgba(90,97,117,0.2);color:var(--muted);border:1px solid var(--border);}
+  .badge-accepted{background:rgba(46,213,115,0.12);color:var(--success);border:1px solid rgba(46,213,115,0.3);}
+  .badge-rejected{background:rgba(255,71,87,0.12);color:var(--danger);border:1px solid rgba(255,71,87,0.3);}
+  .badge-kyc{background:rgba(74,158,255,0.12);color:var(--accent3);border:1px solid rgba(74,158,255,0.3);}
+  .badge-review{background:rgba(255,165,2,0.15);color:var(--warning);border:1px solid rgba(255,165,2,0.35);}
+  .enq-num{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);}
+  /* DOC TABS */
+  .doc-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface2);}
+  .doc-tab{padding:12px 20px;cursor:pointer;font-size:12px;color:var(--muted);border-bottom:2px solid transparent;transition:all 0.15s;display:flex;align-items:center;gap:8px;white-space:nowrap;}
+  .doc-tab:hover{color:var(--text);}
+  .doc-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .doc-tab-count{background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:9px;padding:1px 6px;border-radius:10px;}
+  .doc-tab.active .doc-tab-count{background:rgba(240,165,0,0.15);border-color:rgba(240,165,0,0.3);color:var(--accent);}
+  /* DOCUMENT PAPER */
+  .doc-paper{background:#fff;color:#1a1a2e;border-radius:4px;padding:36px 40px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.8;position:relative;}
+  .doc-paper-header{text-align:center;border-bottom:2px solid #1a1a2e;padding-bottom:18px;margin-bottom:20px;}
+  .doc-paper-logo{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#c87000;margin-bottom:2px;}
+  .doc-paper-sub{font-size:10px;color:#888;margin-bottom:8px;}
+  .doc-paper-doctype{font-size:15px;font-weight:700;color:#1a1a2e;letter-spacing:2px;text-transform:uppercase;margin:8px 0 4px;}
+  .doc-paper-ref{font-size:10px;color:#666;}
+  .doc-paper-section{margin:16px 0 6px;font-weight:700;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#c87000;border-bottom:1px solid #e8e8e8;padding-bottom:3px;}
+  .doc-paper-row{display:flex;gap:8px;margin-bottom:5px;}
+  .doc-paper-key{width:190px;flex-shrink:0;color:#555;font-size:11px;}
+  .doc-paper-val{color:#1a1a2e;font-size:11px;font-weight:500;}
+  .doc-paper-clause{padding:9px 12px;background:#f9f7f2;border-left:3px solid #c87000;margin:7px 0;font-size:11px;line-height:1.7;color:#333;}
+  .doc-paper-sigs{display:flex;justify-content:space-between;margin-top:28px;padding-top:18px;border-top:2px solid #1a1a2e;gap:16px;}
+  .doc-paper-sig-box{flex:1;text-align:center;}
+  .doc-paper-sig-line{border-top:1px solid #1a1a2e;margin:6px 0 6px;}
+  .doc-paper-sig-canvas-area{height:54px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;border-bottom:1px dashed #ccc;}
+  .doc-paper-sig-canvas-area img{max-height:52px;max-width:100%;object-fit:contain;}
+  .doc-paper-sig-name{font-size:11px;font-weight:700;}
+  .doc-paper-sig-role{font-size:10px;color:#666;}
+  .doc-paper-sig-meta{font-size:9px;color:#888;margin-top:3px;line-height:1.5;}
+  .doc-paper-stamp{display:inline-block;padding:3px 10px;border:2px solid;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:1px;margin-top:6px;}
+  .doc-paper-stamp.signed{border-color:#00a060;color:#00a060;}
+  .doc-paper-stamp.pending{border-color:#aaa;color:#aaa;}
+  .doc-paper-stamp.admin-ok{border-color:#c87000;color:#c87000;}
+  .doc-paper-stamp.admin-pend{border-color:#bbb;color:#bbb;}
+  /* ===== SIGNATURE PAD MODAL ===== */
+  .sig-pad-wrap{position:relative;border:2px solid var(--border);border-radius:8px;background:#fff;overflow:hidden;cursor:crosshair;}
+  .sig-pad-wrap canvas{display:block;width:100%;touch-action:none;}
+  .sig-pad-guide{position:absolute;bottom:18px;left:0;right:0;border-top:1px dashed #ccc;pointer-events:none;}
+  .sig-pad-guide-label{position:absolute;bottom:4px;left:14px;font-size:9px;color:#bbb;pointer-events:none;font-family:sans-serif;}
+  .sig-cert-box{background:rgba(46,213,115,0.05);border:1px solid rgba(46,213,115,0.25);border-radius:6px;padding:12px 14px;font-size:11px;}
+  .sig-cert-row{display:flex;gap:8px;padding:4px 0;border-bottom:1px solid rgba(46,213,115,0.1);}
+  .sig-cert-row:last-child{border-bottom:none;}
+  .sig-cert-key{width:160px;flex-shrink:0;color:var(--muted);font-size:10px;}
+  .sig-cert-val{color:var(--text);word-break:break-all;}
+  .doc-paper-watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:72px;font-weight:900;opacity:0.03;color:#000;pointer-events:none;font-family:'Syne',sans-serif;white-space:nowrap;}
+  /* ADMIN PANEL */
+  .admin-panel{background:var(--surface2);border:1px solid rgba(240,165,0,0.2);border-radius:8px;padding:14px;margin-bottom:12px;}
+  .admin-panel-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--accent);margin-bottom:10px;letter-spacing:1px;}
+  .admin-check-row{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid rgba(30,35,48,0.5);font-size:11px;}
+  .admin-check-row:last-child{border-bottom:none;}
+  .admin-check-box{width:16px;height:16px;flex-shrink:0;border:1px solid var(--border);border-radius:3px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;transition:all 0.15s;margin-top:2px;}
+  .admin-check-box.checked{background:rgba(46,213,115,0.15);border-color:var(--success);color:var(--success);}
+  .admin-check-box.locked{opacity:0.5;cursor:default;}
+  .admin-check-label{flex:1;line-height:1.5;}
+  /* MODAL */
+  .modal-backdrop{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);align-items:center;justify-content:center;}
+  .modal-backdrop.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:560px;max-width:97vw;max-height:92vh;overflow:auto;animation:slideUp 0.2s ease;}
+  .modal-wide{width:940px;}
+  @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;position:sticky;top:0;background:var(--surface);z-index:10;}
+  .modal-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;flex:1;}
+  .modal-close{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;}
+  .modal-body{padding:20px;}
+  .modal-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;position:sticky;bottom:0;background:var(--surface);}
+  .form-row{margin-bottom:13px;}
+  label{display:block;font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;}
+  input,select,textarea{width:100%;padding:8px 11px;border-radius:5px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;transition:border-color 0.15s;}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+  textarea{resize:vertical;min-height:70px;}
+  select option{background:var(--surface2);}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  /* FLOW */
+  .flow-step{display:flex;align-items:flex-start;gap:14px;position:relative;}
+  .flow-step::after{content:'';position:absolute;left:18px;top:38px;width:1px;height:calc(100% - 0px);background:linear-gradient(to bottom,var(--border),transparent);}
+  .flow-step:last-child::after{display:none;}
+  .step-num{width:36px;height:36px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;background:var(--surface2);color:var(--muted);position:relative;z-index:1;}
+  .step-num.done{border-color:var(--success);color:var(--success);background:rgba(46,213,115,0.08);}
+  .step-num.active{border-color:var(--accent);color:var(--accent);background:rgba(240,165,0,0.1);}
+  .step-body{flex:1;padding-bottom:22px;}
+  .step-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;margin-bottom:3px;}
+  .step-desc{color:var(--muted);font-size:11px;line-height:1.6;}
+  .step-actions{display:flex;gap:8px;margin-top:8px;}
+  /* PARTICIPANT */
+  
+  .participant-card{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px 14px;cursor:pointer;transition:border-color 0.15s;}
+  .participant-card:hover{border-color:var(--accent);}
+  .p-name{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;margin-bottom:2px;}
+  .p-type{font-size:10px;color:var(--muted);}
+  .p-status{margin-top:8px;}
+  /* TIMELINE */
+  .timeline{padding:0 4px;}
+  .tl-item{display:flex;gap:12px;margin-bottom:14px;}
+  .tl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+  .tl-dot.gold{background:var(--accent);}.tl-dot.teal{background:var(--accent2);}.tl-dot.blue{background:var(--accent3);}
+  .tl-time{font-size:10px;color:var(--muted);margin-top:1px;}
+  .tl-text{font-size:12px;}
+  .validity-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:10px;background:rgba(255,165,2,0.12);color:var(--warning);border:1px solid rgba(255,165,2,0.3);}
+  .tag{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);margin:2px;}
+  .progress-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:5px;}
+  .progress-fill{height:100%;background:linear-gradient(to right,var(--accent),var(--accent2));border-radius:2px;transition:width 0.4s ease;}
+  .empty-state{text-align:center;padding:40px;color:var(--muted);}
+  .empty-state .icon{font-size:32px;margin-bottom:10px;}
+  .empty-state p{font-size:12px;}
+  /* DOC LIST CARDS */
+  .doc-list-card{padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.12s;}
+  .doc-list-card:hover{background:rgba(240,165,0,0.04);}
+  .doc-list-card.selected{background:rgba(240,165,0,0.07);border-left:2px solid var(--accent);}
+  .doc-list-card:last-child{border-bottom:none;}
+  .block-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;font-size:11px;margin-bottom:10px;position:relative;overflow:hidden;}
+  .block-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;background:linear-gradient(to bottom,var(--accent),var(--accent2));}
+  .block-hash{color:var(--accent3);font-size:10px;word-break:break-all;margin-top:5px;}
+  .block-meta{display:flex;gap:16px;margin-top:7px;}
+  .block-meta-key{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+  .block-meta-val{font-size:11px;color:var(--text);margin-top:2px;}
+  .notif{position:fixed;top:20px;right:20px;z-index:999;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 18px;font-size:12px;max-width:320px;box-shadow:0 8px 30px rgba(0,0,0,0.5);display:none;}
+  .notif.show{display:block;animation:slideIn 0.3s ease;}
+  @keyframes slideIn{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
+  .notif-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px;}
+  /* ===== KYC APPLICATION STYLES ===== */
+  .kyc-step-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;transition:all 0.2s;flex-shrink:0;position:relative;font-family:'Syne',sans-serif;}
+  .kyc-step-dot span{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:400;color:var(--muted);letter-spacing:0.5px;}
+  .kyc-step-dot.active{border-color:var(--accent);color:var(--accent);background:rgba(240,165,0,0.1);}
+  .kyc-step-dot.done{border-color:var(--success);color:var(--success);background:rgba(46,213,115,0.08);}
+  .kyc-step-line{flex:1;height:2px;background:var(--border);margin:0 4px;transition:background 0.3s;}
+  .kyc-step-line.done{background:var(--success);}
+  .kyc-step-body{padding-top:24px;}
+  .kyc-section-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+  .kyc-field-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px;}
+  .kyc-field-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:4px;}
+  .kyc-doc-row{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-bottom:8px;transition:border-color 0.15s;}
+  .kyc-doc-row.uploaded{border-color:rgba(46,213,115,0.3);background:rgba(46,213,115,0.04);}
+  .kyc-doc-row.required-missing{border-color:rgba(255,71,87,0.3);}
+  .kyc-doc-icon{font-size:18px;width:24px;text-align:center;flex-shrink:0;}
+  .kyc-doc-info{flex:1;}
+  .kyc-doc-name{font-size:12px;font-weight:500;}
+  .kyc-doc-note{font-size:10px;color:var(--muted);margin-top:2px;}
+  .kyc-doc-status{font-size:10px;padding:2px 8px;border-radius:3px;}
+  .kyc-doc-status.uploaded{background:rgba(46,213,115,0.12);color:var(--success);border:1px solid rgba(46,213,115,0.3);}
+  .kyc-doc-status.pending{background:var(--surface);color:var(--muted);border:1px solid var(--border);}
+  .kyc-upload-btn{padding:4px 12px;border-radius:4px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:11px;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all 0.15s;}
+  .kyc-upload-btn:hover{border-color:var(--accent);color:var(--accent);}
+  /* KYC participant list card */
+  .kyc-list-card{padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.12s;}
+  .kyc-list-card:hover{background:rgba(240,165,0,0.04);}
+  .kyc-list-card.selected{background:rgba(240,165,0,0.07);border-left:3px solid var(--accent);}
+  .kyc-list-card:last-child{border-bottom:none;}
+  .kyc-status-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;}
+  .kyc-status-pill.approved{background:rgba(46,213,115,0.12);color:var(--success);border:1px solid rgba(46,213,115,0.25);}
+  .kyc-status-pill.review{background:rgba(74,158,255,0.12);color:var(--accent3);border:1px solid rgba(74,158,255,0.25);}
+  .kyc-status-pill.pending{background:rgba(240,165,0,0.12);color:var(--accent);border:1px solid rgba(240,165,0,0.25);}
+  .kyc-status-pill.rejected{background:rgba(255,71,87,0.12);color:var(--danger);border:1px solid rgba(255,71,87,0.25);}
+  /* KYC detail view */
+  .kyc-detail-header{background:var(--surface);border-bottom:1px solid var(--border);padding:18px 20px;}
+  .kyc-detail-avatar{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#000;flex-shrink:0;}
+  .kyc-info-block{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:14px 16px;margin-bottom:12px;}
+  .kyc-info-row{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid rgba(30,35,48,0.5);font-size:12px;}
+  .kyc-info-row:last-child{border-bottom:none;}
+  .kyc-info-key{width:180px;flex-shrink:0;color:var(--muted);font-size:11px;}
+  .kyc-info-val{color:var(--text);}
+  /* Admin review checklist for KYC */
+  .kyc-check-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid rgba(30,35,48,0.4);cursor:pointer;}
+  .kyc-check-item:last-child{border-bottom:none;}
+  .kyc-check-box{width:16px;height:16px;border:1px solid var(--border);border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;transition:all 0.15s;margin-top:1px;}
+  .kyc-check-box.checked{background:rgba(46,213,115,0.15);border-color:var(--success);color:var(--success);}
+  .kyc-progress-ring{position:relative;width:56px;height:56px;flex-shrink:0;}
+  .kyc-progress-ring svg{transform:rotate(-90deg);}
+  .kyc-ring-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:800;}
+  ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- ===== LOADING SCREEN ===== -->
+<div id="app-loading" style="position:fixed;inset:0;z-index:9999;background:#08090d;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+  <div style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#f0a500;">BULL<span style="color:#e8eaf0;">EX</span></div>
+  <div style="font-size:11px;color:#5a6175;letter-spacing:3px;">TRADE PLATFORM</div>
+  <div style="width:180px;height:2px;background:#1e2330;border-radius:2px;overflow:hidden;margin-top:8px;">
+    <div id="loading-bar" style="height:100%;width:0%;background:linear-gradient(to right,#f0a500,#00d4a0);border-radius:2px;transition:width 0.4s ease;"></div>
+  </div>
+  <div id="loading-msg" style="font-size:11px;color:#5a6175;margin-top:4px;">Initialising…</div>
+</div>
+
+<!-- ===== AUTH WALL (Login) ===== -->
+<div id="auth-wall" style="display:none;position:fixed;inset:0;z-index:9000;background:#08090d;align-items:center;justify-content:center;">
+  <div style="width:400px;background:#0f1117;border:1px solid #1e2330;border-radius:12px;overflow:hidden;">
+    <div style="padding:28px 28px 0;text-align:center;">
+      <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#f0a500;margin-bottom:4px;">BULL<span style="color:#e8eaf0;">EX</span></div>
+      <div style="font-size:9px;color:#5a6175;letter-spacing:3px;margin-bottom:24px;">TRADE PLATFORM</div>
+      <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:4px;">Sign In</div>
+      <div style="font-size:11px;color:#5a6175;margin-bottom:20px;">Platform access is restricted to authorised users</div>
+    </div>
+    <div style="padding:0 28px 28px;">
+      <div style="margin-bottom:12px;"><label style="font-size:10px;color:#5a6175;letter-spacing:1px;display:block;margin-bottom:5px;">EMAIL</label><input type="email" id="auth-email" placeholder="admin@bullex.tech" style="width:100%;padding:10px 12px;background:#161922;border:1px solid #1e2330;border-radius:5px;color:#e8eaf0;font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;"></div>
+      <div style="margin-bottom:16px;"><label style="font-size:10px;color:#5a6175;letter-spacing:1px;display:block;margin-bottom:5px;">PASSWORD</label><input type="password" id="auth-password" placeholder="••••••••" style="width:100%;padding:10px 12px;background:#161922;border:1px solid #1e2330;border-radius:5px;color:#e8eaf0;font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div id="auth-error" style="display:none;padding:8px 12px;background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.3);border-radius:5px;font-size:11px;color:#ff4757;margin-bottom:12px;"></div>
+      <button onclick="doLogin()" style="width:100%;padding:11px;background:#f0a500;color:#000;border:none;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;">Sign In →</button>
+      <div style="text-align:center;margin-top:12px;font-size:10px;color:#5a6175;">Demo mode available without Firebase config</div>
+      <button onclick="enterDemoMode()" style="width:100%;padding:8px;background:transparent;color:#5a6175;border:1px solid #1e2330;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;margin-top:6px;">Continue in Demo Mode (no persistence)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FIREBASE SETUP GUIDE MODAL ===== -->
+<div class="modal-backdrop" id="firebase-setup-modal">
+  <div class="modal" style="width:680px;max-height:88vh;">
+    <div class="modal-header">
+      <div class="modal-title">🔥 Firebase Setup Guide</div>
+      <button class="modal-close" onclick="closeModal('firebase-setup-modal')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px;overflow-y:auto;max-height:70vh;">
+      <div style="background:rgba(240,165,0,0.08);border:1px solid rgba(240,165,0,0.2);border-radius:6px;padding:12px 14px;margin-bottom:16px;font-size:11px;color:var(--accent);">
+        Complete these steps once. Your data will then persist across all users and sessions in real-time.
+      </div>
+
+      <div style="counter-reset:step;">
+      ${[
+        ['Create Firebase Project','Go to <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent3);">console.firebase.google.com</a> → Click <strong>Add project</strong> → Name it <strong>bullex-kyc</strong> → Disable Google Analytics (optional) → Create project.'],
+        ['Enable Firestore Database','In your project → left menu → <strong>Build → Firestore Database</strong> → <strong>Create database</strong> → Choose <strong>Start in test mode</strong> → Select your region (e.g. asia-south1) → Enable.'],
+        ['Enable Authentication','Left menu → <strong>Build → Authentication</strong> → <strong>Get started</strong> → <strong>Email/Password</strong> → Enable → Save. Then → <strong>Users</strong> tab → <strong>Add user</strong> → enter your admin email + password.'],
+        ['Get Your Config Keys','Left menu → ⚙ <strong>Project Settings</strong> → scroll to <strong>Your apps</strong> → click <strong>&lt;/&gt; Web</strong> → Register app (name: bullex-web) → Copy the <code>firebaseConfig</code> object.'],
+        ['Paste Config Into This File','Open <strong>bullex_platform.html</strong> in a text editor → find <code>const FIREBASE_CONFIG = {</code> near the top → replace each <code>YOUR_...</code> value with your actual keys.'],
+        ['Set Firestore Security Rules','Firestore → <strong>Rules</strong> tab → paste these rules and publish:<br><code style="display:block;margin-top:6px;padding:8px;background:var(--bg);border-radius:4px;font-size:10px;line-height:1.8;">rules_version = \'2\';<br>service cloud.firestore {<br>&nbsp;&nbsp;match /databases/{database}/documents {<br>&nbsp;&nbsp;&nbsp;&nbsp;match /{document=**} {<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if request.auth != null;<br>&nbsp;&nbsp;&nbsp;&nbsp;}<br>&nbsp;&nbsp;}<br>}</code>'],
+        ['Deploy to bullexkyc.com','Upload the edited HTML file to Netlify/Cloudflare Pages. Point your domain DNS as instructed. Done — all users share the same live database!'],
+      ].map(([title,desc],i)=>`
+        <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--border);">
+          <div style="width:26px;height:26px;border-radius:50%;background:var(--accent);color:#000;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">${i+1}</div>
+          <div><div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;margin-bottom:4px;">${title}</div><div style="font-size:11px;color:var(--muted);line-height:1.7;">${desc}</div></div>
+        </div>`).join('')}
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--accent);margin-bottom:10px;letter-spacing:1px;">PASTE YOUR FIREBASE CONFIG HERE (auto-applies on save)</div>
+        <textarea id="fb-config-paste" placeholder='Paste your firebaseConfig object here, e.g.:&#10;{&#10;  apiKey: "AIza...",&#10;  authDomain: "bullex-kyc.firebaseapp.com",&#10;  projectId: "bullex-kyc",&#10;  ...&#10;}' style="width:100%;height:120px;font-size:11px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'JetBrains Mono',monospace;resize:vertical;outline:none;"></textarea>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" onclick="applyFirebaseConfig()">🔥 Apply Config & Reconnect</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="logo"><div class="logo-mark">BULL<span>EX</span></div><div class="logo-sub">Trade Platform</div></div>
+    <nav class="nav">
+      <div class="nav-section">Main</div>
+      <div class="nav-item active" onclick="navigate('dashboard')"><span class="nav-icon">◈</span> Dashboard</div>
+      <div class="nav-item" onclick="navigate('kyc')"><span class="nav-icon">◉</span> KYC Application <span class="nav-badge" id="kyc-badge">2</span></div>
+      <div class="nav-section">Trading</div>
+      <div class="nav-item" onclick="navigate('enquiries')"><span class="nav-icon">⊞</span> Enquiries</div>
+      <div class="nav-item" onclick="navigate('trades')"><span class="nav-icon">⇄</span> Active Trades</div>
+      <div class="nav-section">Documents</div>
+      <div class="nav-item" onclick="navigate('documents')"><span class="nav-icon">▤</span> Document Center <span class="nav-badge" id="pending-badge">3</span></div>
+      <div class="nav-item" onclick="navigate('blockchain')"><span class="nav-icon">⬡</span> Blockchain Ledger</div>
+      <div class="nav-section">System</div>
+      <div class="nav-item" onclick="navigate('products')"><span class="nav-icon">◇</span> Products</div>
+      <div class="nav-item" onclick="openModal('firebase-setup-modal')"><span class="nav-icon">🔥</span> Firebase Setup</div>
+    </nav>
+    <div class="user-info">
+      <div class="avatar" id="sidebar-avatar">AD</div>
+      <div><div class="user-name" id="sidebar-username">ADMIN</div><div class="user-role" id="sidebar-email">Platform Administrator</div></div>
+      <div style="margin-left:auto;display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+        <div class="kyc-badge">ADMIN</div>
+        <button onclick="doLogout()" style="font-size:9px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0;font-family:'JetBrains Mono',monospace;" id="logout-btn" title="Sign out">⎋ out</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="page-title">Dashboard</div>
+      <div class="topbar-actions">
+        <div id="fb-status-pill" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:10px;background:rgba(90,97,117,0.15);border:1px solid var(--border);cursor:pointer;" onclick="openModal('firebase-setup-modal')">
+          <span id="fb-status-dot" style="width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0;"></span>
+          <span id="fb-status-text">No DB</span>
+        </div>
+        <button class="btn btn-secondary" onclick="openModal('enquiry-modal')">+ New Enquiry</button>
+        <button class="btn btn-warning" onclick="openKycForm()">◉ New KYC</button>
+        <button class="btn btn-primary" onclick="showNotif('All blockchain nodes active · 99.9% uptime','teal')">⬡ Network</button>
+      </div>
+    </div>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="stats-row">
+          <div class="stat-card gold"><div class="stat-label">Active Enquiries</div><div class="stat-value">8</div><div class="stat-change up">↑ 3 this week</div></div>
+          <div class="stat-card teal"><div class="stat-label">Trades in Progress</div><div class="stat-value">3</div><div class="stat-change up">↑ 1 today</div></div>
+          <div class="stat-card blue"><div class="stat-label">Docs Pending Review</div><div class="stat-value" id="dash-pending-count">2</div><div class="stat-change">admin action needed</div></div>
+          <div class="stat-card red"><div class="stat-label">Expired Enquiries</div><div class="stat-value">2</div><div class="stat-change">auto-closed</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 320px;gap:14px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Recent Enquiries</div><button class="btn btn-secondary btn-sm" onclick="navigate('enquiries')">View All</button></div>
+            <div class="card-body"><table><thead><tr><th>Enquiry No.</th><th>Product</th><th>Type</th><th>Validity</th><th>Status</th><th></th></tr></thead><tbody id="dashboard-enquiries"></tbody></table></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Activity Feed</div></div>
+            <div class="card-body" style="padding:16px;">
+              <div class="timeline">
+                <div class="tl-item"><div class="tl-dot gold"></div><div><div class="tl-time">2 min ago</div><div class="tl-text">LOI pending admin review — TRD-001</div></div></div>
+                <div class="tl-item"><div class="tl-dot teal"></div><div><div class="tl-time">18 min ago</div><div class="tl-text">SCO approved by admin — TRD-001</div></div></div>
+                <div class="tl-item"><div class="tl-dot blue"></div><div><div class="tl-time">1 hr ago</div><div class="tl-text">Block #4821 recorded on chain</div></div></div>
+                <div class="tl-item"><div class="tl-dot gold"></div><div><div class="tl-time">3 hr ago</div><div class="tl-text">Deal Recap pending admin review</div></div></div>
+                <div class="tl-item"><div class="tl-dot teal"></div><div><div class="tl-time">Yesterday</div><div class="tl-text">SPA auto-generated from signed Recap</div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KYC APPLICATION -->
+      <div class="page" id="page-kyc">
+
+        <!-- KYC Stats -->
+        <div class="stats-row" style="grid-template-columns:repeat(5,1fr);">
+          <div class="stat-card teal"><div class="stat-label">Total Registered</div><div class="stat-value" id="kyc-stat-total">6</div><div class="stat-change">all categories</div></div>
+          <div class="stat-card gold"><div class="stat-label">KYC Approved</div><div class="stat-value" id="kyc-stat-approved">4</div><div class="stat-change up">verified</div></div>
+          <div class="stat-card blue"><div class="stat-label">Under Review</div><div class="stat-value" id="kyc-stat-review">1</div><div class="stat-change">pending admin</div></div>
+          <div class="stat-card red"><div class="stat-label">Pending Submission</div><div class="stat-value" id="kyc-stat-pending">1</div><div class="stat-change">incomplete</div></div>
+          <div class="stat-card gold"><div class="stat-label">Rejected</div><div class="stat-value" id="kyc-stat-rejected">0</div><div class="stat-change">require resubmission</div></div>
+        </div>
+
+        <!-- Tab bar -->
+        <div class="card" style="margin-bottom:0;border-radius:8px 8px 0 0;border-bottom:none;">
+          <div class="card-header" style="padding:0;border-bottom:none;">
+            <div class="doc-tabs" style="width:100%;">
+              <div class="doc-tab active" id="kyctab-all" onclick="switchKycTab('all',this)">All Participants <span class="doc-tab-count" id="kyc-tc-all">0</span></div>
+              <div class="doc-tab" id="kyctab-pending" onclick="switchKycTab('pending',this)">⏳ Pending <span class="doc-tab-count" id="kyc-tc-pending">0</span></div>
+              <div class="doc-tab" id="kyctab-review" onclick="switchKycTab('review',this)">🔍 Under Review <span class="doc-tab-count" id="kyc-tc-review">0</span></div>
+              <div class="doc-tab" id="kyctab-approved" onclick="switchKycTab('approved',this)">✓ Approved <span class="doc-tab-count" id="kyc-tc-approved">0</span></div>
+              <div class="doc-tab" id="kyctab-rejected" onclick="switchKycTab('rejected',this)">✕ Rejected <span class="doc-tab-count" id="kyc-tc-rejected">0</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Split: participant list + detail -->
+        <div style="display:grid;grid-template-columns:300px 1fr;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;overflow:hidden;min-height:620px;">
+          <!-- LEFT: Participant list -->
+          <div style="background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;">
+            <div style="padding:10px;border-bottom:1px solid var(--border);display:flex;gap:6px;">
+              <input type="text" placeholder="Search participants…" id="kyc-search" oninput="renderKYC()" style="flex:1;padding:6px 10px;font-size:11px;">
+              <button class="btn btn-primary btn-sm" onclick="openKycForm()">+ New</button>
+            </div>
+            <div id="kyc-list" style="flex:1;overflow-y:auto;max-height:560px;"></div>
+          </div>
+          <!-- RIGHT: Detail / Form -->
+          <div id="kyc-detail" style="overflow-y:auto;max-height:620px;background:var(--bg);">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:400px;color:var(--muted);gap:12px;">
+              <div style="font-size:40px;">◉</div>
+              <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;">Select a participant to view KYC details</div>
+              <div style="font-size:11px;">or click <span style="color:var(--accent);">+ New</span> to start a fresh KYC application</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ENQUIRIES -->
+      <div class="page" id="page-enquiries">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Enquiry Board</div><div style="display:flex;gap:8px;"><select style="width:auto;" onchange="filterEnquiries(this.value)"><option value="all">All Types</option><option value="Buy">Buy</option><option value="Sell">Sell</option></select><button class="btn btn-primary" onclick="openModal('enquiry-modal')">+ Create Enquiry</button></div></div>
+          <div class="card-body"><table><thead><tr><th>Enquiry No.</th><th>Product</th><th>Type</th><th>Qty / Unit</th><th>Created By</th><th>Validity</th><th>Status</th><th>Actions</th></tr></thead><tbody id="enquiry-table"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- TRADES -->
+      <div class="page" id="page-trades"><div id="trades-content"></div></div>
+
+      <!-- DOCUMENT CENTER -->
+      <div class="page" id="page-documents">
+        <!-- Tabs row -->
+        <div class="card" style="margin-bottom:0;border-bottom:none;border-radius:8px 8px 0 0;">
+          <div class="card-header" style="padding:10px 18px 0;border-bottom:none;flex-direction:column;align-items:flex-start;gap:0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:8px;">
+              <div>
+                <div class="card-title">▤ Document Center — Admin Review Workflow</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px;">Select a document to preview in full. Admin must approve before client signatures are enabled.</div>
+              </div>
+              <div id="doc-center-legend" style="display:flex;gap:10px;font-size:10px;align-items:center;">
+                <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--warning);display:inline-block;"></span>Pending Review</span>
+                <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block;"></span>Approved</span>
+                <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--danger);display:inline-block;"></span>Rejected</span>
+                <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent3);display:inline-block;"></span>Signed</span>
+              </div>
+            </div>
+            <div class="doc-tabs" style="width:100%;border-bottom:none;">
+              <div class="doc-tab active" id="dtab-all" onclick="switchDocTab('all',this)">All Documents <span class="doc-tab-count" id="tc-all">0</span></div>
+              <div class="doc-tab" id="dtab-LOI" onclick="switchDocTab('LOI',this)">📄 LOI <span class="doc-tab-count" id="tc-LOI">0</span></div>
+              <div class="doc-tab" id="dtab-SCO" onclick="switchDocTab('SCO',this)">📋 SCO <span class="doc-tab-count" id="tc-SCO">0</span></div>
+              <div class="doc-tab" id="dtab-DealRecap" onclick="switchDocTab('Deal Recap',this)">📑 Deal Recap <span class="doc-tab-count" id="tc-DealRecap">0</span></div>
+              <div class="doc-tab" id="dtab-SPA" onclick="switchDocTab('SPA',this)">📃 SPA <span class="doc-tab-count" id="tc-SPA">0</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Split panel: doc list + preview -->
+        <div style="display:grid;grid-template-columns:340px 1fr;gap:0;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;overflow:hidden;min-height:600px;">
+
+          <!-- LEFT: Document List -->
+          <div style="background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;max-height:calc(100vh - 200px);">
+            <div id="doc-list-panel" style="padding:10px;"></div>
+          </div>
+
+          <!-- RIGHT: Document Preview + Admin Panel -->
+          <div style="background:var(--bg);overflow-y:auto;max-height:calc(100vh - 200px);" id="doc-preview-panel">
+            <div style="display:flex;align-items:center;justify-content:center;height:100%;min-height:400px;color:var(--muted);flex-direction:column;gap:12px;">
+              <div style="font-size:36px;">▤</div>
+              <div style="font-size:13px;font-family:'Syne',sans-serif;font-weight:700;">Select a document to preview</div>
+              <div style="font-size:11px;">Click any document on the left to view full content and review</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BLOCKCHAIN -->
+      <div class="page" id="page-blockchain"><div class="card"><div class="card-header"><div class="card-title">⬡ Blockchain Ledger — Immutable Trade Records</div></div><div class="card-body" style="padding:16px;" id="blockchain-blocks"></div></div></div>
+
+      <!-- PRODUCTS -->
+      <div class="page" id="page-products"><div class="card"><div class="card-header"><div class="card-title">Tradable Products</div></div><div class="card-body" style="padding:16px;" id="products-grid"></div></div></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-backdrop" id="enquiry-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Create New Enquiry</div><button class="modal-close" onclick="closeModal('enquiry-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-row"><label>Enquiry Type</label><select id="enq-type"><option>Buy</option><option>Sell</option></select></div>
+        <div class="form-row"><label>Product</label><select id="enq-product"><option>Iron Ore</option><option>Bauxite</option><option>Manganese Ore</option><option>Copper Cathode</option><option>Copper Concentrate</option><option>Aluminium Ingots</option><option>NPK</option><option>Petcoke - Anode Grade</option><option>Petcoke - Fuel Grade</option><option>Gasoil 10ppm</option><option>Gasoil 50ppm</option><option>LHC</option><option>HSFO</option><option>HSGO</option></select></div>
+        <div class="form-row"><label>Quantity</label><input type="number" id="enq-qty" placeholder="e.g. 50000"></div>
+        <div class="form-row"><label>Unit</label><select id="enq-unit"><option>MT</option><option>Barrels</option><option>KG</option></select></div>
+        <div class="form-row"><label>Price (USD)</label><input type="number" id="enq-price" placeholder="e.g. 85.50"></div>
+        <div class="form-row"><label>Validity (Days)</label><input type="number" id="enq-validity" value="30" min="1"></div>
+      </div>
+      <div class="form-row"><label>Additional Details</label><textarea id="enq-details" placeholder="Specifications, delivery terms, port of loading, etc."></textarea></div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:9px 12px;font-size:11px;color:var(--muted);">ℹ Auto-ID: <span style="color:var(--accent);">[3-letter Code]-[Product]-[DDMM]-[Serial]</span></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('enquiry-modal')">Cancel</button><button class="btn btn-primary" onclick="createEnquiry()">Submit Enquiry</button></div>
+  </div>
+</div>
+
+<!-- ===== DIGITAL SIGNATURE PAD MODAL ===== -->
+<div class="modal-backdrop" id="sig-pad-modal">
+  <div class="modal" style="width:580px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="sig-modal-title">Digital Signature</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="sig-modal-sub">Sign as authorised signatory</div>
+      </div>
+      <button class="modal-close" onclick="closeSigModal()" style="margin-left:auto;">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px;">
+
+      <!-- Identity confirmation -->
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;margin-bottom:16px;">
+        <div id="sig-party-avatar" style="width:40px;height:40px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:#000;flex-shrink:0;">BUY</div>
+        <div style="flex:1;">
+          <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;" id="sig-party-name">—</div>
+          <div style="font-size:11px;color:var(--muted);" id="sig-party-role">—</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="sig-doc-ref">—</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:9px;color:var(--muted);letter-spacing:1px;">TIMESTAMP</div>
+          <div style="font-size:11px;color:var(--accent);" id="sig-timestamp">—</div>
+        </div>
+      </div>
+
+      <!-- Tabs: Draw / Type -->
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px;">
+        <div class="doc-tab active" id="sigtab-draw" onclick="switchSigTab('draw')" style="font-size:11px;padding:8px 14px;">✏ Draw Signature</div>
+        <div class="doc-tab" id="sigtab-type" onclick="switchSigTab('type')" style="font-size:11px;padding:8px 14px;">Aa Type Signature</div>
+        <div class="doc-tab" id="sigtab-upload" onclick="switchSigTab('upload')" style="font-size:11px;padding:8px 14px;">↑ Upload Image</div>
+      </div>
+
+      <!-- Draw panel -->
+      <div id="sig-panel-draw">
+        <div class="sig-pad-wrap" id="sig-pad-wrap" style="height:160px;">
+          <canvas id="sig-canvas" height="160"></canvas>
+          <div class="sig-pad-guide"></div>
+          <div class="sig-pad-guide-label">Sign here</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+          <span style="font-size:10px;color:var(--muted);">Draw your signature above using mouse or touch</span>
+          <button class="btn btn-secondary btn-sm" onclick="clearSigPad()">↺ Clear</button>
+        </div>
+      </div>
+
+      <!-- Type panel -->
+      <div id="sig-panel-type" style="display:none;">
+        <div style="margin-bottom:10px;">
+          <label>Type your full name</label>
+          <input type="text" id="sig-type-input" placeholder="e.g. John Smith" oninput="renderTypedSig()" style="font-size:18px;font-family:Georgia,serif;padding:10px 14px;">
+        </div>
+        <div style="margin-bottom:8px;">
+          <label>Signature Style</label>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;" id="sig-style-picker"></div>
+        </div>
+        <div style="border:2px solid var(--border);border-radius:8px;background:#fff;height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+          <canvas id="sig-type-canvas" width="520" height="116"></canvas>
+        </div>
+      </div>
+
+      <!-- Upload panel -->
+      <div id="sig-panel-upload" style="display:none;">
+        <div style="border:2px dashed var(--border);border-radius:8px;padding:30px;text-align:center;cursor:pointer;transition:border-color 0.15s;" onclick="document.getElementById('sig-upload-input').click()" id="sig-upload-zone">
+          <div style="font-size:28px;margin-bottom:8px;">↑</div>
+          <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;">Drop signature image here</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">PNG or JPG with transparent background preferred</div>
+          <input type="file" id="sig-upload-input" accept="image/*" style="display:none;" onchange="handleSigUpload(event)">
+        </div>
+        <div id="sig-upload-preview" style="display:none;margin-top:12px;border:2px solid var(--border);border-radius:8px;background:#fff;height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+          <img id="sig-upload-img" style="max-height:116px;max-width:100%;object-fit:contain;">
+        </div>
+      </div>
+
+      <!-- Signature certificate preview -->
+      <div style="margin-top:16px;">
+        <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-bottom:8px;">DIGITAL CERTIFICATE</div>
+        <div class="sig-cert-box">
+          <div class="sig-cert-row"><span class="sig-cert-key">Signer</span><span class="sig-cert-val" id="cert-signer">—</span></div>
+          <div class="sig-cert-row"><span class="sig-cert-key">Document</span><span class="sig-cert-val" id="cert-doc">—</span></div>
+          <div class="sig-cert-row"><span class="sig-cert-key">Signed On</span><span class="sig-cert-val" id="cert-date">—</span></div>
+          <div class="sig-cert-row"><span class="sig-cert-key">Signature Hash (SHA-256)</span><span class="sig-cert-val" id="cert-hash" style="font-size:9px;color:var(--accent3);">—</span></div>
+          <div class="sig-cert-row"><span class="sig-cert-key">IP / Session Token</span><span class="sig-cert-val" id="cert-ip" style="font-size:10px;color:var(--muted);">—</span></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeSigModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitSignature()" id="sig-submit-btn">✎ Apply Digital Signature</button>
+    </div>
+  </div>
+</div>
+
+<!-- KYC APPLICATION MODAL (multi-step) -->
+<div class="modal-backdrop" id="kyc-form-modal">
+  <div class="modal" style="width:700px;max-height:90vh;">
+    <div class="modal-header" style="flex-direction:column;align-items:flex-start;gap:10px;">
+      <div style="display:flex;align-items:center;width:100%;">
+        <div class="modal-title" id="kyc-form-title">New KYC Application</div>
+        <button class="modal-close" onclick="closeModal('kyc-form-modal')" style="margin-left:auto;">✕</button>
+      </div>
+      <!-- Step indicator -->
+      <div style="display:flex;align-items:center;width:100%;gap:0;" id="kyc-step-bar">
+        <div class="kyc-step-dot active" id="ksd-1" onclick="goKycStep(1)">1<span>Company Info</span></div>
+        <div class="kyc-step-line" id="ksl-1"></div>
+        <div class="kyc-step-dot" id="ksd-2" onclick="goKycStep(2)">2<span>Contact & Legal</span></div>
+        <div class="kyc-step-line" id="ksl-2"></div>
+        <div class="kyc-step-dot" id="ksd-3" onclick="goKycStep(3)">3<span>Products & Role</span></div>
+        <div class="kyc-step-line" id="ksl-3"></div>
+        <div class="kyc-step-dot" id="ksd-4" onclick="goKycStep(4)">4<span>Documents</span></div>
+        <div class="kyc-step-line" id="ksl-4"></div>
+        <div class="kyc-step-dot" id="ksd-5" onclick="goKycStep(5)">5<span>Declaration</span></div>
+      </div>
+    </div>
+    <div class="modal-body" style="padding:20px;" id="kyc-form-body"></div>
+    <div class="modal-footer" id="kyc-form-footer"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="trade-modal">
+  <div class="modal" style="width:660px;">
+    <div class="modal-header"><div class="modal-title" id="trade-modal-title">Trade Flow</div><button class="modal-close" onclick="closeModal('trade-modal')">✕</button></div>
+    <div class="modal-body" id="trade-modal-body"></div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('trade-modal')">Close</button></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="enq-detail-modal">
+  <div class="modal" style="width:560px;">
+    <div class="modal-header"><div class="modal-title" id="enq-detail-title">Enquiry</div><button class="modal-close" onclick="closeModal('enq-detail-modal')">✕</button></div>
+    <div class="modal-body" id="enq-detail-body"></div>
+    <div class="modal-footer" id="enq-detail-footer"></div>
+  </div>
+</div>
+
+<div class="notif" id="notif"><div class="notif-title" id="notif-title"></div><div id="notif-msg"></div></div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const PRODUCTS=['Iron Ore','Bauxite','Manganese Ore','Copper Cathode','Copper Concentrate','Aluminium Ingots','NPK','Petcoke - Anode Grade','Petcoke - Fuel Grade','Gasoil 10ppm','Gasoil 50ppm','LHC','HSFO','HSGO'];
+const PARTICIPANT_CATS=['Producer','Buyer','Seller','Analysis Agency','Port Agent','Shipping Agent','Chartering Broker','Ship Owner','Custom Clearing Agent','Stevedoring Agent'];
+
+let participants=[
+  {id:1,name:'Alpha Resources Ltd',code:'ALP',category:'Seller',country:'India',kyc:true,products:['Iron Ore','Bauxite']},
+  {id:2,name:'Buying Corp International',code:'BUY',category:'Buyer',country:'UAE',kyc:true,products:['Iron Ore','Bauxite','Manganese Ore']},
+  {id:3,name:'Maritime Shippers Pte',code:'MAR',category:'Shipping Agent',country:'Singapore',kyc:true,products:[]},
+  {id:4,name:'Manganese Global Ltd',code:'MAN',category:'Producer',country:'South Africa',kyc:true,products:['Manganese Ore']},
+  {id:5,name:'Clear Customs Co',code:'CCC',category:'Custom Clearing Agent',country:'India',kyc:true,products:[]},
+  {id:6,name:'Port Services Ltd',code:'PSL',category:'Port Agent',country:'India',kyc:false,products:[]},
+];
+
+let enquiries=[
+  {id:'ALP-IronOre-1203-001',type:'Sell',product:'Iron Ore',qty:50000,unit:'MT',price:88.5,creator:'ALP',validity:30,daysLeft:18,status:'Active',details:'FOB Paradip. 62% Fe content. L/C at sight.'},
+  {id:'BUY-Bauxite-1003-001',type:'Buy',product:'Bauxite',qty:75000,unit:'MT',price:42.0,creator:'BUY',validity:15,daysLeft:4,status:'Accepted'},
+  {id:'MAN-Manganese-0903-002',type:'Sell',product:'Manganese Ore',qty:20000,unit:'MT',price:210.0,creator:'MAN',validity:20,daysLeft:9,status:'Active',details:'CIF China ports. 30% Mn min.'},
+  {id:'ALP-Bauxite-0503-001',type:'Sell',product:'Bauxite',qty:30000,unit:'MT',price:38.5,creator:'ALP',validity:10,daysLeft:0,status:'Closed'},
+  {id:'BUY-IronOre-0103-001',type:'Buy',product:'Iron Ore',qty:100000,unit:'MT',price:90.0,creator:'BUY',validity:25,daysLeft:13,status:'Active',details:'62% Fe, 8% moisture max.'},
+];
+
+let trades=[{id:'TRD-001',enquiryRef:'BUY-Bauxite-1003-001',buyer:'BUY',seller:'ALP',product:'Bauxite',qty:75000,unit:'MT',price:42.0,blockHash:'0x4a2f8c9e1b7d3a6f',stage:3}];
+
+const mkChecks=(items)=>items.map(l=>({label:l,checked:false}));
+
+let documents=[
+  {
+    id:'LOI-BUY-ALP-0001',type:'LOI',tradeId:'TRD-001',
+    buyer:'Buying Corp International',buyerCode:'BUY',
+    seller:'Alpha Resources Ltd',sellerCode:'ALP',
+    product:'Bauxite',qty:75000,unit:'MT',price:42.0,totalValue:3150000,
+    deliveryPort:'Paradip Port, Odisha, India',loadingPort:'Mormugao Port, Goa, India',
+    paymentTerms:'Irrevocable Letter of Credit at sight',laycan:'01 May 2026 – 15 May 2026',
+    grade:'Al₂O₃ min 45%, SiO₂ max 5%, moisture max 8%',inspection:'SGS or equivalent at loading port',
+    arbitration:'London Court of International Arbitration (LCIA)',governingLaw:'English Law',
+    loiRef:'',scoRef:'',dealRecapRef:'',
+    date:'12/03/2026',issuedBy:'BUY',enquiryRef:'BUY-Bauxite-1003-001',
+    adminStatus:'pending_review',adminComment:'',
+    adminChecks:mkChecks(['Buyer details verified against KYC records','Product specification matches enquiry','Quantity and unit are correct','Price and payment terms acceptable','Laycan / delivery timeline is feasible','Port of loading and discharge correct','Enquiry reference number present and valid']),
+    adminHistory:[],signedBuyer:false,signedSeller:false,
+  },
+  {
+    id:'SCO-ALP-BUY-0001',type:'SCO',tradeId:'TRD-001',
+    buyer:'Buying Corp International',buyerCode:'BUY',
+    seller:'Alpha Resources Ltd',sellerCode:'ALP',
+    product:'Bauxite',qty:75000,unit:'MT',price:42.0,totalValue:3150000,
+    deliveryPort:'Paradip Port, Odisha, India',loadingPort:'Mormugao Port, Goa, India',
+    paymentTerms:'Irrevocable Letter of Credit at sight',laycan:'01 May 2026 – 15 May 2026',
+    grade:'Al₂O₃ min 45%, SiO₂ max 5%, moisture max 8%',inspection:'SGS or equivalent at loading port',
+    arbitration:'London Court of International Arbitration (LCIA)',governingLaw:'English Law',
+    loiRef:'LOI-BUY-ALP-0001',scoRef:'',dealRecapRef:'',
+    date:'12/03/2026',issuedBy:'ALP',enquiryRef:'BUY-Bauxite-1003-001',
+    adminStatus:'approved',adminComment:'All specifications verified. SCO terms align with LOI. Approved for buyer review.',
+    adminChecks:mkChecks(['Seller details verified against KYC records','LOI reference correctly cited','Product grade and specifications complete','Quantity, price, and unit match LOI','Inspection clause included','Laycan dates consistent with LOI','Payment terms match LOI']).map(c=>({...c,checked:true})),
+    adminHistory:[{action:'Approved',date:'12/03/2026 14:30',comment:'All specifications verified. SCO terms align with LOI. Approved for buyer review.'}],
+    signedBuyer:false,signedSeller:true,
+  },
+  {
+    id:'BUY-ALP-1303-001',type:'Deal Recap',tradeId:'TRD-001',
+    buyer:'Buying Corp International',buyerCode:'BUY',
+    seller:'Alpha Resources Ltd',sellerCode:'ALP',
+    product:'Bauxite',qty:75000,unit:'MT',price:42.0,totalValue:3150000,
+    deliveryPort:'Paradip Port, Odisha, India',loadingPort:'Mormugao Port, Goa, India',
+    paymentTerms:'Irrevocable Letter of Credit at sight',laycan:'01 May 2026 – 15 May 2026',
+    grade:'Al₂O₃ min 45%, SiO₂ max 5%, moisture max 8%',inspection:'SGS or equivalent at loading port',
+    arbitration:'London Court of International Arbitration (LCIA)',governingLaw:'English Law',
+    loiRef:'LOI-BUY-ALP-0001',scoRef:'SCO-ALP-BUY-0001',dealRecapRef:'',
+    date:'13/03/2026',issuedBy:'BUY+ALP',enquiryRef:'BUY-Bauxite-1003-001',
+    adminStatus:'pending_review',adminComment:'',
+    adminChecks:mkChecks(['Buyer and Seller details correct and verified','LOI and SCO reference numbers cited','Product, qty, price match all prior documents','Total contract value calculated correctly','Payment, laycan, inspection terms consistent','Arbitration and governing law clause present','Deal Recap number format: BUY/ALP-DDMM-001']),
+    adminHistory:[],signedBuyer:false,signedSeller:false,
+  },
+];
+
+let blockchainBlocks=[
+  {id:4821,hash:'0x4a2f8c9e1b7d3a6f9c2e5b8d1a4f7c3e',prev:'0x3b1e7d8c2a5f4b9e',tradeId:'TRD-001',product:'Bauxite',timestamp:'13/03/2026 09:42:17',type:'Trade Initiation'},
+  {id:4820,hash:'0x3b1e7d8c2a5f4b9e8c3f6a2d1b5e8c4a',prev:'0x2c0d6e7b1a4e3c8d',tradeId:'ENQUIRY',product:'Iron Ore',timestamp:'11/03/2026 14:30:05',type:'Enquiry Record'},
+];
+
+let currentDocTab='all';
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function navigate(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  const T={dashboard:'Dashboard',kyc:'KYC Application',enquiries:'Enquiry Board',trades:'Active Trades',documents:'Document Center',blockchain:'Blockchain Ledger',products:'Products & Commodities'};
+  document.getElementById('page-title').textContent=T[page]||page;
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    const t=n.textContent.trim().toLowerCase();
+    if((page==='dashboard'&&t.startsWith('dashboard'))||(page==='kyc'&&t.includes('kyc'))||(page==='enquiries'&&t.includes('enquir'))||(page==='trades'&&t.includes('active trade'))||(page==='documents'&&t.includes('document'))||(page==='blockchain'&&t.includes('blockchain'))||(page==='products'&&t.includes('product')))
+      n.classList.add('active');
+  });
+  if(page==='dashboard')renderDashboard();
+  if(page==='kyc')renderKYC();
+  if(page==='enquiries')renderEnquiries();
+  if(page==='trades')renderTrades();
+  if(page==='documents')renderDocuments(currentDocTab);
+  if(page==='blockchain')renderBlockchain();
+  if(page==='products')renderProducts();
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard(){
+  const pending=documents.filter(d=>d.adminStatus==='pending_review').length;
+  const el=document.getElementById('dash-pending-count');
+  if(el)el.textContent=pending;
+  document.getElementById('dashboard-enquiries').innerHTML=enquiries.slice(0,4).map(e=>`
+    <tr><td><span class="enq-num">${e.id}</span></td><td>${e.product}</td>
+    <td><span class="badge ${e.type==='Buy'?'badge-kyc':'badge-pending'}">${e.type}</span></td>
+    <td><span class="validity-pill">⏱ ${e.daysLeft}d</span></td><td>${sBadge(e.status)}</td>
+    <td><button class="btn btn-secondary btn-sm" onclick="viewEnquiry('${e.id}')">View</button></td></tr>`).join('');
+  updateBadge();
+}
+
+function updateBadge(){
+  const n=documents.filter(d=>d.adminStatus==='pending_review').length;
+  const b=document.getElementById('pending-badge');
+  if(b){b.textContent=n;b.style.display=n?'':'none';}
+}
+
+// ============================================================
+// KYC APPLICATION ENGINE
+// ============================================================
+const KYC_DOCS_BY_CAT = {
+  Producer:         [{n:'Certificate of Incorporation',r:true},{n:'Memorandum & Articles of Association',r:true},{n:'Board Resolution / Authorization Letter',r:true},{n:'Proof of Registered Office Address',r:true},{n:'Mining/Production License',r:true},{n:'Latest Audited Financial Statements',r:true},{n:'Passport / National ID – Key Directors',r:true},{n:'Bank Reference Letter',r:true},{n:'Anti-Bribery & Corruption Policy',r:false},{n:'ISO Certification (if applicable)',r:false}],
+  Buyer:            [{n:'Certificate of Incorporation',r:true},{n:'Memorandum & Articles of Association',r:true},{n:'Board Resolution / Authorization Letter',r:true},{n:'Proof of Registered Office Address',r:true},{n:'Latest Audited Financial Statements',r:true},{n:'Bank Confirmation Letter (for LC capability)',r:true},{n:'Passport / National ID – Key Directors',r:true},{n:'UBO (Ultimate Beneficial Owner) Declaration',r:true},{n:'Source of Funds Declaration',r:true},{n:'Trade References (min. 2)',r:false}],
+  Seller:           [{n:'Certificate of Incorporation',r:true},{n:'Memorandum & Articles of Association',r:true},{n:'Board Resolution / Authorization Letter',r:true},{n:'Proof of Registered Office Address',r:true},{n:'Export License / Authorization',r:true},{n:'Latest Audited Financial Statements',r:true},{n:'Passport / National ID – Key Directors',r:true},{n:'UBO (Ultimate Beneficial Owner) Declaration',r:true},{n:'Bank Reference Letter',r:true},{n:'Prior Contract / Trade Evidence',r:false}],
+  'Analysis Agency':[{n:'Certificate of Incorporation',r:true},{n:'Accreditation Certificate (SGS/Intertek/BV)',r:true},{n:'Proof of Office Address',r:true},{n:'List of Laboratory Equipment & Capabilities',r:true},{n:'ISO 17025 Accreditation Certificate',r:true},{n:'Key Personnel Credentials',r:true},{n:'Indemnity Insurance Certificate',r:true},{n:'Sample Analysis Report',r:false}],
+  'Port Agent':     [{n:'Certificate of Incorporation',r:true},{n:'Port Authority Licence / Registration',r:true},{n:'Proof of Office Address',r:true},{n:'Board Resolution / Authorization Letter',r:true},{n:'Passport / National ID – Key Personnel',r:true},{n:'List of Ports Represented',r:true},{n:'P&I Club Certificate',r:false},{n:'Client Reference Letters',r:false}],
+  'Shipping Agent': [{n:'Certificate of Incorporation',r:true},{n:'Freight Forwarder / NVOCC Licence',r:true},{n:'Proof of Office Address',r:true},{n:'IATA / FIATA Membership Certificate',r:false},{n:'Passport / National ID – Key Personnel',r:true},{n:'Professional Indemnity Insurance',r:true},{n:'Sample Bill of Lading',r:false},{n:'Client Reference Letters',r:false}],
+  'Chartering Broker':[{n:'Certificate of Incorporation',r:true},{n:'BIMCO Membership Certificate',r:false},{n:'Proof of Office Address',r:true},{n:'Board Resolution / Authorization Letter',r:true},{n:'Passport / National ID – Brokers',r:true},{n:'Professional Indemnity Insurance',r:true},{n:'Sample Charter Party Agreement',r:false},{n:'Client Reference Letters',r:false}],
+  'Ship Owner':     [{n:'Certificate of Incorporation',r:true},{n:'Certificate of Ship Registration',r:true},{n:'Classification Society Certificate',r:true},{n:'ISM / ISPS Certification',r:true},{n:'Continuous Synopsis Record (CSR)',r:true},{n:'P&I Club Certificate',r:true},{n:'Flag State Certification',r:true},{n:'Last Port State Control Report',r:false}],
+  'Custom Clearing Agent':[{n:'Certificate of Incorporation',r:true},{n:'Customs Broker Licence (CBEC/DGFT)',r:true},{n:'Proof of Office Address',r:true},{n:'Board Resolution / Authorization Letter',r:true},{n:'Passport / National ID – Key Personnel',r:true},{n:'IEC (Import Export Code)',r:true},{n:'GST Registration Certificate',r:true},{n:'Sample Bill of Entry',r:false}],
+  'Stevedoring Agent':[{n:'Certificate of Incorporation',r:true},{n:'Port Labour Licence',r:true},{n:'Proof of Office Address',r:true},{n:'Board Resolution / Authorization Letter',r:true},{n:'Passport / National ID – Key Personnel',r:true},{n:'Workmen Compensation Insurance',r:true},{n:'Equipment List & Capacity Statement',r:true},{n:'Safety Policy Document',r:false}],
+};
+
+const KYC_ADMIN_CHECKS = [
+  'Company registration documents verified',
+  'Registered office address confirmed',
+  'Key directors / UBO identified and verified',
+  'Category-specific licence / certification valid',
+  'Financial standing satisfactory',
+  'Sanctions screening completed (OFAC, UN, EU)',
+  'PEP (Politically Exposed Person) screening done',
+  'AML risk assessment completed',
+  'All mandatory documents received',
+  'Declaration signed by authorized signatory',
+];
+
+let kycSelectedId = null;
+let kycFormStep = 1;
+let kycFormData = {};
+let kycTabFilter = 'all';
+
+// Enrich participants with KYC runtime fields (safe to call multiple times)
+function enrichParticipants() {
+  participants.forEach(p => {
+    if (!p.kycStatus) p.kycStatus = p.kyc ? 'approved' : 'pending';
+    if (!p.kycDocs) {
+      const docList = KYC_DOCS_BY_CAT[p.category] || [];
+      p.kycDocs = docList.map(d => ({...d, uploaded: p.kyc && d.r}));
+    }
+    if (!p.kycChecks) p.kycChecks = KYC_ADMIN_CHECKS.map(l => ({label:l, checked: p.kyc}));
+    if (!p.kycHistory) p.kycHistory = p.kyc ? [{action:'Approved',date:'10/03/2026 11:00',comment:'All documents verified. KYC approved.'}] : [];
+    if (!p.email) p.email = p.code.toLowerCase()+'@'+p.name.toLowerCase().replace(/\s+/g,'')+'.com';
+    if (!p.country) p.country = 'India';
+    if (!p.regNo) p.regNo = 'REG-'+Math.random().toString(36).slice(2,8).toUpperCase();
+    if (!p.address) p.address = '123 Trade Street, Business District';
+    if (!p.phone) p.phone = '+91 98765 '+Math.floor(10000+Math.random()*90000);
+    if (!p.contactPerson) p.contactPerson = 'Mr. Authorized Rep';
+    if (!p.designation) p.designation = 'Director';
+    if (!p.riskRating) p.riskRating = p.kyc ? 'Low' : 'Unrated';
+    if (!p.adminComment) p.adminComment = '';
+    if (!p.submittedDate) p.submittedDate = p.kyc ? '10/03/2026' : '';
+  });
+  // Add demo "under review" participant only in demo/first-run
+  if (!participants.find(p => p.kycStatus === 'review')) {
+    participants.push({
+      id: participants.length+1,
+      name: 'Global Ports Ltd', code: 'GPL', category: 'Port Agent', country: 'Singapore',
+      kyc: false, kycStatus: 'review', products: [],
+      kycDocs: (KYC_DOCS_BY_CAT['Port Agent']||[]).map((d,i) => ({...d, uploaded: i < 5})),
+      kycChecks: KYC_ADMIN_CHECKS.map((l,i) => ({label:l, checked: i < 4})),
+      kycHistory: [{action:'Submitted',date:'12/03/2026 09:15',comment:'KYC application submitted by company.'}],
+      email:'info@globalports.sg', regNo:'REG-GPL001', address:'1 Harbour Front, Singapore',
+      phone:'+65 6234 5678', contactPerson:'Ms. Jane Lim', designation:'Managing Director',
+      riskRating:'Medium', adminComment:'', submittedDate:'12/03/2026', regNo2:'SG-PA-2024-001',
+    });
+  }
+}
+enrichParticipants(); // run immediately on parse
+
+function kycStatusOf(p) { return p.kycStatus || (p.kyc ? 'approved' : 'pending'); }
+
+function switchKycTab(filter, el) {
+  kycTabFilter = filter;
+  kycSelectedId = null;
+  document.querySelectorAll('#page-kyc .doc-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderKYC();
+}
+
+function renderKYC() {
+  const search = (document.getElementById('kyc-search')||{}).value || '';
+  const counts = {all:0,pending:0,review:0,approved:0,rejected:0};
+  participants.forEach(p => { counts.all++; counts[kycStatusOf(p)]=(counts[kycStatusOf(p)]||0)+1; });
+  ['all','pending','review','approved','rejected'].forEach(k => {
+    const el = document.getElementById('kyc-tc-'+k); if(el) el.textContent = counts[k]||0;
+  });
+  ['all','pending','review','approved','rejected'].forEach(k => {
+    const el = document.getElementById('kyc-stat-'+k.replace('review','review').replace('all','total'));
+    // update stats row
+  });
+  const statMap = {total:'all',approved:'approved',review:'review',pending:'pending',rejected:'rejected'};
+  Object.entries(statMap).forEach(([stat,key]) => {
+    const el = document.getElementById('kyc-stat-'+stat); if(el) el.textContent = counts[key]||0;
+  });
+  // KYC badge
+  const kycBadge = document.getElementById('kyc-badge');
+  if(kycBadge){ const n=(counts.pending||0)+(counts.review||0); kycBadge.textContent=n; kycBadge.style.display=n?'':'none'; }
+
+  let list = participants.filter(p => {
+    if (kycTabFilter !== 'all' && kycStatusOf(p) !== kycTabFilter) return false;
+    if (search && !p.name.toLowerCase().includes(search.toLowerCase()) && !p.category.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const listEl = document.getElementById('kyc-list');
+  if (!listEl) return;
+  if (!list.length) { listEl.innerHTML = '<div class="empty-state"><div class="icon">◉</div><p>No participants found.</p></div>'; return; }
+
+  listEl.innerHTML = list.map(p => {
+    const st = kycStatusOf(p);
+    const done = (p.kycChecks||[]).filter(c=>c.checked).length;
+    const total = (p.kycChecks||[]).length;
+    const isSelected = p.id === kycSelectedId;
+    return `<div class="kyc-list-card ${isSelected?'selected':''}" onclick="selectKycParticipant(${p.id})">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;color:#000;flex-shrink:0;">${p.code.slice(0,2)}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${isSelected?'var(--accent)':'var(--text)'};">${p.name}</div>
+          <div style="font-size:10px;color:var(--muted);">${p.category} · ${p.country||'—'}</div>
+        </div>
+        <span class="kyc-status-pill ${st}">${{approved:'✓ Approved',review:'🔍 Review',pending:'⏳ Pending',rejected:'✕ Rejected'}[st]||st}</span>
+      </div>
+      ${st==='review'?`<div style="margin-top:7px;"><div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Admin checks: ${done}/${total}</div><div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden;"><div style="height:100%;width:${total?Math.round(done/total*100):0}%;background:linear-gradient(to right,var(--accent),var(--accent2));border-radius:2px;"></div></div></div>`:''}
+    </div>`;
+  }).join('');
+
+  if (kycSelectedId && participants.find(p=>p.id===kycSelectedId)) {
+    selectKycParticipant(kycSelectedId, true);
+  }
+}
+
+function selectKycParticipant(id, skipRender) {
+  kycSelectedId = id;
+  if (!skipRender) renderKYC();
+  const p = participants.find(x => x.id === id);
+  if (!p) return;
+  const detail = document.getElementById('kyc-detail');
+  if (!detail) return;
+  const st = kycStatusOf(p);
+  const docsDone = (p.kycDocs||[]).filter(d=>d.uploaded).length;
+  const docsTotal = (p.kycDocs||[]).length;
+  const checksDone = (p.kycChecks||[]).filter(c=>c.checked).length;
+  const checksTotal = (p.kycChecks||[]).length;
+  const ringPct = checksTotal ? Math.round(checksDone/checksTotal*100) : 0;
+  const r = 22; const circ = 2*Math.PI*r;
+
+  detail.innerHTML = `
+  <div class="kyc-detail-header">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
+      <div class="kyc-detail-avatar">${p.code.slice(0,2)}</div>
+      <div style="flex:1;">
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;">${p.name}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${p.category} · ${p.country||'—'} · <span style="color:var(--accent);">${p.code}</span></div>
+        <div style="margin-top:6px;display:flex;gap:6px;align-items:center;">
+          <span class="kyc-status-pill ${st}" style="font-size:11px;">${{approved:'✓ KYC Approved',review:'🔍 Under Review',pending:'⏳ Pending Submission',rejected:'✕ Rejected'}[st]||st}</span>
+          <span style="font-size:10px;color:var(--muted);">Risk: <span style="color:${p.riskRating==='Low'?'var(--success)':p.riskRating==='Medium'?'var(--warning)':'var(--danger)'};">${p.riskRating||'—'}</span></span>
+          ${p.submittedDate?`<span style="font-size:10px;color:var(--muted);">Submitted: ${p.submittedDate}</span>`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <div class="kyc-progress-ring">
+          <svg width="56" height="56" viewBox="0 0 56 56">
+            <circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--border)" stroke-width="4"/>
+            <circle cx="28" cy="28" r="${r}" fill="none" stroke="${st==='approved'?'var(--success)':st==='review'?'var(--accent)':'var(--muted)'}" stroke-width="4"
+              stroke-dasharray="${circ}" stroke-dashoffset="${circ*(1-ringPct/100)}" stroke-linecap="round"/>
+          </svg>
+          <div class="kyc-ring-label" style="color:${st==='approved'?'var(--success)':st==='review'?'var(--accent)':'var(--muted)'};">${ringPct}%</div>
+        </div>
+        ${st!=='approved'?`<button class="btn btn-primary btn-sm" onclick="openKycForm(${p.id})">✎ Edit</button>`:''}
+      </div>
+    </div>
+    <!-- Quick nav tabs within detail -->
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-top:8px;">
+      ${['info','docs','admin','history'].map((t,i)=>
+        `<div onclick="kycDetailTab('${t}',${p.id})" id="kdtab-${t}-${p.id}" class="doc-tab ${i===0?'active':''}" style="font-size:11px;padding:8px 14px;">${{info:'📋 Info',docs:'📁 Documents',admin:'⚙ Admin Review',history:'📜 History'}[t]}</div>`
+      ).join('')}
+    </div>
+  </div>
+  <div id="kyc-detail-content-${p.id}" style="padding:16px;">
+    ${buildKycInfoTab(p)}
+  </div>`;
+}
+
+function kycDetailTab(tab, pid) {
+  const p = participants.find(x=>x.id===pid); if(!p) return;
+  document.querySelectorAll(`[id^="kdtab-"][id$="-${pid}"]`).forEach(t=>t.classList.remove('active'));
+  const tabEl = document.getElementById(`kdtab-${tab}-${pid}`); if(tabEl) tabEl.classList.add('active');
+  const content = document.getElementById(`kyc-detail-content-${pid}`); if(!content) return;
+  if (tab==='info') content.innerHTML = buildKycInfoTab(p);
+  if (tab==='docs') content.innerHTML = buildKycDocsTab(p);
+  if (tab==='admin') { content.innerHTML = buildKycAdminTab(p); setTimeout(()=>wireKycAdminChecks(pid),50); }
+  if (tab==='history') content.innerHTML = buildKycHistoryTab(p);
+}
+
+function buildKycInfoTab(p) {
+  return `
+  <div class="kyc-section-title">Company Information</div>
+  <div class="kyc-info-block">
+    ${[['Company Name',p.name],['Participant Code',p.code],['Category',p.category],['Country of Registration',p.country||'—'],['Registration Number',p.regNo||'—'],['Registered Address',p.address||'—'],['Contact Person',p.contactPerson||'—'],['Designation',p.designation||'—'],['Phone',p.phone||'—'],['Email',p.email||'—']].map(([k,v])=>`
+    <div class="kyc-info-row"><span class="kyc-info-key">${k}</span><span class="kyc-info-val">${v}</span></div>`).join('')}
+  </div>
+  <div class="kyc-section-title">Products & Trading Authorization</div>
+  <div class="kyc-info-block">
+    <div class="kyc-info-row"><span class="kyc-info-key">Authorized Products</span><span class="kyc-info-val">${p.products&&p.products.length?p.products.map(pr=>`<span class="tag" style="margin:1px;">${pr}</span>`).join(''):'<span style="color:var(--muted);">All (Agent / Service Provider)</span>'}</span></div>
+    <div class="kyc-info-row"><span class="kyc-info-key">KYC Status</span><span class="kyc-info-val"><span class="kyc-status-pill ${kycStatusOf(p)}">${kycStatusOf(p).replace('_',' ')}</span></span></div>
+    <div class="kyc-info-row"><span class="kyc-info-key">Risk Rating</span><span class="kyc-info-val" style="color:${p.riskRating==='Low'?'var(--success)':p.riskRating==='Medium'?'var(--warning)':'var(--danger)'};">${p.riskRating||'Unrated'}</span></div>
+  </div>`;
+}
+
+function buildKycDocsTab(p) {
+  const docs = p.kycDocs || [];
+  const uploaded = docs.filter(d=>d.uploaded).length;
+  return `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <div class="kyc-section-title" style="margin:0;">Documents (${uploaded}/${docs.length} uploaded)</div>
+    <div style="height:4px;width:120px;background:var(--border);border-radius:2px;overflow:hidden;"><div style="height:100%;width:${docs.length?Math.round(uploaded/docs.length*100):0}%;background:linear-gradient(to right,var(--accent),var(--accent2));border-radius:2px;"></div></div>
+  </div>
+  ${docs.map((d,i)=>`
+  <div class="kyc-doc-row ${d.uploaded?'uploaded':d.r?'required-missing':''}">
+    <div class="kyc-doc-icon">${d.uploaded?'✅':d.r?'📄':'📎'}</div>
+    <div class="kyc-doc-info">
+      <div class="kyc-doc-name">${d.n} ${d.r?'<span style="color:var(--danger);font-size:10px;">*</span>':''}</div>
+      <div class="kyc-doc-note">${d.r?'Required':'Optional'} · ${d.uploaded?'Uploaded ✓':'Pending upload'}</div>
+    </div>
+    <span class="kyc-doc-status ${d.uploaded?'uploaded':'pending'}">${d.uploaded?'Uploaded':'Pending'}</span>
+    ${kycStatusOf(p)!=='approved'?`<button class="kyc-upload-btn" onclick="simulateUpload(${p.id},${i})">${d.uploaded?'Replace':'Upload'}</button>`:''}
+  </div>`).join('')}
+  <div style="font-size:10px;color:var(--muted);margin-top:10px;">* Required documents. All mandatory documents must be uploaded before KYC can be approved.</div>`;
+}
+
+function buildKycAdminTab(p) {
+  const st = kycStatusOf(p);
+  const isApproved = st === 'approved';
+  const checks = p.kycChecks || [];
+  const done = checks.filter(c=>c.checked).length;
+  const allDone = done === checks.length;
+  const safeId = 'kyc_'+p.id;
+  return `
+  <div class="kyc-section-title">Admin Verification Checklist</div>
+  <div style="background:var(--surface2);border:1px solid rgba(240,165,0,0.15);border-radius:6px;padding:4px 0;margin-bottom:12px;">
+    ${checks.map((c,i)=>`
+    <div class="kyc-check-item" id="kcc-${safeId}-${i}" onclick="${isApproved?'':''}" style="padding:8px 14px;">
+      <div class="kyc-check-box ${c.checked?'checked':''}" id="kcb-${safeId}-${i}">${c.checked?'✓':''}</div>
+      <div style="font-size:11px;color:${c.checked?'var(--text)':'var(--muted)'};">${c.label}</div>
+    </div>`).join('')}
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-bottom:10px;">${done}/${checks.length} verification items completed</div>
+  <div style="margin-bottom:10px;">
+    <label style="font-size:10px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:5px;">ADMIN REMARKS</label>
+    <textarea id="kyc-admin-comment-${p.id}" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;resize:vertical;min-height:65px;outline:none;" placeholder="Verification notes, risk assessment comments..." ${isApproved?'disabled':''}>${p.adminComment||''}</textarea>
+  </div>
+  <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">KYC DECISION</div>
+  ${isApproved?`
+  <div style="padding:12px;background:rgba(46,213,115,0.08);border:1px solid rgba(46,213,115,0.2);border-radius:6px;font-size:11px;color:var(--success);text-align:center;">✓ KYC Approved — Participant is cleared for trading on Bullex platform.</div>
+  <button class="btn btn-danger btn-sm" style="width:100%;justify-content:center;margin-top:8px;" onclick="kycRevoke(${p.id})">Revoke KYC Approval</button>`:
+  `<div style="display:flex;flex-direction:column;gap:7px;">
+    <button class="btn btn-success" style="width:100%;justify-content:center;" ${allDone?'':' disabled'} id="kbtn-approve-${p.id}" onclick="kycApprove(${p.id})">✓ Approve KYC</button>
+    <button class="btn btn-warning" style="width:100%;justify-content:center;" onclick="kycRequestInfo(${p.id})">✎ Request Additional Info</button>
+    <button class="btn btn-danger" style="width:100%;justify-content:center;" onclick="kycReject(${p.id})">✕ Reject Application</button>
+    ${!allDone?`<div style="font-size:10px;color:var(--muted);text-align:center;">Complete all ${checks.length} verification items to enable approval.</div>`:''}
+  </div>`}
+
+  <!-- Sanctions & PEP Screening Panel -->
+  <div class="kyc-section-title" style="margin-top:18px;">Compliance Screening</div>
+  <div class="kyc-info-block">
+    ${[['OFAC Sanctions List','Clear ✓'],['UN Consolidated List','Clear ✓'],['EU Consolidated List','Clear ✓'],['PEP Screening',isApproved?"Clear ✓":"Pending"],['AML Risk Score',p.riskRating||'Unrated'],['Last Screening Date',isApproved?'10/03/2026':'—']].map(([k,v])=>`
+    <div class="kyc-info-row"><span class="kyc-info-key">${k}</span><span class="kyc-info-val" style="color:${v.includes('Clear')?'var(--success)':v==='Pending'?'var(--warning)':'var(--text)'};">${v}</span></div>`).join('')}
+  </div>`;
+}
+
+function buildKycHistoryTab(p) {
+  const hist = p.kycHistory || [];
+  if (!hist.length) return '<div class="empty-state"><div class="icon">📜</div><p>No history yet.</p></div>';
+  return `
+  <div class="kyc-section-title">KYC Review History</div>
+  <div style="position:relative;padding-left:20px;">
+    ${hist.map((h,i)=>`
+    <div style="position:relative;padding-bottom:16px;padding-left:14px;border-left:1px solid ${i===hist.length-1?'transparent':'var(--border)'};">
+      <div style="position:absolute;left:-5px;top:2px;width:10px;height:10px;border-radius:50%;background:${h.action==='Approved'?'var(--success)':h.action==='Rejected'?'var(--danger)':h.action==='Revoked'?'var(--danger)':'var(--accent)'};"></div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:${h.action==='Approved'?'var(--success)':h.action==='Rejected'||h.action==='Revoked'?'var(--danger)':'var(--accent)'};">${h.action}</span>
+          <span style="font-size:10px;color:var(--muted);">${h.date}</span>
+        </div>
+        ${h.comment?`<div style="font-size:11px;color:var(--muted);">${h.comment}</div>`:''}
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+// Wire up admin check clicks after rendering
+function wireKycAdminChecks(pid) {
+  const p = participants.find(x=>x.id===pid); if(!p) return;
+  const safeId = 'kyc_'+pid;
+  (p.kycChecks||[]).forEach((_,i)=>{
+    const row = document.getElementById(`kcc-${safeId}-${i}`);
+    if (row && kycStatusOf(p)!=='approved') row.onclick = () => toggleKycCheck(pid, i);
+  });
+}
+
+function toggleKycCheck(pid, idx) {
+  const p = participants.find(x=>x.id===pid); if(!p||kycStatusOf(p)==='approved') return;
+  p.kycChecks[idx].checked = !p.kycChecks[idx].checked;
+  kycDetailTab('admin', pid);
+  setTimeout(()=>wireKycAdminChecks(pid), 50);
+  renderKYC();
+}
+
+function getKycAdminComment(pid) {
+  const el = document.getElementById('kyc-admin-comment-'+pid);
+  return el ? el.value : '';
+}
+
+function kycApprove(pid) {
+  const p = participants.find(x=>x.id===pid); if(!p) return;
+  const comment = getKycAdminComment(pid);
+  p.kycStatus = 'approved'; p.kyc = true; p.riskRating = p.riskRating||'Low';
+  p.adminComment = comment; p.submittedDate = p.submittedDate || now().split(' ')[0];
+  p.kycHistory.push({action:'Approved', date:now(), comment: comment||'KYC documents verified. Participant approved for trading.'});
+  persistParticipant(p);
+  showNotif(`${p.name} — KYC Approved! Participant can now trade on Bullex.`, 'teal');
+  renderKYC(); selectKycParticipant(pid, true); kycDetailTab('admin', pid); setTimeout(()=>wireKycAdminChecks(pid),50);
+}
+
+function kycReject(pid) {
+  const p = participants.find(x=>x.id===pid); if(!p) return;
+  const comment = getKycAdminComment(pid)||'Application does not meet KYC requirements.';
+  p.kycStatus = 'rejected'; p.kyc = false;
+  p.adminComment = comment;
+  p.kycHistory.push({action:'Rejected', date:now(), comment});
+  persistParticipant(p);
+  showNotif(`${p.name} — KYC application rejected.`, 'danger');
+  renderKYC(); selectKycParticipant(pid, true); kycDetailTab('admin', pid); setTimeout(()=>wireKycAdminChecks(pid),50);
+}
+
+function kycRequestInfo(pid) {
+  const p = participants.find(x=>x.id===pid); if(!p) return;
+  const comment = getKycAdminComment(pid)||'Additional information or documents required.';
+  p.kycStatus = 'review';
+  p.kycHistory.push({action:'Info Requested', date:now(), comment});
+  persistParticipant(p);
+  showNotif(`${p.name} — Additional information requested.`, 'gold');
+  renderKYC(); selectKycParticipant(pid, true); kycDetailTab('admin', pid);
+}
+
+function kycRevoke(pid) {
+  const p = participants.find(x=>x.id===pid); if(!p) return;
+  p.kycStatus = 'pending'; p.kyc = false;
+  p.kycHistory.push({action:'Revoked', date:now(), comment:'KYC approval revoked by administrator.'});
+  persistParticipant(p);
+  showNotif(`${p.name} — KYC revoked.`, 'danger');
+  renderKYC(); selectKycParticipant(pid, true); kycDetailTab('admin', pid);
+}
+
+function simulateUpload(pid, docIdx) {
+  const p = participants.find(x=>x.id===pid); if(!p) return;
+  p.kycDocs[docIdx].uploaded = true;
+  if (p.kycStatus === 'pending') p.kycStatus = 'review';
+  if (!p.submittedDate) p.submittedDate = now().split(' ')[0];
+  if (!p.kycHistory.find(h=>h.action==='Submitted')) p.kycHistory.push({action:'Submitted', date:now(), comment:'KYC application submitted with documents.'});
+  persistParticipant(p);
+  showNotif(`Document "${p.kycDocs[docIdx].n}" uploaded.`, 'teal');
+  kycDetailTab('docs', pid); renderKYC();
+}
+
+// ============================================================
+// KYC MULTI-STEP FORM
+// ============================================================
+function openKycForm(editId) {
+  kycFormStep = 1;
+  if (editId) {
+    const p = participants.find(x=>x.id===editId);
+    kycFormData = p ? {
+      editId, name:p.name, code:p.code, category:p.category, country:p.country||'',
+      regNo:p.regNo||'', address:p.address||'', phone:p.phone||'', email:p.email||'',
+      contactPerson:p.contactPerson||'', designation:p.designation||'',
+      products:[...(p.products||[])], website:'', swift:'', leiCode:'',
+      declaration:false
+    } : {};
+    document.getElementById('kyc-form-title').textContent = 'Edit KYC Application — '+p.name;
+  } else {
+    kycFormData = {name:'',code:'',category:'Producer',country:'',regNo:'',address:'',phone:'',email:'',contactPerson:'',designation:'',products:[],website:'',swift:'',leiCode:'',declaration:false};
+    document.getElementById('kyc-form-title').textContent = 'New KYC Application';
+  }
+  renderKycStep();
+  openModal('kyc-form-modal');
+}
+
+function renderKycStep() {
+  // Update step indicators
+  for (let i=1;i<=5;i++) {
+    const dot = document.getElementById('ksd-'+i);
+    const line = document.getElementById('ksl-'+i);
+    if (dot) { dot.className = 'kyc-step-dot'+(i<kycFormStep?' done':i===kycFormStep?' active':''); }
+    if (line && i<5) { line.className = 'kyc-step-line'+(i<kycFormStep?' done':''); }
+  }
+  const body = document.getElementById('kyc-form-body');
+  const footer = document.getElementById('kyc-form-footer');
+  body.innerHTML = getKycStepHtml(kycFormStep);
+  footer.innerHTML = `
+    ${kycFormStep>1?`<button class="btn btn-secondary" onclick="kycStepNav(-1)">← Back</button>`:'<span></span>'}
+    <span style="font-size:11px;color:var(--muted);">Step ${kycFormStep} of 5</span>
+    ${kycFormStep<5?`<button class="btn btn-primary" onclick="kycStepNav(1)">Next →</button>`:`<button class="btn btn-primary" onclick="submitKycForm()">✓ Submit Application</button>`}`;
+
+  // Wire product checkboxes
+  if (kycFormStep===3) {
+    PRODUCTS.forEach(pr => {
+      const cb = document.getElementById('kprod-'+pr.replace(/\s+/g,'_'));
+      if (cb) cb.checked = kycFormData.products.includes(pr);
+    });
+  }
+}
+
+function getKycStepHtml(step) {
+  const fg = (id, label, type='text', placeholder='', val='') =>
+    `<div class="form-row"><label>${label}</label><input type="${type}" id="kf-${id}" placeholder="${placeholder}" value="${val||kycFormData[id]||''}" style="width:100%;"></div>`;
+  const fgs = (id, label, opts) =>
+    `<div class="form-row"><label>${label}</label><select id="kf-${id}" style="width:100%;">${opts.map(o=>`<option value="${o}" ${kycFormData[id]===o?'selected':''}>${o}</option>`).join('')}</select></div>`;
+
+  if (step===1) return `
+    <div class="kyc-section-title">Company Information</div>
+    <div class="kyc-field-grid">
+      ${fg('name','Legal Company Name *','text','Full registered name')}
+      ${fgs('category','Participant Category *',PARTICIPANT_CATS)}
+    </div>
+    <div class="kyc-field-grid">
+      ${fg('regNo','Company Registration No. *','text','e.g. U74999MH2020PTC123456')}
+      ${fg('country','Country of Registration *','text','e.g. India')}
+    </div>
+    ${fg('address','Registered Office Address *','text','Street, City, State, ZIP')}
+    <div class="kyc-field-grid">
+      ${fg('website','Company Website','text','https://www.company.com')}
+      ${fg('leiCode','LEI Code (if any)','text','20-character LEI')}
+    </div>
+    <div style="background:rgba(240,165,0,0.06);border:1px solid rgba(240,165,0,0.2);border-radius:5px;padding:10px 12px;font-size:11px;color:var(--muted);margin-top:8px;">
+      ℹ All fields marked * are mandatory. Company name must match certificate of incorporation exactly.
+    </div>`;
+
+  if (step===2) return `
+    <div class="kyc-section-title">Contact Person & Banking Details</div>
+    <div class="kyc-field-grid">
+      ${fg('contactPerson','Authorized Contact Person *','text','Full name')}
+      ${fg('designation','Designation *','text','e.g. Director / Managing Director')}
+    </div>
+    <div class="kyc-field-grid">
+      ${fg('email','Official Email Address *','email','contact@company.com')}
+      ${fg('phone','Phone Number *','text','+91 98xxx xxxxx')}
+    </div>
+    <div class="kyc-section-title">Banking & Financial</div>
+    <div class="kyc-field-grid">
+      ${fg('swift','SWIFT / BIC Code','text','e.g. HDFCINBB')}
+      ${fg('bankName','Bank Name','text','e.g. HDFC Bank')}
+    </div>
+    <div class="kyc-field-grid">
+      ${fg('bankCountry','Bank Country','text','e.g. India')}
+      ${fg('annualTurnover','Annual Turnover (USD)','text','e.g. 5,000,000')}
+    </div>
+    <div class="form-row">
+      <label>Source of Funds</label>
+      <select id="kf-sourceOfFunds" style="width:100%;">
+        ${['Trade Revenue','Export Proceeds','Investment Returns','Bank Financing','Equity Capital','Other'].map(o=>`<option ${kycFormData.sourceOfFunds===o?'selected':''}>${o}</option>`).join('')}
+      </select>
+    </div>`;
+
+  if (step===3) return `
+    <div class="kyc-section-title">Products & Trading Authorization</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Select all products this participant will deal in. Leave blank for service providers (agents, brokers, etc.).</div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;">
+      ${PRODUCTS.map(pr=>`
+      <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" id="klbl-${pr.replace(/\s+/g,'_')}">
+        <input type="checkbox" id="kprod-${pr.replace(/\s+/g,'_')}" onchange="toggleKycProduct('${pr}')" style="width:auto;accent-color:var(--accent);">
+        ${pr}
+      </label>`).join('')}
+    </div>
+    <div class="kyc-section-title">AML Risk Assessment</div>
+    <div class="kyc-field-grid">
+      <div class="form-row"><label>Self-Assessed Risk Rating</label>
+        <select id="kf-selfRisk" style="width:100%;"><option>Low</option><option>Medium</option><option>High</option></select>
+      </div>
+      <div class="form-row"><label>Trading Volume (Annual USD)</label>
+        <input type="text" id="kf-tradingVolume" placeholder="e.g. 10,000,000" value="${kycFormData.tradingVolume||''}" style="width:100%;">
+      </div>
+    </div>
+    <div class="form-row"><label>Countries of Operation</label>
+      <input type="text" id="kf-operatingCountries" placeholder="e.g. India, UAE, Singapore" value="${kycFormData.operatingCountries||''}" style="width:100%;">
+    </div>`;
+
+  if (step===4) {
+    const docList = KYC_DOCS_BY_CAT[kycFormData.category] || KYC_DOCS_BY_CAT['Buyer'];
+    return `
+    <div class="kyc-section-title">Required Documents — ${kycFormData.category}</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Upload all documents marked as Required (*). Accepted formats: PDF, JPG, PNG (max 10MB each).</div>
+    ${docList.map((d,i)=>`
+    <div class="kyc-doc-row ${kycFormData['doc_'+i]?'uploaded':''}" id="kdocrow-${i}">
+      <div class="kyc-doc-icon">${kycFormData['doc_'+i]?'✅':'📄'}</div>
+      <div class="kyc-doc-info">
+        <div class="kyc-doc-name">${d.n} ${d.r?'<span style="color:var(--danger);font-size:10px;">*Required</span>':''}</div>
+        <div class="kyc-doc-note">${kycFormData['doc_'+i]?`<span style="color:var(--success);">Uploaded: ${kycFormData['doc_'+i]}</span>`:'No file selected'}</div>
+      </div>
+      <button class="kyc-upload-btn" onclick="simulateKycDocUpload(${i},'${d.n.replace(/'/g,'')}')">
+        ${kycFormData['doc_'+i]?'Replace':'Upload'}
+      </button>
+    </div>`).join('')}
+    <div style="margin-top:10px;padding:8px 12px;background:rgba(74,158,255,0.06);border:1px solid rgba(74,158,255,0.2);border-radius:5px;font-size:11px;color:var(--accent3);">
+      📋 ${docList.filter(d=>d.r).length} required · ${docList.filter(d=>!d.r).length} optional. You can submit with required docs and add optional later.
+    </div>`;
+  }
+
+  if (step===5) return `
+    <div class="kyc-section-title">Declaration & Certification</div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:16px;font-size:11px;line-height:1.9;color:var(--muted);margin-bottom:16px;">
+      <p style="margin-bottom:10px;color:var(--text);font-weight:500;">DECLARATION BY APPLICANT</p>
+      <p>I / We, the undersigned, acting on behalf of <strong style="color:var(--text);">${kycFormData.name||'[Company Name]'}</strong>, hereby declare that:</p>
+      <ol style="margin:10px 0 10px 18px;display:flex;flex-direction:column;gap:6px;">
+        <li>All information provided in this KYC application is true, accurate and complete to the best of our knowledge.</li>
+        <li>All documents submitted are genuine, unaltered and duly authorized.</li>
+        <li>We are not subject to any sanctions, debarment or legal prohibitions that would prevent us from engaging in commodity trade.</li>
+        <li>We undertake to promptly notify Bullex Tech of any material changes to the information provided.</li>
+        <li>We consent to Bullex Tech conducting background checks, sanctions screening, and verification of all submitted information.</li>
+        <li>We agree to comply with all applicable AML/KYC regulations and Bullex Tech platform policies.</li>
+      </ol>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:rgba(240,165,0,0.06);border:1px solid rgba(240,165,0,0.2);border-radius:6px;margin-bottom:14px;">
+      <input type="checkbox" id="kf-declaration" style="width:auto;margin-top:2px;accent-color:var(--accent);" ${kycFormData.declaration?'checked':''} onchange="kycFormData.declaration=this.checked">
+      <label for="kf-declaration" style="font-size:12px;cursor:pointer;color:var(--text);">I confirm that I am authorized to submit this KYC application on behalf of the company, and I agree to the declaration above.</label>
+    </div>
+    <div class="kyc-field-grid">
+      <div class="form-row"><label>Authorized Signatory Name</label><input type="text" id="kf-signatoryName" placeholder="Full name" value="${kycFormData.signatoryName||kycFormData.contactPerson||''}" style="width:100%;"></div>
+      <div class="form-row"><label>Submission Date</label><input type="text" id="kf-submitDate" value="${new Date().toLocaleDateString('en-GB')}" disabled style="width:100%;opacity:0.7;"></div>
+    </div>
+    <div style="padding:10px 14px;background:rgba(46,213,115,0.06);border:1px solid rgba(46,213,115,0.2);border-radius:5px;font-size:11px;color:var(--muted);margin-top:4px;">
+      ✓ Upon submission your application will be reviewed by Bullex Tech admin. You will be notified by email of the outcome.
+    </div>`;
+}
+
+function toggleKycProduct(pr) {
+  const idx = kycFormData.products.indexOf(pr);
+  if (idx > -1) kycFormData.products.splice(idx, 1);
+  else kycFormData.products.push(pr);
+}
+
+function simulateKycDocUpload(idx, name) {
+  kycFormData['doc_'+idx] = name+'.pdf';
+  renderKycStep();
+}
+
+function kycStepNav(dir) {
+  // Collect current step data
+  collectKycStepData(kycFormStep);
+  if (dir === 1) {
+    if (!validateKycStep(kycFormStep)) return;
+    kycFormStep = Math.min(5, kycFormStep + 1);
+  } else {
+    kycFormStep = Math.max(1, kycFormStep - 1);
+  }
+  renderKycStep();
+}
+
+function collectKycStepData(step) {
+  const gv = id => { const el=document.getElementById('kf-'+id); return el?el.value:''; };
+  if (step===1) Object.assign(kycFormData, {name:gv('name'),category:gv('category'),regNo:gv('regNo'),country:gv('country'),address:gv('address'),website:gv('website'),leiCode:gv('leiCode')});
+  if (step===2) Object.assign(kycFormData, {contactPerson:gv('contactPerson'),designation:gv('designation'),email:gv('email'),phone:gv('phone'),swift:gv('swift'),bankName:gv('bankName'),bankCountry:gv('bankCountry'),annualTurnover:gv('annualTurnover'),sourceOfFunds:gv('sourceOfFunds')});
+  if (step===3) Object.assign(kycFormData, {selfRisk:gv('selfRisk'),tradingVolume:gv('tradingVolume'),operatingCountries:gv('operatingCountries')});
+  if (step===5) Object.assign(kycFormData, {signatoryName:gv('signatoryName'),declaration:(document.getElementById('kf-declaration')||{}).checked});
+}
+
+function validateKycStep(step) {
+  if (step===1) {
+    if (!kycFormData.name) { showNotif('Company name is required.','danger'); return false; }
+    if (!kycFormData.country) { showNotif('Country of registration is required.','danger'); return false; }
+  }
+  if (step===2) {
+    if (!kycFormData.email) { showNotif('Email address is required.','danger'); return false; }
+  }
+  if (step===5) {
+    if (!kycFormData.declaration) { showNotif('Please accept the declaration to proceed.','danger'); return false; }
+  }
+  return true;
+}
+
+function submitKycForm() {
+  collectKycStepData(5);
+  if (!validateKycStep(5)) return;
+  if (kycFormData.editId) {
+    const p = participants.find(x=>x.id===kycFormData.editId);
+    if (p) {
+      Object.assign(p, {name:kycFormData.name,category:kycFormData.category,country:kycFormData.country,regNo:kycFormData.regNo,address:kycFormData.address,phone:kycFormData.phone,email:kycFormData.email,contactPerson:kycFormData.contactPerson,designation:kycFormData.designation,products:kycFormData.products});
+      if (p.kycStatus==='pending') { p.kycStatus='review'; p.submittedDate=new Date().toLocaleDateString('en-GB'); p.kycHistory.push({action:'Submitted',date:now(),comment:'KYC application submitted by '+kycFormData.contactPerson+'.'}); }
+      else p.kycHistory.push({action:'Updated',date:now(),comment:'Application details updated.'});
+      persistParticipant(p);
+      showNotif(`${p.name} — KYC application updated and submitted for review.`,'teal');
+    }
+  } else {
+    const code = kycFormData.name.trim().replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase() || 'NEW';
+    const docList = KYC_DOCS_BY_CAT[kycFormData.category]||[];
+    const newP = {
+      id: participants.length+1, name:kycFormData.name, code, category:kycFormData.category,
+      country:kycFormData.country, kyc:false, kycStatus:'review',
+      products:kycFormData.products, regNo:kycFormData.regNo, address:kycFormData.address,
+      phone:kycFormData.phone, email:kycFormData.email, contactPerson:kycFormData.contactPerson,
+      designation:kycFormData.designation, riskRating:kycFormData.selfRisk||'Low',
+      submittedDate:new Date().toLocaleDateString('en-GB'),
+      kycDocs: docList.map((d,i)=>({...d, uploaded:!!kycFormData['doc_'+i]})),
+      kycChecks: KYC_ADMIN_CHECKS.map(l=>({label:l,checked:false})),
+      kycHistory:[{action:'Submitted',date:now(),comment:'KYC application submitted by '+kycFormData.contactPerson+'.'}],
+      adminComment:'',
+    };
+    participants.push(newP);
+    persistParticipant(newP);
+    kycSelectedId = newP.id;
+    showNotif(`${newP.name} — KYC application submitted! Pending admin review.`,'gold');
+  }
+  closeModal('kyc-form-modal');
+  renderKYC();
+  if (kycSelectedId) selectKycParticipant(kycSelectedId, true);
+}
+
+function addParticipant() { openKycForm(); } // backward compat
+function goKycStep(s) { collectKycStepData(kycFormStep); kycFormStep=s; renderKycStep(); }
+
+// ============================================================
+// ENQUIRIES
+// ============================================================
+function renderEnquiries(filter='all'){
+  let list=filter==='all'?enquiries:enquiries.filter(e=>e.type===filter);
+  document.getElementById('enquiry-table').innerHTML=list.map(e=>`
+    <tr><td><span class="enq-num">${e.id}</span></td><td>${e.product}</td>
+    <td><span class="badge ${e.type==='Buy'?'badge-kyc':'badge-pending'}">${e.type}</span></td>
+    <td>${e.qty.toLocaleString()} ${e.unit} @ $${e.price}</td><td>${e.creator}</td>
+    <td>${e.daysLeft>0?`<span class="validity-pill">⏱ ${e.daysLeft}d</span>`:'<span class="badge badge-closed">Expired</span>'}</td>
+    <td>${sBadge(e.status)}</td>
+    <td style="display:flex;gap:5px;">
+      <button class="btn btn-secondary btn-sm" onclick="viewEnquiry('${e.id}')">Details</button>
+      ${e.status==='Active'&&e.daysLeft>0?`<button class="btn btn-success btn-sm" onclick="acceptEnquiry('${e.id}')">Accept</button>`:''}
+    </td></tr>`).join('');
+}
+function filterEnquiries(v){renderEnquiries(v);}
+
+function viewEnquiry(id){
+  const e=enquiries.find(x=>x.id===id);if(!e)return;
+  document.getElementById('enq-detail-title').textContent='Enquiry: '+id;
+  document.getElementById('enq-detail-body').innerHTML=`
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:14px;font-size:12px;line-height:2.1;">
+      ${[['Type',e.type],['Product',e.product],['Quantity',`${e.qty.toLocaleString()} ${e.unit}`],['Price',`USD ${e.price}/MT`],['Created By',e.creator],['Validity',`${e.validity} days (${e.daysLeft} remaining)`],['Status',e.status],['Details',e.details||'—']].map(([k,v])=>`<div style="display:flex;gap:10px;"><span style="width:130px;color:var(--muted);">${k}</span><span>${v}</span></div>`).join('')}
+    </div>
+    <div style="margin-top:10px;padding:8px 12px;background:rgba(240,165,0,0.06);border:1px solid rgba(240,165,0,0.2);border-radius:5px;font-size:11px;color:var(--muted);">
+      Enquiry Reference: <span style="color:var(--accent);">${e.id}</span>
+    </div>`;
+  document.getElementById('enq-detail-footer').innerHTML=`
+    <button class="btn btn-secondary" onclick="closeModal('enq-detail-modal')">Close</button>
+    ${e.status==='Active'&&e.daysLeft>0?`<button class="btn btn-success" onclick="acceptEnquiry('${e.id}');closeModal('enq-detail-modal')">✓ Accept & Initiate Trade</button>`:''}`;
+  openModal('enq-detail-modal');
+}
+
+function createEnquiry(){
+  const type=document.getElementById('enq-type').value,product=document.getElementById('enq-product').value;
+  const qty=parseInt(document.getElementById('enq-qty').value)||10000,unit=document.getElementById('enq-unit').value;
+  const price=parseFloat(document.getElementById('enq-price').value)||0,validity=parseInt(document.getElementById('enq-validity').value)||30;
+  const details=document.getElementById('enq-details').value;
+  const now=new Date();
+  const dd=String(now.getDate()).padStart(2,'0'),mm=String(now.getMonth()+1).padStart(2,'0');
+  const serial=String(enquiries.filter(e=>e.creator==='ALP').length+1).padStart(3,'0');
+  const id=`ALP-${product.replace(/\s+/g,'').replace(/-/g,'').slice(0,8)}-${dd}${mm}-${serial}`;
+  const newEnq={id,type,product,qty,unit,price,creator:'ALP',validity,daysLeft:validity,status:'Active',details};
+  enquiries.unshift(newEnq);
+  persistEnquiry(newEnq);
+  closeModal('enquiry-modal');showNotif(`Enquiry ${id} created.`,'gold');renderEnquiries();
+}
+
+function acceptEnquiry(id){
+  const e=enquiries.find(x=>x.id===id);if(!e||e.status!=='Active')return;
+  e.status='Accepted';
+  const tradeId='TRD-00'+(trades.length+2);
+  const buyer=e.type==='Buy'?e.creator:'BUY',seller=e.type==='Sell'?e.creator:'ALP';
+  const hash='0x'+Math.random().toString(16).slice(2,18);
+  const newTrade={id:tradeId,enquiryRef:id,buyer,seller,product:e.product,qty:e.qty,unit:e.unit,price:e.price,blockHash:hash,stage:1};
+  trades.push(newTrade);
+  persistEnquiry(e);
+  persistTrade(newTrade);
+  const newBlock={id:blockchainBlocks[0]?blockchainBlocks[0].id+1:4822,hash,prev:blockchainBlocks[0]?blockchainBlocks[0].hash:'0x0',tradeId,product:e.product,timestamp:new Date().toLocaleString('en-GB').replace(',',' '),type:'Trade Initiation'};
+  blockchainBlocks.unshift(newBlock);
+  persistBlock(newBlock);
+  showNotif(`Trade ${tradeId} initiated on blockchain.`,'teal');renderDashboard();
+}
+
+// ============================================================
+// TRADES
+// ============================================================
+function renderTrades(){
+  const el=document.getElementById('trades-content');
+  if(!trades.length){el.innerHTML=`<div class="empty-state"><div class="icon">⇄</div><p>No active trades.</p></div>`;return;}
+  el.innerHTML=trades.map(t=>`
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-header">
+        <div><div class="card-title">Trade #${t.id} — ${t.product}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;">Enquiry: <span class="enq-num">${t.enquiryRef}</span> · Buyer: ${t.buyer} · Seller: ${t.seller}</div></div>
+        <span class="badge badge-active">⬡ On-Chain</span>
+        <button class="btn btn-primary btn-sm" onclick="openTradeFlow('${t.id}')">Open Flow</button>
+      </div>
+      <div class="card-body" style="padding:14px 18px;">
+        <div style="display:flex;gap:22px;margin-bottom:10px;">
+          <div><div style="font-size:10px;color:var(--muted);">QUANTITY</div><div>${t.qty.toLocaleString()} ${t.unit}</div></div>
+          <div><div style="font-size:10px;color:var(--muted);">PRICE</div><div>$${t.price}/MT</div></div>
+          <div><div style="font-size:10px;color:var(--muted);">BLOCK HASH</div><div style="color:var(--accent3);font-size:11px;">${t.blockHash}</div></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:5px;">DOCUMENT PROGRESS</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          ${['LOI','SCO','Deal Recap','SPA'].map((d,i)=>`
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:4px;font-size:11px;background:var(--surface2);border:1px solid ${t.stage>i+1?'rgba(46,213,115,0.3)':'var(--border)'};color:${t.stage>i+1?'var(--success)':'var(--muted)'};">${t.stage>i+1?'✓':String(i+1)} ${d}</span>
+            ${i<3?'<span style="color:var(--border)">→</span>':''}`).join('')}
+        </div>
+        <div class="progress-bar" style="margin-top:9px;"><div class="progress-fill" style="width:${Math.max(t.stage-1,0)/4*100}%"></div></div>
+      </div>
+    </div>`).join('');
+}
+
+function openTradeFlow(tradeId){
+  const t=trades.find(x=>x.id===tradeId);if(!t)return;
+  document.getElementById('trade-modal-title').textContent='Trade Flow — '+tradeId;
+  const steps=[
+    {label:'LOI — Letter of Intent',desc:`Generated by Buyer (${t.buyer}). Signed digitally. Sent to Seller via registered email.`,key:'loi',stage:1},
+    {label:"SCO — Seller's Commercial Offer",desc:`Generated by Seller (${t.seller}) in response to accepted LOI. Sent to Buyer.`,key:'sco',stage:2},
+    {label:'Deal Recap',desc:`Deal Recap No.: ${t.buyer}/${t.seller}-DDMM-001. Both parties sign digitally.`,key:'dealRecap',stage:3},
+    {label:'SPA — Sales Purchase Agreement',desc:`Auto-generated once Deal Recap is signed by both parties. SPA No. = Deal Recap No.`,key:'spa',stage:4},
+  ];
+  document.getElementById('trade-modal-body').innerHTML=`
+    <div style="margin-bottom:12px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:9px 14px;font-size:11px;">
+      <span style="color:var(--muted);">Block Hash:</span> <span style="color:var(--accent3);">${t.blockHash}</span>
+    </div>
+    ${steps.map(s=>{const done=t.stage>s.stage,active=t.stage===s.stage;return `
+      <div class="flow-step"><div class="step-num ${done?'done':active?'active':''}">${done?'✓':s.stage}</div>
+      <div class="step-body"><div class="step-title">${s.label}</div><div class="step-desc">${s.desc}</div>
+      ${active?`<div class="step-actions"><button class="btn btn-primary btn-sm" onclick="generateDoc('${tradeId}','${s.key}')">Generate ${s.label.split('—')[0].trim()}</button></div>`:''}
+      ${done?`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:4px;font-size:11px;border:1px solid rgba(46,213,115,0.3);color:var(--success);background:rgba(46,213,115,0.06);margin-top:7px;">✓ Issued</span>`:''}
+      </div></div>`;}).join('')}`;
+  openModal('trade-modal');
+}
+
+function generateDoc(tradeId,docKey){
+  const t=trades.find(x=>x.id===tradeId);if(!t)return;
+  t.stage++;
+  const now=new Date();
+  const dd=String(now.getDate()).padStart(2,'0'),mm=String(now.getMonth()+1).padStart(2,'0');
+  const kN={loi:'LOI',sco:'SCO',dealRecap:'Deal Recap',spa:'SPA'};
+  const docType=kN[docKey];
+  const cnt=documents.filter(d=>d.type===docType).length+1;
+  const serial=String(cnt).padStart(4,'0');
+  let docId=docKey==='loi'?`LOI-${t.buyer}-${t.seller}-${serial}`:docKey==='sco'?`SCO-${t.seller}-${t.buyer}-${serial}`:`${t.buyer}-${t.seller}-${dd}${mm}-${serial}`;
+
+  const chklists={
+    loi:['Buyer details verified against KYC records','Product specification matches enquiry','Quantity and unit are correct','Price and payment terms acceptable','Laycan / delivery timeline is feasible','Port of loading and discharge correct','Enquiry reference number present and valid'],
+    sco:['Seller details verified against KYC records','LOI reference correctly cited','Product grade and specifications complete','Quantity, price, and unit match LOI','Inspection clause included','Laycan dates consistent with LOI','Payment terms match LOI'],
+    dealRecap:['Buyer and Seller details correct','LOI and SCO references cited','Product, qty, price match all prior documents','Total contract value calculated correctly','Payment, laycan, inspection terms consistent','Arbitration and governing law clause present','Deal Recap number format correct'],
+    spa:['Deal Recap reference number cited','All commercial terms match Deal Recap','Force majeure clause included','Penalty and dispute resolution defined','Both party signatories identified','SPA number matches Deal Recap number','Governing law and jurisdiction confirmed'],
+  };
+  const loiDoc=documents.find(d=>d.type==='LOI'&&d.tradeId===tradeId);
+  const scoDoc=documents.find(d=>d.type==='SCO'&&d.tradeId===tradeId);
+  const recapDoc=documents.find(d=>d.type==='Deal Recap'&&d.tradeId===tradeId);
+  const buyer=participants.find(p=>p.code===t.buyer)||{name:t.buyer+' Corp'};
+  const seller=participants.find(p=>p.code===t.seller)||{name:t.seller+' Ltd'};
+  const newDoc={
+    id:docId,type:docType,tradeId,
+    buyer:buyer.name,buyerCode:t.buyer,seller:seller.name,sellerCode:t.seller,
+    product:t.product,qty:t.qty,unit:t.unit,price:t.price,totalValue:t.qty*t.price,
+    deliveryPort:'Destination Port, TBD',loadingPort:'Loading Port, TBD',
+    paymentTerms:'Irrevocable Letter of Credit at sight',laycan:'01 May 2026 – 15 May 2026',
+    grade:'As per mutually agreed specification',inspection:'SGS or equivalent at loading port',
+    arbitration:'London Court of International Arbitration (LCIA)',governingLaw:'English Law',
+    loiRef:loiDoc?loiDoc.id:'',scoRef:scoDoc?scoDoc.id:'',dealRecapRef:recapDoc?recapDoc.id:'',
+    date:`${dd}/${mm}/${now.getFullYear()}`,issuedBy:docKey==='loi'?t.buyer:t.seller,enquiryRef:t.enquiryRef,
+    adminStatus:'pending_review',adminComment:'',
+    adminChecks:mkChecks(chklists[docKey]),
+    adminHistory:[],signedBuyer:false,signedSeller:false,
+  };
+  documents.push(newDoc);
+  persistDocument(newDoc);
+  persistTrade(t);
+  showNotif(`${docType} generated — submitted for admin review.`,'gold');
+  closeModal('trade-modal');navigate('documents');
+}
+
+// ============================================================
+// DOCUMENT CENTER — SPLIT PANEL
+// ============================================================
+let selectedDocId=null;
+
+function switchDocTab(type,el){
+  currentDocTab=type;
+  document.querySelectorAll('.doc-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  selectedDocId=null;
+  renderDocuments(type);
+}
+
+function renderDocuments(filter='all'){
+  const counts={LOI:0,SCO:0,'Deal Recap':0,SPA:0,all:documents.length};
+  documents.forEach(d=>counts[d.type]=(counts[d.type]||0)+1);
+  const tcAll=document.getElementById('tc-all');if(tcAll)tcAll.textContent=counts.all;
+  const tcLOI=document.getElementById('tc-LOI');if(tcLOI)tcLOI.textContent=counts.LOI||0;
+  const tcSCO=document.getElementById('tc-SCO');if(tcSCO)tcSCO.textContent=counts.SCO||0;
+  const tcDR=document.getElementById('tc-DealRecap');if(tcDR)tcDR.textContent=counts['Deal Recap']||0;
+  const tcSPA=document.getElementById('tc-SPA');if(tcSPA)tcSPA.textContent=counts.SPA||0;
+  updateBadge();
+  const list=filter==='all'?documents:documents.filter(d=>d.type===filter);
+  const listEl=document.getElementById('doc-list-panel');
+  if(!listEl)return;
+  if(!list.length){
+    listEl.innerHTML=`<div class="empty-state"><div class="icon">▤</div><p>No ${filter==='all'?'':filter+' '}documents yet.</p></div>`;
+    document.getElementById('doc-preview-panel').innerHTML=`<div style="display:flex;align-items:center;justify-content:center;height:100%;min-height:400px;color:var(--muted);flex-direction:column;gap:12px;"><div style="font-size:36px;">▤</div><div style="font-size:13px;font-family:'Syne',sans-serif;font-weight:700;">No documents found</div></div>`;
+    return;
+  }
+
+  // Group by type if showing all
+  let html='';
+  if(filter==='all'){
+    const types=['LOI','SCO','Deal Recap','SPA'];
+    types.forEach(type=>{
+      const group=documents.filter(d=>d.type===type);
+      if(!group.length)return;
+      html+=`<div style="padding:8px 10px 4px;font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--surface2);">${type}</div>`;
+      html+=group.map(d=>docListCard(d)).join('');
+    });
+  } else {
+    html=list.map(d=>docListCard(d)).join('');
+  }
+  listEl.innerHTML=html;
+
+  // Auto-select first or previously selected
+  const toSelect=selectedDocId&&documents.find(d=>d.id===selectedDocId)?selectedDocId:(list[0]?list[0].id:null);
+  if(toSelect) selectDoc(toSelect);
+}
+
+function docListCard(d){
+  const statusDot={pending_review:'var(--warning)',approved:'var(--success)',rejected:'var(--danger)',amendment_requested:'var(--accent)'};
+  const dot=statusDot[d.adminStatus]||'var(--muted)';
+  const done=d.adminChecks.filter(c=>c.checked).length;
+  const total=d.adminChecks.length;
+  const isSelected=d.id===selectedDocId;
+  return `<div class="doc-list-card ${isSelected?'selected':''}" onclick="selectDoc('${d.id}')" id="dlc-${d.id.replace(/[^a-z0-9]/gi,'_')}">
+    <div style="display:flex;align-items:flex-start;gap:8px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0;margin-top:4px;"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:${isSelected?'var(--accent)':'var(--text)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.id}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:1px;">${d.product} · ${d.tradeId}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
+          <span style="font-size:10px;color:var(--muted);">Checks: ${done}/${total}</span>
+          <div style="display:flex;gap:3px;">
+            <span style="font-size:9px;padding:1px 5px;border-radius:2px;background:${d.signedBuyer?'rgba(46,213,115,0.15)':'rgba(90,97,117,0.2)'};color:${d.signedBuyer?'var(--success)':'var(--muted)'};">B</span>
+            <span style="font-size:9px;padding:1px 5px;border-radius:2px;background:${d.signedSeller?'rgba(46,213,115,0.15)':'rgba(90,97,117,0.2)'};color:${d.signedSeller?'var(--success)':'var(--muted)'};">S</span>
+          </div>
+        </div>
+        <div style="height:2px;background:var(--border);border-radius:1px;margin-top:5px;overflow:hidden;"><div style="height:100%;width:${total?Math.round(done/total*100):0}%;background:linear-gradient(to right,var(--accent),var(--accent2));border-radius:1px;transition:width 0.3s;"></div></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function selectDoc(docId){
+  selectedDocId=docId;
+  // Highlight selected card
+  document.querySelectorAll('.doc-list-card').forEach(c=>c.classList.remove('selected'));
+  const card=document.getElementById('dlc-'+docId.replace(/[^a-z0-9]/gi,'_'));
+  if(card){card.classList.add('selected');card.querySelectorAll('[style]').forEach(el=>{if(el.style.color&&el.style.fontFamily)el.style.color='var(--accent)';});}
+  openDocFullView(docId);
+}
+
+function docTypeBadge(t){
+  const m={LOI:'badge-kyc',SCO:'badge-pending','Deal Recap':'badge-review',SPA:'badge-accepted'};
+  return `<span class="badge ${m[t]||'badge-closed'}">${t}</span>`;
+}
+function adminStatusBadge(s){
+  const m={pending_review:`<span class="badge badge-pending">⏳ Pending Review</span>`,approved:`<span class="badge badge-accepted">✓ Approved</span>`,rejected:`<span class="badge badge-rejected">✕ Rejected</span>`,amendment_requested:`<span class="badge badge-review">✎ Amendment Req.</span>`};
+  return m[s]||`<span class="badge badge-closed">${s}</span>`;
+}
+
+// ============================================================
+// DOCUMENT FULL VIEW — renders into split panel right side
+// ============================================================
+function openDocFullView(docId){
+  const d=documents.find(x=>x.id===docId);if(!d)return;
+  const panel=document.getElementById('doc-preview-panel');if(!panel)return;
+
+  const locked=d.adminStatus==='approved';
+  const allChecked=d.adminChecks.every(c=>c.checked);
+  const safeId=docId.replace(/[^a-z0-9]/gi,'_');
+
+  const adminChecklistHtml=d.adminChecks.map((c,i)=>`
+    <div class="admin-check-row" id="achkrow-${safeId}-${i}" style="cursor:${locked?'default':'pointer'}">
+      <div class="admin-check-box ${c.checked?'checked':''} ${locked?'locked':''}" id="achk-${safeId}-${i}">${c.checked?'✓':''}</div>
+      <div class="admin-check-label" style="color:${c.checked?'var(--text)':'var(--muted)'};">${c.label}</div>
+    </div>`).join('');
+
+  const historyHtml=d.adminHistory.length?d.adminHistory.map(h=>`
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:7px 9px;margin-bottom:5px;font-size:11px;">
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:${h.action==='Approved'?'var(--success)':h.action==='Rejected'?'var(--danger)':'var(--warning)'};">${h.action}</span>
+        <span style="color:var(--muted);font-size:10px;">${h.date}</span>
+      </div>
+      ${h.comment?`<div style="color:var(--muted);margin-top:3px;font-size:10px;">${h.comment}</div>`:''}
+    </div>`).join(''):'<div style="font-size:11px;color:var(--muted);">No review history yet.</div>';
+
+  const sigHtml=locked?`
+    <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--success);margin-bottom:8px;letter-spacing:1px;">✓ SIGNATURES ENABLED</div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      ${!d.signedBuyer?`<button class="btn btn-success btn-sm" style="width:100%;justify-content:center;" onclick="openSigModal('${docId}','buyer')">✎ Sign as Buyer (${d.buyerCode})</button>`:`<div style="text-align:center;padding:6px;background:rgba(46,213,115,0.08);border:1px solid rgba(46,213,115,0.2);border-radius:4px;font-size:11px;color:var(--success);">✓ Buyer (${d.buyerCode}) signed</div>`}
+      ${!d.signedSeller?`<button class="btn btn-success btn-sm" style="width:100%;justify-content:center;margin-top:4px;" onclick="openSigModal('${docId}','seller')">✎ Sign as Seller (${d.sellerCode})</button>`:`<div style="text-align:center;padding:6px;background:rgba(46,213,115,0.08);border:1px solid rgba(46,213,115,0.2);border-radius:4px;font-size:11px;color:var(--success);margin-top:4px;">✓ Seller (${d.sellerCode}) signed</div>`}
+    </div>`:`
+    <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">CLIENT SIGNATURES</div>
+    <div style="padding:8px;background:rgba(90,97,117,0.1);border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--muted);text-align:center;">🔒 Locked until admin approves</div>`;
+
+  const actionHtml=locked?
+    `<div style="text-align:center;padding:10px;background:rgba(46,213,115,0.08);border:1px solid rgba(46,213,115,0.2);border-radius:6px;font-size:11px;color:var(--success);">✓ Document approved. Client signatures enabled.</div>`:
+    `<button class="btn btn-success" style="width:100%;justify-content:center;" id="btn-approve-${safeId}" onclick="adminApprove('${docId}')" ${allChecked?'':'disabled'}>✓ Approve Document</button>
+     <button class="btn btn-warning" style="width:100%;justify-content:center;margin-top:6px;" onclick="adminRequestAmendment('${docId}')">✎ Request Amendment</button>
+     <button class="btn btn-danger" style="width:100%;justify-content:center;margin-top:6px;" onclick="adminReject('${docId}')">✕ Reject Document</button>
+     ${!allChecked?`<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px;">Complete all ${d.adminChecks.length} checklist items to enable approval.</div>`:''}`;
+
+  panel.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 280px;gap:0;min-height:100%;">
+
+      <!-- LEFT: Document Paper -->
+      <div style="padding:20px;border-right:1px solid var(--border);overflow-y:auto;">
+        <!-- Document Header Bar -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+          <div style="flex:1;">
+            <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;">${d.type} — <span style="color:var(--accent);">${d.id}</span></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Trade: ${d.tradeId} · ${d.product} · Issued: ${d.date}</div>
+          </div>
+          ${adminStatusBadge(d.adminStatus)}
+        </div>
+        ${buildDocPaper(d)}
+      </div>
+
+      <!-- RIGHT: Admin Review Panel -->
+      <div style="background:var(--surface);overflow-y:auto;display:flex;flex-direction:column;gap:0;">
+
+        <!-- Checklist -->
+        <div style="padding:14px;border-bottom:1px solid var(--border);">
+          <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-bottom:10px;">⚙ ADMIN REVIEW CHECKLIST</div>
+          <div style="background:var(--surface2);border:1px solid rgba(240,165,0,0.15);border-radius:6px;overflow:hidden;">
+            <div id="admin-checklist-panel-${safeId}">${adminChecklistHtml}</div>
+          </div>
+          <div style="margin-top:8px;font-size:10px;color:var(--muted);">
+            ${d.adminChecks.filter(c=>c.checked).length}/${d.adminChecks.length} items verified
+            <div style="height:3px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden;">
+              <div style="height:100%;width:${d.adminChecks.length?Math.round(d.adminChecks.filter(c=>c.checked).length/d.adminChecks.length*100):0}%;background:linear-gradient(to right,var(--accent),var(--accent2));border-radius:2px;transition:width 0.3s;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Admin Comment -->
+        <div style="padding:14px;border-bottom:1px solid var(--border);">
+          <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">ADMIN REMARKS</div>
+          <textarea id="admin-comment-input-${safeId}" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;resize:vertical;min-height:65px;outline:none;" placeholder="Enter review notes, amendment requests..." ${locked?'disabled':''}>${d.adminComment||''}</textarea>
+        </div>
+
+        <!-- Admin Actions -->
+        <div style="padding:14px;border-bottom:1px solid var(--border);">
+          <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">ADMIN ACTIONS</div>
+          ${actionHtml}
+        </div>
+
+        <!-- Client Signatures -->
+        <div style="padding:14px;border-bottom:1px solid var(--border);">
+          ${sigHtml}
+        </div>
+
+        <!-- Review History -->
+        <div style="padding:14px;">
+          <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">REVIEW HISTORY</div>
+          ${historyHtml}
+        </div>
+      </div>
+    </div>`;
+
+  // Wire up checkbox row clicks
+  if(!locked){
+    d.adminChecks.forEach((_,i)=>{
+      const row=document.getElementById(`achkrow-${safeId}-${i}`);
+      if(row)row.onclick=()=>{toggleCheckPanel(docId,i,safeId);};
+    });
+  }
+}
+
+function getAdminComment(docId){
+  const safeId=docId.replace(/[^a-z0-9]/gi,'_');
+  const el=document.getElementById('admin-comment-input-'+safeId);
+  return el?el.value:'';
+}
+
+// ============================================================
+// DIGITAL SIGNATURE ENGINE
+// ============================================================
+let sigState = { docId:null, party:null, tab:'draw', drawing:false, hasDrawing:false, typedStyle:0 };
+
+const SIG_FONTS = [
+  {label:'Cursive',font:'7px/1 "Brush Script MT",cursive'},
+  {label:'Script',font:'italic 700 6px Georgia,serif'},
+  {label:'Elegant',font:'italic 6px "Times New Roman",serif'},
+  {label:'Bold',font:'700 6px Arial,sans-serif'},
+];
+
+function openSigModal(docId, party) {
+  const d = documents.find(x=>x.id===docId);
+  if (!d) return;
+  if (d.adminStatus !== 'approved') { showNotif('Document must be admin-approved before signing.','danger'); return; }
+  const isB = party==='buyer';
+  if (isB && d.signedBuyer) { showNotif('Buyer has already signed this document.','danger'); return; }
+  if (!isB && d.signedSeller) { showNotif('Seller has already signed this document.','danger'); return; }
+
+  sigState = { docId, party, tab:'draw', drawing:false, hasDrawing:false, typedStyle:0 };
+
+  const companyName = isB ? d.buyer : d.seller;
+  const code = isB ? d.buyerCode : d.sellerCode;
+  const role = isB ? 'Buyer — Authorised Signatory' : 'Seller — Authorised Signatory';
+  const ts = now();
+
+  document.getElementById('sig-modal-title').textContent = 'Digital Signature — ' + d.type;
+  document.getElementById('sig-modal-sub').textContent = 'Signing as: ' + companyName + ' (' + code + ')';
+  document.getElementById('sig-party-avatar').textContent = code.slice(0,2);
+  document.getElementById('sig-party-name').textContent = companyName;
+  document.getElementById('sig-party-role').textContent = role;
+  document.getElementById('sig-doc-ref').textContent = 'Document: ' + docId + ' · Trade: ' + d.tradeId;
+  document.getElementById('sig-timestamp').textContent = ts;
+
+  // Certificate fields
+  document.getElementById('cert-signer').textContent = companyName + ' (' + code + ')';
+  document.getElementById('cert-doc').textContent = d.type + ' — ' + docId;
+  document.getElementById('cert-date').textContent = ts;
+  document.getElementById('cert-hash').textContent = generateSigHash(docId, party, ts);
+  document.getElementById('cert-ip').textContent = '192.168.' + (Math.floor(Math.random()*255)+1) + '.' + (Math.floor(Math.random()*255)+1) + ' · Session: ' + Math.random().toString(36).slice(2,10).toUpperCase();
+
+  // Style picker
+  const picker = document.getElementById('sig-style-picker');
+  picker.innerHTML = SIG_FONTS.map((s,i)=>`<button class="btn btn-sm ${i===0?'btn-primary':'btn-secondary'}" id="sstyle-${i}" onclick="selectSigStyle(${i})" style="font-size:11px;">${s.label}</button>`).join('');
+
+  switchSigTab('draw');
+  openModal('sig-pad-modal');
+
+  setTimeout(()=>{
+    initSigCanvas();
+    renderTypedSig();
+  }, 80);
+}
+
+function closeSigModal() { closeModal('sig-pad-modal'); }
+
+function generateSigHash(docId, party, ts) {
+  const str = docId + party + ts + Math.random();
+  let hash = 0x811c9dc5;
+  for (let i=0; i<str.length; i++) { hash ^= str.charCodeAt(i); hash = (hash * 0x01000193) >>> 0; }
+  // extend to look like SHA-256
+  let h = hash.toString(16).padStart(8,'0');
+  for (let i=0;i<7;i++) { let x=(hash*(i+3))>>>0; h+=x.toString(16).padStart(8,'0'); }
+  return h.slice(0,64);
+}
+
+function switchSigTab(tab) {
+  sigState.tab = tab;
+  ['draw','type','upload'].forEach(t=>{
+    document.getElementById('sigtab-'+t).classList.toggle('active', t===tab);
+    document.getElementById('sig-panel-'+t).style.display = t===tab ? '' : 'none';
+  });
+  if (tab==='draw') setTimeout(initSigCanvas, 50);
+  if (tab==='type') setTimeout(renderTypedSig, 50);
+}
+
+function initSigCanvas() {
+  const canvas = document.getElementById('sig-canvas');
+  if (!canvas) return;
+  const wrap = document.getElementById('sig-pad-wrap');
+  canvas.width = wrap.offsetWidth || 520;
+  canvas.height = 160;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle = '#1a1a2e';
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  let isDown = false, lastX=0, lastY=0;
+
+  function getPos(e) {
+    const r = canvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return { x: (src.clientX - r.left) * (canvas.width/r.width), y: (src.clientY - r.top) * (canvas.height/r.height) };
+  }
+  function start(e) { e.preventDefault(); isDown=true; const p=getPos(e); lastX=p.x; lastY=p.y; sigState.hasDrawing=true; }
+  function move(e) { if(!isDown) return; e.preventDefault(); const p=getPos(e); ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(p.x,p.y); ctx.stroke(); lastX=p.x; lastY=p.y; }
+  function end() { isDown=false; }
+
+  // Remove old listeners by replacing canvas
+  const newCanvas = canvas.cloneNode(false);
+  newCanvas.id = 'sig-canvas';
+  newCanvas.width = canvas.width; newCanvas.height = canvas.height;
+  canvas.parentNode.replaceChild(newCanvas, canvas);
+  const ctx2 = newCanvas.getContext('2d');
+  ctx2.fillStyle = '#ffffff'; ctx2.fillRect(0,0,newCanvas.width,newCanvas.height);
+  ctx2.strokeStyle = '#1a1a2e'; ctx2.lineWidth = 2.2; ctx2.lineCap='round'; ctx2.lineJoin='round';
+  let isDown2=false, lx=0, ly=0;
+  function s2(e){e.preventDefault();isDown2=true;const p=getPos2(e,newCanvas);lx=p.x;ly=p.y;sigState.hasDrawing=true;}
+  function m2(e){if(!isDown2)return;e.preventDefault();const p=getPos2(e,newCanvas);ctx2.beginPath();ctx2.moveTo(lx,ly);ctx2.lineTo(p.x,p.y);ctx2.stroke();lx=p.x;ly=p.y;}
+  function e2(){isDown2=false;}
+  newCanvas.addEventListener('mousedown',s2);newCanvas.addEventListener('mousemove',m2);newCanvas.addEventListener('mouseup',e2);newCanvas.addEventListener('mouseleave',e2);
+  newCanvas.addEventListener('touchstart',s2,{passive:false});newCanvas.addEventListener('touchmove',m2,{passive:false});newCanvas.addEventListener('touchend',e2);
+}
+
+function getPos2(e, canvas) {
+  const r = canvas.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return { x: (src.clientX - r.left)*(canvas.width/r.width), y: (src.clientY - r.top)*(canvas.height/r.height) };
+}
+
+function clearSigPad() {
+  const canvas = document.getElementById('sig-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  sigState.hasDrawing = false;
+}
+
+function selectSigStyle(idx) {
+  sigState.typedStyle = idx;
+  document.querySelectorAll('[id^="sstyle-"]').forEach((b,i)=>{
+    b.className = 'btn btn-sm ' + (i===idx?'btn-primary':'btn-secondary');
+  });
+  renderTypedSig();
+}
+
+function renderTypedSig() {
+  const canvas = document.getElementById('sig-type-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  const name = (document.getElementById('sig-type-input')||{}).value || '';
+  if (!name) return;
+  const style = SIG_FONTS[sigState.typedStyle || 0];
+  const sizes = [42, 38, 34, 30];
+  ctx.fillStyle = '#1a1a2e';
+  const fontSize = sizes[sigState.typedStyle || 0];
+  ctx.font = `${style.font.replace(/^\d+px/, fontSize+'px').replace(/^italic /, 'italic ').replace(/^700 /, '700 ')}`;
+  // Build font string properly
+  const fonts = [
+    `italic ${fontSize}px "Brush Script MT", cursive`,
+    `italic bold ${fontSize}px Georgia, serif`,
+    `italic ${fontSize}px "Times New Roman", serif`,
+    `bold ${fontSize}px Arial, sans-serif`,
+  ];
+  ctx.font = fonts[sigState.typedStyle || 0];
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(name, canvas.width/2, canvas.height/2);
+}
+
+function handleSigUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('sig-upload-img').src = e.target.result;
+    document.getElementById('sig-upload-preview').style.display = 'flex';
+    document.getElementById('sig-upload-zone').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function getSigDataURL() {
+  const tab = sigState.tab;
+  if (tab==='draw') {
+    const c = document.getElementById('sig-canvas');
+    return c && sigState.hasDrawing ? c.toDataURL() : null;
+  }
+  if (tab==='type') {
+    const c = document.getElementById('sig-type-canvas');
+    const name = (document.getElementById('sig-type-input')||{}).value;
+    return (c && name) ? c.toDataURL() : null;
+  }
+  if (tab==='upload') {
+    const img = document.getElementById('sig-upload-img');
+    return img && img.src && img.src !== window.location.href ? img.src : null;
+  }
+  return null;
+}
+
+function submitSignature() {
+  const dataURL = getSigDataURL();
+  if (!dataURL) { showNotif('Please draw, type, or upload your signature before submitting.','danger'); return; }
+
+  const { docId, party } = sigState;
+  const d = documents.find(x=>x.id===docId);
+  if (!d) return;
+
+  const ts = now();
+  const hash = document.getElementById('cert-hash').textContent;
+  const certData = {
+    signer: party==='buyer' ? d.buyer : d.seller,
+    code: party==='buyer' ? d.buyerCode : d.sellerCode,
+    role: party==='buyer' ? 'Buyer — Authorised Signatory' : 'Seller — Authorised Signatory',
+    signedAt: ts,
+    hash,
+    ip: document.getElementById('cert-ip').textContent,
+    dataURL,
+  };
+
+  if (party==='buyer') { d.signedBuyer=true; d.sigBuyer=certData; }
+  else { d.signedSeller=true; d.sigSeller=certData; }
+
+  // Record in admin history
+  d.adminHistory.push({ action:'Signed', date:ts, comment:`${certData.signer} (${certData.code}) applied digital signature. Hash: ${hash.slice(0,16)}…` });
+
+  showNotif(`${d.type} digitally signed by ${certData.signer}.`,'teal');
+
+  // Auto-generate SPA if Deal Recap fully signed
+  persistDocument(d);
+  if (d.type==='Deal Recap' && d.signedBuyer && d.signedSeller) autoGenerateSPA(d);
+
+  closeSigModal();
+  openDocFullView(docId);
+  renderDocuments(currentDocTab);
+}
+
+// ============================================================
+// BUILD SIGNATURE BOX HTML (shared helper)
+// ============================================================
+function buildSigBox(d, party) {
+  const isB = party==='buyer';
+  const signed = isB ? d.signedBuyer : d.signedSeller;
+  const cert = isB ? d.sigBuyer : d.sigSeller;
+  const name = isB ? d.buyer : d.seller;
+  const role = isB ? 'Buyer — Authorised Signatory' : 'Seller — Authorised Signatory';
+  const alt = !isB && d.type==='SCO' ? 'Seller — Authorised Signatory' : role;
+
+  const imgHtml = (signed && cert && cert.dataURL)
+    ? `<img src="${cert.dataURL}" style="max-height:52px;max-width:90%;object-fit:contain;">`
+    : `<div style="height:52px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px;"><span style="font-size:10px;color:#bbb;font-style:italic;">Awaiting signature…</span></div>`;
+
+  const metaHtml = (signed && cert)
+    ? `<div class="doc-paper-sig-meta">Signed: ${cert.signedAt}<br>Hash: <span style="font-size:8px;color:#888;">${cert.hash.slice(0,20)}…</span></div>`
+    : '';
+
+  return `<div class="doc-paper-sig-box">
+    <div class="doc-paper-sig-canvas-area">${imgHtml}</div>
+    <div class="doc-paper-sig-line"></div>
+    <div class="doc-paper-sig-name">${name}</div>
+    <div class="doc-paper-sig-role">${alt}</div>
+    ${metaHtml}
+    <div class="doc-paper-stamp ${signed?'signed':'pending'}">${signed?'✓ DIGITALLY SIGNED':'SIGNATURE PENDING'}</div>
+  </div>`;
+}
+
+// Build document paper
+function buildDocPaper(d){
+  const adminStamp=d.adminStatus==='approved'
+    ?`<div class="doc-paper-stamp admin-ok">⚙ ADMIN APPROVED</div>`
+    :`<div class="doc-paper-stamp admin-pend">PENDING ADMIN REVIEW</div>`;
+
+  if(d.type==='LOI')return `<div class="doc-paper">
+    <div class="doc-paper-watermark">LOI</div>
+    <div class="doc-paper-header">
+      <div class="doc-paper-logo">BULLEX TECH</div><div class="doc-paper-sub">Commodity Trade Platform</div>
+      <div class="doc-paper-doctype">LETTER OF INTENT</div>
+      <div class="doc-paper-ref">Ref: ${d.id} &nbsp;|&nbsp; Date: ${d.date} &nbsp;|&nbsp; Enquiry: ${d.enquiryRef}</div>
+      <div style="margin-top:8px;">${adminStamp}</div>
+    </div>
+    <p style="font-size:11px;margin-bottom:12px;">This Letter of Intent is issued by <strong>${d.buyer}</strong> ("Buyer") expressing its intent to purchase the commodity described herein from <strong>${d.seller}</strong> ("Seller"), subject to the following terms.</p>
+    <div class="doc-paper-section">1. Parties</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Buyer:</span><span class="doc-paper-val">${d.buyer} (${d.buyerCode})</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Seller:</span><span class="doc-paper-val">${d.seller} (${d.sellerCode})</span></div>
+    <div class="doc-paper-section">2. Commodity Details</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Product:</span><span class="doc-paper-val">${d.product}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Grade / Spec:</span><span class="doc-paper-val">${d.grade||'As agreed'}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Quantity:</span><span class="doc-paper-val">${d.qty.toLocaleString()} ${d.unit} (±5% at Buyer's option)</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Price:</span><span class="doc-paper-val">USD ${d.price} per ${d.unit}</span></div>
+    <div class="doc-paper-section">3. Delivery & Logistics</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Loading Port:</span><span class="doc-paper-val">${d.loadingPort}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Discharge Port:</span><span class="doc-paper-val">${d.deliveryPort}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Laycan:</span><span class="doc-paper-val">${d.laycan}</span></div>
+    <div class="doc-paper-section">4. Payment Terms</div>
+    <div class="doc-paper-clause">${d.paymentTerms}. Letter of Credit to be established within 7 banking days of signing the SPA.</div>
+    <div class="doc-paper-section">5. Next Steps</div>
+    <div class="doc-paper-clause">Upon acceptance of this LOI by Seller, Seller shall issue a Seller's Commercial Offer (SCO) within 5 business days. This LOI is non-binding until execution of a formal SPA.</div>
+    <div class="doc-paper-sigs">
+      ${buildSigBox(d,'buyer')}
+      ${buildSigBox(d,'seller')}
+    </div>
+  </div>`;
+
+  if(d.type==='SCO')return `<div class="doc-paper">
+    <div class="doc-paper-watermark">SCO</div>
+    <div class="doc-paper-header">
+      <div class="doc-paper-logo">BULLEX TECH</div><div class="doc-paper-sub">Commodity Trade Platform</div>
+      <div class="doc-paper-doctype">SELLER'S COMMERCIAL OFFER</div>
+      <div class="doc-paper-ref">Ref: ${d.id} &nbsp;|&nbsp; LOI Ref: ${d.loiRef||'—'} &nbsp;|&nbsp; Date: ${d.date}</div>
+      <div style="margin-top:8px;">${adminStamp}</div>
+    </div>
+    <p style="font-size:11px;margin-bottom:12px;">This SCO is issued by <strong>${d.seller}</strong> ("Seller") in response to LOI ref. <strong>${d.loiRef||'—'}</strong> from <strong>${d.buyer}</strong> ("Buyer").</p>
+    <div class="doc-paper-section">1. Parties</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Seller:</span><span class="doc-paper-val">${d.seller} (${d.sellerCode})</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Buyer:</span><span class="doc-paper-val">${d.buyer} (${d.buyerCode})</span></div>
+    <div class="doc-paper-section">2. Product Specification</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Commodity:</span><span class="doc-paper-val">${d.product}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Grade / Spec:</span><span class="doc-paper-val">${d.grade||'As per standard'}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Quantity:</span><span class="doc-paper-val">${d.qty.toLocaleString()} ${d.unit}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Offered Price:</span><span class="doc-paper-val">USD ${d.price} per ${d.unit}</span></div>
+    <div class="doc-paper-section">3. Delivery Terms</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Loading Port:</span><span class="doc-paper-val">${d.loadingPort}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Discharge Port:</span><span class="doc-paper-val">${d.deliveryPort}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Laycan:</span><span class="doc-paper-val">${d.laycan}</span></div>
+    <div class="doc-paper-section">4. Quality & Inspection</div>
+    <div class="doc-paper-clause">Quality and quantity to be determined by <strong>${d.inspection||'SGS or equivalent'}</strong> at the port of loading. The inspection certificate shall be final and binding on both parties.</div>
+    <div class="doc-paper-section">5. Payment Terms</div>
+    <div class="doc-paper-clause">${d.paymentTerms}. All bank charges outside Seller's country to be borne by Buyer.</div>
+    <div class="doc-paper-section">6. Validity of Offer</div>
+    <div class="doc-paper-clause">This SCO is valid for 5 business days from the date of issue and lapses automatically if not accepted.</div>
+    <div class="doc-paper-sigs">
+      ${buildSigBox(d,'seller')}
+      ${buildSigBox(d,'buyer')}
+    </div>
+  </div>`;
+
+  if(d.type==='Deal Recap')return `<div class="doc-paper">
+    <div class="doc-paper-watermark">RECAP</div>
+    <div class="doc-paper-header">
+      <div class="doc-paper-logo">BULLEX TECH</div><div class="doc-paper-sub">Commodity Trade Platform</div>
+      <div class="doc-paper-doctype">DEAL RECAP</div>
+      <div class="doc-paper-ref">Recap No.: ${d.id} &nbsp;|&nbsp; Date: ${d.date}</div>
+      <div class="doc-paper-ref" style="margin-top:2px;">LOI: ${d.loiRef||'—'} &nbsp;|&nbsp; SCO: ${d.scoRef||'—'}</div>
+      <div style="margin-top:8px;">${adminStamp}</div>
+    </div>
+    <p style="font-size:11px;margin-bottom:12px;">This Deal Recap summarises the agreed commercial terms between <strong>${d.buyer}</strong> ("Buyer") and <strong>${d.seller}</strong> ("Seller"). Upon execution, this Recap forms the basis for the Sales Purchase Agreement.</p>
+    <div class="doc-paper-section">1. Transaction Parties</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Buyer:</span><span class="doc-paper-val">${d.buyer} (${d.buyerCode})</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Seller:</span><span class="doc-paper-val">${d.seller} (${d.sellerCode})</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Enquiry Ref:</span><span class="doc-paper-val">${d.enquiryRef}</span></div>
+    <div class="doc-paper-section">2. Commercial Terms</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Commodity:</span><span class="doc-paper-val">${d.product}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Specification:</span><span class="doc-paper-val">${d.grade||'As agreed'}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Quantity:</span><span class="doc-paper-val">${d.qty.toLocaleString()} ${d.unit}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Unit Price:</span><span class="doc-paper-val">USD ${d.price} per ${d.unit}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Total Contract Value:</span><span class="doc-paper-val"><strong>USD ${(d.totalValue||d.qty*d.price).toLocaleString()}</strong></span></div>
+    <div class="doc-paper-section">3. Shipment & Delivery</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Loading Port:</span><span class="doc-paper-val">${d.loadingPort}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Discharge Port:</span><span class="doc-paper-val">${d.deliveryPort}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Laycan:</span><span class="doc-paper-val">${d.laycan}</span></div>
+    <div class="doc-paper-section">4. Quality, Inspection & Payment</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Inspection:</span><span class="doc-paper-val">${d.inspection||'SGS or equivalent'}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Payment Terms:</span><span class="doc-paper-val">${d.paymentTerms}</span></div>
+    <div class="doc-paper-section">5. Legal</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Governing Law:</span><span class="doc-paper-val">${d.governingLaw||'English Law'}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Arbitration:</span><span class="doc-paper-val">${d.arbitration||'LCIA'}</span></div>
+    <div class="doc-paper-clause">Upon signing by both parties, the platform shall automatically generate the Sales Purchase Agreement (SPA) bearing reference number: <strong>${d.id}</strong>.</div>
+    <div class="doc-paper-sigs">
+      ${buildSigBox(d,'buyer')}
+      ${buildSigBox(d,'seller')}
+    </div>
+  </div>`;
+
+  if(d.type==='SPA')return `<div class="doc-paper">
+    <div class="doc-paper-watermark">SPA</div>
+    <div class="doc-paper-header">
+      <div class="doc-paper-logo">BULLEX TECH</div><div class="doc-paper-sub">Commodity Trade Platform</div>
+      <div class="doc-paper-doctype">SALES PURCHASE AGREEMENT</div>
+      <div class="doc-paper-ref">SPA No.: ${d.id} &nbsp;|&nbsp; Deal Recap Ref: ${d.dealRecapRef||d.id} &nbsp;|&nbsp; Date: ${d.date}</div>
+      <div style="margin-top:8px;">${adminStamp}</div>
+    </div>
+    <p style="font-size:11px;margin-bottom:12px;">This Sales Purchase Agreement ("Agreement") is entered into on <strong>${d.date}</strong> between <strong>${d.buyer}</strong> ("Buyer") and <strong>${d.seller}</strong> ("Seller"), collectively "the Parties".</p>
+    <div class="doc-paper-section">Article 1 — Parties</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Buyer:</span><span class="doc-paper-val">${d.buyer} (${d.buyerCode})</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Seller:</span><span class="doc-paper-val">${d.seller} (${d.sellerCode})</span></div>
+    <div class="doc-paper-section">Article 2 — Commodity</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Product:</span><span class="doc-paper-val">${d.product}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Specification:</span><span class="doc-paper-val">${d.grade||'As per mutually agreed specification'}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Quantity:</span><span class="doc-paper-val">${d.qty.toLocaleString()} ${d.unit}</span></div>
+    <div class="doc-paper-section">Article 3 — Price & Payment</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Unit Price:</span><span class="doc-paper-val">USD ${d.price} per ${d.unit}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Total Contract Value:</span><span class="doc-paper-val"><strong>USD ${(d.totalValue||d.qty*d.price).toLocaleString()}</strong></span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Payment Terms:</span><span class="doc-paper-val">${d.paymentTerms}</span></div>
+    <div class="doc-paper-section">Article 4 — Delivery</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Loading Port:</span><span class="doc-paper-val">${d.loadingPort}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Discharge Port:</span><span class="doc-paper-val">${d.deliveryPort}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Laycan:</span><span class="doc-paper-val">${d.laycan}</span></div>
+    <div class="doc-paper-section">Article 5 — Quality & Inspection</div>
+    <div class="doc-paper-clause">Quality and quantity at loading port to be inspected by <strong>${d.inspection||'SGS or equivalent'}</strong>. Certificate of quality shall be final and binding. Claims must be raised within 30 days of discharge.</div>
+    <div class="doc-paper-section">Article 6 — Force Majeure</div>
+    <div class="doc-paper-clause">Neither party shall be liable for failure to perform due to events beyond reasonable control, including acts of God, war, government restrictions, port strikes, or natural disasters, provided written notice is given within 7 days of occurrence.</div>
+    <div class="doc-paper-section">Article 7 — Governing Law & Arbitration</div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Governing Law:</span><span class="doc-paper-val">${d.governingLaw||'English Law'}</span></div>
+    <div class="doc-paper-row"><span class="doc-paper-key">Arbitration:</span><span class="doc-paper-val">${d.arbitration||'LCIA — London'}</span></div>
+    <div class="doc-paper-section">Article 8 — Entire Agreement</div>
+    <div class="doc-paper-clause">This Agreement, together with Deal Recap (${d.dealRecapRef||d.id}), constitutes the entire agreement and supersedes all prior negotiations and representations. SPA No. = Deal Recap No.: <strong>${d.dealRecapRef||d.id}</strong>.</div>
+    <div class="doc-paper-sigs">
+      ${buildSigBox(d,'buyer')}
+      ${buildSigBox(d,'seller')}
+    </div>
+  </div>`;
+  return `<div class="doc-paper"><p>Unknown document type.</p></div>`;
+}
+
+// ============================================================
+// ADMIN ACTIONS
+// ============================================================
+function toggleCheck(docId,idx){
+  const d=documents.find(x=>x.id===docId);if(!d||d.adminStatus==='approved')return;
+  d.adminChecks[idx].checked=!d.adminChecks[idx].checked;
+  persistDocument(d);
+  openDocFullView(docId); // re-render panel
+}
+
+function toggleCheckPanel(docId,idx,safeId){
+  toggleCheck(docId,idx);
+}
+
+function adminApprove(docId){
+  const d=documents.find(x=>x.id===docId);if(!d)return;
+  const comment=getAdminComment(docId);
+  d.adminStatus='approved';d.adminComment=comment;
+  d.adminHistory.push({action:'Approved',date:now(),comment});
+  persistDocument(d);
+  showNotif(`${d.type} approved. Client signatures enabled.`,'teal');
+  openDocFullView(docId);renderDocuments(currentDocTab);
+}
+
+function adminRequestAmendment(docId){
+  const d=documents.find(x=>x.id===docId);if(!d)return;
+  const comment=getAdminComment(docId)||'Amendment required.';
+  d.adminStatus='amendment_requested';d.adminComment=comment;
+  d.adminHistory.push({action:'Amendment Requested',date:now(),comment});
+  persistDocument(d);
+  showNotif(`Amendment requested for ${d.type}.`,'gold');
+  openDocFullView(docId);renderDocuments(currentDocTab);
+}
+
+function adminReject(docId){
+  const d=documents.find(x=>x.id===docId);if(!d)return;
+  const comment=getAdminComment(docId)||'Rejected by admin.';
+  d.adminStatus='rejected';d.adminComment=comment;
+  d.adminHistory.push({action:'Rejected',date:now(),comment});
+  persistDocument(d);
+  showNotif(`${d.type} rejected.`,'danger');
+  openDocFullView(docId);renderDocuments(currentDocTab);
+}
+
+// clientSign replaced by openSigModal + submitSignature
+
+function autoGenerateSPA(recap){
+  if(documents.find(d=>d.type==='SPA'&&d.tradeId===recap.tradeId))return;
+  const spa=JSON.parse(JSON.stringify(recap));
+  spa.type='SPA';spa.dealRecapRef=recap.id;
+  spa.adminStatus='pending_review';spa.adminComment='';spa.adminHistory=[];
+  spa.signedBuyer=false;spa.signedSeller=false;
+  spa.adminChecks=mkChecks(['Deal Recap reference number cited','All commercial terms match Deal Recap','Force majeure clause included','Penalty and dispute resolution defined','Both party signatories identified','SPA number matches Deal Recap number','Governing law and jurisdiction confirmed']);
+  documents.push(spa);
+  persistDocument(spa);
+  const t=trades.find(x=>x.id===recap.tradeId);if(t&&t.stage<4){t.stage=4;persistTrade(t);}
+  showNotif('SPA auto-generated from signed Deal Recap — submitted for admin review!','teal');
+  renderDocuments(currentDocTab);
+}
+
+// ============================================================
+// BLOCKCHAIN
+// ============================================================
+function renderBlockchain(){
+  document.getElementById('blockchain-blocks').innerHTML=blockchainBlocks.map(b=>`
+    <div class="block-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;">Block #${b.id}</span><span class="badge badge-active">${b.type}</span></div>
+      <div class="block-hash">Hash: ${b.hash}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px;">Prev: ${b.prev}</div>
+      <div class="block-meta">
+        <div><div class="block-meta-key">Trade</div><div class="block-meta-val">${b.tradeId}</div></div>
+        <div><div class="block-meta-key">Product</div><div class="block-meta-val">${b.product}</div></div>
+        <div><div class="block-meta-key">Timestamp</div><div class="block-meta-val">${b.timestamp}</div></div>
+      </div>
+    </div>`).join('');
+}
+
+// ============================================================
+// PRODUCTS
+// ============================================================
+function renderProducts(){
+  const cols=['gold','teal','blue','red','gold','teal','blue','red','gold','teal','blue','red','gold','teal'];
+  document.getElementById('products-grid').innerHTML=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">${PRODUCTS.map((p,i)=>`<div class="stat-card ${cols[i]}"><div class="stat-label">Commodity</div><div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-top:6px;">${p}</div><div style="font-size:10px;color:var(--muted);margin-top:7px;">${enquiries.filter(e=>e.product===p).length} active enquiries</div></div>`).join('')}</div>`;
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function sBadge(s){const m={Active:'badge-active',Accepted:'badge-accepted',Closed:'badge-closed',Rejected:'badge-rejected'};return `<span class="badge ${m[s]||'badge-pending'}">${s}</span>`;}
+function now(){return new Date().toLocaleString('en-GB').replace(',',' ');}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+let nT;
+function showNotif(msg,type='gold'){
+  const n=document.getElementById('notif');
+  const c={gold:'#f0a500',teal:'#00d4a0',danger:'#ff4757'};
+  n.style.borderColor=c[type]||c.gold;
+  document.getElementById('notif-title').textContent=type==='teal'?'✓ Success':type==='danger'?'⚠ Alert':'ℹ Notice';
+  document.getElementById('notif-title').style.color=c[type]||c.gold;
+  document.getElementById('notif-msg').textContent=msg;
+  n.classList.add('show');clearTimeout(nT);nT=setTimeout(()=>n.classList.remove('show'),4500);
+}
+
+// ============================================================
+// FIREBASE ENGINE
+// ============================================================
+
+let fbListeners = []; // track all active Firestore listeners for cleanup
+let currentUser = null;
+let isDemoMode = false;
+
+// --- AUTH ---
+function doLogin() {
+  if (!FB_CONFIGURED) { enterDemoMode(); return; }
+  const email = document.getElementById('auth-email').value.trim();
+  const pwd   = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.style.display = 'none';
+  if (!email || !pwd) { showAuthError('Please enter email and password.'); return; }
+  auth.signInWithEmailAndPassword(email, pwd)
+    .then(uc => { currentUser = uc.user; hideAuthWall(); })
+    .catch(e => showAuthError(e.message));
+}
+
+function doLogout() {
+  if (!FB_CONFIGURED || isDemoMode) { showAuthWall(); return; }
+  auth.signOut().then(() => { currentUser = null; showAuthWall(); });
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+function showAuthWall() {
+  document.getElementById('auth-wall').style.display = 'flex';
+  document.getElementById('app-loading').style.display = 'none';
+}
+
+function hideAuthWall() {
+  document.getElementById('auth-wall').style.display = 'none';
+  if (currentUser) {
+    const email = currentUser.email || '';
+    const initials = email.slice(0,2).toUpperCase();
+    document.getElementById('sidebar-avatar').textContent = initials;
+    document.getElementById('sidebar-username').textContent = email.split('@')[0].toUpperCase();
+    document.getElementById('sidebar-email').textContent = email;
+  }
+  bootApp();
+}
+
+function enterDemoMode() {
+  isDemoMode = true;
+  document.getElementById('auth-wall').style.display = 'none';
+  setFbStatus('demo');
+  bootApp();
+}
+
+// --- STATUS INDICATOR ---
+function setFbStatus(state) {
+  const dot  = document.getElementById('fb-status-dot');
+  const text = document.getElementById('fb-status-text');
+  const pill = document.getElementById('fb-status-pill');
+  const map  = {
+    connected: ['#2ed573','● Live DB',  'rgba(46,213,115,0.1)', 'rgba(46,213,115,0.25)'],
+    demo:      ['#ffa502','◌ Demo',     'rgba(255,165,2,0.1)',  'rgba(255,165,2,0.25)'],
+    error:     ['#ff4757','✕ DB Error', 'rgba(255,71,87,0.1)',  'rgba(255,71,87,0.25)'],
+    loading:   ['#5a6175','… Syncing',  'rgba(90,97,117,0.1)', 'rgba(90,97,117,0.25)'],
+    noconfig:  ['#5a6175','⚙ Setup DB', 'rgba(90,97,117,0.1)', 'rgba(90,97,117,0.25)'],
+  };
+  const [c, t, bg, border] = map[state] || map.noconfig;
+  dot.style.background = c;
+  text.textContent = t;
+  pill.style.background = bg;
+  pill.style.borderColor = border;
+}
+
+// --- FIRESTORE HELPERS ---
+const COL = {
+  participants:  'participants',
+  enquiries:     'enquiries',
+  trades:        'trades',
+  documents:     'documents',
+  blockchain:    'blockchainBlocks',
+  sysSeeds:      'system',
+};
+
+// Write a single record to Firestore (merge = update, not overwrite)
+async function fbSave(collection, id, data) {
+  if (!FB_CONFIGURED || isDemoMode) return;
+  try {
+    // Strip non-serialisable values (functions, undefined)
+    const clean = JSON.parse(JSON.stringify(data));
+    await db.collection(collection).doc(String(id)).set(clean, { merge: true });
+  } catch(e) {
+    console.warn('fbSave error:', e);
+    setFbStatus('error');
+  }
+}
+
+// Delete a record
+async function fbDelete(collection, id) {
+  if (!FB_CONFIGURED || isDemoMode) return;
+  try { await db.collection(collection).doc(String(id)).delete(); }
+  catch(e) { console.warn('fbDelete error:', e); }
+}
+
+// One-time read of entire collection
+async function fbReadAll(collection) {
+  if (!FB_CONFIGURED || isDemoMode) return null;
+  try {
+    const snap = await db.collection(collection).get();
+    return snap.docs.map(d => ({ _fbId: d.id, ...d.data() }));
+  } catch(e) {
+    console.warn('fbReadAll error:', e);
+    return null;
+  }
+}
+
+// Real-time listener — calls callback whenever collection changes
+function fbListen(collection, callback) {
+  if (!FB_CONFIGURED || isDemoMode) return;
+  const unsub = db.collection(collection).onSnapshot(snap => {
+    const items = snap.docs.map(d => ({ _fbId: d.id, ...d.data() }));
+    callback(items);
+  }, err => {
+    console.warn('fbListen error on', collection, err);
+    setFbStatus('error');
+  });
+  fbListeners.push(unsub);
+}
+
+// Seed Firestore with initial demo data (only runs once)
+async function seedIfEmpty() {
+  if (!FB_CONFIGURED || isDemoMode) return;
+  setLoadingMsg('Checking database…', 50);
+  try {
+    const seedDoc = await db.collection(COL.sysSeeds).doc('seeded').get();
+    if (seedDoc.exists) { setLoadingMsg('Loading data…', 75); return; }
+
+    setLoadingMsg('Seeding initial data…', 60);
+
+    // Seed all collections in parallel
+    const batches = [];
+
+    participants.forEach(p => batches.push(fbSave(COL.participants, p.id, p)));
+    enquiries.forEach(e   => batches.push(fbSave(COL.enquiries,    e.id, e)));
+    trades.forEach(t      => batches.push(fbSave(COL.trades,       t.id, t)));
+    documents.forEach(d   => batches.push(fbSave(COL.documents,    d.id, d)));
+    blockchainBlocks.forEach(b => batches.push(fbSave(COL.blockchain, b.id, b)));
+
+    await Promise.all(batches);
+    await db.collection(COL.sysSeeds).doc('seeded').set({ seededAt: new Date().toISOString(), version: 1 });
+    setLoadingMsg('Database ready!', 90);
+  } catch(e) {
+    console.warn('Seed error:', e);
+  }
+}
+
+// --- BOOT ---
+async function bootApp() {
+  setLoadingMsg('Connecting…', 20);
+
+  if (FB_CONFIGURED && !isDemoMode) {
+    setFbStatus('loading');
+    await seedIfEmpty();
+
+    // Attach real-time listeners — they update in-memory arrays AND re-render
+    fbListen(COL.participants, items => {
+      if (!items.length) return;
+      // Merge: keep KYC runtime fields, update persisted fields
+      items.forEach(item => {
+        const idx = participants.findIndex(p => String(p.id) === String(item._fbId || item.id));
+        if (idx > -1) Object.assign(participants[idx], item);
+        else participants.push(item);
+      });
+      // Remove deleted
+      const fbIds = new Set(items.map(i => String(i._fbId || i.id)));
+      for (let i = participants.length-1; i >= 0; i--) {
+        if (!fbIds.has(String(participants[i].id))) participants.splice(i,1);
+      }
+      enrichParticipants();
+      if (document.getElementById('page-kyc').classList.contains('active')) renderKYC();
+    });
+
+    fbListen(COL.enquiries, items => {
+      if (!items.length) return;
+      enquiries.length = 0; items.forEach(e => enquiries.push(e));
+      if (document.getElementById('page-enquiries').classList.contains('active')) renderEnquiries();
+    });
+
+    fbListen(COL.trades, items => {
+      if (!items.length) return;
+      trades.length = 0; items.forEach(t => trades.push(t));
+      if (document.getElementById('page-trades').classList.contains('active')) renderTrades();
+    });
+
+    fbListen(COL.documents, items => {
+      if (!items.length) return;
+      documents.length = 0; items.forEach(d => documents.push(d));
+      updatePendingBadge();
+      if (document.getElementById('page-documents').classList.contains('active')) renderDocuments(currentDocTab);
+    });
+
+    fbListen(COL.blockchain, items => {
+      if (!items.length) return;
+      blockchainBlocks.length = 0; items.forEach(b => blockchainBlocks.push(b));
+      blockchainBlocks.sort((a,b)=>b.id-a.id);
+      if (document.getElementById('page-blockchain').classList.contains('active')) renderBlockchain();
+    });
+
+    setFbStatus('connected');
+    setLoadingMsg('Live!', 100);
+  } else {
+    setLoadingMsg('Demo mode…', 80);
+    enrichParticipants();
+    setFbStatus(FB_CONFIGURED ? 'loading' : 'noconfig');
+    setLoadingMsg('Ready', 100);
+  }
+
+  setTimeout(() => {
+    document.getElementById('app-loading').style.display = 'none';
+    renderDashboard();
+  }, 600);
+}
+
+function setLoadingMsg(msg, pct) {
+  const el = document.getElementById('loading-msg');
+  const bar = document.getElementById('loading-bar');
+  if (el) el.textContent = msg;
+  if (bar) bar.style.width = pct + '%';
+}
+
+function updatePendingBadge() { updateBadge(); }
+
+// --- PERSIST WRAPPERS (called after every mutation) ---
+
+// Call after any participant change
+function persistParticipant(p) {
+  fbSave(COL.participants, p.id, JSON.parse(JSON.stringify(p)));
+}
+
+// Call after any enquiry change
+function persistEnquiry(e) {
+  fbSave(COL.enquiries, e.id, JSON.parse(JSON.stringify(e)));
+}
+
+// Call after any trade change
+function persistTrade(t) {
+  fbSave(COL.trades, t.id, JSON.parse(JSON.stringify(t)));
+}
+
+// Call after any document change
+function persistDocument(d) {
+  fbSave(COL.documents, d.id, JSON.parse(JSON.stringify(d)));
+}
+
+// Call after any blockchain block added
+function persistBlock(b) {
+  fbSave(COL.blockchain, b.id, JSON.parse(JSON.stringify(b)));
+}
+
+// --- CONFIG PASTE HELPER ---
+function applyFirebaseConfig() {
+  const raw = document.getElementById('fb-config-paste').value.trim();
+  try {
+    // Extract object from potential variable declaration
+    const jsonStr = raw.replace(/^.*?=\s*/, '').replace(/;?\s*$/, '');
+    const cfg = eval('(' + jsonStr + ')');
+    if (!cfg.apiKey || !cfg.projectId) { showNotif('Invalid config — missing apiKey or projectId','danger'); return; }
+    showNotif('Config applied! Please edit the FIREBASE_CONFIG in the HTML file and reload for full persistence.','teal');
+    closeModal('firebase-setup-modal');
+  } catch(e) {
+    showNotif('Could not parse config: ' + e.message, 'danger');
+  }
+}
+
+// --- STARTUP ---
+function startAuth() {
+  if (!FB_CONFIGURED) {
+    // No config — show auth wall with demo option
+    setLoadingMsg('Firebase not configured', 100);
+    setTimeout(() => {
+      document.getElementById('app-loading').style.display = 'none';
+      showAuthWall();
+    }, 800);
+    return;
+  }
+  // Firebase configured — wait for auth state
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      currentUser = user;
+      hideAuthWall();
+    } else {
+      setLoadingMsg('Please sign in…', 100);
+      setTimeout(() => {
+        document.getElementById('app-loading').style.display = 'none';
+        showAuthWall();
+      }, 600);
+    }
+  });
+}
+
+// INIT
+renderDashboard(); // immediate placeholder render
+startAuth();       // then handle auth + Firebase boot
+</script>
+</body>
+</html>

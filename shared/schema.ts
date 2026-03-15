@@ -124,6 +124,8 @@ export const documents = pgTable("documents", {
   title: text("title").notNull(),
   content: text("content"),
   status: text("status").notNull().default("draft"),
+  adminChecks: jsonb("admin_checks"),
+  adminReviewNotes: text("admin_review_notes"),
   docxPath: text("docx_path"),
   pdfPath: text("pdf_path"),
   buyerEmail: text("buyer_email"),

@@ -473,6 +473,22 @@ export default function TradeEnquiries() {
   );
 }
 
+function getValidityInfo(enquiry: TradeEnquiry): { daysLeft: number | null; label: string; color: string } {
+  if (!enquiry.validity || !enquiry.createdAt) return { daysLeft: null, label: "", color: "" };
+  const validityStr = String(enquiry.validity).trim();
+  const daysMatch = validityStr.match(/(\d+)/);
+  if (!daysMatch) return { daysLeft: null, label: enquiry.validity, color: "" };
+  const validityDays = parseInt(daysMatch[1]);
+  const created = new Date(enquiry.createdAt);
+  const expiry = new Date(created.getTime() + validityDays * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const msLeft = expiry.getTime() - now.getTime();
+  const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+  if (daysLeft <= 0) return { daysLeft: 0, label: "Expired", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border border-red-200" };
+  if (daysLeft <= 5) return { daysLeft, label: `${daysLeft}d left`, color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 border border-orange-200" };
+  return { daysLeft, label: `${daysLeft}d left`, color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border border-green-200" };
+}
+
 function EnquiryCard({
   enquiry,
   onView,
@@ -484,6 +500,7 @@ function EnquiryCard({
   onStatusChange: (status: string) => void;
   onDelete: () => void;
 }) {
+  const validity = getValidityInfo(enquiry);
   return (
     <Card className="hover:shadow-md transition-shadow" data-testid={`card-enquiry-${enquiry.id}`}>
       <CardContent className="p-4">
@@ -547,7 +564,13 @@ function EnquiryCard({
               )}
               {enquiry.validity && (
                 <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" /> {enquiry.validity}
+                  <Clock className="w-3.5 h-3.5" /> Validity: {enquiry.validity}
+                </span>
+              )}
+              {validity.label && isActive(enquiry.status) && (
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${validity.color}`} data-testid={`badge-validity-${enquiry.id}`}>
+                  <Clock className="w-3 h-3" />
+                  {validity.label}
                 </span>
               )}
             </div>

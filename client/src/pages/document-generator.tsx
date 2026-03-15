@@ -57,6 +57,11 @@ import {
   ThumbsUp,
   ThumbsDown,
   MessageSquare,
+  ClipboardCheck,
+  CheckSquare,
+  Square,
+  ListChecks,
+  XCircle,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -346,6 +351,10 @@ export default function DocumentGenerator() {
   const [respondDocId, setRespondDocId] = useState<string | null>(null);
   const [respondAction, setRespondAction] = useState<"accepted" | "rejected" | null>(null);
   const [amendmentNotes, setAmendmentNotes] = useState("");
+  const [docTabFilter, setDocTabFilter] = useState<string>("all");
+  const [reviewDocId, setReviewDocId] = useState<string | null>(null);
+  const [reviewChecks, setReviewChecks] = useState<Array<{ label: string; checked: boolean }>>([]);
+  const [reviewNotes, setReviewNotes] = useState("");
 
   const sendDoc = useMutation({
     mutationFn: async ({ id, recipientEmail, clientId }: { id: string; recipientEmail: string; clientId?: string }) => {
@@ -398,13 +407,51 @@ export default function DocumentGenerator() {
     },
   });
 
+  const adminReview = useMutation({
+    mutationFn: async ({ id, adminChecks, adminReviewNotes, action }: { id: string; adminChecks: Array<{ label: string; checked: boolean }>; adminReviewNotes: string; action?: string }) => {
+      const res = await apiRequest("PATCH", `/api/documents/${id}/admin-review`, { adminChecks, adminReviewNotes, action });
+      return res.json();
+    },
+    onSuccess: (updated: Doc) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      setViewDoc(updated);
+      if (updated.status === "draft") {
+        setReviewDocId(null);
+        toast({ title: "Document Approved", description: "Document is now ready for signing." });
+      } else if (updated.status === "rejected") {
+        setReviewDocId(null);
+        toast({ title: "Document Rejected", description: "Document has been rejected and returned for amendment." });
+      } else {
+        toast({ title: "Review Saved", description: "Admin review progress saved." });
+      }
+    },
+    onError: (error: Error) => {
+      toast({ title: "Review Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const openAdminReview = (doc: Doc) => {
+    const checks = (doc.adminChecks as Array<{ label: string; checked: boolean }> | null) || [];
+    setReviewChecks([...checks]);
+    setReviewNotes(doc.adminReviewNotes || "");
+    setReviewDocId(doc.id);
+    setViewDoc(doc);
+  };
+
+  const toggleReviewCheck = (idx: number) => {
+    setReviewChecks(prev => prev.map((c, i) => i === idx ? { ...c, checked: !c.checked } : c));
+  };
+
   const getStatusBadge = (doc: Doc) => {
     const s = doc.status;
     const r = doc.recipientResponse;
+    if (s === "pending_review") return { label: "Pending Review", color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200", icon: ListChecks };
     if (s === "accepted" || r === "accepted") return { label: "Accepted", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", icon: ThumbsUp };
-    if (s === "rejected" || r === "rejected") return { label: "Rejected", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200", icon: ThumbsDown };
+    if (s === "rejected") return { label: "Rejected", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200", icon: XCircle };
+    if (r === "rejected") return { label: "Amendment Needed", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200", icon: AlertCircle };
     if (s === "sent" || r === "pending") return { label: "Sent", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200", icon: Mail };
     if (s === "final") return { label: "Final", color: "bg-primary text-primary-foreground", icon: CheckCircle2 };
+    if (s === "draft") return { label: "Ready to Sign", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200", icon: FileSignature };
     return { label: s, color: "", icon: Clock };
   };
 
@@ -520,9 +567,17 @@ export default function DocumentGenerator() {
       const fresh = await fetchFreshDoc(doc.id);
       setViewDoc(fresh);
       setEditDoc(null);
+      if (fresh.status === "pending_review") {
+        setReviewChecks((fresh.adminChecks as Array<{ label: string; checked: boolean }> | null) || []);
+        setReviewNotes(fresh.adminReviewNotes || "");
+      }
     } catch {
       setViewDoc(doc);
       setEditDoc(null);
+      if (doc.status === "pending_review") {
+        setReviewChecks((doc.adminChecks as Array<{ label: string; checked: boolean }> | null) || []);
+        setReviewNotes(doc.adminReviewNotes || "");
+      }
     }
   };
 
@@ -609,16 +664,48 @@ export default function DocumentGenerator() {
       </div>
 
       <Card data-testid="card-doc-list">
-        <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0">
+        <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-3">
           <CardTitle className="text-base font-semibold">Generated Documents</CardTitle>
           <Badge variant="secondary" className="text-[10px]">
             {docs?.length || 0} documents
           </Badge>
         </CardHeader>
+        <div className="px-6 pb-3">
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { key: "all", label: "All", count: docs?.length || 0 },
+              { key: "LOI", label: "LOI", count: docs?.filter(d => d.docType === "LOI").length || 0 },
+              { key: "SCO", label: "SCO", count: docs?.filter(d => d.docType === "SCO").length || 0 },
+              { key: "DEAL_RECAP", label: "Deal Recap", count: docs?.filter(d => d.docType === "DEAL_RECAP").length || 0 },
+              { key: "SPA", label: "SPA", count: docs?.filter(d => d.docType === "SPA").length || 0 },
+              { key: "pending", label: "Pending Review", count: docs?.filter(d => d.status === "pending_review").length || 0 },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setDocTabFilter(tab.key)}
+                data-testid={`tab-doc-${tab.key}`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${docTabFilter === tab.key ? "bg-primary text-primary-foreground border-primary" : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted"}`}
+              >
+                {tab.label}
+                {tab.count > 0 && (
+                  <span className={`text-[10px] rounded-full px-1.5 py-0.5 font-semibold ${docTabFilter === tab.key ? "bg-white/20" : tab.key === "pending" && tab.count > 0 ? "bg-amber-500 text-white" : "bg-muted-foreground/20"}`}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
         <CardContent>
-          {docs && docs.length > 0 ? (
+          {(() => {
+            const filteredDocs = docs?.filter(doc => {
+              if (docTabFilter === "all") return true;
+              if (docTabFilter === "pending") return doc.status === "pending_review";
+              return doc.docType === docTabFilter;
+            }) || [];
+            return filteredDocs.length > 0 ? (
             <div className="space-y-2">
-              {docs.map((doc) => (
+              {filteredDocs.map((doc) => (
                 <div
                   key={doc.id}
                   className="flex items-center justify-between gap-3 p-3 rounded-md bg-muted"
@@ -730,6 +817,19 @@ export default function DocumentGenerator() {
                         <FileText className="w-4 h-4 text-red-600" />
                       </Button>
                     )}
+                    {doc.status === "pending_review" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-amber-700 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400"
+                        onClick={() => openAdminReview(doc)}
+                        title="Admin review checklist"
+                        data-testid={`button-admin-review-${doc.id}`}
+                      >
+                        <ClipboardCheck className="w-3.5 h-3.5 mr-1" />
+                        Review
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -755,10 +855,11 @@ export default function DocumentGenerator() {
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <FileText className="w-12 h-12 mb-4 opacity-20" />
-              <p className="text-sm font-medium">No documents generated</p>
-              <p className="text-xs">Select a template above to generate trade documents</p>
+              <p className="text-sm font-medium">No documents found</p>
+              <p className="text-xs">{docTabFilter !== "all" ? "No documents in this category" : "Select a template above to generate trade documents"}</p>
             </div>
-          )}
+          );
+          })()}
         </CardContent>
       </Card>
 
@@ -1419,9 +1520,16 @@ export default function DocumentGenerator() {
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Status</Label>
-                  <Badge variant={viewDoc.status === "final" ? "default" : "secondary"} className="capitalize" data-testid="text-view-doc-status">
-                    {viewDoc.status}
-                  </Badge>
+                  {(() => {
+                    const sb = getStatusBadge(viewDoc);
+                    const SbIcon = sb.icon;
+                    return (
+                      <Badge className={`text-[10px] capitalize ${sb.color}`} data-testid="text-view-doc-status">
+                        <SbIcon className="w-3 h-3 mr-0.5" />
+                        {sb.label}
+                      </Badge>
+                    );
+                  })()}
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Trade Reference</Label>
@@ -1438,6 +1546,87 @@ export default function DocumentGenerator() {
                   {viewDoc.content || "No content yet. Use the Amend button to add content."}
                 </div>
               </div>
+
+              {viewDoc.status === "pending_review" && (
+                <div className="border-t pt-4" data-testid="section-admin-review">
+                  <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ListChecks className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Admin Review Checklist</p>
+                      </div>
+                      <span className="text-xs text-amber-700 dark:text-amber-400">
+                        {reviewChecks.filter(c => c.checked).length}/{reviewChecks.length} items verified
+                      </span>
+                    </div>
+                    <p className="text-xs text-amber-700 dark:text-amber-400">Complete all checklist items and approve to enable document signing.</p>
+                    <div className="space-y-1.5">
+                      {reviewChecks.map((check, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => toggleReviewCheck(idx)}
+                          className={`w-full flex items-center gap-2.5 p-2.5 rounded-md text-left text-xs transition-colors ${check.checked ? "bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200" : "bg-white dark:bg-muted border border-amber-200 dark:border-amber-800 text-foreground hover:bg-amber-50 dark:hover:bg-amber-900"}`}
+                          data-testid={`check-item-${idx}`}
+                        >
+                          {check.checked ? (
+                            <CheckSquare className="w-4 h-4 text-green-600 flex-shrink-0" />
+                          ) : (
+                            <Square className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                          )}
+                          {check.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-amber-800 dark:text-amber-300">Admin Review Notes</Label>
+                      <Textarea
+                        value={reviewNotes}
+                        onChange={(e) => setReviewNotes(e.target.value)}
+                        placeholder="Add verification notes, risk observations, or concerns..."
+                        rows={2}
+                        className="text-xs resize-none border-amber-200 dark:border-amber-800"
+                        data-testid="textarea-admin-review-notes"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        onClick={() => adminReview.mutate({ id: viewDoc.id, adminChecks: reviewChecks, adminReviewNotes: reviewNotes })}
+                        disabled={adminReview.isPending}
+                        data-testid="button-save-review"
+                      >
+                        <Save className="w-3.5 h-3.5 mr-1" />
+                        Save Progress
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="text-xs bg-green-600 hover:bg-green-700 text-white flex-1"
+                        onClick={() => adminReview.mutate({ id: viewDoc.id, adminChecks: reviewChecks, adminReviewNotes: reviewNotes, action: "approve" })}
+                        disabled={adminReview.isPending || reviewChecks.filter(c => c.checked).length < reviewChecks.length}
+                        data-testid="button-approve-doc"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                        {reviewChecks.filter(c => c.checked).length < reviewChecks.length
+                          ? `Approve (${reviewChecks.filter(c => c.checked).length}/${reviewChecks.length} checked)`
+                          : "Approve — Ready to Sign"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="text-xs"
+                        onClick={() => adminReview.mutate({ id: viewDoc.id, adminChecks: reviewChecks, adminReviewNotes: reviewNotes, action: "reject" })}
+                        disabled={adminReview.isPending}
+                        data-testid="button-reject-doc-review"
+                      >
+                        <XCircle className="w-3.5 h-3.5 mr-1" />
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="border-t pt-4">
                 <Label className="text-sm font-semibold flex items-center gap-1.5 mb-3">
@@ -1470,12 +1659,14 @@ export default function DocumentGenerator() {
                     ) : (
                       <div className="space-y-2">
                         <div className="bg-muted/50 border border-dashed rounded p-4 flex items-center justify-center min-h-[60px]">
-                          <p className="text-xs text-muted-foreground">Not yet signed</p>
+                          <p className="text-xs text-muted-foreground">{viewDoc.status === "pending_review" ? "Awaiting admin approval" : "Not yet signed"}</p>
                         </div>
-                        <Button variant="outline" size="sm" className="w-full" onClick={() => openSignDialog(viewDoc.id, "buyer")} data-testid="button-sign-buyer">
-                          <FileSignature className="w-3.5 h-3.5 mr-1.5" />
-                          Sign as Buyer
-                        </Button>
+                        {viewDoc.status !== "pending_review" && (
+                          <Button variant="outline" size="sm" className="w-full" onClick={() => openSignDialog(viewDoc.id, "buyer")} data-testid="button-sign-buyer">
+                            <FileSignature className="w-3.5 h-3.5 mr-1.5" />
+                            Sign as Buyer
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>
