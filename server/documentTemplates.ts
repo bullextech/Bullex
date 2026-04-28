@@ -251,66 +251,14 @@ Signature & Stamp:                        Signature & Stamp:
 
 
 ${"═".repeat(70)}
-⬛ ANNEXURE I – LETTER OF INTENT (LOI) REFERENCE TERMS
+⬛ ANNEXURE I – COMMODITY SPECIFICATIONS
 ${"═".repeat(70)}
-
-Issued to Seller
-─────────────────────────────────────────────────────
-  ${v(seller?.name, trade?.sellerName)}
-  ${v(seller?.address)}
-
-  Attention (PIC)
-  ${v(seller?.contact)}
-
-                     Ref
-  ${product?.refPerson?.trim() || buyer?.contact?.trim() || "_______________"}
-
-
-  LOI Issue No. and Date
-  ${product?.loiIssueNumber || trade?.tradeRef || "_______________"} , ${today()}
-
-  Valid Till
-  ${product?.validity?.trim() || "As per LOI validity period"}
-
-  Purchase Incoterms
-  ${v(product?.incoterm, trade?.incoterm)}
-
-Issued by Buyer
-─────────────────────────────────────────────────────
-  ${v(buyer?.name, trade?.buyerName)}
-  ${v(buyer?.address)}
-
-  Attention (PIC)
-  ${v(buyer?.contact)}
-
 
 ${"═".repeat(70)}
  Sr. No. │ Parameters                  │ Details
 ${"═".repeat(70)}
- 01      │ Commodity                   │ ${v(product?.commodity, trade?.commodity)}
-${"─".repeat(70)}
- 02      │ Origin                      │ ${v(product?.origin, trade?.origin)}
-${"─".repeat(70)}
- 03      │ Quantity                    │ ${v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined)}
-${"─".repeat(70)}
- 04      │ Incoterms Terms             │ ${v(product?.incoterm, trade?.incoterm)}
-${"─".repeat(70)}
- 05      │ Delivery period             │ ${v(product?.laycan)}
-${"─".repeat(70)}
- 06      │ Price                       │ ${cur} ${v(product?.price, trade ? trade.pricePerUnit.toLocaleString() : undefined)}
-${"─".repeat(70)}
- 07      │ Contract Confirmation       │ ${v(product?.contractConfirmation, "Subject to Producer's Confirmation of cargo")}
-${"─".repeat(70)}
  08      │ Commodity                   │ ${v(product?.qualitySpecs)}
          │ Specifications              │
-${"─".repeat(70)}
- 09      │ Payment Terms               │ ${v(product?.paymentTerms, "By DLC against 2% Performance Bond")}
-${"─".repeat(70)}
- 10      │ Documents for Payment       │ ${v(product?.docsForPayment)}
-${"─".repeat(70)}
- 11      │ Other terms & conditions    │ ${v(product?.otherTerms)}
-${"─".repeat(70)}
- 12      │ Compliance                  │ ${v(product?.compliance)}
 ${"═".repeat(70)}
 ${product?.specialNote ? `\nSPECIAL NOTES\n${product.specialNote}\n` : ""}
 `;
