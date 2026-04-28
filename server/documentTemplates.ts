@@ -251,73 +251,68 @@ Signature & Stamp:                        Signature & Stamp:
 
 
 ${"═".repeat(70)}
-⬛ ANNEX I – PRODUCT SPECIFICATION, QUALITY ADJUSTMENT & SAMPLING
+⬛ ANNEXURE I – LETTER OF INTENT (LOI) REFERENCE TERMS
 ${"═".repeat(70)}
 
-Product: ${v(product?.commodity, trade?.commodity)}
-Grade: ${v(product?.qualitySpecs?.split("\\n")?.[0], "_______________")}
+Issued to Seller
+─────────────────────────────────────────────────────
+  ${v(seller?.name, trade?.sellerName)}
+  ${v(seller?.address)}
 
-The product supplied under this Contract shall comply with the
-following specifications. Guaranteed specifications represent binding
-commitments by the Seller. Typical specifications are provided for
-reference only and shall not constitute contractual guarantees.
+  Attention (PIC)
+  ${v(seller?.contact)}
 
-PRODUCT SPECIFICATION
+                     Ref
+  ${product?.refPerson?.trim() || buyer?.contact?.trim() || "_______________"}
+
+
+  LOI Issue No. and Date
+  ${product?.loiIssueNumber || trade?.tradeRef || "_______________"} , ${today()}
+
+  Valid Till
+  ${product?.validity?.trim() || "As per LOI validity period"}
+
+  Purchase Incoterms
+  ${v(product?.incoterm, trade?.incoterm)}
+
+Issued by Buyer
+─────────────────────────────────────────────────────
+  ${v(buyer?.name, trade?.buyerName)}
+  ${v(buyer?.address)}
+
+  Attention (PIC)
+  ${v(buyer?.contact)}
+
+
+${"═".repeat(70)}
+ Sr. No. │ Parameters                  │ Details
+${"═".repeat(70)}
+ 01      │ Commodity                   │ ${v(product?.commodity, trade?.commodity)}
 ${"─".repeat(70)}
- Parameter          │ Guaranteed Specification │ Typical Specification │ Rejection Limit
+ 02      │ Origin                      │ ${v(product?.origin, trade?.origin)}
 ${"─".repeat(70)}
-${product?.annexSpecs?.trim() || ` Moisture           │ -             │ -             │ -
- Ash                │ -             │ -             │ -
- Volatile Matter    │ -             │ -             │ -
- Fixed Carbon       │ -             │ -             │ -
- Sulphur            │ -             │ -             │ -
- Calorific Value    │ -             │ -             │ -
- Size Distribution  │ -             │ -             │ -`}
+ 03      │ Quantity                    │ ${v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined)}
 ${"─".repeat(70)}
-
-
-QUALITY PREMIUMS AND PENALTIES
+ 04      │ Incoterms Terms             │ ${v(product?.incoterm, trade?.incoterm)}
 ${"─".repeat(70)}
-${product?.qualityPremiums?.trim() || "To be agreed between Buyer and Seller."}
+ 05      │ Delivery period             │ ${v(product?.laycan)}
 ${"─".repeat(70)}
-
-
-SAMPLING PROCEDURE
-Sampling shall be conducted during loading at the loading port
-following internationally recognized standards for sampling.
-Incremental samples shall be taken systematically and combined into
-representative composite samples. Sampling and sealing procedures
-shall be supervised and certified by the independent inspection
-company.
-
-QUALITY DETERMINATION
-All quality determinations shall be performed by an internationally
-recognized inspection company such as ${agency}
-at the loading port. The inspection certificate issued at the loading
-port shall be final and binding for both Parties.
-
-SAMPLE RETENTION
-One representative sealed sample shall be retained by the inspection
-company for ninety (90) days for reference in case of dispute.
-
-MOISTURE DETERMINATION
-Moisture content shall be determined at the loading port based on
-laboratory analysis of representative composite samples. The moisture
-value determined at the loading port shall be the contractual moisture
-value for the cargo. Any determination at the discharge port shall be
-for reference only and shall not affect commercial settlement.
-
-QUANTITY AND WEIGHT DETERMINATION
-The quantity of the cargo shall be determined at the loading port by
-draft survey conducted by an independent inspection company such as
-${agency}.
-The draft survey certificate issued at the loading port shall
-determine the official shipped quantity and shall be final and binding
-for both Parties.
-The quantity stated in the Bill of Lading and confirmed by the draft
-survey certificate shall be the contractual quantity for invoicing and
-settlement purposes.
-${product?.specialNote ? `\n\nSPECIAL NOTES\n${product.specialNote}` : ""}
+ 06      │ Price                       │ ${cur} ${v(product?.price, trade ? trade.pricePerUnit.toLocaleString() : undefined)}
+${"─".repeat(70)}
+ 07      │ Contract Confirmation       │ ${v(product?.contractConfirmation, "Subject to Producer's Confirmation of cargo")}
+${"─".repeat(70)}
+ 08      │ Commodity                   │ ${v(product?.qualitySpecs)}
+         │ Specifications              │
+${"─".repeat(70)}
+ 09      │ Payment Terms               │ ${v(product?.paymentTerms, "By DLC against 2% Performance Bond")}
+${"─".repeat(70)}
+ 10      │ Documents for Payment       │ ${v(product?.docsForPayment)}
+${"─".repeat(70)}
+ 11      │ Other terms & conditions    │ ${v(product?.otherTerms)}
+${"─".repeat(70)}
+ 12      │ Compliance                  │ ${v(product?.compliance)}
+${"═".repeat(70)}
+${product?.specialNote ? `\nSPECIAL NOTES\n${product.specialNote}\n` : ""}
 `;
   },
 
