@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,6 @@ import {
   ArrowRight,
   Lock,
   Globe,
-  Zap,
   CheckCircle2,
   Mountain,
   Gem,
@@ -29,6 +28,10 @@ import {
   TrendingUp,
   MapPin,
   Mail,
+  Play,
+  Volume2,
+  VolumeX,
+  ChevronDown,
 } from "lucide-react";
 
 const features = [
@@ -74,7 +77,7 @@ const divisions = [
   { icon: Mountain, name: "Minerals", products: "Iron Ore, Bauxite, Manganese Ore", color: "text-stone-600 dark:text-stone-400" },
   { icon: Gem, name: "Metals", products: "Copper Cathode, Copper Concentrate, Aluminium Ingots", color: "text-sky-700 dark:text-sky-400" },
   { icon: Flame, name: "Energy Products", products: "Gasoil 10ppm, Gasoil 50ppm, LHC, HSFO, HSGO", color: "text-red-800 dark:text-red-400" },
-  { icon: Droplets, name: "Petrochemicals", products: "Petcoke \u2013 Anode Grade, Petcoke \u2013 Fuel Grade", color: "text-slate-600 dark:text-slate-400" },
+  { icon: Droplets, name: "Petrochemicals", products: "Petcoke – Anode Grade, Petcoke – Fuel Grade", color: "text-slate-600 dark:text-slate-400" },
   { icon: Sprout, name: "Fertilizers", products: "NPK, Sulphur – Granular, Sulphur – Lumps", color: "text-teal-700 dark:text-teal-400" },
 ];
 
@@ -85,8 +88,34 @@ const stats = [
   { value: "100%", label: "Blockchain Verified" },
 ];
 
+const videoShowcase = [
+  {
+    src: "/videos/mining-operation.mp4",
+    label: "Minerals & Metals",
+    title: "Global Mining Operations",
+    desc: "Iron ore, copper, bauxite and manganese sourced from the world's most productive mining regions.",
+    badge: "Minerals · Metals",
+  },
+  {
+    src: "/videos/oil-tanker-sunset.mp4",
+    label: "Energy & Petrochemicals",
+    title: "International Energy Trade",
+    desc: "Gasoil, HSFO, HSGO and petcoke transported across global shipping routes from origin to destination.",
+    badge: "Energy · Petrochemicals",
+  },
+  {
+    src: "/videos/port-terminal-night.mp4",
+    label: "Global Logistics Hub",
+    title: "24/7 Port Operations",
+    desc: "Round-the-clock commodity handling across major deep-water ports in Asia, the Middle East, and Africa.",
+    badge: "Logistics · Trade",
+  },
+];
+
 export default function Home() {
   const { toast } = useToast();
+  const [heroMuted, setHeroMuted] = useState(true);
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
   const [supplyForm, setSupplyForm] = useState({
     companyName: "",
     email: "",
@@ -104,42 +133,86 @@ export default function Home() {
     setSupplyForm({ companyName: "", email: "", commodity: "", message: "" });
   };
 
+  const toggleMute = () => {
+    if (heroVideoRef.current) {
+      heroVideoRef.current.muted = !heroVideoRef.current.muted;
+      setHeroMuted(!heroMuted);
+    }
+  };
+
   return (
     <div className="overflow-y-auto h-full">
-      <div className="bg-primary text-primary-foreground py-20 px-6 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
-        }} />
-        <div className="max-w-5xl mx-auto relative z-10">
-          <div className="max-w-3xl">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-lg bg-primary-foreground/10 border border-primary-foreground/20 flex items-center justify-center">
-                <Shield className="w-6 h-6" />
-              </div>
-              <div>
-                <Badge variant="secondary" className="text-[10px] uppercase tracking-widest bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20">
+
+      {/* ── HERO VIDEO SECTION ── */}
+      <div className="relative h-[90vh] min-h-[560px] overflow-hidden bg-black" data-testid="section-hero">
+        <video
+          ref={heroVideoRef}
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover opacity-60"
+          src="/videos/cargo-ship-ocean.mp4"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/80" />
+
+        <div className="relative z-10 h-full flex flex-col justify-center px-6">
+          <div className="max-w-5xl mx-auto w-full">
+            <div className="max-w-3xl">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center backdrop-blur-sm">
+                  <Shield className="w-6 h-6 text-white" />
+                </div>
+                <Badge className="text-[10px] uppercase tracking-widest bg-white/10 text-white border-white/20 backdrop-blur-sm">
                   Commodity Trading Platform
                 </Badge>
               </div>
+              <h1
+                className="text-5xl md:text-6xl font-bold mb-4 tracking-tight leading-tight text-white"
+                data-testid="text-home-title"
+              >
+                Bullex Trading
+                <br />
+                <span className="text-primary">Platform</span>
+              </h1>
+              <div className="w-20 h-1 bg-primary mb-6" />
+              <p className="text-lg md:text-xl text-white/80 font-light leading-relaxed mb-10 max-w-2xl">
+                The institutional-grade, blockchain-backed platform for managing
+                commodity trades, client onboarding, and trade documentation
+                across Bullfrog Group's global operations.
+              </p>
+              <div className="flex flex-wrap items-center gap-4">
+                <Link href="/platform">
+                  <Button size="lg" className="h-12 px-8 text-sm font-bold uppercase tracking-wider" data-testid="button-hero-get-started">
+                    Access Platform
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+                <Link href="/products">
+                  <Button size="lg" variant="outline" className="h-12 px-8 text-sm font-bold uppercase tracking-wider border-white/30 text-white hover:bg-white/10 bg-transparent" data-testid="button-hero-view-products">
+                    <Package className="w-4 h-4 mr-2" />
+                    View Products
+                  </Button>
+                </Link>
+              </div>
             </div>
-            <h1
-              className="text-4xl md:text-5xl font-bold mb-4 tracking-tight leading-tight"
-              data-testid="text-home-title"
-            >
-              Bullex Trading
-              <br />
-              Platform
-            </h1>
-            <div className="w-20 h-1 bg-primary-foreground/40 mb-6" />
-            <p className="text-lg md:text-xl text-primary-foreground/80 font-light leading-relaxed mb-8 max-w-2xl">
-              The institutional-grade, blockchain-backed platform for managing
-              commodity trades, client onboarding, and trade documentation
-              across Bullfrog Group's global operations.
-            </p>
           </div>
+        </div>
+
+        <button
+          onClick={toggleMute}
+          className="absolute bottom-6 right-6 z-20 w-10 h-10 rounded-full bg-black/40 border border-white/20 flex items-center justify-center backdrop-blur-sm hover:bg-black/60 transition-colors"
+          data-testid="button-hero-mute"
+        >
+          {heroMuted ? <VolumeX className="w-4 h-4 text-white" /> : <Volume2 className="w-4 h-4 text-white" />}
+        </button>
+
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 animate-bounce">
+          <ChevronDown className="w-6 h-6 text-white/60" />
         </div>
       </div>
 
+      {/* ── STATS BAR ── */}
       <div className="bg-card border-b border-border py-8 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
@@ -153,7 +226,54 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="py-16 px-6">
+      {/* ── VIDEO SHOWCASE ── */}
+      <div className="py-16 px-6 bg-background" data-testid="section-video-showcase">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-10">
+            <Badge variant="secondary" className="text-[10px] uppercase tracking-widest mb-4">Global Operations</Badge>
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-3">
+              Trading Across Continents
+            </h2>
+            <div className="w-16 h-1 bg-primary mx-auto mb-4" />
+            <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed text-sm">
+              Bullex facilitates institutional commodity trade flows connecting producers,
+              traders, and end-buyers across Asia, the Middle East, and Africa.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {videoShowcase.map((v) => (
+              <div
+                key={v.src}
+                className="group relative rounded-lg overflow-hidden border border-border hover:border-primary/40 transition-all hover:shadow-lg"
+                data-testid={`card-video-${v.label.toLowerCase().replace(/[\s·]+/g, "-")}`}
+              >
+                <div className="relative aspect-video bg-black overflow-hidden">
+                  <video
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    src={v.src}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                  <Badge className="absolute top-3 left-3 text-[9px] uppercase tracking-wider bg-primary/90 text-white border-0">
+                    {v.badge}
+                  </Badge>
+                </div>
+                <div className="p-4 bg-card">
+                  <h3 className="text-sm font-bold mb-1">{v.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{v.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── WHAT IS BULLEX ── */}
+      <div className="py-16 px-6 bg-muted/20 border-y border-border">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-3" data-testid="text-what-is-bullex">
@@ -167,7 +287,6 @@ export default function Home() {
               document generation to final settlement.
             </p>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {features.map((feature) => {
               const Icon = feature.icon;
@@ -189,7 +308,8 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="bg-muted/30 border-y border-border py-16 px-6">
+      {/* ── HOW IT WORKS ── */}
+      <div className="bg-muted/30 border-b border-border py-16 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-2xl font-bold tracking-tight mb-3">How Bullex Works</h2>
@@ -200,48 +320,18 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              {
-                step: "01",
-                title: "Client Onboarding",
-                desc: "Complete institutional KYC with our comprehensive 10-section form covering company details, compliance, and signatory verification.",
-                link: "/platform",
-                linkText: "Start KYC",
-              },
-              {
-                step: "02",
-                title: "Trade Execution",
-                desc: "Execute commodity trades across five divisions. Each trade is automatically mined into the blockchain with proof-of-work verification.",
-                link: "/platform",
-                linkText: "Execute Trade",
-              },
-              {
-                step: "03",
-                title: "Document Generation",
-                desc: "Generate all required trade documents — Deal Recap, FCO, ICPO, SPA, LOI, and more — linked directly to verified blockchain trades.",
-                link: "/platform",
-                linkText: "Generate Docs",
-              },
-              {
-                step: "04",
-                title: "Verification & Audit",
-                desc: "Every transaction is immutably recorded on the Bullex blockchain, providing a tamper-proof audit trail and real-time chain integrity.",
-                link: "/platform",
-                linkText: "View Ledger",
-              },
+              { step: "01", title: "Client Onboarding", desc: "Complete institutional KYC with our comprehensive 10-section form covering company details, compliance, and signatory verification.", link: "/platform", linkText: "Start KYC" },
+              { step: "02", title: "Trade Execution", desc: "Execute commodity trades across five divisions. Each trade is automatically mined into the blockchain with proof-of-work verification.", link: "/platform", linkText: "Execute Trade" },
+              { step: "03", title: "Document Generation", desc: "Generate all required trade documents — Deal Recap, FCO, ICPO, SPA, LOI, and more — linked directly to verified blockchain trades.", link: "/platform", linkText: "Generate Docs" },
+              { step: "04", title: "Verification & Audit", desc: "Every transaction is immutably recorded on the Bullex blockchain, providing a tamper-proof audit trail and real-time chain integrity.", link: "/platform", linkText: "View Ledger" },
             ].map((item) => (
               <Card key={item.step} className="border relative overflow-hidden" data-testid={`card-step-${item.step}`}>
                 <CardContent className="p-5">
-                  <span className="text-4xl font-bold text-primary/10 absolute top-3 right-4">
-                    {item.step}
-                  </span>
+                  <span className="text-4xl font-bold text-primary/10 absolute top-3 right-4">{item.step}</span>
                   <div className="relative z-10">
-                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">
-                      Step {item.step}
-                    </p>
+                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Step {item.step}</p>
                     <h3 className="text-sm font-semibold mb-2">{item.title}</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                      {item.desc}
-                    </p>
+                    <p className="text-xs text-muted-foreground leading-relaxed mb-4">{item.desc}</p>
                     <Link href={item.link}>
                       <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" data-testid={`link-step-${item.step}`}>
                         {item.linkText}
@@ -256,16 +346,14 @@ export default function Home() {
         </div>
       </div>
 
+      {/* ── COMMODITY DIVISIONS ── */}
       <div className="py-16 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
-            <h2 className="text-2xl font-bold tracking-tight mb-3" data-testid="text-commodity-divisions">
-              Commodity Divisions
-            </h2>
+            <h2 className="text-2xl font-bold tracking-tight mb-3" data-testid="text-commodity-divisions">Commodity Divisions</h2>
             <div className="w-16 h-1 bg-primary mx-auto mb-4" />
             <p className="text-sm text-muted-foreground max-w-xl mx-auto">
-              Bullex manages trades across five core commodity divisions, operating
-              primarily in Asia, the Middle East, and Africa.
+              Bullex manages trades across five core commodity divisions, operating primarily in Asia, the Middle East, and Africa.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -273,18 +361,13 @@ export default function Home() {
               const Icon = div.icon;
               return (
                 <Link key={div.name} href="/products">
-                  <Card
-                    className="border cursor-pointer hover:border-primary/30 transition-colors group h-full"
-                    data-testid={`card-division-${div.name.toLowerCase().replace(/\s+/g, "-")}`}
-                  >
+                  <Card className="border cursor-pointer hover:border-primary/30 transition-colors group h-full" data-testid={`card-division-${div.name.toLowerCase().replace(/\s+/g, "-")}`}>
                     <CardContent className="p-4 text-center">
                       <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center mx-auto mb-3 group-hover:bg-primary/20 transition-colors">
                         <Icon className={`w-5 h-5 ${div.color}`} />
                       </div>
                       <h3 className="text-sm font-semibold mb-1">{div.name}</h3>
-                      <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        {div.products}
-                      </p>
+                      <p className="text-[10px] text-muted-foreground leading-relaxed">{div.products}</p>
                     </CardContent>
                   </Card>
                 </Link>
@@ -302,55 +385,30 @@ export default function Home() {
         </div>
       </div>
 
+      {/* ── TOKENIZATION ── */}
       <div className="bg-muted/30 border-y border-border py-16 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="flex flex-col lg:flex-row gap-12 items-start">
             <div className="lg:w-1/2">
               <div className="flex items-center gap-2 mb-4">
-                <Badge variant="secondary" className="text-[10px] uppercase tracking-widest">
-                  BFG-20 Standard
-                </Badge>
-                <Badge variant="secondary" className="text-[10px] uppercase tracking-widest">
-                  Blockchain Native
-                </Badge>
+                <Badge variant="secondary" className="text-[10px] uppercase tracking-widest">BFG-20 Standard</Badge>
+                <Badge variant="secondary" className="text-[10px] uppercase tracking-widest">Blockchain Native</Badge>
               </div>
-              <h2
-                className="text-2xl font-bold tracking-tight mb-3"
-                data-testid="text-tokenization-section"
-              >
-                Commodity Tokenization
-              </h2>
+              <h2 className="text-2xl font-bold tracking-tight mb-3" data-testid="text-tokenization-section">Commodity Tokenization</h2>
               <div className="w-16 h-1 bg-primary mb-4" />
               <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                Every commodity traded on the Bullex platform is represented as a
-                blockchain-backed digital token under the proprietary BFG-20 standard.
-                Each token is pegged 1:1 to physical commodity units — no fractional
-                reserve, full collateralization.
+                Every commodity traded on the Bullex platform is represented as a blockchain-backed digital token under the proprietary BFG-20 standard. Each token is pegged 1:1 to physical commodity units — no fractional reserve, full collateralization.
               </p>
               <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                When a trade is executed, digital tokens are minted at the exact
-                quantity of the physical commodity and recorded on the Bullex blockchain
-                through SHA-256 proof-of-work mining. This creates an immutable,
-                verifiable link between the digital asset and the physical goods —
-                from origin to destination.
+                When a trade is executed, digital tokens are minted at the exact quantity of the physical commodity and recorded on the Bullex blockchain through SHA-256 proof-of-work mining.
               </p>
               <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="p-3 rounded-md bg-card border border-border">
-                  <p className="text-xl font-bold text-primary">12</p>
-                  <p className="text-[10px] text-muted-foreground">Token Types</p>
-                </div>
-                <div className="p-3 rounded-md bg-card border border-border">
-                  <p className="text-xl font-bold text-primary">5</p>
-                  <p className="text-[10px] text-muted-foreground">Asset Classes</p>
-                </div>
-                <div className="p-3 rounded-md bg-card border border-border">
-                  <p className="text-xl font-bold text-primary">1:1</p>
-                  <p className="text-[10px] text-muted-foreground">Physical Backing</p>
-                </div>
-                <div className="p-3 rounded-md bg-card border border-border">
-                  <p className="text-xl font-bold text-primary">18</p>
-                  <p className="text-[10px] text-muted-foreground">Token Decimals</p>
-                </div>
+                {[{ v: "12", l: "Token Types" }, { v: "5", l: "Asset Classes" }, { v: "1:1", l: "Physical Backing" }, { v: "18", l: "Token Decimals" }].map((s) => (
+                  <div key={s.l} className="p-3 rounded-md bg-card border border-border">
+                    <p className="text-xl font-bold text-primary">{s.v}</p>
+                    <p className="text-[10px] text-muted-foreground">{s.l}</p>
+                  </div>
+                ))}
               </div>
               <Link href="/tokenization">
                 <Button size="sm" data-testid="button-explore-tokens">
@@ -360,34 +418,13 @@ export default function Home() {
                 </Button>
               </Link>
             </div>
-
             <div className="lg:w-1/2 space-y-3">
               <h3 className="text-sm font-semibold mb-3">How Tokenization Works</h3>
               {[
-                {
-                  step: "01",
-                  icon: Link2,
-                  title: "Trade Execution",
-                  desc: "A commodity trade is initiated on Bullex with full counterparty details, quantity, pricing, and incoterms.",
-                },
-                {
-                  step: "02",
-                  icon: Coins,
-                  title: "Token Minting",
-                  desc: "Digital tokens are minted at a 1:1 ratio — each token represents exactly one unit of the physical commodity.",
-                },
-                {
-                  step: "03",
-                  icon: Hash,
-                  title: "Blockchain Recording",
-                  desc: "The tokenized trade is mined into the Bullex blockchain via SHA-256 proof-of-work with difficulty-2 consensus.",
-                },
-                {
-                  step: "04",
-                  icon: Shield,
-                  title: "Immutable Verification",
-                  desc: "Each token is permanently linked to its block, providing tamper-proof provenance and a complete audit trail.",
-                },
+                { step: "01", icon: Link2, title: "Trade Execution", desc: "A commodity trade is initiated on Bullex with full counterparty details, quantity, pricing, and incoterms." },
+                { step: "02", icon: Coins, title: "Token Minting", desc: "Digital tokens are minted at a 1:1 ratio — each token represents exactly one unit of the physical commodity." },
+                { step: "03", icon: Hash, title: "Blockchain Recording", desc: "The tokenized trade is mined into the Bullex blockchain via SHA-256 proof-of-work with difficulty-2 consensus." },
+                { step: "04", icon: Shield, title: "Immutable Verification", desc: "Each token is permanently linked to its block, providing tamper-proof provenance and a complete audit trail." },
               ].map((item) => {
                 const StepIcon = item.icon;
                 return (
@@ -398,42 +435,27 @@ export default function Home() {
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
-                            Step {item.step}
-                          </span>
+                          <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Step {item.step}</span>
                           <h4 className="text-sm font-semibold">{item.title}</h4>
                         </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          {item.desc}
-                        </p>
+                        <p className="text-xs text-muted-foreground leading-relaxed">{item.desc}</p>
                       </div>
                     </CardContent>
                   </Card>
                 );
               })}
-
-              <div className="pt-2">
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Sample tokens include{" "}
-                  <span className="font-mono text-foreground">BFG-IRO</span> (Iron Ore),{" "}
-                  <span className="font-mono text-foreground">BFG-CPC</span> (Copper Cathode),{" "}
-                  <span className="font-mono text-foreground">BFG-G10</span> (Gasoil 10ppm),{" "}
-                  <span className="font-mono text-foreground">BFG-PCA</span> (Petcoke – Anode Grade), and{" "}
-                  <span className="font-mono text-foreground">BFG-NPK</span> (NPK) — all conforming
-                  to the BFG-20 token standard.
-                </p>
-              </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* ── INITIATE TRADE ── */}
       <section className="bg-primary text-white" data-testid="section-initiate-trade">
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2">
             <div className="p-10 lg:p-16 flex flex-col justify-center">
               <h2 className="text-3xl font-bold mb-4 tracking-tight">Initiate Trade</h2>
-              <div className="w-24 h-1 bg-white/30 mb-8"></div>
+              <div className="w-24 h-1 bg-white/30 mb-8" />
               <p className="text-white/80 text-lg leading-relaxed mb-12">
                 Submit your commodity requirements directly to our trading desk. Our specialists will review your inquiry and respond with indicative pricing and availability within 24 hours.
               </p>
@@ -454,7 +476,6 @@ export default function Home() {
                 </div>
               </div>
             </div>
-
             <div className="p-10 lg:p-16 bg-card text-foreground border-l border-border">
               <h3 className="text-2xl font-bold text-primary mb-8 tracking-tight">Trade Inquiry</h3>
               <form onSubmit={handleSupplySubmit} className="space-y-6">
@@ -480,11 +501,11 @@ export default function Home() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-primary">Requirements *</label>
-                  <Textarea className="border-border rounded-none min-h-[120px] resize-none focus-visible:ring-primary" placeholder="Describe your commodity requirements, quantities, delivery terms..." value={supplyForm.message} onChange={(e) => setSupplyForm({ ...supplyForm, message: e.target.value })} data-testid="supply-input-message" />
+                  <label className="text-xs font-bold uppercase tracking-wider text-primary">Message *</label>
+                  <Textarea className="border-border rounded-none min-h-[120px] focus-visible:ring-primary resize-none" placeholder="Describe your requirements, quantities, destination ports, preferred delivery window..." value={supplyForm.message} onChange={(e) => setSupplyForm({ ...supplyForm, message: e.target.value })} data-testid="supply-textarea-message" />
                 </div>
-                <Button type="submit" className="w-full h-14 rounded-none text-sm font-bold uppercase tracking-wider" data-testid="supply-button-submit">
-                  Submit Trade Inquiry
+                <Button type="submit" className="w-full rounded-none h-12 text-sm font-bold uppercase tracking-wider" data-testid="supply-button-submit">
+                  Submit Inquiry
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </form>
@@ -492,20 +513,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      <div className="bg-card border-t border-border py-8 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Shield className="w-5 h-5 text-primary" />
-              <span className="text-sm font-semibold">Bullex Commodity Trading Platform</span>
-            </div>
-            <p className="text-xs text-muted-foreground text-center sm:text-right">
-              Built for Institutional Commodity Trading &bull; Blockchain Verified &bull; Bullfrog Group
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
