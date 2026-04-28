@@ -85,43 +85,6 @@ const stats = [
   { value: "100%", label: "Blockchain Verified" },
 ];
 
-const videoShowcase = [
-  {
-    src: "/videos/mining-operation.mp4",
-    label: "Minerals & Metals",
-    title: "Global Mining Operations",
-    desc: "Iron ore, copper, bauxite and manganese sourced from the world's most productive mining regions.",
-    badge: "Minerals · Metals",
-  },
-  {
-    src: "/videos/oil-tanker-sunset.mp4",
-    label: "Energy & Petrochemicals",
-    title: "International Energy Trade",
-    desc: "Gasoil, HSFO, HSGO and petcoke transported across global shipping routes from origin to destination.",
-    badge: "Energy · Petrochemicals",
-  },
-  {
-    src: "/videos/port-terminal-night.mp4",
-    label: "Global Logistics Hub",
-    title: "24/7 Port Operations",
-    desc: "Round-the-clock commodity handling across major deep-water ports in Asia, the Middle East, and Africa.",
-    badge: "Logistics · Trade",
-  },
-  {
-    src: "/videos/bulk-carrier-vessel-sunrise.mp4",
-    label: "Bulk Shipping",
-    title: "Bulk Carrier Voyages",
-    desc: "Large-scale dry bulk vessels transporting iron ore, grain and coal across intercontinental shipping lanes at dawn.",
-    badge: "Bulk · Shipping",
-  },
-  {
-    src: "/videos/oil-tanker-sunrise.mp4",
-    label: "Oil Tanker Fleet",
-    title: "Crude & Products Tankers",
-    desc: "VLCC and Suezmax tankers carrying crude oil and refined products across deep-water trade routes at sunrise.",
-    badge: "Crude · Tankers",
-  },
-];
 
 export default function Home() {
   const { toast } = useToast();
@@ -266,51 +229,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── VIDEO SHOWCASE ── */}
-      <div className="py-16 px-6 bg-background" data-testid="section-video-showcase">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-10">
-            <Badge variant="secondary" className="text-[10px] uppercase tracking-widest mb-4">Global Operations</Badge>
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-3">
-              Trading Across Continents
-            </h2>
-            <div className="w-16 h-1 bg-primary mx-auto mb-4" />
-            <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed text-sm">
-              Bullex facilitates institutional commodity trade flows connecting producers,
-              traders, and end-buyers across Asia, the Middle East, and Africa.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {videoShowcase.map((v) => (
-              <div
-                key={v.src}
-                className="group relative rounded-lg overflow-hidden border border-border hover:border-primary/40 transition-all hover:shadow-lg"
-                data-testid={`card-video-${v.label.toLowerCase().replace(/[\s·]+/g, "-")}`}
-              >
-                <div className="relative aspect-video bg-black overflow-hidden">
-                  <video
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                    src={v.src}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                  <Badge className="absolute top-3 left-3 text-[9px] uppercase tracking-wider bg-primary/90 text-white border-0">
-                    {v.badge}
-                  </Badge>
-                </div>
-                <div className="p-4 bg-card">
-                  <h3 className="text-sm font-bold mb-1">{v.title}</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{v.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
       {/* ── WHAT IS BULLEX ── */}
       <div className="py-16 px-6 bg-muted/20 border-y border-border">
