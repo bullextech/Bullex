@@ -9,7 +9,7 @@ import { insertTradeSchema, insertKycSchema, insertDocumentSchema, type Trade } 
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail } from "./email";
 import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures } from "./documentFileGenerator";
 
 const ADMIN_CHECKLISTS: Record<string, string[]> = {
@@ -773,6 +773,9 @@ export async function registerRoutes(
       const result = await storage.createKycApplication(parsed.data);
 
       const signatoryEmail = parsed.data.signatoryEmail;
+      const submittedAt = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+      // Email to client (signatory)
       if (signatoryEmail) {
         sendKycConfirmationEmail(
           signatoryEmail,
@@ -780,12 +783,28 @@ export async function registerRoutes(
           parsed.data.signatoryName || parsed.data.contactName
         ).catch((err) => console.error("[email] background send failed:", err));
       }
+      // Email to form filler (if different from signatory)
       if (parsed.data.filledByEmail && parsed.data.filledByEmail !== signatoryEmail) {
         sendKycConfirmationEmail(
           parsed.data.filledByEmail,
           parsed.data.companyName,
           parsed.data.filledByName || "Applicant"
         ).catch((err) => console.error("[email] background send to filledBy failed:", err));
+      }
+      // Email to admin
+      const adminEmail = process.env.ADMIN_EMAIL || process.env.ADMIN_USERNAME;
+      if (adminEmail) {
+        const contactEmail = parsed.data.contactEmail || parsed.data.signatoryEmail || parsed.data.filledByEmail || "";
+        const contactName = parsed.data.contactName || parsed.data.signatoryName || parsed.data.filledByName || "Unknown";
+        sendKycSubmittedAdminEmail(
+          adminEmail,
+          parsed.data.companyName,
+          contactName,
+          contactEmail,
+          parsed.data.businessType,
+          parsed.data.countryOfOperation,
+          submittedAt
+        ).catch((err) => console.error("[email] admin KYC notification failed:", err));
       }
 
       res.json(sanitizeKyc(result));

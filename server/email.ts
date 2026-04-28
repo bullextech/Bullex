@@ -93,6 +93,38 @@ export async function sendKycConfirmationEmail(
   return sendEmail(to, `KYC Application Submitted – ${companyName}`, emailWrapper(body));
 }
 
+export async function sendKycSubmittedAdminEmail(
+  adminEmail: string,
+  companyName: string,
+  contactName: string,
+  contactEmail: string,
+  businessType: string | null | undefined,
+  countryOfOperation: string | null | undefined,
+  submittedAt: string
+): Promise<boolean> {
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">New KYC Application Received</h2>
+    <p style="color: #475569; line-height: 1.6;">A new KYC application has been submitted on the Bullex Trading Platform and is awaiting your review.</p>
+    <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #92400e; margin: 0; font-weight: 600;">Action Required: Review &amp; Verify</p>
+      <p style="color: #a16207; margin: 8px 0 0; font-size: 14px;">Please log in to the admin panel to review the submitted documents and approve or reject this application.</p>
+    </div>
+    <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+      <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Company Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${companyName}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Person</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${contactName}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${contactEmail}</td></tr>
+      ${businessType ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Business Type</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${businessType}</td></tr>` : ""}
+      ${countryOfOperation ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Country of Operation</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${countryOfOperation}</td></tr>` : ""}
+      <tr><td style="color: #64748b; padding: 8px 12px;">Submitted At</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${submittedAt}</td></tr>
+    </table>
+    <p style="color: #475569; line-height: 1.6;">
+      Log in to the admin panel at <a href="mailto:team@bullex.tech" style="color: #2563eb;">Bullex Admin</a> to take action on this application.
+    </p>
+  `;
+  return sendEmail(adminEmail, `New KYC Application – ${companyName}`, emailWrapper(body));
+}
+
 export async function sendKycApprovalEmail(
   to: string,
   companyName: string,
