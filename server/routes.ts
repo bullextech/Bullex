@@ -187,16 +187,18 @@ export async function registerRoutes(
     const { username, password } = req.body;
     const adminUser = process.env.ADMIN_USERNAME;
     const adminPass = process.env.ADMIN_PASSWORD;
+    const adminEmail = process.env.ADMIN_EMAIL;
     if (!adminUser || !adminPass) {
       return res.status(500).json({ message: "Admin credentials not configured" });
     }
-    if (username === adminUser && password === adminPass) {
+    const validUsername = username === adminUser || (adminEmail && username === adminEmail);
+    if (validUsername && password === adminPass) {
       req.session.regenerate(() => {
         req.session.authenticated = true;
-        req.session.username = username;
+        req.session.username = adminUser;
         req.session.role = "admin";
         req.session.save(() => {
-          return res.json({ authenticated: true, username, role: "admin" });
+          return res.json({ authenticated: true, username: adminUser, role: "admin" });
         });
       });
       return;
