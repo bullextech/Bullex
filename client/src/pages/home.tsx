@@ -107,6 +107,20 @@ const videoShowcase = [
     desc: "Round-the-clock commodity handling across major deep-water ports in Asia, the Middle East, and Africa.",
     badge: "Logistics · Trade",
   },
+  {
+    src: "/videos/bulk-carrier-vessel-sunrise.mp4",
+    label: "Bulk Shipping",
+    title: "Bulk Carrier Voyages",
+    desc: "Large-scale dry bulk vessels transporting iron ore, grain and coal across intercontinental shipping lanes at dawn.",
+    badge: "Bulk · Shipping",
+  },
+  {
+    src: "/videos/oil-tanker-sunrise.mp4",
+    label: "Oil Tanker Fleet",
+    title: "Crude & Products Tankers",
+    desc: "VLCC and Suezmax tankers carrying crude oil and refined products across deep-water trade routes at sunrise.",
+    badge: "Crude · Tankers",
+  },
 ];
 
 export default function Home() {
