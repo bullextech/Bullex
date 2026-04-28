@@ -125,6 +125,50 @@ export async function sendKycSubmittedAdminEmail(
   return sendEmail(adminEmail, `New KYC Application – ${companyName}`, emailWrapper(body));
 }
 
+export async function sendKycActionAdminCopyEmail(
+  adminEmail: string,
+  action: "approved" | "rejected",
+  companyName: string,
+  contactName: string,
+  contactEmail: string,
+  reviewNotes?: string | null
+): Promise<boolean> {
+  const isApproved = action === "approved";
+  const actionLabel = isApproved ? "Approved" : "Rejected";
+  const statusBg = isApproved ? "#f0fdf4" : "#fef2f2";
+  const statusBorder = isApproved ? "#bbf7d0" : "#fecaca";
+  const statusTextColor = isApproved ? "#166534" : "#991b1b";
+  const statusSubColor = isApproved ? "#15803d" : "#b91c1c";
+  const statusMsg = isApproved
+    ? "The applicant has been notified and their account is now active on the platform."
+    : "The applicant has been notified with the reason for rejection.";
+
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">KYC Application ${actionLabel} – Confirmation</h2>
+    <p style="color: #475569; line-height: 1.6;">This is a confirmation that the following KYC application has been <strong>${actionLabel.toLowerCase()}</strong> by the Bullex admin panel.</p>
+    <div style="background: ${statusBg}; border: 1px solid ${statusBorder}; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: ${statusTextColor}; margin: 0; font-weight: 600;">Status: ${actionLabel}</p>
+      <p style="color: ${statusSubColor}; margin: 8px 0 0; font-size: 14px;">${statusMsg}</p>
+    </div>
+    <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+      <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Company Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${companyName}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Person</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${contactName}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${contactEmail}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Action Taken</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${actionLabel}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px;">Date</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td></tr>
+    </table>
+    ${reviewNotes ? `
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #1e40af; margin: 0; font-weight: 600;">Review Notes</p>
+      <p style="color: #1d4ed8; margin: 8px 0 0; font-size: 14px;">${reviewNotes}</p>
+    </div>
+    ` : ""}
+    <p style="color: #94a3b8; font-size: 12px; margin: 16px 0 0;">This is an automated audit copy sent to the admin account.</p>
+  `;
+  return sendEmail(adminEmail, `KYC ${actionLabel} – ${companyName}`, emailWrapper(body));
+}
+
 export async function sendKycApprovalEmail(
   to: string,
   companyName: string,

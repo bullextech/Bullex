@@ -9,7 +9,7 @@ import { insertTradeSchema, insertKycSchema, insertDocumentSchema, type Trade } 
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail } from "./email";
 import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures } from "./documentFileGenerator";
 
 const ADMIN_CHECKLISTS: Record<string, string[]> = {
@@ -584,6 +584,18 @@ export async function registerRoutes(
             clientPassword
           ).catch((err) => console.error("[email] background approval send to filledBy failed:", err));
         }
+        // Admin audit copy
+        const adminEmailApprove = process.env.ADMIN_EMAIL || process.env.ADMIN_USERNAME;
+        if (adminEmailApprove) {
+          sendKycActionAdminCopyEmail(
+            adminEmailApprove,
+            "approved",
+            updated.companyName,
+            updated.contactName || updated.signatoryName || "Unknown",
+            updated.contactEmail || updated.signatoryEmail || "",
+            reviewNotes
+          ).catch((err) => console.error("[email] admin approve copy failed:", err));
+        }
       }
 
       if (status === "rejected") {
@@ -603,6 +615,18 @@ export async function registerRoutes(
             updated.filledByName || "Applicant",
             reviewNotes
           ).catch((err) => console.error("[email] background rejection send to filledBy failed:", err));
+        }
+        // Admin audit copy
+        const adminEmailReject = process.env.ADMIN_EMAIL || process.env.ADMIN_USERNAME;
+        if (adminEmailReject) {
+          sendKycActionAdminCopyEmail(
+            adminEmailReject,
+            "rejected",
+            updated.companyName,
+            updated.contactName || updated.signatoryName || "Unknown",
+            updated.contactEmail || updated.signatoryEmail || "",
+            reviewNotes
+          ).catch((err) => console.error("[email] admin reject copy failed:", err));
         }
       }
 
