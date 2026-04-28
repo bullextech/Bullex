@@ -10,6 +10,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { ClientAuthProvider } from "@/hooks/use-client-auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Shield } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
@@ -47,13 +48,37 @@ function ProtectedRoute({ component: Component }: { component: () => JSX.Element
   return <Component />;
 }
 
+function KycStandaloneShell() {
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      <header className="border-b border-border bg-background px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
+            <Shield className="w-4 h-4 text-primary-foreground" />
+          </div>
+          <div>
+            <h1 className="text-sm font-bold tracking-tight">BULLEX</h1>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">KYC Onboarding</p>
+          </div>
+        </div>
+        <ThemeToggle />
+      </header>
+      <main className="flex-1">
+        <KYC />
+      </main>
+      <footer className="border-t border-border bg-muted/30 px-4 py-2 text-center">
+        <p className="text-[10px] text-muted-foreground">Bullex is a proprietary platform of Bullfrog Group.</p>
+      </footer>
+    </div>
+  );
+}
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>
       <Route path="/products" component={Products} />
-      <Route path="/kyc" component={KYC} />
       <Route path="/kyc-admin">{() => <ProtectedRoute component={KycAdmin} />}</Route>
       <Route path="/documents">{() => <ProtectedRoute component={DocumentGenerator} />}</Route>
       <Route path="/trading">{() => <ProtectedRoute component={Trading} />}</Route>
@@ -101,6 +126,7 @@ function AppShell() {
 function App() {
   const [isKycRegister] = useRoute("/kyc-register");
   const [isClientPortal] = useRoute("/client-portal");
+  const [isKyc] = useRoute("/kyc");
 
   return (
     <ThemeProvider>
@@ -112,6 +138,8 @@ function App() {
                 <KycRegister />
               ) : isClientPortal ? (
                 <ClientPortal />
+              ) : isKyc ? (
+                <KycStandaloneShell />
               ) : (
                 <AppShell />
               )}

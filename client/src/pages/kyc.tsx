@@ -291,7 +291,7 @@ export default function KYC() {
   }
 
   return (
-    <div className="p-6 space-y-6 overflow-y-auto h-full">
+    <div className="p-6 space-y-6">
       {kycs && kycs.length > 0 && (
         <Card data-testid="card-kyc-list">
           <CardHeader>
