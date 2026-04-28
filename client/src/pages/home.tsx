@@ -75,13 +75,13 @@ const divisions = [
   { icon: Gem, name: "Metals", products: "Copper Cathode, Copper Concentrate, Aluminium Ingots", color: "text-sky-700 dark:text-sky-400" },
   { icon: Flame, name: "Energy Products", products: "Gasoil 10ppm, Gasoil 50ppm, LHC, HSFO, HSGO", color: "text-red-800 dark:text-red-400" },
   { icon: Droplets, name: "Petrochemicals", products: "Petcoke \u2013 Anode Grade, Petcoke \u2013 Fuel Grade", color: "text-slate-600 dark:text-slate-400" },
-  { icon: Sprout, name: "Fertilizers", products: "NPK", color: "text-teal-700 dark:text-teal-400" },
+  { icon: Sprout, name: "Fertilizers", products: "NPK, Sulphur – Granular, Sulphur – Lumps", color: "text-teal-700 dark:text-teal-400" },
 ];
 
 const stats = [
   { value: "5", label: "Trading Divisions" },
-  { value: "14", label: "Active Commodities" },
-  { value: "14", label: "Tokenised Assets" },
+  { value: "16", label: "Active Commodities" },
+  { value: "16", label: "Tokenised Assets" },
   { value: "100%", label: "Blockchain Verified" },
 ];
 
@@ -476,7 +476,7 @@ export default function Home() {
                     <option value="metals">Metals (Copper Cathode, Copper Concentrate, Aluminium Ingots)</option>
                     <option value="energy">Energy Products (Gasoil 10ppm, Gasoil 50ppm, LHC, HSFO, HSGO)</option>
                     <option value="petchem">Petrochemicals (Petcoke – Anode Grade, Petcoke – Fuel Grade)</option>
-                    <option value="fertilizers">Fertilizers (NPK)</option>
+                    <option value="fertilizers">Fertilizers (NPK, Sulphur – Granular, Sulphur – Lumps)</option>
                   </select>
                 </div>
                 <div className="space-y-2">

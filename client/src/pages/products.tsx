@@ -142,6 +142,16 @@ const divisions = [
         token: "BFG-NPK",
         desc: "Compound fertilizer containing Nitrogen, Phosphorus, and Potassium — essential nutrients for crop growth and agricultural productivity. 1 token = 1 MT.",
       },
+      {
+        name: "Sulphur – Granular",
+        token: "BFG-SUG",
+        desc: "Granular sulphur used as a soil amendment and fertilizer input to lower pH and improve nutrient availability. Ideal for agricultural and industrial applications. 1 token = 1 MT.",
+      },
+      {
+        name: "Sulphur – Lumps",
+        token: "BFG-SUL",
+        desc: "Lump sulphur sourced from refinery and gas processing operations, used in fertilizer manufacturing and chemical processing. 1 token = 1 MT.",
+      },
     ],
   },
 ];

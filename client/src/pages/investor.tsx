@@ -232,7 +232,7 @@ export default function Investor() {
                 step: "02",
                 icon: Target,
                 title: "Choose Commodities",
-                desc: "Select from 13 commodity assets across five divisions — minerals, metals, energy, petrochemicals, and fertilizers.",
+                desc: "Select from 16 commodity assets across five divisions — minerals, metals, energy, petrochemicals, and fertilizers.",
                 link: "/products",
                 linkText: "View Products",
               },

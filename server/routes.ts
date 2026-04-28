@@ -341,7 +341,7 @@ export async function registerRoutes(
             "Copper Cathode": "metals", "Copper Concentrate": "metals", "Aluminium Ingots": "metals",
             "Gasoil 10ppm": "energy", "Gasoil 50ppm": "energy", "LHC": "energy", "HSFO": "energy", "HSGO": "energy",
             "Petcoke – Anode Grade": "petrochemicals", "Petcoke – Fuel Grade": "petrochemicals",
-            "NPK": "fertilizers",
+            "NPK": "fertilizers", "Sulphur – Granular": "fertilizers", "Sulphur – Lumps": "fertilizers",
           };
           const commodityCategory = categoryMap[enquiry.product] || "minerals";
           const isBuyer = enquiry.side === "buy";
@@ -1714,7 +1714,7 @@ export async function registerRoutes(
             "Copper Cathode": "metals", "Copper Concentrate": "metals", "Aluminium Ingots": "metals",
             "Gasoil 10ppm": "energy", "Gasoil 50ppm": "energy", "LHC": "energy", "HSFO": "energy", "HSGO": "energy",
             "Petcoke – Anode Grade": "petrochemicals", "Petcoke – Fuel Grade": "petrochemicals",
-            "NPK": "fertilizers",
+            "NPK": "fertilizers", "Sulphur – Granular": "fertilizers", "Sulphur – Lumps": "fertilizers",
           };
           const commodityCategory = categoryMap[existing.product] || "minerals";
 
