@@ -21,7 +21,6 @@ import {
   Flame,
   Droplets,
   Sprout,
-  Package,
   FolderOpen,
   TrendingUp,
   MapPin,
@@ -184,12 +183,6 @@ export default function Home() {
                   <Button size="lg" className="h-12 px-8 text-sm font-bold uppercase tracking-wider" data-testid="button-hero-get-started">
                     Access Platform
                     <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
-                <Link href="/products">
-                  <Button size="lg" variant="outline" className="h-12 px-8 text-sm font-bold uppercase tracking-wider border-white/30 text-white hover:bg-white/10 bg-transparent" data-testid="button-hero-view-products">
-                    <Package className="w-4 h-4 mr-2" />
-                    View Products
                   </Button>
                 </Link>
               </div>
