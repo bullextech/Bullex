@@ -518,3 +518,30 @@ export async function sendDocumentEmail(
 
   return sendEmail(to, `${fullType} (${docType}) – ${docTitle}`, emailWrapper(body), attachments);
 }
+
+export async function sendKycOnboardingInviteEmail(
+  to: string,
+  kycUrl: string
+): Promise<boolean> {
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">KYC Onboarding Invitation</h2>
+    <p style="color: #475569; line-height: 1.6;">You have been invited to complete your KYC (Know Your Customer) onboarding for the <strong>Bullex Commodity Trading Platform</strong>.</p>
+    <p style="color: #475569; line-height: 1.6;">
+      Please click the button below to begin your application. You will be asked to provide your company details, beneficial ownership information, and supporting documentation.
+    </p>
+    <div style="text-align: center; margin: 32px 0;">
+      <a href="${kycUrl}" style="display: inline-block; background: #dc2626; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 700; font-size: 15px; letter-spacing: 0.05em;">
+        START KYC APPLICATION
+      </a>
+    </div>
+    <p style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
+      Or copy and paste this link into your browser:<br/>
+      <a href="${kycUrl}" style="color: #2563eb; word-break: break-all;">${kycUrl}</a>
+    </p>
+    <p style="color: #475569; line-height: 1.6;">
+      If you have any questions about the process, please contact our team at
+      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
+    </p>
+  `;
+  return sendEmail(to, "Bullex – KYC Onboarding Invitation", emailWrapper(body));
+}

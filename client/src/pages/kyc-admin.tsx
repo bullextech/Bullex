@@ -40,6 +40,9 @@ import {
   Edit,
   X,
   Plus,
+  Copy,
+  Send,
+  ExternalLink,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -110,6 +113,40 @@ export default function KycAdmin() {
   const { data: changeRequests } = useQuery<KycChangeRequest[]>({
     queryKey: ["/api/kyc-change-requests"],
   });
+
+  const [kycLinkEmail, setKycLinkEmail] = useState("");
+  const [kycLinkSending, setKycLinkSending] = useState(false);
+  const [kycLinkCopied, setKycLinkCopied] = useState(false);
+
+  const kycOnboardingUrl = `${window.location.origin}/kyc`;
+
+  const copyKycLink = async () => {
+    try {
+      await navigator.clipboard.writeText(kycOnboardingUrl);
+      setKycLinkCopied(true);
+      setTimeout(() => setKycLinkCopied(false), 2000);
+      toast({ title: "Link Copied", description: "KYC onboarding link copied to clipboard." });
+    } catch {
+      toast({ title: "Copy Failed", description: "Unable to copy to clipboard.", variant: "destructive" });
+    }
+  };
+
+  const sendKycLinkEmail = async () => {
+    if (!kycLinkEmail.trim()) {
+      toast({ title: "Email Required", description: "Please enter a recipient email address.", variant: "destructive" });
+      return;
+    }
+    setKycLinkSending(true);
+    try {
+      await apiRequest("POST", "/api/kyc/send-onboarding-link", { email: kycLinkEmail.trim() });
+      toast({ title: "Invitation Sent", description: `KYC onboarding link sent to ${kycLinkEmail.trim()}.` });
+      setKycLinkEmail("");
+    } catch (err: any) {
+      toast({ title: "Send Failed", description: err.message || "Failed to send email.", variant: "destructive" });
+    } finally {
+      setKycLinkSending(false);
+    }
+  };
 
   const [changeRequestNotes, setChangeRequestNotes] = useState<Record<string, string>>({});
   const updateChangeRequest = useMutation({
@@ -212,6 +249,60 @@ export default function KycAdmin() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-0">
+        <Card className="border-primary/20 bg-primary/5" data-testid="card-kyc-onboarding-link">
+          <CardContent className="p-5">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-5">
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+                  <Link2 className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">KYC Onboarding Link</p>
+                  <p className="text-xs text-muted-foreground">Share with clients to start their KYC application</p>
+                </div>
+              </div>
+              <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="flex flex-1 items-center gap-2 bg-background border border-border rounded-md px-3 py-2 min-w-0">
+                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                  <span className="text-xs text-muted-foreground truncate font-mono" data-testid="text-kyc-link">{kycOnboardingUrl}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant={kycLinkCopied ? "secondary" : "outline"}
+                  onClick={copyKycLink}
+                  className="flex-shrink-0"
+                  data-testid="button-copy-kyc-link"
+                >
+                  <Copy className="w-3.5 h-3.5 mr-1.5" />
+                  {kycLinkCopied ? "Copied!" : "Copy Link"}
+                </Button>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Input
+                  placeholder="client@company.com"
+                  value={kycLinkEmail}
+                  onChange={(e) => setKycLinkEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && sendKycLinkEmail()}
+                  className="h-9 text-xs w-52"
+                  data-testid="input-kyc-link-email"
+                />
+                <Button
+                  size="sm"
+                  onClick={sendKycLinkEmail}
+                  disabled={kycLinkSending}
+                  className="flex-shrink-0"
+                  data-testid="button-send-kyc-link"
+                >
+                  <Send className="w-3.5 h-3.5 mr-1.5" />
+                  {kycLinkSending ? "Sending…" : "Send Invite"}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

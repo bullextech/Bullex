@@ -9,7 +9,7 @@ import { insertTradeSchema, insertKycSchema, insertDocumentSchema, type Trade } 
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail } from "./email";
 import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures } from "./documentFileGenerator";
 
 const ADMIN_CHECKLISTS: Record<string, string[]> = {
@@ -785,6 +785,23 @@ export async function registerRoutes(
       }
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to update change request" });
+    }
+  });
+
+  app.post("/api/kyc/send-onboarding-link", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Email address is required." });
+      }
+      const kycUrl = `${req.protocol}://${req.get("host")}/kyc`;
+      const sent = await sendKycOnboardingInviteEmail(email, kycUrl);
+      if (!sent) {
+        return res.status(500).json({ message: "Failed to send invitation email." });
+      }
+      res.json({ success: true, message: `Invitation sent to ${email}` });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Internal server error." });
     }
   });
 
