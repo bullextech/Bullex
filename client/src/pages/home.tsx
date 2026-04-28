@@ -23,8 +23,6 @@ import {
   Sprout,
   Package,
   FolderOpen,
-  Coins,
-  Hash,
   TrendingUp,
   MapPin,
   Mail,
@@ -381,70 +379,6 @@ export default function Home() {
                 <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
               </Button>
             </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* ── TOKENIZATION ── */}
-      <div className="bg-muted/30 border-y border-border py-16 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex flex-col lg:flex-row gap-12 items-start">
-            <div className="lg:w-1/2">
-              <div className="flex items-center gap-2 mb-4">
-                <Badge variant="secondary" className="text-[10px] uppercase tracking-widest">BFG-20 Standard</Badge>
-                <Badge variant="secondary" className="text-[10px] uppercase tracking-widest">Blockchain Native</Badge>
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight mb-3" data-testid="text-tokenization-section">Commodity Tokenization</h2>
-              <div className="w-16 h-1 bg-primary mb-4" />
-              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                Every commodity traded on the Bullex platform is represented as a blockchain-backed digital token under the proprietary BFG-20 standard. Each token is pegged 1:1 to physical commodity units — no fractional reserve, full collateralization.
-              </p>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                When a trade is executed, digital tokens are minted at the exact quantity of the physical commodity and recorded on the Bullex blockchain through SHA-256 proof-of-work mining.
-              </p>
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                {[{ v: "12", l: "Token Types" }, { v: "5", l: "Asset Classes" }, { v: "1:1", l: "Physical Backing" }, { v: "18", l: "Token Decimals" }].map((s) => (
-                  <div key={s.l} className="p-3 rounded-md bg-card border border-border">
-                    <p className="text-xl font-bold text-primary">{s.v}</p>
-                    <p className="text-[10px] text-muted-foreground">{s.l}</p>
-                  </div>
-                ))}
-              </div>
-              <Link href="/tokenization">
-                <Button size="sm" data-testid="button-explore-tokens">
-                  <Coins className="w-3.5 h-3.5 mr-1.5" />
-                  Explore Token Registry
-                  <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                </Button>
-              </Link>
-            </div>
-            <div className="lg:w-1/2 space-y-3">
-              <h3 className="text-sm font-semibold mb-3">How Tokenization Works</h3>
-              {[
-                { step: "01", icon: Link2, title: "Trade Execution", desc: "A commodity trade is initiated on Bullex with full counterparty details, quantity, pricing, and incoterms." },
-                { step: "02", icon: Coins, title: "Token Minting", desc: "Digital tokens are minted at a 1:1 ratio — each token represents exactly one unit of the physical commodity." },
-                { step: "03", icon: Hash, title: "Blockchain Recording", desc: "The tokenized trade is mined into the Bullex blockchain via SHA-256 proof-of-work with difficulty-2 consensus." },
-                { step: "04", icon: Shield, title: "Immutable Verification", desc: "Each token is permanently linked to its block, providing tamper-proof provenance and a complete audit trail." },
-              ].map((item) => {
-                const StepIcon = item.icon;
-                return (
-                  <Card key={item.step} className="border" data-testid={`card-token-flow-${item.step}`}>
-                    <CardContent className="p-4 flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <StepIcon className="w-4 h-4 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Step {item.step}</span>
-                          <h4 className="text-sm font-semibold">{item.title}</h4>
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{item.desc}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
           </div>
         </div>
       </div>

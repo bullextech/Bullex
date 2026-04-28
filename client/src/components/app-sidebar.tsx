@@ -22,7 +22,6 @@ import {
   Shield,
   Layers,
   Package,
-  Coins,
   Mail,
   Users,
   Wrench,
@@ -49,7 +48,6 @@ const adminNavItems = [
   { title: "Trading", url: "/trading", icon: Link2 },
   { title: "Vault", url: "/vault", icon: FolderOpen },
   { title: "Blockchain", url: "/blockchain", icon: Layers },
-  { title: "Tokenization", url: "/tokenization", icon: Coins },
 ];
 
 export function AppSidebar() {

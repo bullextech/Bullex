@@ -239,10 +239,10 @@ export default function Investor() {
               {
                 step: "03",
                 icon: Coins,
-                title: "Acquire Tokens",
-                desc: "Purchase BFG-20 tokens backed 1:1 by physical commodities, recorded on the Bullex blockchain.",
-                link: "/tokenization",
-                linkText: "Token Registry",
+                title: "Access the Platform",
+                desc: "Log in to the Bullex trading platform to review live commodity offers, track your trades, and manage documentation.",
+                link: "/platform",
+                linkText: "Platform Login",
               },
               {
                 step: "04",

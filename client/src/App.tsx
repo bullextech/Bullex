@@ -19,7 +19,6 @@ import Trading from "@/pages/trades";
 import Vault from "@/pages/vault";
 import Blockchain from "@/pages/blockchain";
 import Products from "@/pages/products";
-import Tokenization from "@/pages/tokenization";
 import Contact from "@/pages/contact";
 import KycAdmin from "@/pages/kyc-admin";
 import Investor from "@/pages/investor";
@@ -54,7 +53,6 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>
       <Route path="/products" component={Products} />
-      <Route path="/tokenization" component={Tokenization} />
       <Route path="/kyc" component={KYC} />
       <Route path="/kyc-admin">{() => <ProtectedRoute component={KycAdmin} />}</Route>
       <Route path="/documents">{() => <ProtectedRoute component={DocumentGenerator} />}</Route>
