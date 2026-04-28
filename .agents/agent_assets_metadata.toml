@@ -1,0 +1,13 @@
+uploads = []
+
+[[generated]]
+id = "K5kPRO6xlpcACKpNtmSxM"
+uri = "file://attached_assets/bullex-logo.png"
+type = "image"
+title = "bullex logo"
+
+[[outputs]]
+id = "3Fvya6PnNsRNSQTyjrXjY"
+uri = "file://attached_assets/bullex-logo.png"
+type = "image"
+title = "Bullex Logo"
