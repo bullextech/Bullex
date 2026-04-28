@@ -1082,48 +1082,34 @@ export default function DocumentGenerator() {
 
                 <AccordionItem value="annex" className="border rounded-md mb-2">
                   <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
-                    <span className="flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> Annex I — Product Specification & Sampling</span>
+                    <span className="flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> Annexure I — Commodity Specifications</span>
                   </AccordionTrigger>
                   <AccordionContent className="px-3 pb-3 space-y-3">
                     <div className="border rounded-md overflow-hidden">
-                      <div className="grid grid-cols-[100px_1fr_1fr_1fr] text-xs bg-muted/60 font-semibold border-b">
-                        <div className="p-2 border-r">Parameter</div>
-                        <div className="p-2 border-r">Guaranteed Spec</div>
-                        <div className="p-2 border-r">Typical Spec</div>
-                        <div className="p-2">Rejection Limit</div>
+                      <div className="grid grid-cols-[1fr_1fr_1fr_32px] bg-muted/50 border-b">
+                        <div className="p-1.5 text-[10px] font-semibold text-muted-foreground uppercase">Parameter</div>
+                        <div className="p-1.5 text-[10px] font-semibold text-muted-foreground uppercase border-l">Specification</div>
+                        <div className="p-1.5 text-[10px] font-semibold text-muted-foreground uppercase border-l">Rejection Limit</div>
+                        <div className="border-l"></div>
                       </div>
-                      {["Moisture", "Ash", "Volatile Matter", "Fixed Carbon", "Sulphur", "Calorific Value", "Size Distribution"].map((param, idx) => {
-                        const specLines = annexSpecs.split("\n");
-                        const line = specLines[idx] || "";
-                        const cells = line.split("|").map(c => c.trim());
-                        const guaranteed = cells[1] || "";
-                        const typical = cells[2] || "";
-                        const rejection = cells[3] || "";
-                        const updateSpecRow = (colIdx: number, val: string) => {
-                          const rows = annexSpecs.split("\n");
-                          while (rows.length <= idx) rows.push("");
-                          const rowCells = rows[idx].split("|").map(c => c.trim());
-                          while (rowCells.length < 4) rowCells.push("");
-                          rowCells[0] = param;
-                          rowCells[colIdx] = val;
-                          rows[idx] = rowCells.join(" | ");
-                          setAnnexSpecs(rows.filter((r, i) => i < 7 || r.trim()).join("\n"));
-                        };
-                        return (
-                          <div key={param} className="grid grid-cols-[100px_1fr_1fr_1fr] border-b last:border-b-0">
-                            <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">{param}</div>
-                            <div className="p-0.5 border-r"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="-" value={guaranteed} onChange={(e) => updateSpecRow(1, e.target.value)} data-testid={`input-spec-guaranteed-${idx}`} /></div>
-                            <div className="p-0.5 border-r"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="-" value={typical} onChange={(e) => updateSpecRow(2, e.target.value)} data-testid={`input-spec-typical-${idx}`} /></div>
-                            <div className="p-0.5"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="-" value={rejection} onChange={(e) => updateSpecRow(3, e.target.value)} data-testid={`input-spec-rejection-${idx}`} /></div>
+                      {specRows.map((row, idx) => (
+                        <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_32px] border-b last:border-b-0">
+                          <div className="p-0.5"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. Fe" value={row.parameter} onChange={(e) => updateSpecRow(idx, "parameter", e.target.value)} data-testid={`input-annex-param-${idx}`} /></div>
+                          <div className="p-0.5 border-l"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. 63.5% min" value={row.specification} onChange={(e) => updateSpecRow(idx, "specification", e.target.value)} data-testid={`input-annex-spec-${idx}`} /></div>
+                          <div className="p-0.5 border-l"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. < 60%" value={row.rejection} onChange={(e) => updateSpecRow(idx, "rejection", e.target.value)} data-testid={`input-annex-reject-${idx}`} /></div>
+                          <div className="flex items-center justify-center border-l">
+                            {specRows.length > 1 && (
+                              <button type="button" onClick={() => removeSpecRow(idx)} className="text-muted-foreground hover:text-destructive" data-testid={`button-remove-annex-${idx}`}>
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
-                    <Textarea className="text-xs" placeholder="Quality Premiums & Penalties (e.g. CV above 8000: Premium USD 1.00/MT per 100 kcal)" value={qualityPremiums} onChange={(e) => setQualityPremiums(e.target.value)} rows={3} data-testid="input-quality-premiums" />
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input className="h-8 text-xs" placeholder="Inspection Agency (e.g. SGS, Intertek)" value={analysisAgency} onChange={(e) => setAnalysisAgency(e.target.value)} data-testid="input-analysis-agency" />
-                      <Input className="h-8 text-xs" placeholder="Agency Contact / Email" value={analysisAgencyContact} onChange={(e) => setAnalysisAgencyContact(e.target.value)} data-testid="input-analysis-agency-contact" />
-                    </div>
+                    <Button type="button" variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={addSpecRow} data-testid="button-add-annex-row">
+                      <Plus className="w-3 h-3 mr-1" />Add Row
+                    </Button>
                     <Textarea className="text-xs" placeholder="Special Notes (optional)" value={specialNote} onChange={(e) => setSpecialNote(e.target.value)} rows={2} data-testid="input-special-note" />
                   </AccordionContent>
                 </AccordionItem>
