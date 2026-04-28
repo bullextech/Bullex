@@ -35,7 +35,7 @@ export default function Platform() {
     const result = await adminLogin(adminUser, adminPass);
     setAdminLoading(false);
     if (result.success) {
-      setLocation("/kyc-admin");
+      setLocation("/dashboard");
     } else {
       setAdminError(result.error || "Invalid credentials");
     }

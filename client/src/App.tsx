@@ -52,7 +52,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>
       <Route path="/products" component={Products} />
       <Route path="/tokenization" component={Tokenization} />
       <Route path="/kyc" component={KYC} />

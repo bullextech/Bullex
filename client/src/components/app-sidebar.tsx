@@ -33,18 +33,31 @@ import {
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 
-const navItems = [
+const publicNavItems = [
   { title: "Home", url: "/", icon: Home },
-  { title: "Enquiries", url: "/trade-enquiries", icon: SearchCheck },
   { title: "Products", url: "/products", icon: Package },
   { title: "Platform", url: "/platform", icon: Wrench },
   { title: "Investor", url: "/investor", icon: Users },
   { title: "Contact", url: "/contact", icon: Mail },
 ];
 
+const adminNavItems = [
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "KYC Admin", url: "/kyc-admin", icon: ShieldCheck },
+  { title: "Enquiries", url: "/trade-enquiries", icon: SearchCheck },
+  { title: "Document Generator", url: "/documents", icon: FileText },
+  { title: "Trading", url: "/trading", icon: Link2 },
+  { title: "Vault", url: "/vault", icon: FolderOpen },
+  { title: "Blockchain", url: "/blockchain", icon: Layers },
+  { title: "Tokenization", url: "/tokenization", icon: Coins },
+];
+
 export function AppSidebar() {
   const [location] = useLocation();
   const { authenticated, username, logout } = useAuth();
+
+  const navItems = authenticated ? adminNavItems : publicNavItems;
+  const groupLabel = authenticated ? "Admin" : "Platform";
 
   return (
     <Sidebar>
@@ -63,7 +76,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Platform</SidebarGroupLabel>
+          <SidebarGroupLabel>{groupLabel}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
@@ -82,6 +95,31 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {authenticated && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Public</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {[
+                  { title: "Home", url: "/", icon: Home },
+                  { title: "Products", url: "/products", icon: Package },
+                  { title: "Investor", url: "/investor", icon: Users },
+                  { title: "Contact", url: "/contact", icon: Mail },
+                ].map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild data-active={location === item.url}>
+                      <Link href={item.url} data-testid={`link-nav-public-${item.title.toLowerCase()}`}>
+                        <item.icon className="w-4 h-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter className="p-4 space-y-2">
         {authenticated && (
