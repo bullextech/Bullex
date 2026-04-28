@@ -35,11 +35,9 @@ import { useAuth } from "@/hooks/use-auth";
 
 const navItems = [
   { title: "Home", url: "/", icon: Home },
-  { title: "Admin", url: "/kyc-admin", icon: ShieldCheck },
   { title: "Enquiries", url: "/trade-enquiries", icon: SearchCheck },
   { title: "Products", url: "/products", icon: Package },
   { title: "Platform", url: "/platform", icon: Wrench },
-  { title: "Client Portal", url: "/client-portal", icon: Building2 },
   { title: "Investor", url: "/investor", icon: Users },
   { title: "Contact", url: "/contact", icon: Mail },
 ];

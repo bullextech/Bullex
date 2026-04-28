@@ -38,6 +38,8 @@ import {
   Download,
   FileCheck,
   Edit,
+  ShieldCheck,
+  LogIn,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -237,6 +239,69 @@ export default function Platform() {
                 Share Link
               </Button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="py-10 px-6 border-b border-border">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+              <LogIn className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">Portal Access</h2>
+              <p className="text-xs text-muted-foreground">Admin management and client self-service portals</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <Link href="/kyc-admin">
+              <Card className="border hover:border-primary/40 transition-all group cursor-pointer hover:shadow-md" data-testid="card-portal-admin">
+                <CardContent className="p-6 flex items-start gap-5">
+                  <div className="w-12 h-12 rounded-md bg-primary flex items-center justify-center flex-shrink-0 group-hover:bg-primary/90 transition-colors">
+                    <ShieldCheck className="w-6 h-6 text-primary-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="text-base font-bold">Admin Portal</h3>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      Review and approve KYC applications, manage trades, generate documents, and oversee platform operations.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {["KYC Review", "Trade Management", "Document Generation", "Vault"].map((tag) => (
+                        <span key={tag} className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/client-portal">
+              <Card className="border hover:border-primary/40 transition-all group cursor-pointer hover:shadow-md" data-testid="card-portal-client">
+                <CardContent className="p-6 flex items-start gap-5">
+                  <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center flex-shrink-0 group-hover:bg-primary/10 transition-colors">
+                    <Building2 className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="text-base font-bold">Client Portal</h3>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      Client self-service portal — view assigned trades, review and accept documents, and track transaction progress.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {["Trade Documents", "Accept / Amend", "Document History", "Notifications"].map((tag) => (
+                        <span key={tag} className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           </div>
         </div>
       </div>
