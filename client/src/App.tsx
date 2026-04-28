@@ -61,7 +61,7 @@ function Router() {
       <Route path="/trading">{() => <ProtectedRoute component={Trading} />}</Route>
       <Route path="/vault">{() => <ProtectedRoute component={Vault} />}</Route>
       <Route path="/blockchain">{() => <ProtectedRoute component={Blockchain} />}</Route>
-      <Route path="/platform">{() => <ProtectedRoute component={Platform} />}</Route>
+      <Route path="/platform" component={Platform} />
       <Route path="/trade-enquiries">{() => <ProtectedRoute component={TradeEnquiries} />}</Route>
       <Route path="/client-portal" component={ClientPortal} />
       <Route path="/investor" component={Investor} />
