@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -127,6 +127,27 @@ export default function Home() {
   const { toast } = useToast();
   const [heroMuted, setHeroMuted] = useState(true);
   const heroVideoRef = useRef<HTMLVideoElement>(null);
+  const [heroVideoIndex, setHeroVideoIndex] = useState(0);
+
+  const heroVideos = [
+    "/videos/cargo-ship-ocean.mp4",
+    "/videos/bulk-carrier-vessel-sunrise.mp4",
+    "/videos/oil-tanker-sunrise.mp4",
+    "/videos/oil-tanker-sunset.mp4",
+    "/videos/mining-operation.mp4",
+    "/videos/port-terminal-night.mp4",
+  ];
+
+  const advanceHeroVideo = () => {
+    setHeroVideoIndex((prev) => (prev + 1) % heroVideos.length);
+  };
+
+  useEffect(() => {
+    if (heroVideoRef.current) {
+      heroVideoRef.current.muted = heroMuted;
+    }
+  }, [heroVideoIndex, heroMuted]);
+
   const [supplyForm, setSupplyForm] = useState({
     companyName: "",
     email: "",
@@ -157,13 +178,14 @@ export default function Home() {
       {/* ── HERO VIDEO SECTION ── */}
       <div className="relative h-[90vh] min-h-[560px] overflow-hidden bg-black" data-testid="section-hero">
         <video
+          key={heroVideoIndex}
           ref={heroVideoRef}
           autoPlay
           muted
-          loop
           playsInline
+          onEnded={advanceHeroVideo}
           className="absolute inset-0 w-full h-full object-cover opacity-60"
-          src="/videos/cargo-ship-ocean.mp4"
+          src={heroVideos[heroVideoIndex]}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/80" />
 
@@ -212,8 +234,21 @@ export default function Home() {
           {heroMuted ? <VolumeX className="w-4 h-4 text-white" /> : <Volume2 className="w-4 h-4 text-white" />}
         </button>
 
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 animate-bounce">
-          <ChevronDown className="w-6 h-6 text-white/60" />
+        {/* Video dot indicators */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2">
+            {heroVideos.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setHeroVideoIndex(i)}
+                data-testid={`button-hero-dot-${i}`}
+                className={`rounded-full transition-all duration-300 ${i === heroVideoIndex ? "w-6 h-2 bg-primary" : "w-2 h-2 bg-white/40 hover:bg-white/70"}`}
+              />
+            ))}
+          </div>
+          <div className="animate-bounce">
+            <ChevronDown className="w-6 h-6 text-white/60" />
+          </div>
         </div>
       </div>
 
