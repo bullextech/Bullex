@@ -277,9 +277,9 @@ function ApplicationForm() {
           data-testid="input-hr-message"
         />
       </div>
-      <Button type="submit" disabled={sending} className="h-9 px-6 text-sm font-medium" data-testid="button-hr-submit">
-        {sending ? "Submitting…" : "Submit Application"}
-        {!sending && <ArrowRight className="w-3.5 h-3.5 ml-2" />}
+      <Button type="submit" className="h-9 px-6 text-sm font-medium" data-testid="button-hr-submit">
+        Submit Application
+        <ArrowRight className="w-3.5 h-3.5 ml-2" />
       </Button>
     </form>
   );
