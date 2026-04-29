@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TopNavbar } from "@/components/top-navbar";
+import { AdminSidebar } from "@/components/admin-sidebar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { ClientAuthProvider } from "@/hooks/use-client-auth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -94,17 +95,24 @@ function Router() {
 }
 
 function AppShell() {
+  const { authenticated } = useAuth();
+
   return (
     <div className="flex flex-col h-screen w-full">
       <TopNavbar />
-      <main className="flex-1 overflow-hidden">
-        <Router />
-      </main>
-      <footer className="border-t border-border bg-muted/30 px-4 py-2 text-center flex-shrink-0">
-        <p className="text-[10px] text-muted-foreground" data-testid="text-global-footer">
-          Bullex is a proprietary platform of Bullfrog Group.
-        </p>
-      </footer>
+      <div className="flex flex-1 overflow-hidden">
+        {authenticated && <AdminSidebar />}
+        <main className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-hidden">
+            <Router />
+          </div>
+          <footer className="border-t border-border bg-muted/30 px-4 py-2 text-center flex-shrink-0">
+            <p className="text-[10px] text-muted-foreground" data-testid="text-global-footer">
+              Bullex is a proprietary platform of Bullfrog Group.
+            </p>
+          </footer>
+        </main>
+      </div>
     </div>
   );
 }
