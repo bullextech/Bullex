@@ -90,8 +90,12 @@ const stats = [
 export default function Home() {
   const { toast } = useToast();
   const [heroMuted, setHeroMuted] = useState(true);
-  const heroVideoRef = useRef<HTMLVideoElement>(null);
   const [heroVideoIndex, setHeroVideoIndex] = useState(0);
+  const videoRefA = useRef<HTMLVideoElement>(null);
+  const videoRefB = useRef<HTMLVideoElement>(null);
+  const indexRef = useRef(0);
+  const slotRef = useRef(0); // tracks active slot without closure issues
+  const [activeSlot, setActiveSlot] = useState(0);
 
   const heroVideos = [
     "/videos/cargo-ship-ocean.mp4",
@@ -102,20 +106,39 @@ export default function Home() {
     "/videos/port-terminal-night.mp4",
   ];
 
+  const getVideoRef = (slot: number) => slot === 0 ? videoRefA : videoRefB;
+
+  const goToVideo = (nextIndex: number) => {
+    const bgSlot = slotRef.current === 0 ? 1 : 0;
+    const bgRef = getVideoRef(bgSlot);
+    if (bgRef.current) {
+      bgRef.current.src = heroVideos[nextIndex];
+      bgRef.current.muted = true;
+      bgRef.current.currentTime = 0;
+      bgRef.current.play().catch(() => {});
+    }
+    indexRef.current = nextIndex;
+    slotRef.current = bgSlot;
+    setHeroVideoIndex(nextIndex);
+    setActiveSlot(bgSlot);
+  };
+
   const advanceHeroVideo = () => {
-    setHeroVideoIndex((prev) => (prev + 1) % heroVideos.length);
+    const nextIndex = (indexRef.current + 1) % heroVideos.length;
+    goToVideo(nextIndex);
   };
 
   useEffect(() => {
-    const timer = setTimeout(advanceHeroVideo, 8000);
-    return () => clearTimeout(timer);
-  }, [heroVideoIndex]);
+    videoRefA.current?.play().catch(() => {});
+    const timer = setInterval(advanceHeroVideo, 8000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
-    if (heroVideoRef.current) {
-      heroVideoRef.current.muted = heroMuted;
-    }
-  }, [heroVideoIndex, heroMuted]);
+    [videoRefA, videoRefB].forEach(r => {
+      if (r.current) r.current.muted = heroMuted;
+    });
+  }, [heroMuted]);
 
   const [supplyForm, setSupplyForm] = useState({
     companyName: "",
@@ -135,10 +158,11 @@ export default function Home() {
   };
 
   const toggleMute = () => {
-    if (heroVideoRef.current) {
-      heroVideoRef.current.muted = !heroVideoRef.current.muted;
-      setHeroMuted(!heroMuted);
-    }
+    const newMuted = !heroMuted;
+    [videoRefA, videoRefB].forEach(r => {
+      if (r.current) r.current.muted = newMuted;
+    });
+    setHeroMuted(newMuted);
   };
 
   return (
@@ -146,15 +170,23 @@ export default function Home() {
 
       {/* ── HERO VIDEO SECTION ── */}
       <div className="relative h-[90vh] min-h-[560px] overflow-hidden bg-black" data-testid="section-hero">
+        {/* Slot A */}
         <video
-          key={heroVideoIndex}
-          ref={heroVideoRef}
+          ref={videoRefA}
           autoPlay
           muted
           playsInline
-          onEnded={advanceHeroVideo}
-          className="absolute inset-0 w-full h-full object-cover opacity-60"
-          src={heroVideos[heroVideoIndex]}
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+          style={{ opacity: activeSlot === 0 ? 0.6 : 0 }}
+          src={heroVideos[0]}
+        />
+        {/* Slot B */}
+        <video
+          ref={videoRefB}
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+          style={{ opacity: activeSlot === 1 ? 0.6 : 0 }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/80" />
 
@@ -215,7 +247,7 @@ export default function Home() {
             {heroVideos.map((_, i) => (
               <button
                 key={i}
-                onClick={() => setHeroVideoIndex(i)}
+                onClick={() => goToVideo(i)}
                 data-testid={`button-hero-dot-${i}`}
                 className={`rounded-full transition-all duration-300 ${i === heroVideoIndex ? "w-6 h-2 bg-primary" : "w-2 h-2 bg-white/40 hover:bg-white/70"}`}
               />
