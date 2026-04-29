@@ -60,7 +60,8 @@ export default function Platform() {
 
   return (
     <div className="overflow-y-auto h-full bg-muted/20 flex items-start justify-center py-16 px-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-2xl">
+        {/* Logo / heading */}
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-lg bg-primary flex items-center justify-center mx-auto mb-4">
             <Shield className="w-7 h-7 text-primary-foreground" />
@@ -69,35 +70,39 @@ export default function Platform() {
           <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mt-1">Commodity Trading Platform</p>
         </div>
 
-        <div className="flex rounded-none border border-border mb-6 overflow-hidden">
-          <button
-            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold uppercase tracking-wider transition-colors ${
-              activeTab === "admin"
-                ? "bg-primary text-primary-foreground"
-                : "bg-background text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            }`}
-            onClick={() => { setActiveTab("admin"); setAdminError(""); }}
-            data-testid="tab-admin-login"
-          >
-            <ShieldCheck className="w-4 h-4" />
-            Admin
-          </button>
-          <button
-            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-l border-border ${
-              activeTab === "client"
-                ? "bg-primary text-primary-foreground"
-                : "bg-background text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            }`}
-            onClick={() => { setActiveTab("client"); setClientError(""); }}
-            data-testid="tab-client-login"
-          >
-            <Building2 className="w-4 h-4" />
-            Client
-          </button>
-        </div>
+        {/* Sidebar + form layout */}
+        <div className="flex border border-border overflow-hidden bg-background">
 
-        <Card className="border">
-          <CardContent className="p-8">
+          {/* Left sidebar tabs */}
+          <div className="w-44 flex-shrink-0 border-r border-border bg-muted/30 flex flex-col">
+            <button
+              onClick={() => { setActiveTab("admin"); setAdminError(""); }}
+              data-testid="tab-admin-login"
+              className={`flex flex-col items-center justify-center gap-2 py-8 px-3 text-xs font-bold uppercase tracking-wider transition-colors border-b border-border ${
+                activeTab === "admin"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+              }`}
+            >
+              <ShieldCheck className="w-6 h-6" />
+              Admin
+            </button>
+            <button
+              onClick={() => { setActiveTab("client"); setClientError(""); }}
+              data-testid="tab-client-login"
+              className={`flex flex-col items-center justify-center gap-2 py-8 px-3 text-xs font-bold uppercase tracking-wider transition-colors ${
+                activeTab === "client"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+              }`}
+            >
+              <Building2 className="w-6 h-6" />
+              Client
+            </button>
+          </div>
+
+          {/* Right form panel */}
+          <div className="flex-1 p-8">
             {activeTab === "admin" ? (
               <>
                 <div className="flex items-center gap-2 mb-6">
@@ -205,8 +210,8 @@ export default function Platform() {
                 </p>
               </>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
