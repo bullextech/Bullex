@@ -545,3 +545,64 @@ export async function sendKycOnboardingInviteEmail(
   `;
   return sendEmail(to, "Bullex – KYC Onboarding Invitation", emailWrapper(body));
 }
+
+export async function sendRegistrationConfirmationEmail(
+  to: string,
+  fullName: string,
+  roleType: string,
+  companyName: string
+): Promise<boolean> {
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Registration Received</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${fullName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      Thank you for registering with the <strong>Bullex Commodity Trading Platform</strong>. We have received your registration as a <strong>${roleType}</strong> for <strong>${companyName}</strong>.
+    </p>
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #166534; margin: 0; font-weight: 600;">Registration Status: Received</p>
+      <p style="color: #15803d; margin: 8px 0 0; font-size: 14px;">
+        Our team will review your registration and reach out to you shortly to guide you through the next steps, including KYC verification.
+      </p>
+    </div>
+    <p style="color: #475569; line-height: 1.6;">
+      If you have any questions, please contact our team at
+      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
+    </p>
+  `;
+  return sendEmail(to, `Registration Received – ${companyName}`, emailWrapper(body));
+}
+
+export async function sendRegistrationAdminEmail(
+  adminEmail: string,
+  fullName: string,
+  companyName: string,
+  email: string,
+  phone: string,
+  country: string,
+  roleType: string,
+  commodities: string | null | undefined,
+  message: string | null | undefined,
+  submittedAt: string
+): Promise<boolean> {
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">New Platform Registration</h2>
+    <p style="color: #475569; line-height: 1.6;">A new registration has been submitted on the Bullex Trading Platform.</p>
+    <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #92400e; margin: 0; font-weight: 600;">Action Required: Review Registration</p>
+      <p style="color: #a16207; margin: 8px 0 0; font-size: 14px;">Please review this registration and initiate KYC onboarding if appropriate.</p>
+    </div>
+    <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+      <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Full Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${fullName}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Company Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${companyName}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${email}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Phone</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${phone}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Country</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${country}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Role Type</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${roleType}</td></tr>
+      ${commodities ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Commodities of Interest</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${commodities}</td></tr>` : ""}
+      ${message ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Message</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${message}</td></tr>` : ""}
+      <tr><td style="color: #64748b; padding: 8px 12px;">Submitted At</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${submittedAt}</td></tr>
+    </table>
+  `;
+  return sendEmail(adminEmail, `New Registration – ${companyName} (${roleType})`, emailWrapper(body));
+}

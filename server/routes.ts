@@ -9,7 +9,7 @@ import { insertTradeSchema, insertKycSchema, insertDocumentSchema, type Trade } 
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail } from "./email";
 import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures } from "./documentFileGenerator";
 
 const ADMIN_CHECKLISTS: Record<string, string[]> = {
@@ -1913,6 +1913,48 @@ export async function registerRoutes(
       const filePath = path.join(enquiryUploadsDir, deleted.storedName);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       res.json({ message: "Document deleted" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/register", async (req: Request, res: Response) => {
+    try {
+      const { insertRegistrationSchema } = await import("@shared/schema");
+      const parsed = insertRegistrationSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid registration data", errors: parsed.error.flatten() });
+      }
+      const reg = await storage.createRegistration(parsed.data);
+      const submittedAt = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      sendRegistrationConfirmationEmail(reg.email, reg.fullName, reg.roleType, reg.companyName).catch(() => {});
+      if (process.env.ADMIN_EMAIL) {
+        sendRegistrationAdminEmail(
+          process.env.ADMIN_EMAIL, reg.fullName, reg.companyName, reg.email,
+          reg.phone, reg.country, reg.roleType, reg.commodities, reg.message, submittedAt
+        ).catch(() => {});
+      }
+      res.status(201).json(reg);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/registrations", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const regs = await storage.getRegistrations();
+      res.json(regs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/registrations/:id/status", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { status } = req.body;
+      if (!status) return res.status(400).json({ message: "Status is required" });
+      const updated = await storage.updateRegistrationStatus(req.params.id, status);
+      res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

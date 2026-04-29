@@ -32,6 +32,9 @@ import {
   type InsertTradeEnquiry,
   type TradeEnquiryDocument,
   type InsertTradeEnquiryDocument,
+  registrations,
+  type Registration,
+  type InsertRegistration,
 } from "@shared/schema";
 
 const pool = new pg.Pool({
@@ -108,6 +111,10 @@ export interface IStorage {
   getTradeEnquiryDocumentById(id: string): Promise<TradeEnquiryDocument | undefined>;
   createTradeEnquiryDocument(doc: InsertTradeEnquiryDocument): Promise<TradeEnquiryDocument>;
   deleteTradeEnquiryDocument(id: string): Promise<TradeEnquiryDocument | undefined>;
+
+  getRegistrations(): Promise<Registration[]>;
+  createRegistration(reg: InsertRegistration): Promise<Registration>;
+  updateRegistrationStatus(id: string, status: string): Promise<Registration>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -535,6 +542,20 @@ export class DatabaseStorage implements IStorage {
   async deleteTradeEnquiryDocument(id: string): Promise<TradeEnquiryDocument | undefined> {
     const [deleted] = await db.delete(tradeEnquiryDocuments).where(eq(tradeEnquiryDocuments.id, id)).returning();
     return deleted;
+  }
+
+  async getRegistrations(): Promise<Registration[]> {
+    return db.select().from(registrations).orderBy(desc(registrations.createdAt));
+  }
+
+  async createRegistration(reg: InsertRegistration): Promise<Registration> {
+    const [created] = await db.insert(registrations).values(reg).returning();
+    return created;
+  }
+
+  async updateRegistrationStatus(id: string, status: string): Promise<Registration> {
+    const [updated] = await db.update(registrations).set({ status }).where(eq(registrations.id, id)).returning();
+    return updated;
   }
 }
 

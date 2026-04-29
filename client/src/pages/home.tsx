@@ -216,7 +216,7 @@ export default function Home() {
                 across Bullfrog Group's global operations.
               </p>
               <div className="flex flex-wrap items-center gap-4">
-                <Link href="/platform">
+                <Link href="/register">
                   <Button size="lg" className="h-12 px-8 text-sm font-bold uppercase tracking-wider" data-testid="button-hero-get-started">
                     Register
                     <ArrowRight className="w-4 h-4 ml-2" />

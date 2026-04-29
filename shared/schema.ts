@@ -242,6 +242,29 @@ export const insertTradeEnquiryDocumentSchema = createInsertSchema(tradeEnquiryD
   uploadedAt: true,
 });
 
+export const registrations = pgTable("registrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fullName: text("full_name").notNull(),
+  companyName: text("company_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  country: text("country").notNull(),
+  roleType: text("role_type").notNull(),
+  commodities: text("commodities"),
+  message: text("message"),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertRegistrationSchema = createInsertSchema(registrations).omit({
+  id: true,
+  status: true,
+  createdAt: true,
+});
+
+export type Registration = typeof registrations.$inferSelect;
+export type InsertRegistration = z.infer<typeof insertRegistrationSchema>;
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,

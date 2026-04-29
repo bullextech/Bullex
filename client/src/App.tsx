@@ -28,6 +28,7 @@ import KycRegister from "@/pages/kyc-register";
 import ClientPortal from "@/pages/client-portal";
 import TradeEnquiries from "@/pages/trade-enquiries";
 import Login from "@/pages/login";
+import Register from "@/pages/register";
 
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
   const { authenticated, loading } = useAuth();
@@ -121,6 +122,7 @@ function App() {
   const [isKycRegister] = useRoute("/kyc-register");
   const [isClientPortal] = useRoute("/client-portal");
   const [isKyc] = useRoute("/kyc");
+  const [isRegister] = useRoute("/register");
 
   return (
     <ThemeProvider>
@@ -134,6 +136,8 @@ function App() {
                 <ClientPortal />
               ) : isKyc ? (
                 <KycStandaloneShell />
+              ) : isRegister ? (
+                <Register />
               ) : (
                 <AppShell />
               )}
