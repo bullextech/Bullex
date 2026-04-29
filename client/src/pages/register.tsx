@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useWatch } from "react-hook-form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -44,8 +45,17 @@ const registrationSchema = z.object({
   phone: z.string().min(6, "Phone number is required"),
   country: z.string().min(1, "Country is required"),
   roleType: z.string().min(1, "Role type is required"),
+  otherRoleType: z.string().optional(),
   commodities: z.string().optional(),
   message: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.roleType === "Other" && (!data.otherRoleType || !data.otherRoleType.trim())) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Please specify your role type",
+      path: ["otherRoleType"],
+    });
+  }
 });
 
 type RegistrationForm = z.infer<typeof registrationSchema>;
@@ -62,14 +72,24 @@ export default function Register() {
       phone: "",
       country: "",
       roleType: "",
+      otherRoleType: "",
       commodities: "",
       message: "",
     },
   });
 
+  const watchedRoleType = useWatch({ control: form.control, name: "roleType" });
+
   const mutation = useMutation({
-    mutationFn: (data: RegistrationForm) =>
-      apiRequest("POST", "/api/register", data),
+    mutationFn: (data: RegistrationForm) => {
+      const payload = {
+        ...data,
+        roleType: data.roleType === "Other" && data.otherRoleType?.trim()
+          ? `Other – ${data.otherRoleType.trim()}`
+          : data.roleType,
+      };
+      return apiRequest("POST", "/api/register", payload);
+    },
     onSuccess: () => setSubmitted(true),
   });
 
@@ -265,6 +285,31 @@ export default function Register() {
                         )}
                       />
                     </div>
+
+                    {watchedRoleType === "Other" && (
+                      <FormField
+                        control={form.control}
+                        name="otherRoleType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Please specify your role</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input
+                                  className="pl-9"
+                                  placeholder="e.g. Commodity Analyst, Trade Finance Consultant..."
+                                  {...field}
+                                  data-testid="input-other-role-type"
+                                  autoFocus
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
 
                     <FormField
                       control={form.control}
