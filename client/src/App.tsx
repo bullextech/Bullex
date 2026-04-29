@@ -30,6 +30,7 @@ import TradeEnquiries from "@/pages/trade-enquiries";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 import RegistrationsAdmin from "@/pages/registrations-admin";
+import HumanResources from "@/pages/human-resources";
 
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
   const { authenticated, loading } = useAuth();
@@ -91,6 +92,7 @@ function Router() {
       <Route path="/registrations">{() => <ProtectedRoute component={RegistrationsAdmin} />}</Route>
       <Route path="/client-portal" component={ClientPortal} />
       <Route path="/investor" component={Investor} />
+      <Route path="/human-resources" component={HumanResources} />
       <Route path="/contact" component={Contact} />
       <Route component={NotFound} />
     </Switch>

@@ -9,6 +9,7 @@ import {
   Users,
   Mail,
   LogOut,
+  Briefcase,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -17,6 +18,7 @@ const publicNavItems = [
   { title: "Products", url: "/products", icon: Package },
   { title: "Platform", url: "/platform", icon: Wrench },
   { title: "Investor", url: "/investor", icon: Users },
+  { title: "HR", url: "/human-resources", icon: Briefcase },
   { title: "Contact", url: "/contact", icon: Mail },
 ];
 
