@@ -710,6 +710,60 @@ export async function sendEnquiryCreatedNotification(enquiry: {
   return sendEmail(TRADE_EMAIL, `New Enquiry – ${enquiry.enquiryRef} | ${sideLabel} ${enquiry.product}`, emailWrapper(body));
 }
 
+export async function sendEnquiryStatusNotification(enquiry: {
+  enquiryRef: string;
+  side: string;
+  product: string;
+  quantity?: string | null;
+  unit?: string | null;
+  loadingPort?: string | null;
+  incoterms?: string | null;
+  createdBy?: string | null;
+  email?: string | null;
+  validity?: string | null;
+}, newStatus: string): Promise<boolean> {
+  const TRADE_EMAIL = "trade@bullex.tech";
+  const sideLabel = enquiry.side === "sell" ? "SELL" : "BUY";
+
+  const statusStyles: Record<string, { bg: string; border: string; text: string; label: string }> = {
+    accepted:     { bg: "#dcfce7", border: "#86efac", text: "#15803d", label: "ACCEPTED" },
+    rejected:     { bg: "#fee2e2", border: "#fca5a5", text: "#b91c1c", label: "REJECTED" },
+    closed:       { bg: "#f1f5f9", border: "#cbd5e1", text: "#475569", label: "CLOSED" },
+    active:       { bg: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8", label: "ACTIVE / PENDING" },
+    under_review: { bg: "#fefce8", border: "#fde047", text: "#854d0e", label: "UNDER REVIEW" },
+    quoted:       { bg: "#f0fdf4", border: "#86efac", text: "#166534", label: "QUOTED" },
+  };
+  const style = statusStyles[newStatus] || { bg: "#f1f5f9", border: "#cbd5e1", text: "#475569", label: newStatus.toUpperCase() };
+
+  const tradeNote = newStatus === "accepted"
+    ? `<p style="color: ${style.text}; margin: 6px 0 0; font-size: 13px; font-weight: 600;">A new trade has been automatically initiated from this enquiry.</p>`
+    : "";
+
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Enquiry Status Updated</h2>
+    <p style="color: #475569; line-height: 1.6;">The status of a trade enquiry on the Bullex Trading Platform has been updated.</p>
+    <div style="background: ${style.bg}; border: 1px solid ${style.border}; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: ${style.text}; margin: 0; font-weight: 700; font-size: 18px;">Status: ${style.label}</p>
+      <p style="color: ${style.text}; margin: 6px 0 0; font-size: 14px;">${enquiry.enquiryRef} — ${sideLabel} ${enquiry.product}${enquiry.quantity ? ` | ${enquiry.quantity} ${enquiry.unit || "MT"}` : ""}</p>
+      ${tradeNote}
+    </div>
+    <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+      <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Enquiry Ref</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.enquiryRef}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">New Status</td><td style="color: ${style.text}; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 700;">${style.label}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Side</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${sideLabel}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Product</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.product}</td></tr>
+      ${enquiry.quantity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Quantity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.quantity} ${enquiry.unit || "MT"}</td></tr>` : ""}
+      ${enquiry.loadingPort ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Loading Port</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.loadingPort}</td></tr>` : ""}
+      ${enquiry.incoterms ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Incoterms</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.incoterms}</td></tr>` : ""}
+      ${enquiry.validity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Validity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.validity}</td></tr>` : ""}
+      ${enquiry.createdBy ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Created By</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.createdBy}</td></tr>` : ""}
+      ${enquiry.email ? `<tr><td style="color: #64748b; padding: 8px 12px;">Company Email</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;"><a href="mailto:${enquiry.email}" style="color: #1d4ed8;">${enquiry.email}</a></td></tr>` : ""}
+    </table>
+  `;
+  return sendEmail(TRADE_EMAIL, `Enquiry ${style.label} – ${enquiry.enquiryRef} | ${sideLabel} ${enquiry.product}`, emailWrapper(body));
+}
+
 export async function sendEnquiryClientResponseNotification(enquiry: {
   enquiryRef: string;
   side: string;
