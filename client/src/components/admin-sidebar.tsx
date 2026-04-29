@@ -7,10 +7,6 @@ import {
   Link2,
   FolderOpen,
   Layers,
-  Home,
-  Package,
-  Users,
-  Mail,
 } from "lucide-react";
 
 const adminNavItems = [
@@ -21,13 +17,6 @@ const adminNavItems = [
   { title: "Trading", url: "/trading", icon: Link2 },
   { title: "Vault", url: "/vault", icon: FolderOpen },
   { title: "Blockchain", url: "/blockchain", icon: Layers },
-];
-
-const publicNavItems = [
-  { title: "Home", url: "/", icon: Home },
-  { title: "Products", url: "/products", icon: Package },
-  { title: "Investor", url: "/investor", icon: Users },
-  { title: "Contact", url: "/contact", icon: Mail },
 ];
 
 export function AdminSidebar() {
@@ -62,35 +51,6 @@ export function AdminSidebar() {
         </nav>
       </div>
 
-      {/* Divider */}
-      <div className="mx-3 my-3 border-t border-border" />
-
-      {/* Public section */}
-      <div className="px-3 pb-5">
-        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground px-2 mb-2">
-          Public Pages
-        </p>
-        <nav className="space-y-0.5">
-          {publicNavItems.map((item) => {
-            const active = location === item.url;
-            return (
-              <Link
-                key={item.url}
-                href={item.url}
-                data-testid={`link-sidebar-pub-${item.title.toLowerCase()}`}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors w-full ${
-                  active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              >
-                <item.icon className="w-4 h-4 flex-shrink-0" />
-                {item.title}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
     </aside>
   );
 }
