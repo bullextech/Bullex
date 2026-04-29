@@ -107,6 +107,11 @@ export default function Home() {
   };
 
   useEffect(() => {
+    const timer = setTimeout(advanceHeroVideo, 8000);
+    return () => clearTimeout(timer);
+  }, [heroVideoIndex]);
+
+  useEffect(() => {
     if (heroVideoRef.current) {
       heroVideoRef.current.muted = heroMuted;
     }
