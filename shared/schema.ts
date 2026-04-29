@@ -253,6 +253,8 @@ export const registrations = pgTable("registrations", {
   commodities: text("commodities"),
   message: text("message"),
   status: text("status").notNull().default("pending"),
+  reviewNotes: text("review_notes"),
+  reviewedAt: timestamp("reviewed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

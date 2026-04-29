@@ -9,7 +9,7 @@ import { insertTradeSchema, insertKycSchema, insertDocumentSchema, type Trade } 
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail } from "./email";
 import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures } from "./documentFileGenerator";
 
 const ADMIN_CHECKLISTS: Record<string, string[]> = {
@@ -1953,6 +1953,10 @@ export async function registerRoutes(
       const reg = await storage.createRegistration(parsed.data);
       const submittedAt = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
       sendRegistrationConfirmationEmail(reg.email, reg.fullName, reg.roleType, reg.companyName).catch(() => {});
+      sendRegistrationAdminEmail(
+        "trade@bullex.tech", reg.fullName, reg.companyName, reg.email,
+        reg.phone, reg.country, reg.roleType, reg.commodities, reg.message, submittedAt
+      ).catch(() => {});
       if (process.env.ADMIN_EMAIL) {
         sendRegistrationAdminEmail(
           process.env.ADMIN_EMAIL, reg.fullName, reg.companyName, reg.email,
@@ -1976,9 +1980,14 @@ export async function registerRoutes(
 
   app.patch("/api/registrations/:id/status", requireAuth, async (req: Request, res: Response) => {
     try {
-      const { status } = req.body;
+      const { status, reviewNotes } = req.body;
       if (!status) return res.status(400).json({ message: "Status is required" });
-      const updated = await storage.updateRegistrationStatus(req.params.id, status);
+      const updated = await storage.updateRegistrationStatus(req.params.id, status, reviewNotes);
+      if (status === "approved") {
+        sendRegistrationApprovalEmail(updated.email, updated.fullName, updated.companyName, updated.roleType).catch(() => {});
+      } else if (status === "rejected") {
+        sendRegistrationRejectionEmail(updated.email, updated.fullName, updated.companyName, updated.roleType, reviewNotes).catch(() => {});
+      }
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

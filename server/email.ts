@@ -546,6 +546,64 @@ export async function sendKycOnboardingInviteEmail(
   return sendEmail(to, "Bullex – KYC Onboarding Invitation", emailWrapper(body));
 }
 
+export async function sendRegistrationApprovalEmail(
+  to: string,
+  fullName: string,
+  companyName: string,
+  roleType: string
+): Promise<boolean> {
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Registration Approved</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${fullName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      We are pleased to inform you that your registration as a <strong>${roleType}</strong> for <strong>${companyName}</strong> has been reviewed and <strong>approved</strong> by our team.
+    </p>
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #166534; margin: 0; font-weight: 600;">Registration Status: Approved</p>
+      <p style="color: #15803d; margin: 8px 0 0; font-size: 14px;">
+        Our onboarding team will be in touch shortly to guide you through the KYC verification process and grant you access to the platform.
+      </p>
+    </div>
+    <p style="color: #475569; line-height: 1.6;">
+      For any questions, please contact our team at
+      <a href="mailto:trade@bullex.tech" style="color: #2563eb;">trade@bullex.tech</a>.
+    </p>
+  `;
+  return sendEmail(to, `Registration Approved – ${companyName}`, emailWrapper(body));
+}
+
+export async function sendRegistrationRejectionEmail(
+  to: string,
+  fullName: string,
+  companyName: string,
+  roleType: string,
+  reviewNotes?: string | null
+): Promise<boolean> {
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Registration Update</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${fullName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      Thank you for your interest in the Bullex Commodity Trading Platform. After reviewing your registration as a <strong>${roleType}</strong> for <strong>${companyName}</strong>, we are unable to proceed at this time.
+    </p>
+    ${reviewNotes ? `
+    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #991b1b; margin: 0; font-weight: 600;">Reason</p>
+      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">${reviewNotes}</p>
+    </div>
+    ` : `
+    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #991b1b; margin: 0; font-weight: 600;">Registration Status: Not Approved</p>
+      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">Your registration did not meet our current requirements.</p>
+    </div>
+    `}
+    <p style="color: #475569; line-height: 1.6;">
+      If you believe this was in error or would like to discuss further, please contact us at
+      <a href="mailto:trade@bullex.tech" style="color: #2563eb;">trade@bullex.tech</a>.
+    </p>
+  `;
+  return sendEmail(to, `Registration Update – ${companyName}`, emailWrapper(body));
+}
+
 export async function sendRegistrationConfirmationEmail(
   to: string,
   fullName: string,

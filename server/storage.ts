@@ -114,7 +114,7 @@ export interface IStorage {
 
   getRegistrations(): Promise<Registration[]>;
   createRegistration(reg: InsertRegistration): Promise<Registration>;
-  updateRegistrationStatus(id: string, status: string): Promise<Registration>;
+  updateRegistrationStatus(id: string, status: string, reviewNotes?: string): Promise<Registration>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -553,8 +553,11 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateRegistrationStatus(id: string, status: string): Promise<Registration> {
-    const [updated] = await db.update(registrations).set({ status }).where(eq(registrations.id, id)).returning();
+  async updateRegistrationStatus(id: string, status: string, reviewNotes?: string): Promise<Registration> {
+    const [updated] = await db.update(registrations)
+      .set({ status, reviewNotes: reviewNotes ?? null, reviewedAt: new Date() })
+      .where(eq(registrations.id, id))
+      .returning();
     return updated;
   }
 }

@@ -29,6 +29,7 @@ import ClientPortal from "@/pages/client-portal";
 import TradeEnquiries from "@/pages/trade-enquiries";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import RegistrationsAdmin from "@/pages/registrations-admin";
 
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
   const { authenticated, loading } = useAuth();
@@ -87,6 +88,7 @@ function Router() {
       <Route path="/blockchain">{() => <ProtectedRoute component={Blockchain} />}</Route>
       <Route path="/platform" component={Platform} />
       <Route path="/trade-enquiries">{() => <ProtectedRoute component={TradeEnquiries} />}</Route>
+      <Route path="/registrations">{() => <ProtectedRoute component={RegistrationsAdmin} />}</Route>
       <Route path="/client-portal" component={ClientPortal} />
       <Route path="/investor" component={Investor} />
       <Route path="/contact" component={Contact} />

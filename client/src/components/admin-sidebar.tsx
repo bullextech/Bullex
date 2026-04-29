@@ -7,10 +7,12 @@ import {
   Link2,
   FolderOpen,
   Layers,
+  UserPlus,
 } from "lucide-react";
 
 const adminNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Registrations", url: "/registrations", icon: UserPlus },
   { title: "KYC Admin", url: "/kyc-admin", icon: ShieldCheck },
   { title: "Enquiries", url: "/trade-enquiries", icon: SearchCheck },
   { title: "Documents", url: "/documents", icon: FileText },
