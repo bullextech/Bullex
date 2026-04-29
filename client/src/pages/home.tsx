@@ -151,8 +151,8 @@ export default function Home() {
           ref={heroVideoRef}
           autoPlay
           muted
-          loop
           playsInline
+          onEnded={advanceHeroVideo}
           className="absolute inset-0 w-full h-full object-cover opacity-60"
           src={heroVideos[heroVideoIndex]}
         />
