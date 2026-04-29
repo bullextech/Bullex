@@ -10,7 +10,6 @@ import {
   Factory,
   Truck,
   Shield,
-  Coins,
 } from "lucide-react";
 
 const divisions = [
@@ -22,22 +21,22 @@ const divisions = [
     accent: "text-stone-600 dark:text-stone-400",
     accentBg: "bg-stone-600/10",
     description:
-      "Tokenised bulk mineral assets from established global mining operations — fractional ownership with full provenance tracking and blockchain verification.",
+      "Bulk mineral commodities sourced from established global mining operations — with full provenance tracking and blockchain verification across the supply chain.",
     products: [
       {
         name: "Iron Ore",
-        token: "BFG-IRO",
-        desc: "High-grade ferrous ore for steel manufacturing, available in various fines and lump specifications. 1 token = 1 MT.",
+        code: "BFG-IRO",
+        desc: "High-grade ferrous ore for steel manufacturing, available in various fines and lump specifications.",
       },
       {
         name: "Bauxite",
-        token: "BFG-BAU",
-        desc: "Premium aluminum ore essential for alumina production, sourced from top-tier global deposits. 1 token = 1 MT.",
+        code: "BFG-BAU",
+        desc: "Premium aluminum ore essential for alumina production, sourced from top-tier global deposits.",
       },
       {
         name: "Manganese Ore",
-        token: "BFG-MNG",
-        desc: "Crucial alloying agent for steelmaking, offering excellent metallurgical properties. 1 token = 1 MT.",
+        code: "BFG-MNG",
+        desc: "Crucial alloying agent for steelmaking, offering excellent metallurgical properties.",
       },
     ],
   },
@@ -49,22 +48,22 @@ const divisions = [
     accent: "text-sky-600 dark:text-sky-400",
     accentBg: "bg-sky-600/10",
     description:
-      "High-purity refined metal tokens backed 1:1 by LME-registered physical inventory — direct exposure to base metal markets for retail and institutional investors.",
+      "High-purity refined metals backed by LME-registered physical inventory — direct market access for retail and institutional buyers.",
     products: [
       {
         name: "Copper Cathode",
-        token: "BFG-CPC",
-        desc: "Grade A refined copper (99.99% purity) standard LME registered, vital for electrical and industrial applications. 1 token = 1 MT.",
+        code: "BFG-CPC",
+        desc: "Grade A refined copper (99.99% purity) standard LME registered, vital for electrical and industrial applications.",
       },
       {
         name: "Copper Concentrate",
-        token: "BFG-CCN",
-        desc: "Beneficiated copper ore concentrate for smelting and refining operations, sourced from established mining jurisdictions. 1 token = 1 MT.",
+        code: "BFG-CCN",
+        desc: "Beneficiated copper ore concentrate for smelting and refining operations, sourced from established mining jurisdictions.",
       },
       {
         name: "Aluminium Ingots",
-        token: "BFG-ALU",
-        desc: "High-quality primary aluminium ingots for diverse manufacturing requirements. 1 token = 1 MT.",
+        code: "BFG-ALU",
+        desc: "High-quality primary aluminium ingots for diverse manufacturing requirements.",
       },
     ],
   },
@@ -76,32 +75,32 @@ const divisions = [
     accent: "text-orange-600 dark:text-orange-400",
     accentBg: "bg-orange-600/10",
     description:
-      "Energy commodity tokens providing direct exposure to global fuel and gas markets — tokenised with 1:1 physical backing and transparent settlement.",
+      "Energy commodities providing direct exposure to global fuel and gas markets — with 1:1 physical backing and transparent settlement.",
     products: [
       {
         name: "Gasoil 10ppm",
-        token: "BFG-G10",
-        desc: "Ultra-low sulphur gasoil meeting stringent environmental standards for modern transportation and industry. 1 token = 1 BBL.",
+        code: "BFG-G10",
+        desc: "Ultra-low sulphur gasoil meeting stringent environmental standards for modern transportation and industry.",
       },
       {
         name: "Gasoil 50ppm",
-        token: "BFG-G50",
-        desc: "Low sulphur gasoil optimized for various global market requirements. 1 token = 1 BBL.",
+        code: "BFG-G50",
+        desc: "Low sulphur gasoil optimized for various global market requirements.",
       },
       {
         name: "LHC (Low Hydrocarbon)",
-        token: "BFG-LHC",
-        desc: "Low hydrocarbon fuel product for specialised industrial and energy applications. 1 token = 1 MT.",
+        code: "BFG-LHC",
+        desc: "Low hydrocarbon fuel product for specialised industrial and energy applications.",
       },
       {
         name: "HSFO (High Sulphur Fuel Oil)",
-        token: "BFG-HSF",
-        desc: "High sulphur fuel oil for marine bunkering and power generation applications. 1 token = 1 MT.",
+        code: "BFG-HSF",
+        desc: "High sulphur fuel oil for marine bunkering and power generation applications.",
       },
       {
         name: "HSGO (High Sulphur Gas Oil 20000ppm)",
-        token: "BFG-HSG",
-        desc: "High sulphur gas oil suitable for power generation and industrial heating applications. 1 token = 1 BBL.",
+        code: "BFG-HSG",
+        desc: "High sulphur gas oil suitable for power generation and industrial heating applications.",
       },
     ],
   },
@@ -113,17 +112,17 @@ const divisions = [
     accent: "text-slate-600 dark:text-slate-400",
     accentBg: "bg-slate-600/10",
     description:
-      "Petrochemical derivative tokens for infrastructure development and manufacturing sectors — fractional positions with blockchain-verified provenance.",
+      "Petrochemical derivatives for infrastructure development and manufacturing sectors — with blockchain-verified provenance throughout the supply chain.",
     products: [
       {
-        name: "Petcoke \u2013 Anode Grade",
-        token: "BFG-PCA",
-        desc: "Premium anode grade petroleum coke for aluminium smelting and carbon anode production. 1 token = 1 MT.",
+        name: "Petcoke – Anode Grade",
+        code: "BFG-PCA",
+        desc: "Premium anode grade petroleum coke for aluminium smelting and carbon anode production.",
       },
       {
-        name: "Petcoke \u2013 Fuel Grade",
-        token: "BFG-PCF",
-        desc: "Fuel grade petroleum coke utilized globally as an efficient energy source for cement and power generation. 1 token = 1 MT.",
+        name: "Petcoke – Fuel Grade",
+        code: "BFG-PCF",
+        desc: "Fuel grade petroleum coke utilized globally as an efficient energy source for cement and power generation.",
       },
     ],
   },
@@ -135,22 +134,22 @@ const divisions = [
     accent: "text-teal-700 dark:text-teal-400",
     accentBg: "bg-teal-700/10",
     description:
-      "Agricultural input tokens supporting global food security and sustainable farming — tokenised with full supply chain verification.",
+      "Agricultural input commodities supporting global food security and sustainable farming — with full supply chain verification.",
     products: [
       {
         name: "NPK",
-        token: "BFG-NPK",
-        desc: "Compound fertilizer containing Nitrogen, Phosphorus, and Potassium — essential nutrients for crop growth and agricultural productivity. 1 token = 1 MT.",
+        code: "BFG-NPK",
+        desc: "Compound fertilizer containing Nitrogen, Phosphorus, and Potassium — essential nutrients for crop growth and agricultural productivity.",
       },
       {
         name: "Sulphur – Granular",
-        token: "BFG-SUG",
-        desc: "Granular sulphur used as a soil amendment and fertilizer input to lower pH and improve nutrient availability. Ideal for agricultural and industrial applications. 1 token = 1 MT.",
+        code: "BFG-SUG",
+        desc: "Granular sulphur used as a soil amendment and fertilizer input to lower pH and improve nutrient availability. Ideal for agricultural and industrial applications.",
       },
       {
         name: "Sulphur – Lumps",
-        token: "BFG-SUL",
-        desc: "Lump sulphur sourced from refinery and gas processing operations, used in fertilizer manufacturing and chemical processing. 1 token = 1 MT.",
+        code: "BFG-SUL",
+        desc: "Lump sulphur sourced from refinery and gas processing operations, used in fertilizer manufacturing and chemical processing.",
       },
     ],
   },
@@ -166,13 +165,13 @@ export default function Products() {
               className="text-3xl md:text-4xl font-bold mb-4 tracking-tight"
               data-testid="text-products-title"
             >
-              Tokenised Commodity Portfolio
+              Commodity Portfolio
             </h1>
             <div className="w-20 h-1 bg-primary-foreground/40 mb-6" />
             <p className="text-lg text-primary-foreground/80 font-light leading-relaxed">
-              Our tokenised commodity portfolio spans five core divisions — each asset
-              backed 1:1 by physical commodities, enabling fractional ownership and
-              transparent settlement for retail and institutional investors.
+              Our commodity portfolio spans five core divisions — each trade
+              physically backed and blockchain-verified for full transparency
+              from origin to delivery.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 mt-8">
@@ -205,13 +204,13 @@ export default function Products() {
             </div>
             <div className="flex items-center gap-3 p-4 rounded-md bg-card border border-border" data-testid="stat-commodities">
               <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
-                <Coins className="w-5 h-5 text-primary" />
+                <Truck className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <p className="text-xl font-bold">
                   {divisions.reduce((s, d) => s + d.products.length, 0)}
                 </p>
-                <p className="text-xs text-muted-foreground">Tokenised Assets</p>
+                <p className="text-xs text-muted-foreground">Tradeable Commodities</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-4 rounded-md bg-card border border-border" data-testid="stat-blockchain">
@@ -220,7 +219,7 @@ export default function Products() {
               </div>
               <div>
                 <p className="text-xl font-bold">1:1</p>
-                <p className="text-xs text-muted-foreground">Asset-Backed Tokens</p>
+                <p className="text-xs text-muted-foreground">Physically Backed</p>
               </div>
             </div>
           </div>
@@ -249,7 +248,7 @@ export default function Products() {
                       {division.title.replace(" Division", "")}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {division.products.length} tokenised asset{division.products.length !== 1 ? "s" : ""}
+                      {division.products.length} commodity product{division.products.length !== 1 ? "s" : ""}
                     </p>
                   </div>
                 </div>
@@ -278,7 +277,7 @@ export default function Products() {
                               <div className="flex items-center gap-2 mb-1">
                                 <h3 className="text-sm font-semibold">{product.name}</h3>
                                 <Badge variant="secondary" className="text-[10px] font-mono">
-                                  {product.token}
+                                  {product.code}
                                 </Badge>
                               </div>
                               <p className="text-xs text-muted-foreground leading-relaxed">
