@@ -31,6 +31,7 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import RegistrationsAdmin from "@/pages/registrations-admin";
 import HumanResources from "@/pages/human-resources";
+import TeamMembers from "@/pages/team-members";
 
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
   const { authenticated, loading } = useAuth();

@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetch("/api/auth/me")
       .then((res) => res.json())
       .then((data) => {
-        if (data.authenticated && data.role === "admin") {
+        if (data.authenticated && (data.role === "admin" || data.role === "team")) {
           setAuthenticated(true);
           setUsername(data.username || null);
           setRole(data.role || null);
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ username: user, password: pass }),
       });
       const data = await res.json();
-      if (res.ok && data.authenticated && data.role === "admin") {
+      if (res.ok && data.authenticated && (data.role === "admin" || data.role === "team")) {
         setAuthenticated(true);
         setUsername(data.username);
         setRole(data.role);

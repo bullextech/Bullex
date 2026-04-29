@@ -147,6 +147,13 @@ const allValidDocKeys = new Set([
 ]);
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (req.session && req.session.authenticated && (req.session.role === "admin" || req.session.role === "team")) {
+    return next();
+  }
+  res.status(401).json({ message: "Unauthorized" });
+}
+
+function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
   if (req.session && req.session.authenticated && req.session.role === "admin") {
     return next();
   }
@@ -193,7 +200,7 @@ export async function registerRoutes(
     res.status(200).json({ status: "ok" });
   });
 
-  app.post("/api/auth/login", (req, res) => {
+  app.post("/api/auth/login", async (req, res) => {
     const { username, password } = req.body;
     const adminUser = process.env.ADMIN_USERNAME;
     const adminPass = process.env.ADMIN_PASSWORD;
@@ -213,7 +220,45 @@ export async function registerRoutes(
       });
       return;
     }
+    const teamMember = await storage.getTeamMemberByUsername(username);
+    if (teamMember && teamMember.password === password) {
+      req.session.regenerate(() => {
+        req.session.authenticated = true;
+        req.session.username = teamMember.username;
+        req.session.role = "team";
+        req.session.save(() => {
+          return res.json({ authenticated: true, username: teamMember.username, role: "team", name: teamMember.name });
+        });
+      });
+      return;
+    }
     res.status(401).json({ message: "Invalid username or password" });
+  });
+
+  app.get("/api/team/members", requireAdminAuth, async (req, res) => {
+    const members = await storage.getAllTeamMembers();
+    res.json(members.map(m => ({ ...m, password: undefined })));
+  });
+
+  app.post("/api/team/members", requireAdminAuth, async (req, res) => {
+    const { username, password, name, department, email } = req.body;
+    if (!username || !password || !name) {
+      return res.status(400).json({ message: "username, password, and name are required" });
+    }
+    try {
+      const member = await storage.createTeamMember({ username, password, name, department: department || null, email: email || null });
+      res.json({ ...member, password: undefined });
+    } catch (err: any) {
+      if (err.message?.includes("unique")) {
+        return res.status(409).json({ message: "Username already exists" });
+      }
+      res.status(500).json({ message: "Failed to create team member" });
+    }
+  });
+
+  app.delete("/api/team/members/:id", requireAdminAuth, async (req, res) => {
+    await storage.deleteTeamMember(req.params.id);
+    res.json({ success: true });
   });
 
   app.post("/api/auth/logout", (req, res) => {

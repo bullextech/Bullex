@@ -8,9 +8,11 @@ import {
   FolderOpen,
   Layers,
   UserPlus,
+  Users,
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
-const adminNavItems = [
+const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Registrations", url: "/registrations", icon: UserPlus },
   { title: "KYC Admin", url: "/kyc-admin", icon: ShieldCheck },
@@ -21,18 +23,24 @@ const adminNavItems = [
   { title: "Blockchain", url: "/blockchain", icon: Layers },
 ];
 
+const adminOnlyItems = [
+  { title: "Team Members", url: "/team-members", icon: Users },
+];
+
 export function AdminSidebar() {
   const [location] = useLocation();
+  const { role } = useAuth();
+
+  const allItems = role === "admin" ? [...mainNavItems, ...adminOnlyItems] : mainNavItems;
 
   return (
     <aside className="w-52 flex-shrink-0 border-r border-border bg-background flex flex-col h-full overflow-y-auto">
-      {/* Admin section */}
       <div className="px-3 pt-5 pb-2">
         <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground px-2 mb-2">
           Administration
         </p>
         <nav className="space-y-0.5">
-          {adminNavItems.map((item) => {
+          {allItems.map((item) => {
             const active = location === item.url;
             return (
               <Link
@@ -52,7 +60,6 @@ export function AdminSidebar() {
           })}
         </nav>
       </div>
-
     </aside>
   );
 }

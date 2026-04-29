@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Shield, ShieldCheck, Building2, Lock, LogIn, Loader2 } from "lucide-react";
+import { Shield, ShieldCheck, Building2, Users, Lock, LogIn, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useClientAuth } from "@/hooks/use-client-auth";
 
 export default function Platform() {
-  const [activeTab, setActiveTab] = useState<"admin" | "client">("admin");
+  const [activeTab, setActiveTab] = useState<"admin" | "team" | "client">("admin");
 
   const { login: adminLogin, authenticated: adminAuthenticated } = useAuth();
   const { login: clientLogin, authenticated: clientAuthenticated } = useClientAuth();
@@ -18,6 +17,11 @@ export default function Platform() {
   const [adminPass, setAdminPass] = useState("");
   const [adminError, setAdminError] = useState("");
   const [adminLoading, setAdminLoading] = useState(false);
+
+  const [teamUser, setTeamUser] = useState("");
+  const [teamPass, setTeamPass] = useState("");
+  const [teamError, setTeamError] = useState("");
+  const [teamLoading, setTeamLoading] = useState(false);
 
   const [clientUser, setClientUser] = useState("");
   const [clientPass, setClientPass] = useState("");
@@ -41,6 +45,23 @@ export default function Platform() {
     }
   };
 
+  const handleTeamLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTeamError("");
+    if (!teamUser || !teamPass) {
+      setTeamError("Please enter both username and password.");
+      return;
+    }
+    setTeamLoading(true);
+    const result = await adminLogin(teamUser, teamPass);
+    setTeamLoading(false);
+    if (result.success) {
+      setLocation("/dashboard");
+    } else {
+      setTeamError(result.error || "Invalid credentials");
+    }
+  };
+
   const handleClientLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setClientError("");
@@ -58,10 +79,15 @@ export default function Platform() {
     }
   };
 
+  const tabs = [
+    { key: "admin" as const, label: "Admin", icon: ShieldCheck, testId: "tab-admin-login" },
+    { key: "team" as const, label: "Team", icon: Users, testId: "tab-team-login" },
+    { key: "client" as const, label: "Client", icon: Building2, testId: "tab-client-login" },
+  ];
+
   return (
     <div className="overflow-y-auto h-full bg-muted/20 flex items-start justify-center py-16 px-4">
       <div className="w-full max-w-2xl">
-        {/* Logo / heading */}
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-lg bg-primary flex items-center justify-center mx-auto mb-4">
             <Shield className="w-7 h-7 text-primary-foreground" />
@@ -70,40 +96,34 @@ export default function Platform() {
           <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mt-1">Commodity Trading Platform</p>
         </div>
 
-        {/* Sidebar + form layout */}
         <div className="flex border border-border overflow-hidden bg-background">
-
-          {/* Left sidebar tabs */}
           <div className="w-44 flex-shrink-0 border-r border-border bg-muted/30 flex flex-col">
-            <button
-              onClick={() => { setActiveTab("admin"); setAdminError(""); }}
-              data-testid="tab-admin-login"
-              className={`flex flex-col items-center justify-center gap-2 py-8 px-3 text-xs font-bold uppercase tracking-wider transition-colors border-b border-border ${
-                activeTab === "admin"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-              }`}
-            >
-              <ShieldCheck className="w-6 h-6" />
-              Admin
-            </button>
-            <button
-              onClick={() => { setActiveTab("client"); setClientError(""); }}
-              data-testid="tab-client-login"
-              className={`flex flex-col items-center justify-center gap-2 py-8 px-3 text-xs font-bold uppercase tracking-wider transition-colors ${
-                activeTab === "client"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-              }`}
-            >
-              <Building2 className="w-6 h-6" />
-              Client
-            </button>
+            {tabs.map((tab, i) => (
+              <button
+                key={tab.key}
+                onClick={() => {
+                  setActiveTab(tab.key);
+                  setAdminError("");
+                  setTeamError("");
+                  setClientError("");
+                }}
+                data-testid={tab.testId}
+                className={`flex flex-col items-center justify-center gap-2 py-7 px-3 text-xs font-bold uppercase tracking-wider transition-colors ${
+                  i < tabs.length - 1 ? "border-b border-border" : ""
+                } ${
+                  activeTab === tab.key
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                }`}
+              >
+                <tab.icon className="w-6 h-6" />
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          {/* Right form panel */}
           <div className="flex-1 p-8">
-            {activeTab === "admin" ? (
+            {activeTab === "admin" && (
               <>
                 <div className="flex items-center gap-2 mb-6">
                   <Lock className="w-4 h-4 text-primary" />
@@ -156,7 +176,64 @@ export default function Platform() {
                   Access restricted to authorized personnel only.
                 </p>
               </>
-            ) : (
+            )}
+
+            {activeTab === "team" && (
+              <>
+                <div className="flex items-center gap-2 mb-6">
+                  <Lock className="w-4 h-4 text-primary" />
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-primary">Team Authentication</h2>
+                </div>
+                <form onSubmit={handleTeamLogin} className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Username</label>
+                    <Input
+                      type="text"
+                      placeholder="Enter team username"
+                      className="rounded-none h-11 border-border"
+                      value={teamUser}
+                      onChange={(e) => setTeamUser(e.target.value)}
+                      autoComplete="username"
+                      data-testid="input-team-username"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Password</label>
+                    <Input
+                      type="password"
+                      placeholder="Enter team password"
+                      className="rounded-none h-11 border-border"
+                      value={teamPass}
+                      onChange={(e) => setTeamPass(e.target.value)}
+                      autoComplete="current-password"
+                      data-testid="input-team-password"
+                    />
+                  </div>
+                  {teamError && (
+                    <div className="p-3 bg-destructive/10 border border-destructive/20 text-sm text-destructive" data-testid="text-team-login-error">
+                      {teamError}
+                    </div>
+                  )}
+                  <Button
+                    type="submit"
+                    className="w-full rounded-none h-12 text-sm font-bold uppercase tracking-wider"
+                    disabled={teamLoading}
+                    data-testid="button-team-login-submit"
+                  >
+                    {teamLoading ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Authenticating...</>
+                    ) : (
+                      <><LogIn className="w-4 h-4 mr-2" />Sign In as Team</>
+                    )}
+                  </Button>
+                </form>
+                <p className="text-[10px] text-muted-foreground text-center mt-6">
+                  Team credentials are provided by your administrator.
+                </p>
+              </>
+            )}
+
+            {activeTab === "client" && (
               <>
                 <div className="flex items-center gap-2 mb-6">
                   <Lock className="w-4 h-4 text-primary" />

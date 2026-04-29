@@ -35,6 +35,9 @@ import {
   registrations,
   type Registration,
   type InsertRegistration,
+  teamMembers,
+  type TeamMember,
+  type InsertTeamMember,
 } from "@shared/schema";
 
 const pool = new pg.Pool({
@@ -115,6 +118,11 @@ export interface IStorage {
   getRegistrations(): Promise<Registration[]>;
   createRegistration(reg: InsertRegistration): Promise<Registration>;
   updateRegistrationStatus(id: string, status: string, reviewNotes?: string): Promise<Registration>;
+
+  getAllTeamMembers(): Promise<TeamMember[]>;
+  getTeamMemberByUsername(username: string): Promise<TeamMember | undefined>;
+  createTeamMember(member: InsertTeamMember): Promise<TeamMember>;
+  deleteTeamMember(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -559,6 +567,24 @@ export class DatabaseStorage implements IStorage {
       .where(eq(registrations.id, id))
       .returning();
     return updated;
+  }
+
+  async getAllTeamMembers(): Promise<TeamMember[]> {
+    return db.select().from(teamMembers).orderBy(desc(teamMembers.createdAt));
+  }
+
+  async getTeamMemberByUsername(username: string): Promise<TeamMember | undefined> {
+    const [member] = await db.select().from(teamMembers).where(eq(teamMembers.username, username));
+    return member;
+  }
+
+  async createTeamMember(member: InsertTeamMember): Promise<TeamMember> {
+    const [created] = await db.insert(teamMembers).values(member).returning();
+    return created;
+  }
+
+  async deleteTeamMember(id: string): Promise<void> {
+    await db.delete(teamMembers).where(eq(teamMembers.id, id));
   }
 }
 
