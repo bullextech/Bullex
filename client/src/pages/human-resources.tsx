@@ -191,7 +191,7 @@ function RoleCard({ role }: { role: typeof OPEN_ROLES[0] }) {
                 ))}
               </ul>
             </div>
-            <a href={`mailto:careers@bullex.tech?subject=Application – ${encodeURIComponent(role.title)}`}>
+            <a href={`mailto:career@bullex.tech?subject=Application – ${encodeURIComponent(role.title)}`}>
               <Button size="sm" className="h-8 text-xs mt-1" data-testid={`button-apply-${role.id}`}>
                 Apply for This Role
                 <ArrowRight className="w-3 h-3 ml-1.5" />
@@ -207,7 +207,6 @@ function RoleCard({ role }: { role: typeof OPEN_ROLES[0] }) {
 function ApplicationForm() {
   const { toast } = useToast();
   const [form, setForm] = useState({ name: "", email: "", role: "", message: "" });
-  const [sending, setSending] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,12 +214,17 @@ function ApplicationForm() {
       toast({ title: "Please fill in your name and email.", variant: "destructive" });
       return;
     }
-    setSending(true);
-    setTimeout(() => {
-      setSending(false);
-      setForm({ name: "", email: "", role: "", message: "" });
-      toast({ title: "Application submitted!", description: "Our HR team will be in touch within 3 business days." });
-    }, 1200);
+    const subject = form.role.trim()
+      ? `Application – ${form.role.trim()}`
+      : "General Application – Bullex Careers";
+    const body = [
+      `Name: ${form.name.trim()}`,
+      `Email: ${form.email.trim()}`,
+      form.role.trim() ? `Position of Interest: ${form.role.trim()}` : "",
+      "",
+      form.message.trim() || "(No cover note provided)",
+    ].filter((l) => l !== undefined).join("\n");
+    window.location.href = `mailto:career@bullex.tech?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
   return (
@@ -456,7 +460,7 @@ export default function HumanResources() {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
-              <a href="mailto:careers@bullex.tech">
+              <a href="mailto:career@bullex.tech">
                 <Button variant="secondary" size="lg" className="font-medium" data-testid="button-hr-email">
                   Email HR Team
                   <ArrowRight className="w-4 h-4 ml-2" />
