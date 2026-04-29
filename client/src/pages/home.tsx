@@ -218,7 +218,7 @@ export default function Home() {
               <div className="flex flex-wrap items-center gap-4">
                 <Link href="/platform">
                   <Button size="lg" className="h-12 px-8 text-sm font-bold uppercase tracking-wider" data-testid="button-hero-get-started">
-                    Access Platform
+                    Register
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
