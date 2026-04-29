@@ -36,8 +36,9 @@ export default function RegistrationsAdmin() {
   const [actionType, setActionType] = useState<"approve" | "reject" | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
 
-  const { data: registrations = [], isLoading } = useQuery<Registration[]>({
+  const { data: registrations = [], isLoading, isError } = useQuery<Registration[]>({
     queryKey: ["/api/registrations"],
+    staleTime: 0,
   });
 
   const statusMutation = useMutation({
@@ -111,6 +112,12 @@ export default function RegistrationsAdmin() {
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map(i => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}
+        </div>
+      ) : isError ? (
+        <div className="text-center py-20 text-muted-foreground" data-testid="text-error-state">
+          <XCircle className="w-10 h-10 mx-auto mb-3 text-destructive opacity-60" />
+          <p className="font-medium text-destructive">Failed to load registrations</p>
+          <p className="text-sm mt-1">Please ensure you are logged in as admin and refresh the page.</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground" data-testid="text-empty-state">

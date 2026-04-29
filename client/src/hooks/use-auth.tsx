@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
+import { queryClient } from "@/lib/queryClient";
 
 interface AuthState {
   authenticated: boolean;
@@ -51,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthenticated(true);
         setUsername(data.username);
         setRole(data.role);
+        queryClient.clear();
         return { success: true };
       }
       return { success: false, error: data.message || "Login failed" };
@@ -64,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthenticated(false);
     setUsername(null);
     setRole(null);
+    queryClient.clear();
   }, []);
 
   return (
