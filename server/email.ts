@@ -664,3 +664,87 @@ export async function sendRegistrationAdminEmail(
   `;
   return sendEmail(adminEmail, `New Registration – ${companyName} (${roleType})`, emailWrapper(body));
 }
+
+export async function sendEnquiryCreatedNotification(enquiry: {
+  enquiryRef: string;
+  side: string;
+  product: string;
+  quantity?: string | null;
+  unit?: string | null;
+  specifications?: string | null;
+  producer?: string | null;
+  loadingPort?: string | null;
+  incoterms?: string | null;
+  validity?: string | null;
+  createdBy?: string | null;
+  email?: string | null;
+  additionalInfo?: string | null;
+  createdAt: Date;
+}): Promise<boolean> {
+  const TRADE_EMAIL = "trade@bullex.tech";
+  const sideLabel = enquiry.side === "sell" ? "SELL" : "BUY";
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">New Trade Enquiry Submitted</h2>
+    <p style="color: #475569; line-height: 1.6;">A new trade enquiry has been created on the Bullex Trading Platform.</p>
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #1d4ed8; margin: 0; font-weight: 600; font-size: 18px;">${enquiry.enquiryRef} — ${sideLabel} ${enquiry.product}</p>
+      ${enquiry.quantity ? `<p style="color: #1e40af; margin: 6px 0 0; font-size: 14px;">${enquiry.quantity} ${enquiry.unit || "MT"}</p>` : ""}
+    </div>
+    <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+      <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Enquiry Ref</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.enquiryRef}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Side</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${sideLabel}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Product</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.product}</td></tr>
+      ${enquiry.quantity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Quantity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.quantity} ${enquiry.unit || "MT"}</td></tr>` : ""}
+      ${enquiry.specifications ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Specifications</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${enquiry.specifications}</td></tr>` : ""}
+      ${enquiry.producer ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Producer / Source</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.producer}</td></tr>` : ""}
+      ${enquiry.loadingPort ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Loading Port</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.loadingPort}</td></tr>` : ""}
+      ${enquiry.incoterms ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Incoterms</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.incoterms}</td></tr>` : ""}
+      ${enquiry.validity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Validity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.validity}</td></tr>` : ""}
+      ${enquiry.createdBy ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Created By</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.createdBy}</td></tr>` : ""}
+      ${enquiry.email ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.email}</td></tr>` : ""}
+      ${enquiry.additionalInfo ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Additional Info</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${enquiry.additionalInfo}</td></tr>` : ""}
+      <tr><td style="color: #64748b; padding: 8px 12px;">Submitted At</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${new Date(enquiry.createdAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td></tr>
+    </table>
+  `;
+  return sendEmail(TRADE_EMAIL, `New Enquiry – ${enquiry.enquiryRef} | ${sideLabel} ${enquiry.product}`, emailWrapper(body));
+}
+
+export async function sendEnquiryClientResponseNotification(enquiry: {
+  enquiryRef: string;
+  side: string;
+  product: string;
+  quantity?: string | null;
+  unit?: string | null;
+  loadingPort?: string | null;
+  incoterms?: string | null;
+}, clientResponse: string, clientCompany: string): Promise<boolean> {
+  const TRADE_EMAIL = "trade@bullex.tech";
+  const sideLabel = enquiry.side === "sell" ? "SELL" : "BUY";
+  const accepted = clientResponse === "accepted";
+  const responseLabel = accepted ? "ACCEPTED" : "REJECTED";
+  const highlightColor = accepted ? "#dcfce7" : "#fee2e2";
+  const borderColor = accepted ? "#86efac" : "#fca5a5";
+  const textColor = accepted ? "#15803d" : "#b91c1c";
+
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Client Enquiry Response</h2>
+    <p style="color: #475569; line-height: 1.6;">A client has responded to a trade enquiry on the Bullex Trading Platform.</p>
+    <div style="background: ${highlightColor}; border: 1px solid ${borderColor}; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: ${textColor}; margin: 0; font-weight: 700; font-size: 16px;">${clientCompany} has ${responseLabel} enquiry ${enquiry.enquiryRef}</p>
+      <p style="color: ${textColor}; margin: 6px 0 0; font-size: 14px;">${sideLabel} ${enquiry.product}${enquiry.quantity ? ` — ${enquiry.quantity} ${enquiry.unit || "MT"}` : ""}</p>
+      ${accepted ? `<p style="color: ${textColor}; margin: 6px 0 0; font-size: 13px; font-weight: 600;">A new trade has been automatically initiated from this enquiry.</p>` : ""}
+    </div>
+    <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+      <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Enquiry Ref</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.enquiryRef}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Product</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.product}</td></tr>
+      ${enquiry.quantity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Quantity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.quantity} ${enquiry.unit || "MT"}</td></tr>` : ""}
+      ${enquiry.loadingPort ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Loading Port</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.loadingPort}</td></tr>` : ""}
+      ${enquiry.incoterms ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Incoterms</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.incoterms}</td></tr>` : ""}
+      <tr><td style="color: #64748b; padding: 8px 12px;">Client Response</td><td style="color: ${textColor}; padding: 8px 12px; font-weight: 700;">${responseLabel}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px;">Responded By</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${clientCompany}</td></tr>
+    </table>
+  `;
+  return sendEmail(TRADE_EMAIL, `Enquiry ${responseLabel} – ${enquiry.enquiryRef} by ${clientCompany}`, emailWrapper(body));
+}
