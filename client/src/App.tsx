@@ -91,6 +91,7 @@ function Router() {
       <Route path="/platform" component={Platform} />
       <Route path="/trade-enquiries">{() => <ProtectedRoute component={TradeEnquiries} />}</Route>
       <Route path="/registrations">{() => <ProtectedRoute component={RegistrationsAdmin} />}</Route>
+      <Route path="/team-members">{() => <ProtectedRoute component={TeamMembers} />}</Route>
       <Route path="/client-portal" component={ClientPortal} />
       <Route path="/investor" component={Investor} />
       <Route path="/human-resources" component={HumanResources} />

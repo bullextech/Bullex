@@ -1,13 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { AdminSidebar } from "@/components/admin-sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Users, Trash2, Plus, Loader2, X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useLocation } from "wouter";
 
 interface TeamMember {
   id: string;
@@ -61,11 +59,8 @@ export default function TeamMembersPage() {
 
   if (role !== "admin") {
     return (
-      <div className="flex h-screen bg-background">
-        <AdminSidebar />
-        <main className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-muted-foreground">Admin access required.</p>
-        </main>
+      <div className="flex-1 flex items-center justify-center h-full">
+        <p className="text-sm text-muted-foreground">Admin access required.</p>
       </div>
     );
   }
@@ -81,10 +76,8 @@ export default function TeamMembersPage() {
   };
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      <AdminSidebar />
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="border-b border-border px-8 py-5 flex items-center justify-between flex-shrink-0">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="border-b border-border px-8 py-5 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <Users className="w-5 h-5 text-primary" />
             <div>
@@ -269,7 +262,6 @@ export default function TeamMembersPage() {
             </div>
           )}
         </div>
-      </main>
     </div>
   );
 }
