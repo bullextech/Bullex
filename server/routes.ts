@@ -1918,6 +1918,31 @@ export async function registerRoutes(
     }
   });
 
+  const DEFAULT_ROLE_TYPES = [
+    "Trader", "Buyer", "Seller", "Broker", "Shipping Company",
+    "Quality Assessment Agency", "Logistics Provider", "Financial Institution",
+    "Inspection Company", "Insurance Provider", "Legal / Compliance",
+  ];
+
+  app.get("/api/role-types", async (_req: Request, res: Response) => {
+    try {
+      const regs = await storage.getRegistrations();
+      const custom = new Set<string>();
+      for (const reg of regs) {
+        if (reg.roleType.startsWith("Other – ")) {
+          const extracted = reg.roleType.replace(/^Other – /, "").trim();
+          if (extracted && !DEFAULT_ROLE_TYPES.includes(extracted)) {
+            custom.add(extracted);
+          }
+        }
+      }
+      const result = [...DEFAULT_ROLE_TYPES, ...Array.from(custom).sort(), "Other"];
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/register", async (req: Request, res: Response) => {
     try {
       const { insertRegistrationSchema } = await import("@shared/schema");

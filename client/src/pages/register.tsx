@@ -3,7 +3,7 @@ import { useWatch } from "react-hook-form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Shield, ArrowLeft, CheckCircle2, Building2, User, Mail, Phone, Globe, Briefcase, Package, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,19 +14,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { apiRequest } from "@/lib/queryClient";
 
-const ROLE_TYPES = [
-  "Trader",
-  "Buyer",
-  "Seller",
-  "Broker",
-  "Shipping Company",
-  "Quality Assessment Agency",
-  "Logistics Provider",
-  "Financial Institution",
-  "Inspection Company",
-  "Insurance Provider",
-  "Legal / Compliance",
-  "Other",
+const DEFAULT_ROLE_TYPES = [
+  "Trader", "Buyer", "Seller", "Broker", "Shipping Company",
+  "Quality Assessment Agency", "Logistics Provider", "Financial Institution",
+  "Inspection Company", "Insurance Provider", "Legal / Compliance", "Other",
 ];
 
 const COUNTRIES = [
@@ -62,6 +53,10 @@ type RegistrationForm = z.infer<typeof registrationSchema>;
 
 export default function Register() {
   const [submitted, setSubmitted] = useState(false);
+
+  const { data: roleTypes = DEFAULT_ROLE_TYPES } = useQuery<string[]>({
+    queryKey: ["/api/role-types"],
+  });
 
   const form = useForm<RegistrationForm>({
     resolver: zodResolver(registrationSchema),
@@ -275,7 +270,7 @@ export default function Register() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {ROLE_TYPES.map((r) => (
+                                {roleTypes.map((r) => (
                                   <SelectItem key={r} value={r} data-testid={`option-role-${r}`}>{r}</SelectItem>
                                 ))}
                               </SelectContent>
