@@ -1,6 +1,8 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import pg from "pg";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -165,15 +167,23 @@ export async function registerRoutes(
 
   app.set("trust proxy", 1);
 
+  const PgSession = connectPgSimple(session);
+  const pgPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+
   app.use(
     session({
+      store: new PgSession({
+        pool: pgPool,
+        tableName: "session",
+        createTableIfMissing: false,
+      }),
       secret: process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || "bullex-dev-only",
       resave: false,
       saveUninitialized: false,
       cookie: {
-        maxAge: 24 * 60 * 60 * 1000,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: false,
         sameSite: "lax",
       },
     })
