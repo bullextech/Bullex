@@ -165,7 +165,7 @@ export default function Home() {
     <div className="overflow-y-auto h-full">
 
       {/* ── HERO VIDEO SECTION ── */}
-      <div className="relative h-[90vh] min-h-[560px] overflow-hidden bg-black" data-testid="section-hero">
+      <div className="relative h-[90vh] min-h-[560px] overflow-hidden bg-sky-200" data-testid="section-hero">
         {/* Slot A */}
         <video
           ref={videoRefA}
@@ -173,7 +173,10 @@ export default function Home() {
           muted
           playsInline
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-          style={{ opacity: activeSlot === 0 ? 0.6 : 0 }}
+          style={{
+            opacity: activeSlot === 0 ? 1 : 0,
+            filter: "brightness(1.25) saturate(1.4) contrast(1.05)",
+          }}
           src={heroVideos[0]}
         />
         {/* Slot B */}
@@ -182,9 +185,12 @@ export default function Home() {
           muted
           playsInline
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-          style={{ opacity: activeSlot === 1 ? 0.6 : 0 }}
+          style={{
+            opacity: activeSlot === 1 ? 1 : 0,
+            filter: "brightness(1.25) saturate(1.4) contrast(1.05)",
+          }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/50" />
 
         <div className="relative z-10 h-full flex flex-col justify-center px-6">
           <div className="max-w-5xl mx-auto w-full">
