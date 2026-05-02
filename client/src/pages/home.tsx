@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import heroShipSunshine from "@assets/hero-ship-sunshine.png";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -166,7 +165,7 @@ export default function Home() {
     <div className="overflow-y-auto h-full">
 
       {/* ── HERO VIDEO SECTION ── */}
-      <div className="relative h-[90vh] min-h-[560px] overflow-hidden bg-sky-900" data-testid="section-hero">
+      <div className="relative h-[90vh] min-h-[560px] overflow-hidden bg-black" data-testid="section-hero">
         {/* Slot A */}
         <video
           ref={videoRefA}
