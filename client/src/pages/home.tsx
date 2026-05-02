@@ -174,12 +174,8 @@ export default function Home() {
           muted
           playsInline
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-          style={{
-            opacity: activeSlot === 0 ? 1 : 0,
-            filter: "brightness(1.5) saturate(1.3) contrast(1.1)",
-          }}
+          style={{ opacity: activeSlot === 0 ? 0.6 : 0 }}
           src={heroVideos[0]}
-          poster={heroShipSunshine}
         />
         {/* Slot B */}
         <video
@@ -187,13 +183,9 @@ export default function Home() {
           muted
           playsInline
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-          style={{
-            opacity: activeSlot === 1 ? 1 : 0,
-            filter: "brightness(1.5) saturate(1.3) contrast(1.1)",
-          }}
-          poster={heroShipSunshine}
+          style={{ opacity: activeSlot === 1 ? 0.6 : 0 }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/80" />
 
         <div className="relative z-10 h-full flex flex-col justify-center px-6">
           <div className="max-w-5xl mx-auto w-full">
