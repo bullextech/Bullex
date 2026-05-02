@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import heroShipSunshine from "@assets/hero-ship-sunshine.png";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,6 +28,8 @@ import {
   Mail,
   ChevronDown,
   LogIn,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 
 const features = [
@@ -87,6 +89,61 @@ const stats = [
 
 export default function Home() {
   const { toast } = useToast();
+  const [heroMuted, setHeroMuted] = useState(true);
+  const [heroVideoIndex, setHeroVideoIndex] = useState(0);
+  const videoRefA = useRef<HTMLVideoElement>(null);
+  const videoRefB = useRef<HTMLVideoElement>(null);
+  const indexRef = useRef(0);
+  const slotRef = useRef(0);
+  const [activeSlot, setActiveSlot] = useState(0);
+
+  const heroVideos = [
+    "/videos/cargo-ship-ocean.mp4",
+    "/videos/bulk-carrier-vessel-sunrise.mp4",
+    "/videos/oil-tanker-sunrise.mp4",
+    "/videos/oil-tanker-sunset.mp4",
+    "/videos/mining-operation.mp4",
+    "/videos/port-terminal-night.mp4",
+  ];
+
+  const getVideoRef = (slot: number) => slot === 0 ? videoRefA : videoRefB;
+
+  const goToVideo = (nextIndex: number) => {
+    const bgSlot = slotRef.current === 0 ? 1 : 0;
+    const bgRef = getVideoRef(bgSlot);
+    if (bgRef.current) {
+      bgRef.current.src = heroVideos[nextIndex];
+      bgRef.current.muted = true;
+      bgRef.current.currentTime = 0;
+      bgRef.current.play().catch(() => {});
+    }
+    indexRef.current = nextIndex;
+    slotRef.current = bgSlot;
+    setHeroVideoIndex(nextIndex);
+    setActiveSlot(bgSlot);
+  };
+
+  const advanceHeroVideo = () => {
+    const nextIndex = (indexRef.current + 1) % heroVideos.length;
+    goToVideo(nextIndex);
+  };
+
+  useEffect(() => {
+    videoRefA.current?.play().catch(() => {});
+    const timer = setInterval(advanceHeroVideo, 8000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    [videoRefA, videoRefB].forEach(r => {
+      if (r.current) r.current.muted = heroMuted;
+    });
+  }, [heroMuted]);
+
+  const toggleMute = () => {
+    const newMuted = !heroMuted;
+    setHeroMuted(newMuted);
+  };
 
   const [supplyForm, setSupplyForm] = useState({
     companyName: "",
@@ -108,14 +165,37 @@ export default function Home() {
   return (
     <div className="overflow-y-auto h-full">
 
-      {/* ── HERO SECTION ── */}
-      <div className="relative h-[90vh] min-h-[560px] overflow-hidden" data-testid="section-hero">
-        <img
-          src={heroShipSunshine}
-          alt="Cargo ship sailing in bright sunshine"
-          className="absolute inset-0 w-full h-full object-cover"
+      {/* ── HERO VIDEO SECTION ── */}
+      <div className="relative h-[90vh] min-h-[560px] overflow-hidden bg-sky-900" data-testid="section-hero">
+        {/* Slot A */}
+        <video
+          ref={videoRefA}
+          autoPlay
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+          style={{
+            opacity: activeSlot === 0 ? 1 : 0,
+            filter: "brightness(1.25) saturate(1.4) contrast(1.05)",
+          }}
+          src={heroVideos[0]}
+          poster={heroShipSunshine}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-black/70" />
+        {/* Slot B */}
+        <video
+          ref={videoRefB}
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+          style={{
+            opacity: activeSlot === 1 ? 1 : 0,
+            filter: "brightness(1.25) saturate(1.4) contrast(1.05)",
+          }}
+          poster={heroShipSunshine}
+        />
+        {/* Warm golden sunshine overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-amber-400/10 via-transparent to-black/50 mix-blend-multiply" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
 
         <div className="relative z-10 h-full flex flex-col justify-center px-6">
           <div className="max-w-5xl mx-auto w-full">
@@ -160,8 +240,28 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 animate-bounce">
-          <ChevronDown className="w-6 h-6 text-white/60" />
+        <button
+          onClick={toggleMute}
+          className="absolute bottom-6 right-6 z-20 w-10 h-10 rounded-full bg-black/30 border border-white/20 flex items-center justify-center backdrop-blur-sm hover:bg-black/50 transition-colors"
+          data-testid="button-hero-mute"
+        >
+          {heroMuted ? <VolumeX className="w-4 h-4 text-white" /> : <Volume2 className="w-4 h-4 text-white" />}
+        </button>
+
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2">
+            {heroVideos.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => goToVideo(i)}
+                data-testid={`button-hero-dot-${i}`}
+                className={`rounded-full transition-all duration-300 ${i === heroVideoIndex ? "w-6 h-2 bg-primary" : "w-2 h-2 bg-white/40 hover:bg-white/70"}`}
+              />
+            ))}
+          </div>
+          <div className="animate-bounce">
+            <ChevronDown className="w-6 h-6 text-white/60" />
+          </div>
         </div>
       </div>
 
