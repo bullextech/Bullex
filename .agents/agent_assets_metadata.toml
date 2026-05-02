@@ -6,6 +6,12 @@ uri = "file://attached_assets/bullex-logo.png"
 type = "image"
 title = "bullex logo"
 
+[[generated]]
+id = "vhAOUPK6YjnL3X6F1_bcV"
+uri = "file://public/hero-ship-sunshine.png"
+type = "image"
+title = "hero ship sunshine"
+
 [[outputs]]
 id = "3Fvya6PnNsRNSQTyjrXjY"
 uri = "file://attached_assets/bullex-logo.png"
