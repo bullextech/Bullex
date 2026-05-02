@@ -176,7 +176,7 @@ export default function Home() {
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
           style={{
             opacity: activeSlot === 0 ? 1 : 0,
-            filter: "brightness(1.25) saturate(1.4) contrast(1.05)",
+            filter: "brightness(1.5) saturate(1.3) contrast(1.1)",
           }}
           src={heroVideos[0]}
           poster={heroShipSunshine}
@@ -189,13 +189,11 @@ export default function Home() {
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
           style={{
             opacity: activeSlot === 1 ? 1 : 0,
-            filter: "brightness(1.25) saturate(1.4) contrast(1.05)",
+            filter: "brightness(1.5) saturate(1.3) contrast(1.1)",
           }}
           poster={heroShipSunshine}
         />
-        {/* Warm golden sunshine overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-amber-400/10 via-transparent to-black/50 mix-blend-multiply" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/50" />
 
         <div className="relative z-10 h-full flex flex-col justify-center px-6">
           <div className="max-w-5xl mx-auto w-full">
