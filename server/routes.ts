@@ -11,7 +11,7 @@ import { insertTradeSchema, insertKycSchema, insertDocumentSchema, type Trade } 
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification, sendJobApplicationToHR, sendJobApplicationAcknowledgement } from "./email";
 import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures } from "./documentFileGenerator";
 
 const ADMIN_CHECKLISTS: Record<string, string[]> = {
@@ -87,9 +87,11 @@ declare module "express-session" {
 const kycUploadsDir = path.join(process.cwd(), "uploads", "kyc");
 const tradeUploadsDir = path.join(process.cwd(), "uploads", "trades");
 const enquiryUploadsDir = path.join(process.cwd(), "uploads", "enquiries");
+const hrUploadsDir = path.join(process.cwd(), "uploads", "hr");
 if (!fs.existsSync(kycUploadsDir)) fs.mkdirSync(kycUploadsDir, { recursive: true });
 if (!fs.existsSync(tradeUploadsDir)) fs.mkdirSync(tradeUploadsDir, { recursive: true });
 if (!fs.existsSync(enquiryUploadsDir)) fs.mkdirSync(enquiryUploadsDir, { recursive: true });
+if (!fs.existsSync(hrUploadsDir)) fs.mkdirSync(hrUploadsDir, { recursive: true });
 
 const allowedExts = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx", ".xls", ".xlsx"];
 
@@ -118,6 +120,7 @@ function createUploader(destDir: string, prefix: string) {
 const kycUpload = createUploader(kycUploadsDir, "kyc");
 const tradeUpload = createUploader(tradeUploadsDir, "trade");
 const enquiryUpload = createUploader(enquiryUploadsDir, "enquiry");
+const hrUpload = createUploader(hrUploadsDir, "hr");
 
 const VALID_KYC_DOC_TYPES = [
   "certificate_of_incorporation",
@@ -2049,6 +2052,36 @@ export async function registerRoutes(
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/hr/apply", hrUpload.single("document"), async (req: Request, res: Response) => {
+    try {
+      const { fullName, email, phone, address, roleTitle, aboutYourself } = req.body;
+      if (!fullName?.trim() || !email?.trim() || !roleTitle?.trim()) {
+        return res.status(400).json({ message: "Full name, email and role are required." });
+      }
+
+      let attachmentBase64: string | undefined;
+      let attachmentFilename: string | undefined;
+      if (req.file) {
+        attachmentBase64 = fs.readFileSync(req.file.path).toString("base64");
+        attachmentFilename = req.file.originalname;
+        fs.unlinkSync(req.file.path);
+      }
+
+      const [hrSent, ackSent] = await Promise.allSettled([
+        sendJobApplicationToHR(fullName, email, phone || "", address || "", roleTitle, aboutYourself || "", attachmentBase64, attachmentFilename),
+        sendJobApplicationAcknowledgement(email, fullName, roleTitle),
+      ]);
+
+      res.json({
+        success: true,
+        hrEmailSent: hrSent.status === "fulfilled" && hrSent.value,
+        ackEmailSent: ackSent.status === "fulfilled" && ackSent.value,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to submit application." });
     }
   });
 

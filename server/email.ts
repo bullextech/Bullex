@@ -363,6 +363,78 @@ export async function sendChangeRequestRejectedEmail(
   return sendEmail(to, `KYC Change Request Rejected – ${companyName}`, emailWrapper(body));
 }
 
+export async function sendJobApplicationToHR(
+  fullName: string,
+  email: string,
+  phone: string,
+  address: string,
+  roleTitle: string,
+  aboutYourself: string,
+  attachmentBase64?: string,
+  attachmentFilename?: string
+): Promise<boolean> {
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">New Job Application Received</h2>
+    <p style="color: #475569; line-height: 1.6;">A new application has been submitted via the Bullex Careers page.</p>
+    <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+      <tr style="background: #f8fafc;">
+        <th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th>
+        <th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th>
+      </tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Full Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${fullName}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${email}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Phone Number</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${phone || "—"}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Address</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${address || "—"}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px;">Role Applied For</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${roleTitle}</td></tr>
+    </table>
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #1e293b; margin: 0 0 8px; font-weight: 600;">About the Applicant</p>
+      <p style="color: #475569; margin: 0; line-height: 1.7; font-size: 14px; white-space: pre-wrap;">${aboutYourself || "(No description provided)"}</p>
+    </div>
+    ${attachmentFilename ? `<p style="color: #475569; font-size: 13px;">A document (<strong>${attachmentFilename}</strong>) has been attached to this email.</p>` : ""}
+    <p style="color: #94a3b8; font-size: 12px; margin: 16px 0 0;">Submitted: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+  `;
+  const attachments = attachmentBase64 && attachmentFilename
+    ? [{ filename: attachmentFilename, content: attachmentBase64 }]
+    : undefined;
+  return sendEmail("career@bullex.tech", `Job Application – ${roleTitle} – ${fullName}`, emailWrapper(body), attachments);
+}
+
+export async function sendJobApplicationAcknowledgement(
+  toEmail: string,
+  fullName: string,
+  roleTitle: string
+): Promise<boolean> {
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Application Received – Thank You</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${fullName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      Thank you for your interest in joining <strong>Bullex Commodity Trading Platform</strong>. We have received your application for the following position:
+    </p>
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #1e40af; margin: 0; font-weight: 600;">Position Applied For</p>
+      <p style="color: #1d4ed8; margin: 8px 0 0; font-size: 16px; font-weight: 600;">${roleTitle}</p>
+    </div>
+    <p style="color: #475569; line-height: 1.6;">
+      Our HR team will carefully review your application and all submitted documents. If your profile matches our requirements, we will be in touch to discuss next steps.
+    </p>
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #166534; margin: 0; font-weight: 600;">What Happens Next?</p>
+      <ul style="color: #15803d; margin: 8px 0 0; font-size: 14px; padding-left: 20px; line-height: 1.8;">
+        <li>Our team reviews your application within 5–7 business days</li>
+        <li>Shortlisted candidates will be contacted for an initial interview</li>
+        <li>All applicants receive a response regardless of outcome</li>
+      </ul>
+    </div>
+    <p style="color: #475569; line-height: 1.6;">
+      If you have any questions, please reach out to our HR team at
+      <a href="mailto:career@bullex.tech" style="color: #2563eb;">career@bullex.tech</a>.
+    </p>
+    <p style="color: #475569; line-height: 1.6;">We appreciate your interest in Bullex and wish you the best of luck.</p>
+  `;
+  return sendEmail(toEmail, `Application Received – ${roleTitle} | Bullex`, emailWrapper(body));
+}
+
 export async function sendSignaturePendingEmail(
   to: string,
   recipientName: string,
