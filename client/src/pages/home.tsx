@@ -101,7 +101,7 @@ export default function Home() {
     "/videos/open-pit-mine-daylight.mp4",
     "/videos/bauxite-mine-guinea-conakry.mp4",
     "/videos/mining-trucks-hauling-ore.mp4",
-    "/videos/bulk-carrier-ocean-massive.mp4",
+    "/videos/bullfrog-bulk-carrier-ocean.mp4",
     "/videos/conveyor-ship-loading-minerals.mp4",
     "/videos/aerial-port-container-ships.mp4",
     "/videos/oil-tanker-daylight.mp4",
