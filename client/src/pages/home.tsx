@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import heroPoster from "@assets/hero-ship-sunshine.png";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -165,31 +166,41 @@ export default function Home() {
     <div className="overflow-y-auto h-full">
 
       {/* ── HERO VIDEO SECTION ── */}
-      <div className="relative h-[90vh] min-h-[560px] overflow-hidden bg-black" data-testid="section-hero">
-        {/* Slot A */}
-        <video
-          ref={videoRefA}
-          autoPlay
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-          style={{
-            opacity: activeSlot === 0 ? 0.85 : 0,
-            filter: "brightness(1.1) saturate(1.15)",
-          }}
-          src={heroVideos[0]}
-        />
-        {/* Slot B */}
-        <video
-          ref={videoRefB}
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-          style={{
-            opacity: activeSlot === 1 ? 0.85 : 0,
-            filter: "brightness(1.1) saturate(1.15)",
-          }}
-        />
+      <div
+        className="relative h-[90vh] min-h-[560px] overflow-hidden"
+        style={{ backgroundImage: `url(${heroPoster})`, backgroundSize: "cover", backgroundPosition: "center" }}
+        data-testid="section-hero"
+      >
+        {/* Slot A wrapper – brightness applied to div, not video */}
+        <div
+          className="absolute inset-0 transition-opacity duration-1000"
+          style={{ opacity: activeSlot === 0 ? 1 : 0, filter: "brightness(1.1) saturate(1.15)" }}
+        >
+          <video
+            ref={videoRefA}
+            autoPlay
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ opacity: 0.85 }}
+            src={heroVideos[0]}
+            poster={heroPoster}
+          />
+        </div>
+        {/* Slot B wrapper */}
+        <div
+          className="absolute inset-0 transition-opacity duration-1000"
+          style={{ opacity: activeSlot === 1 ? 1 : 0, filter: "brightness(1.1) saturate(1.15)" }}
+        >
+          <video
+            ref={videoRefB}
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ opacity: 0.85 }}
+            poster={heroPoster}
+          />
+        </div>
         <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/20 to-black/65" />
 
         <div className="relative z-10 h-full flex flex-col justify-center px-6">
