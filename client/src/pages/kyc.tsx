@@ -597,7 +597,7 @@ export default function KYC() {
               </h3>
               <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className={labelClass}>Indicative Capital Range *</Label>
+                  <Label className={labelClass}>Indicative Capital Range</Label>
                   <Select value={form.capitalRange} onValueChange={(v) => update("capitalRange", v)}>
                     <SelectTrigger className={inputClass} data-testid="select-capital-range">
                       <SelectValue placeholder="Select range..." />
