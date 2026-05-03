@@ -11,12 +11,18 @@ import {
   Truck,
   Shield,
 } from "lucide-react";
+import mineralsDivisionImg from "@assets/products/minerals-division.png";
+import metalsDivisionImg from "@assets/products/metals-division.png";
+import energyDivisionImg from "@assets/products/energy-products-division.png";
+import petroDivisionImg from "@assets/products/petrochemicals-division.png";
+import fertilizersDivisionImg from "@assets/products/fertilizers-division.png";
 
 const divisions = [
   {
     id: "minerals",
     title: "Minerals Division",
     icon: Mountain,
+    image: mineralsDivisionImg,
     color: "from-stone-700/20 to-stone-900/10",
     accent: "text-stone-600 dark:text-stone-400",
     accentBg: "bg-stone-600/10",
@@ -44,6 +50,7 @@ const divisions = [
     id: "metals",
     title: "Metals Division",
     icon: Gem,
+    image: metalsDivisionImg,
     color: "from-sky-700/20 to-sky-900/10",
     accent: "text-sky-600 dark:text-sky-400",
     accentBg: "bg-sky-600/10",
@@ -71,6 +78,7 @@ const divisions = [
     id: "energy-products",
     title: "Energy Products",
     icon: Flame,
+    image: energyDivisionImg,
     color: "from-orange-700/20 to-orange-900/10",
     accent: "text-orange-600 dark:text-orange-400",
     accentBg: "bg-orange-600/10",
@@ -108,6 +116,7 @@ const divisions = [
     id: "petrochemicals",
     title: "Petrochemicals",
     icon: Droplets,
+    image: petroDivisionImg,
     color: "from-slate-700/20 to-slate-900/10",
     accent: "text-slate-600 dark:text-slate-400",
     accentBg: "bg-slate-600/10",
@@ -130,6 +139,7 @@ const divisions = [
     id: "fertilizers",
     title: "Fertilizers",
     icon: Sprout,
+    image: fertilizersDivisionImg,
     color: "from-teal-700/20 to-teal-900/10",
     accent: "text-teal-700 dark:text-teal-400",
     accentBg: "bg-teal-700/10",
@@ -240,16 +250,26 @@ export default function Products() {
                 data-testid={`division-${division.id}`}
               >
                 <div className="w-full md:w-2/5">
-                  <div
-                    className={`relative h-[280px] w-full rounded-md overflow-hidden bg-gradient-to-br ${division.color} border border-border flex flex-col items-center justify-center`}
-                  >
-                    <Icon className={`w-16 h-16 ${division.accent} mb-4 opacity-60`} />
-                    <p className={`text-sm font-bold uppercase tracking-widest ${division.accent}`}>
-                      {division.title.replace(" Division", "")}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {division.products.length} commodity product{division.products.length !== 1 ? "s" : ""}
-                    </p>
+                  <div className="relative h-[280px] w-full rounded-md overflow-hidden border border-border">
+                    <img
+                      src={division.image}
+                      alt={division.title}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-4 flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-md ${division.accentBg} backdrop-blur-sm flex items-center justify-center flex-shrink-0`}>
+                        <Icon className={`w-4 h-4 ${division.accent}`} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white leading-tight">
+                          {division.title}
+                        </p>
+                        <p className="text-xs text-white/70">
+                          {division.products.length} commodity product{division.products.length !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

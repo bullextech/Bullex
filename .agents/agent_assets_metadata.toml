@@ -12,6 +12,36 @@ uri = "file://public/hero-ship-sunshine.png"
 type = "image"
 title = "hero ship sunshine"
 
+[[generated]]
+id = "_UBV-CSaglpWMseIx8Iv4"
+uri = "file://attached_assets/products/minerals-division.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "FHdjNWtbwJCaufZhL_s-M"
+uri = "file://attached_assets/products/fertilizers-division.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "nmnAEhh5wYwfv3ymOyv0C"
+uri = "file://attached_assets/products/metals-division.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "TY4jGoVUN8TGwyB2WCAV3"
+uri = "file://attached_assets/products/petrochemicals-division.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "Z3ZIkS7PfeysEYQru6AGv"
+uri = "file://attached_assets/products/energy-products-division.png"
+type = "image"
+title = "generated_image"
+
 [[outputs]]
 id = "3Fvya6PnNsRNSQTyjrXjY"
 uri = "file://attached_assets/bullex-logo.png"
