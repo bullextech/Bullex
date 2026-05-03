@@ -756,7 +756,7 @@ export default function KYC() {
               </h3>
               <div className="mt-6 space-y-6">
                 <div className="space-y-2">
-                  <Label className={labelClass}>Is your company subject to AML/CFT regulations? *</Label>
+                  <Label className={labelClass}>Is your company subject to AML/CFT regulations?</Label>
                   <Select value={form.amlSubject} onValueChange={(v) => update("amlSubject", v)}>
                     <SelectTrigger className={inputClass} data-testid="select-aml-subject">
                       <SelectValue placeholder="Select..." />
@@ -768,7 +768,7 @@ export default function KYC() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className={labelClass}>Does your company have an AML/CFT conformity program? *</Label>
+                  <Label className={labelClass}>Does your company have an AML/CFT conformity program?</Label>
                   <Select value={form.amlConformityProgram} onValueChange={(v) => update("amlConformityProgram", v)}>
                     <SelectTrigger className={inputClass} data-testid="select-aml-conformity">
                       <SelectValue placeholder="Select..." />
@@ -780,11 +780,11 @@ export default function KYC() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className={labelClass}>Name of AML/CFT Regulator *</Label>
+                  <Label className={labelClass}>Name of AML/CFT Regulator</Label>
                   <Input className={inputClass} placeholder="Regulatory authority name" value={form.amlRegulator} onChange={(e) => update("amlRegulator", e.target.value)} data-testid="input-aml-regulator" />
                 </div>
                 <div className="space-y-2">
-                  <Label className={labelClass}>Applicable AML/CFT Law Name *</Label>
+                  <Label className={labelClass}>Applicable AML/CFT Law Name</Label>
                   <Input className={inputClass} placeholder="Name of applicable law / regulation" value={form.amlLawName} onChange={(e) => update("amlLawName", e.target.value)} data-testid="input-aml-law" />
                 </div>
               </div>
@@ -976,12 +976,6 @@ export default function KYC() {
                   if (activeTab === 6) {
                     if (!form.previousBullfrogEmployee.trim()) {
                       toast({ title: "Required Field", description: "Please select whether you are a previous Bullfrog Group employee before proceeding.", variant: "destructive" });
-                      return;
-                    }
-                  }
-                  if (activeTab === 7) {
-                    if (!form.amlSubject.trim() || !form.amlConformityProgram.trim() || !form.amlRegulator.trim() || !form.amlLawName.trim()) {
-                      toast({ title: "Required Fields", description: "All Compliance Questionnaire fields are mandatory. Please complete every field before proceeding.", variant: "destructive" });
                       return;
                     }
                   }
