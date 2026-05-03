@@ -99,7 +99,7 @@ export default function Home() {
 
   const heroVideos = [
     "/videos/open-pit-mine-daylight.mp4",
-    "/videos/ship-loading-port-daylight.mp4",
+    "/videos/bauxite-mine-guinea-conakry.mp4",
     "/videos/mining-trucks-hauling-ore.mp4",
     "/videos/bulk-carrier-ocean-sunny.mp4",
     "/videos/conveyor-ship-loading-minerals.mp4",
