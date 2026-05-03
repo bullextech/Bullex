@@ -98,12 +98,12 @@ export default function Home() {
   const [activeSlot, setActiveSlot] = useState(0);
 
   const heroVideos = [
-    "/videos/cargo-ship-ocean.mp4",
-    "/videos/bulk-carrier-vessel-sunrise.mp4",
-    "/videos/oil-tanker-sunrise.mp4",
-    "/videos/oil-tanker-sunset.mp4",
-    "/videos/mining-operation.mp4",
-    "/videos/port-terminal-night.mp4",
+    "/videos/open-pit-mine-daylight.mp4",
+    "/videos/ship-loading-port-daylight.mp4",
+    "/videos/mining-trucks-hauling-ore.mp4",
+    "/videos/bulk-carrier-ocean-sunny.mp4",
+    "/videos/conveyor-ship-loading-minerals.mp4",
+    "/videos/aerial-port-container-ships.mp4",
   ];
 
   const getVideoRef = (slot: number) => slot === 0 ? videoRefA : videoRefB;
