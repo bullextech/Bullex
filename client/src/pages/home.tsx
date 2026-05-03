@@ -130,8 +130,6 @@ export default function Home() {
 
   useEffect(() => {
     videoRefA.current?.play().catch(() => {});
-    const timer = setInterval(advanceHeroVideo, 8000);
-    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -185,6 +183,7 @@ export default function Home() {
             style={{ opacity: 0.85 }}
             src={heroVideos[0]}
             poster={heroPoster}
+            onEnded={advanceHeroVideo}
           />
         </div>
         {/* Slot B wrapper */}
@@ -199,6 +198,7 @@ export default function Home() {
             className="absolute inset-0 w-full h-full object-cover"
             style={{ opacity: 0.85 }}
             poster={heroPoster}
+            onEnded={advanceHeroVideo}
           />
         </div>
         <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/20 to-black/65" />
