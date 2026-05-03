@@ -104,6 +104,7 @@ export default function Home() {
     "/videos/bulk-carrier-ocean-sunny.mp4",
     "/videos/conveyor-ship-loading-minerals.mp4",
     "/videos/aerial-port-container-ships.mp4",
+    "/videos/oil-tanker-daylight.mp4",
   ];
 
   const getVideoRef = (slot: number) => slot === 0 ? videoRefA : videoRefB;
