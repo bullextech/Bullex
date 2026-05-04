@@ -9,6 +9,7 @@ import {
   Layers,
   UserPlus,
   Users,
+  UserCheck,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -25,6 +26,7 @@ const mainNavItems = [
 
 const adminOnlyItems = [
   { title: "Team Members", url: "/team-members", icon: Users },
+  { title: "Team KYC", url: "/team-kyc-admin", icon: UserCheck },
 ];
 
 export function AdminSidebar() {

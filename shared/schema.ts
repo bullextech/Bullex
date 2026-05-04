@@ -302,6 +302,56 @@ export const insertDocumentSchema = createInsertSchema(documents).omit({
   createdAt: true,
 });
 
+export const teamKycApplications = pgTable("team_kyc_applications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fullName: text("full_name").notNull(),
+  dateOfBirth: text("date_of_birth"),
+  gender: text("gender"),
+  nationality: text("nationality"),
+  passportNumber: text("passport_number"),
+  maritalStatus: text("marital_status"),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  homeAddress: text("home_address"),
+  city: text("city"),
+  country: text("country"),
+  positionApplied: text("position_applied"),
+  department: text("department"),
+  employmentType: text("employment_type"),
+  expectedStartDate: text("expected_start_date"),
+  highestQualification: text("highest_qualification"),
+  institution: text("institution"),
+  graduationYear: text("graduation_year"),
+  previousEmployer: text("previous_employer"),
+  previousRole: text("previous_role"),
+  yearsExperience: text("years_experience"),
+  emergencyName: text("emergency_name"),
+  emergencyRelationship: text("emergency_relationship"),
+  emergencyPhone: text("emergency_phone"),
+  bankName: text("bank_name"),
+  bankBranch: text("bank_branch"),
+  payrollAccountName: text("payroll_account_name"),
+  payrollAccountNumber: text("payroll_account_number"),
+  payrollSwift: text("payroll_swift"),
+  additionalNotes: text("additional_notes"),
+  status: text("status").notNull().default("pending"),
+  reviewNotes: text("review_notes"),
+  teamUsername: text("team_username"),
+  teamPassword: text("team_password"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertTeamKycSchema = createInsertSchema(teamKycApplications).omit({
+  id: true,
+  status: true,
+  reviewNotes: true,
+  teamUsername: true,
+  teamPassword: true,
+  createdAt: true,
+});
+export type InsertTeamKyc = z.infer<typeof insertTeamKycSchema>;
+export type TeamKycApplication = typeof teamKycApplications.$inferSelect;
+
 export const teamMembers = pgTable("team_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
@@ -318,6 +368,7 @@ export type TeamMember = typeof teamMembers.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+// TeamKycApplication types already defined above
 export type KycApplication = typeof kycApplications.$inferSelect;
 export type InsertKyc = z.infer<typeof insertKycSchema>;
 export type Trade = typeof trades.$inferSelect;

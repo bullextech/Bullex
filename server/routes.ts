@@ -264,6 +264,55 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
+  app.get("/api/team-kyc", requireAdminAuth, async (req, res) => {
+    const apps = await storage.getTeamKycApplications();
+    res.json(apps.map(a => ({ ...a, teamPassword: undefined })));
+  });
+
+  app.post("/api/team-kyc", async (req, res) => {
+    try {
+      const { fullName, email, ...rest } = req.body;
+      if (!fullName || !email) {
+        return res.status(400).json({ message: "fullName and email are required" });
+      }
+      const app = await storage.createTeamKycApplication({ fullName, email, ...rest });
+      res.json(app);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to submit application" });
+    }
+  });
+
+  app.patch("/api/team-kyc/:id", requireAdminAuth, async (req, res) => {
+    try {
+      const { status, reviewNotes, teamUsername, teamPassword } = req.body;
+      const app = await storage.getTeamKycApplicationById(req.params.id);
+      if (!app) return res.status(404).json({ message: "Application not found" });
+
+      const updated = await storage.updateTeamKycStatus(
+        req.params.id, status, reviewNotes, teamUsername, teamPassword
+      );
+
+      if (status === "approved" && teamUsername && teamPassword) {
+        try {
+          const existing = await storage.getTeamMemberByUsername(teamUsername);
+          if (!existing) {
+            await storage.createTeamMember({
+              username: teamUsername,
+              password: teamPassword,
+              name: app.fullName,
+              department: app.department || null,
+              email: app.email || null,
+            });
+          }
+        } catch (_) {}
+      }
+
+      res.json({ ...updated, teamPassword: undefined });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to update application" });
+    }
+  });
+
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy(() => {
       res.json({ authenticated: false });

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Shield, ShieldCheck, Building2, Users, Lock, LogIn, Loader2 } from "lucide-react";
+import { Shield, ShieldCheck, Building2, Users, Lock, LogIn, Loader2, UserCheck } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useClientAuth } from "@/hooks/use-client-auth";
 
@@ -227,9 +227,17 @@ export default function Platform() {
                     )}
                   </Button>
                 </form>
-                <p className="text-[10px] text-muted-foreground text-center mt-6">
-                  Team credentials are provided by your administrator.
-                </p>
+                <div className="mt-6 pt-4 border-t border-border">
+                  <p className="text-[10px] text-muted-foreground text-center mb-3">
+                    Team credentials are provided by your administrator after KYC review.
+                  </p>
+                  <Link href="/team-kyc">
+                    <Button variant="outline" className="w-full rounded-none h-10 text-xs font-bold uppercase tracking-wider" data-testid="button-team-kyc-link">
+                      <UserCheck className="w-4 h-4 mr-2" />
+                      New Staff? Complete Team KYC Form
+                    </Button>
+                  </Link>
+                </div>
               </>
             )}
 

@@ -38,6 +38,9 @@ import {
   teamMembers,
   type TeamMember,
   type InsertTeamMember,
+  teamKycApplications,
+  type TeamKycApplication,
+  type InsertTeamKyc,
 } from "@shared/schema";
 
 const pool = new pg.Pool({
@@ -123,6 +126,11 @@ export interface IStorage {
   getTeamMemberByUsername(username: string): Promise<TeamMember | undefined>;
   createTeamMember(member: InsertTeamMember): Promise<TeamMember>;
   deleteTeamMember(id: string): Promise<void>;
+
+  getTeamKycApplications(): Promise<TeamKycApplication[]>;
+  getTeamKycApplicationById(id: string): Promise<TeamKycApplication | undefined>;
+  createTeamKycApplication(app: InsertTeamKyc): Promise<TeamKycApplication>;
+  updateTeamKycStatus(id: string, status: string, reviewNotes?: string, teamUsername?: string, teamPassword?: string): Promise<TeamKycApplication>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -585,6 +593,29 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTeamMember(id: string): Promise<void> {
     await db.delete(teamMembers).where(eq(teamMembers.id, id));
+  }
+
+  async getTeamKycApplications(): Promise<TeamKycApplication[]> {
+    return db.select().from(teamKycApplications).orderBy(desc(teamKycApplications.createdAt));
+  }
+
+  async getTeamKycApplicationById(id: string): Promise<TeamKycApplication | undefined> {
+    const [app] = await db.select().from(teamKycApplications).where(eq(teamKycApplications.id, id));
+    return app;
+  }
+
+  async createTeamKycApplication(app: InsertTeamKyc): Promise<TeamKycApplication> {
+    const [created] = await db.insert(teamKycApplications).values(app).returning();
+    return created;
+  }
+
+  async updateTeamKycStatus(id: string, status: string, reviewNotes?: string, teamUsername?: string, teamPassword?: string): Promise<TeamKycApplication> {
+    const updateData: any = { status };
+    if (reviewNotes !== undefined) updateData.reviewNotes = reviewNotes;
+    if (teamUsername !== undefined) updateData.teamUsername = teamUsername;
+    if (teamPassword !== undefined) updateData.teamPassword = teamPassword;
+    const [updated] = await db.update(teamKycApplications).set(updateData).where(eq(teamKycApplications.id, id)).returning();
+    return updated;
   }
 }
 
