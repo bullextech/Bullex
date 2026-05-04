@@ -35,7 +35,7 @@ export default function Login() {
             <Shield className="w-7 h-7 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-login-title">BULLEX</h1>
-          <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mt-1">Admin Access</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mt-1">Platform Access</p>
         </div>
 
         <Card className="border">

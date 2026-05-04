@@ -24,7 +24,7 @@ const publicNavItems = [
 
 export function TopNavbar() {
   const [location] = useLocation();
-  const { authenticated, username, logout } = useAuth();
+  const { authenticated, username, role, logout } = useAuth();
 
   return (
     <header className="border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-50 flex-shrink-0">
@@ -43,7 +43,7 @@ export function TopNavbar() {
           /* When logged in — no nav links, just spacer + user controls */
           <>
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border border-border rounded px-1.5 py-0.5 flex-shrink-0 hidden sm:inline">
-              Admin
+              {role === "team" ? "Team Member" : "Admin"}
             </span>
             <div className="flex-1" />
           </>

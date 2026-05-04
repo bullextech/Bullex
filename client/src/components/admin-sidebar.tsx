@@ -44,7 +44,7 @@ export function AdminSidebar() {
     <aside className="w-52 flex-shrink-0 border-r border-border bg-background flex flex-col h-full overflow-y-auto">
       <div className="px-3 pt-5 pb-2">
         <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground px-2 mb-2">
-          Administration
+          {role === "team" ? "My Modules" : "Administration"}
         </p>
         <nav className="space-y-0.5">
           {allItems.map((item) => {
