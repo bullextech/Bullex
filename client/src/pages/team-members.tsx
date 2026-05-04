@@ -409,6 +409,152 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
           {/* Review & Action */}
           {kycTab === "review" && (
             <div className="space-y-5">
+              {/* ── Information Completeness Checklist ── */}
+              {(() => {
+                const has = (v: string | null | undefined | boolean) => v !== null && v !== undefined && v !== "" && v !== false;
+                const sections = [
+                  {
+                    label: "Passport Photo",
+                    icon: Camera,
+                    filled: has(app.photoStoredName),
+                    detail: app.photoOriginalName || null,
+                  },
+                  {
+                    label: "Personal Details",
+                    icon: User,
+                    items: [
+                      { name: "Date of Birth", v: app.dateOfBirth },
+                      { name: "Gender", v: app.gender },
+                      { name: "Nationality", v: app.nationality },
+                      { name: "Passport / ID No.", v: app.passportNumber },
+                      { name: "Marital Status", v: app.maritalStatus },
+                    ],
+                  },
+                  {
+                    label: "Contact Information",
+                    icon: Phone,
+                    items: [
+                      { name: "Phone", v: app.phone },
+                      { name: "Home Address", v: app.homeAddress },
+                      { name: "City", v: app.city },
+                      { name: "Country", v: app.country },
+                    ],
+                  },
+                  {
+                    label: "Employment Details",
+                    icon: Briefcase,
+                    items: [
+                      { name: "Position Applied", v: app.positionApplied },
+                      { name: "Department", v: app.department },
+                      { name: "Employment Type", v: app.employmentType },
+                      { name: "Expected Start Date", v: app.expectedStartDate },
+                    ],
+                  },
+                  {
+                    label: "Education & Experience",
+                    icon: GraduationCap,
+                    items: [
+                      { name: "Qualification", v: app.highestQualification },
+                      { name: "Institution", v: app.institution },
+                      { name: "Graduation Year", v: app.graduationYear },
+                      { name: "Previous Employer", v: app.previousEmployer },
+                      { name: "Previous Role", v: app.previousRole },
+                      { name: "Years Experience", v: app.yearsExperience },
+                    ],
+                  },
+                  {
+                    label: "Emergency Contact",
+                    icon: Heart,
+                    items: [
+                      { name: "Name", v: app.emergencyName },
+                      { name: "Relationship", v: app.emergencyRelationship },
+                      { name: "Phone", v: app.emergencyPhone },
+                    ],
+                  },
+                  {
+                    label: "Bank Details",
+                    icon: Landmark,
+                    items: [
+                      { name: "Bank Name", v: app.bankName },
+                      { name: "Branch", v: app.bankBranch },
+                      { name: "Account Name", v: app.payrollAccountName },
+                      { name: "Account Number", v: app.payrollAccountNumber },
+                      { name: "SWIFT / BIC", v: app.payrollSwift },
+                    ],
+                  },
+                  {
+                    label: "Declaration",
+                    icon: PenTool,
+                    filled: has(app.declarationAgreed) && has(app.declarationName),
+                    detail: app.declarationAgreed ? `Signed by ${app.declarationName || "—"}` : null,
+                  },
+                  {
+                    label: "Documents Uploaded",
+                    icon: FileText,
+                    filled: kycDocs.length > 0,
+                    detail: kycDocs.length > 0 ? `${kycDocs.length} file${kycDocs.length !== 1 ? "s" : ""}` : null,
+                  },
+                ];
+
+                return (
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <div className="px-4 py-3 border-b border-border bg-muted/30">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Application Information Checklist</p>
+                    </div>
+                    <div className="divide-y divide-border">
+                      {sections.map(sec => {
+                        const Icon = sec.icon;
+                        let filled: boolean;
+                        let filledCount: number | null = null;
+                        let totalCount: number | null = null;
+
+                        if ("items" in sec && sec.items) {
+                          filledCount = sec.items.filter(i => has(i.v)).length;
+                          totalCount = sec.items.length;
+                          filled = filledCount > 0;
+                        } else {
+                          filled = sec.filled ?? false;
+                        }
+
+                        return (
+                          <div key={sec.label} className="flex items-center gap-3 px-4 py-2.5">
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${filled ? "bg-green-100 dark:bg-green-900/40" : "bg-muted"}`}>
+                              {filled
+                                ? <CheckCircle2 className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                                : <AlertCircle className="w-3 h-3 text-muted-foreground" />
+                              }
+                            </div>
+                            <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${filled ? "text-foreground" : "text-muted-foreground"}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs font-medium ${filled ? "text-foreground" : "text-muted-foreground"}`}>{sec.label}</p>
+                              {filled && ("items" in sec && sec.items) && (
+                                <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                  {sec.items.filter(i => has(i.v)).map(i => i.name).join(" · ")}
+                                </p>
+                              )}
+                              {filled && sec.detail && (
+                                <p className="text-[10px] text-muted-foreground mt-0.5">{sec.detail}</p>
+                              )}
+                            </div>
+                            <div className="flex-shrink-0 text-right">
+                              {filledCount !== null && totalCount !== null ? (
+                                <span className={`text-[10px] font-bold ${filledCount === totalCount ? "text-green-600 dark:text-green-400" : filledCount > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
+                                  {filledCount}/{totalCount}
+                                </span>
+                              ) : (
+                                <span className={`text-[10px] font-bold ${filled ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+                                  {filled ? "✓" : "—"}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {app.status === "approved" && app.teamUsername ? (
                 <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                   <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
