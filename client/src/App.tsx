@@ -90,6 +90,7 @@ function Router() {
       <Route path="/vault">{() => <ModuleRoute component={Vault} moduleId="vault" />}</Route>
       <Route path="/blockchain">{() => <ModuleRoute component={Blockchain} moduleId="blockchain" />}</Route>
       <Route path="/team-members">{() => <ProtectedRoute component={TeamMembers} />}</Route>
+      <Route path="/products" component={Products} />
       <Route path="/platform" component={Platform} />
       <Route path="/client-portal" component={ClientPortal} />
       <Route path="/investor" component={Investor} />
