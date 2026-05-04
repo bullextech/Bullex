@@ -164,15 +164,36 @@ export default function TeamKYC() {
       if (photoFile && appId) {
         const fd = new FormData();
         fd.append("photo", photoFile);
-        await fetch(`/api/team-kyc/${appId}/photo`, { method: "PATCH", body: fd });
+        const photoRes = await fetch(`/api/team-kyc/${appId}/photo`, { method: "PATCH", body: fd });
+        if (!photoRes.ok) {
+          const photoErr = await photoRes.json().catch(() => ({}));
+          console.warn("[KYC] photo upload failed:", photoErr.message);
+          toast({
+            title: "Photo Upload Issue",
+            description: photoErr.message || "Photo could not be uploaded. Application was still submitted.",
+            variant: "destructive",
+          });
+        }
       }
 
       // Step 3: Upload documents if provided
+      const docErrors: string[] = [];
       for (const doc of pendingDocs) {
         const fd = new FormData();
         fd.append("file", doc.file);
         fd.append("docType", doc.docType);
-        await fetch(`/api/team-kyc/${appId}/documents`, { method: "POST", body: fd });
+        const docRes = await fetch(`/api/team-kyc/${appId}/documents`, { method: "POST", body: fd });
+        if (!docRes.ok) {
+          const docErr = await docRes.json().catch(() => ({}));
+          docErrors.push(`${doc.file.name}: ${docErr.message || "failed"}`);
+        }
+      }
+      if (docErrors.length > 0) {
+        toast({
+          title: `${docErrors.length} Document(s) Failed`,
+          description: docErrors.join("; "),
+          variant: "destructive",
+        });
       }
 
       setSubmitted(true);

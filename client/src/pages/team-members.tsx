@@ -152,7 +152,7 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
   const { data: kycDocs = [] } = useQuery<TeamKycDoc[]>({
     queryKey: ["/api/team-kyc", app.id, "documents"],
     queryFn: () =>
-      fetch(`/api/team-kyc/${app.id}/documents`, { credentials: "include" }).then(r => r.json()),
+      fetch(`/api/team-kyc/${app.id}/documents`, { credentials: "include", cache: "no-store" }).then(r => r.json()),
   });
 
   const reviewMutation = useMutation({
@@ -556,6 +556,8 @@ export default function TeamMembersPage() {
   // KYC queries
   const { data: kycApps = [], isLoading: kycLoading } = useQuery<TeamKycApp[]>({
     queryKey: ["/api/team-kyc"],
+    queryFn: () =>
+      fetch("/api/team-kyc", { credentials: "include", cache: "no-store" }).then(r => r.json()),
   });
 
   const filteredKyc = kycFilter === "all" ? kycApps : kycApps.filter(a => a.status === kycFilter);

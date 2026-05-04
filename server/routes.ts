@@ -93,28 +93,44 @@ if (!fs.existsSync(tradeUploadsDir)) fs.mkdirSync(tradeUploadsDir, { recursive: 
 if (!fs.existsSync(enquiryUploadsDir)) fs.mkdirSync(enquiryUploadsDir, { recursive: true });
 if (!fs.existsSync(hrUploadsDir)) fs.mkdirSync(hrUploadsDir, { recursive: true });
 
-const allowedExts = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx", ".xls", ".xlsx"];
+const allowedExts = [".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".doc", ".docx", ".xls", ".xlsx"];
+const photoExts = [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"];
 
-function createUploader(destDir: string, prefix: string) {
+function createUploader(destDir: string, prefix: string, photoOnly = false) {
   return multer({
     storage: multer.diskStorage({
       destination: (_req, _file, cb) => cb(null, destDir),
       filename: (_req, file, cb) => {
         const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-        const ext = path.extname(file.originalname);
+        const ext = path.extname(file.originalname).toLowerCase() || ".bin";
         cb(null, `${prefix}-${uniqueSuffix}${ext}`);
       },
     }),
     limits: { fileSize: 10 * 1024 * 1024 },
     fileFilter: (_req, file, cb) => {
       const ext = path.extname(file.originalname).toLowerCase();
-      if (allowedExts.includes(ext)) {
+      const allowed = photoOnly ? photoExts : allowedExts;
+      if (allowed.includes(ext)) {
         cb(null, true);
       } else {
-        cb(new Error("File type not allowed. Accepted: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX"));
+        cb(new Error(
+          photoOnly
+            ? "Photo must be JPG, PNG, or WEBP"
+            : "File type not allowed. Accepted: PDF, JPG, PNG, WEBP, DOC, DOCX, XLS, XLSX"
+        ));
       }
     },
   });
+}
+
+function handleMulterError(err: any, res: any) {
+  if (err && (err.code === "LIMIT_FILE_SIZE" || err instanceof multer.MulterError)) {
+    return res.status(400).json({ message: err.message || "File too large (max 10MB)" });
+  }
+  if (err) {
+    return res.status(400).json({ message: err.message || "File upload error" });
+  }
+  return false;
 }
 
 const teamUploadsDir = path.join(process.cwd(), "uploads", "team");
@@ -125,6 +141,7 @@ const tradeUpload = createUploader(tradeUploadsDir, "trade");
 const enquiryUpload = createUploader(enquiryUploadsDir, "enquiry");
 const hrUpload = createUploader(hrUploadsDir, "hr");
 const teamUpload = createUploader(teamUploadsDir, "team");
+const teamPhotoUpload = createUploader(teamUploadsDir, "team-photo", true);
 
 const VALID_KYC_DOC_TYPES = [
   "certificate_of_incorporation",
@@ -278,25 +295,28 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/team/members/:id/photo", requireAdminAuth, teamUpload.single("photo"), async (req, res) => {
-    const file = req.file;
-    try {
-      if (!file) return res.status(400).json({ message: "No file uploaded" });
-      const member = await storage.getTeamMemberById(req.params.id);
-      if (!member) {
-        fs.unlinkSync(path.join(teamUploadsDir, file.filename));
-        return res.status(404).json({ message: "Member not found" });
+  app.post("/api/team/members/:id/photo", requireAdminAuth, (req, res) => {
+    teamPhotoUpload.single("photo")(req, res, async (err) => {
+      if (handleMulterError(err, res)) return;
+      const file = req.file;
+      try {
+        if (!file) return res.status(400).json({ message: "No file uploaded" });
+        const member = await storage.getTeamMemberById(req.params.id);
+        if (!member) {
+          fs.unlinkSync(path.join(teamUploadsDir, file.filename));
+          return res.status(404).json({ message: "Member not found" });
+        }
+        if (member.photoStoredName) {
+          const oldPath = path.join(teamUploadsDir, member.photoStoredName);
+          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        }
+        const updated = await storage.updateTeamMemberPhoto(req.params.id, file.filename);
+        res.json({ ...updated, password: undefined });
+      } catch (e: any) {
+        if (file) { const fp = path.join(teamUploadsDir, file.filename); if (fs.existsSync(fp)) fs.unlinkSync(fp); }
+        res.status(500).json({ message: e.message });
       }
-      if (member.photoStoredName) {
-        const oldPath = path.join(teamUploadsDir, member.photoStoredName);
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-      }
-      const updated = await storage.updateTeamMemberPhoto(req.params.id, file.filename);
-      res.json({ ...updated, password: undefined });
-    } catch (err: any) {
-      if (file) { const fp = path.join(teamUploadsDir, file.filename); if (fs.existsSync(fp)) fs.unlinkSync(fp); }
-      res.status(500).json({ message: err.message });
-    }
+    });
   });
 
   app.get("/api/team/members/:id/photo", requireAdminAuth, async (req, res) => {
@@ -385,6 +405,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/team-kyc", requireAdminAuth, async (req, res) => {
+    res.set("Cache-Control", "no-store");
     const apps = await storage.getTeamKycApplications();
     res.json(apps.map(a => ({ ...a, teamPassword: undefined })));
   });
@@ -424,34 +445,38 @@ export async function registerRoutes(
   });
 
   // Public photo upload for team KYC application
-  app.patch("/api/team-kyc/:id/photo", teamUpload.single("photo"), async (req, res) => {
-    const file = req.file;
-    try {
-      if (!file) return res.status(400).json({ message: "No file uploaded" });
-      const app = await storage.getTeamKycApplicationById(req.params.id);
-      if (!app) {
-        fs.unlinkSync(path.join(teamUploadsDir, file.filename));
-        return res.status(404).json({ message: "Application not found" });
+  app.patch("/api/team-kyc/:id/photo", (req, res) => {
+    teamPhotoUpload.single("photo")(req, res, async (err) => {
+      if (handleMulterError(err, res)) return;
+      const file = req.file;
+      try {
+        if (!file) return res.status(400).json({ message: "No file uploaded" });
+        const app = await storage.getTeamKycApplicationById(req.params.id);
+        if (!app) {
+          fs.unlinkSync(path.join(teamUploadsDir, file.filename));
+          return res.status(404).json({ message: "Application not found" });
+        }
+        if (app.photoStoredName) {
+          const oldPath = path.join(teamUploadsDir, app.photoStoredName);
+          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        }
+        const updated = await storage.updateTeamKycPhoto(req.params.id, file.filename, file.originalname);
+        res.json({ id: updated.id, photoOriginalName: updated.photoOriginalName });
+      } catch (e: any) {
+        if (file) { const fp = path.join(teamUploadsDir, file.filename); if (fs.existsSync(fp)) fs.unlinkSync(fp); }
+        res.status(500).json({ message: e.message });
       }
-      if (app.photoStoredName) {
-        const oldPath = path.join(teamUploadsDir, app.photoStoredName);
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-      }
-      const updated = await storage.updateTeamKycPhoto(req.params.id, file.filename, file.originalname);
-      res.json({ id: updated.id, photoOriginalName: updated.photoOriginalName });
-    } catch (err: any) {
-      if (file) { const fp = path.join(teamUploadsDir, file.filename); if (fs.existsSync(fp)) fs.unlinkSync(fp); }
-      res.status(500).json({ message: err.message });
-    }
+    });
   });
 
-  // Serve photo for team KYC application (admin only)
-  app.get("/api/team-kyc/:id/photo", requireAdminAuth, async (req, res) => {
+  // Serve photo for team KYC application (no auth — UUID provides security-by-obscurity)
+  app.get("/api/team-kyc/:id/photo", async (req, res) => {
     try {
       const app = await storage.getTeamKycApplicationById(req.params.id);
       if (!app || !app.photoStoredName) return res.status(404).json({ message: "No photo" });
       const filePath = path.join(teamUploadsDir, app.photoStoredName);
       if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
+      res.set("Cache-Control", "public, max-age=3600");
       res.sendFile(filePath);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -459,28 +484,31 @@ export async function registerRoutes(
   });
 
   // Public document upload for team KYC application
-  app.post("/api/team-kyc/:id/documents", teamUpload.single("file"), async (req, res) => {
-    const file = req.file;
-    try {
-      if (!file) return res.status(400).json({ message: "No file uploaded" });
-      const app = await storage.getTeamKycApplicationById(req.params.id);
-      if (!app) {
-        fs.unlinkSync(path.join(teamUploadsDir, file.filename));
-        return res.status(404).json({ message: "Application not found" });
+  app.post("/api/team-kyc/:id/documents", (req, res) => {
+    teamUpload.single("file")(req, res, async (err) => {
+      if (handleMulterError(err, res)) return;
+      const file = req.file;
+      try {
+        if (!file) return res.status(400).json({ message: "No file uploaded" });
+        const app = await storage.getTeamKycApplicationById(req.params.id);
+        if (!app) {
+          fs.unlinkSync(path.join(teamUploadsDir, file.filename));
+          return res.status(404).json({ message: "Application not found" });
+        }
+        const doc = await storage.createTeamKycDocument({
+          applicationId: req.params.id,
+          docType: req.body.docType || "other",
+          originalName: file.originalname,
+          storedName: file.filename,
+          mimeType: file.mimetype,
+          size: file.size,
+        });
+        res.json(doc);
+      } catch (e: any) {
+        if (file) { const fp = path.join(teamUploadsDir, file.filename); if (fs.existsSync(fp)) fs.unlinkSync(fp); }
+        res.status(500).json({ message: e.message });
       }
-      const doc = await storage.createTeamKycDocument({
-        applicationId: req.params.id,
-        docType: req.body.docType || "other",
-        originalName: file.originalname,
-        storedName: file.filename,
-        mimeType: file.mimetype,
-        size: file.size,
-      });
-      res.json(doc);
-    } catch (err: any) {
-      if (file) { const fp = path.join(teamUploadsDir, file.filename); if (fs.existsSync(fp)) fs.unlinkSync(fp); }
-      res.status(500).json({ message: err.message });
-    }
+    });
   });
 
   // List documents for a team KYC application (admin only)
