@@ -827,7 +827,9 @@ export default function TeamMembersPage() {
   const { data: kycApps = [], isLoading: kycLoading } = useQuery<TeamKycApp[]>({
     queryKey: ["/api/team-kyc"],
     queryFn: () =>
-      fetch("/api/team-kyc", { credentials: "include", cache: "no-store" }).then(r => r.json()),
+      fetch("/api/team-kyc", { credentials: "include", cache: "no-store" })
+        .then(r => r.json())
+        .then(d => Array.isArray(d) ? d : []),
   });
 
   const filteredKyc = kycFilter === "all" ? kycApps : kycApps.filter(a => a.status === kycFilter);
