@@ -337,6 +337,8 @@ export const teamKycApplications = pgTable("team_kyc_applications", {
   declarationAgreed: boolean("declaration_agreed"),
   declarationName: text("declaration_name"),
   declarationDate: text("declaration_date"),
+  photoStoredName: text("photo_stored_name"),
+  photoOriginalName: text("photo_original_name"),
   status: text("status").notNull().default("pending"),
   reviewNotes: text("review_notes"),
   teamUsername: text("team_username"),
@@ -411,6 +413,21 @@ export const teamMemberDocuments = pgTable("team_member_documents", {
 export const insertTeamMemberDocumentSchema = createInsertSchema(teamMemberDocuments).omit({ id: true, uploadedAt: true });
 export type InsertTeamMemberDocument = z.infer<typeof insertTeamMemberDocumentSchema>;
 export type TeamMemberDocument = typeof teamMemberDocuments.$inferSelect;
+
+export const teamKycDocuments = pgTable("team_kyc_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  applicationId: varchar("application_id").notNull(),
+  docType: text("doc_type").notNull(),
+  originalName: text("original_name").notNull(),
+  storedName: text("stored_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+});
+
+export const insertTeamKycDocumentSchema = createInsertSchema(teamKycDocuments).omit({ id: true, uploadedAt: true });
+export type InsertTeamKycDocument = z.infer<typeof insertTeamKycDocumentSchema>;
+export type TeamKycDocument = typeof teamKycDocuments.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;

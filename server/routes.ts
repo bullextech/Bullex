@@ -423,6 +423,99 @@ export async function registerRoutes(
     }
   });
 
+  // Public photo upload for team KYC application
+  app.patch("/api/team-kyc/:id/photo", teamUpload.single("photo"), async (req, res) => {
+    const file = req.file;
+    try {
+      if (!file) return res.status(400).json({ message: "No file uploaded" });
+      const app = await storage.getTeamKycApplicationById(req.params.id);
+      if (!app) {
+        fs.unlinkSync(path.join(teamUploadsDir, file.filename));
+        return res.status(404).json({ message: "Application not found" });
+      }
+      if (app.photoStoredName) {
+        const oldPath = path.join(teamUploadsDir, app.photoStoredName);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+      const updated = await storage.updateTeamKycPhoto(req.params.id, file.filename, file.originalname);
+      res.json({ id: updated.id, photoOriginalName: updated.photoOriginalName });
+    } catch (err: any) {
+      if (file) { const fp = path.join(teamUploadsDir, file.filename); if (fs.existsSync(fp)) fs.unlinkSync(fp); }
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Serve photo for team KYC application (admin only)
+  app.get("/api/team-kyc/:id/photo", requireAdminAuth, async (req, res) => {
+    try {
+      const app = await storage.getTeamKycApplicationById(req.params.id);
+      if (!app || !app.photoStoredName) return res.status(404).json({ message: "No photo" });
+      const filePath = path.join(teamUploadsDir, app.photoStoredName);
+      if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
+      res.sendFile(filePath);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Public document upload for team KYC application
+  app.post("/api/team-kyc/:id/documents", teamUpload.single("file"), async (req, res) => {
+    const file = req.file;
+    try {
+      if (!file) return res.status(400).json({ message: "No file uploaded" });
+      const app = await storage.getTeamKycApplicationById(req.params.id);
+      if (!app) {
+        fs.unlinkSync(path.join(teamUploadsDir, file.filename));
+        return res.status(404).json({ message: "Application not found" });
+      }
+      const doc = await storage.createTeamKycDocument({
+        applicationId: req.params.id,
+        docType: req.body.docType || "other",
+        originalName: file.originalname,
+        storedName: file.filename,
+        mimeType: file.mimetype,
+        size: file.size,
+      });
+      res.json(doc);
+    } catch (err: any) {
+      if (file) { const fp = path.join(teamUploadsDir, file.filename); if (fs.existsSync(fp)) fs.unlinkSync(fp); }
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // List documents for a team KYC application (admin only)
+  app.get("/api/team-kyc/:id/documents", requireAdminAuth, async (req, res) => {
+    const docs = await storage.getTeamKycDocuments(req.params.id);
+    res.json(docs);
+  });
+
+  // Delete a team KYC document (admin only)
+  app.delete("/api/team-kyc-documents/:docId", requireAdminAuth, async (req, res) => {
+    try {
+      const doc = await storage.getTeamKycDocumentById(req.params.docId);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      const filePath = path.join(teamUploadsDir, doc.storedName);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      await storage.deleteTeamKycDocument(req.params.docId);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Download a team KYC document (admin only)
+  app.get("/api/team-kyc-documents/:docId/download", requireAdminAuth, async (req, res) => {
+    try {
+      const doc = await storage.getTeamKycDocumentById(req.params.docId);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      const filePath = path.join(teamUploadsDir, doc.storedName);
+      if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
+      res.download(filePath, doc.originalName);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.patch("/api/team-kyc/:id", requireAdminAuth, async (req, res) => {
     try {
       const { status, reviewNotes, teamUsername, teamPassword } = req.body;

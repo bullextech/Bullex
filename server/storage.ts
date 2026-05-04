@@ -44,6 +44,9 @@ import {
   teamKycApplications,
   type TeamKycApplication,
   type InsertTeamKyc,
+  teamKycDocuments,
+  type TeamKycDocument,
+  type InsertTeamKycDocument,
 } from "@shared/schema";
 
 const pool = new pg.Pool({
@@ -142,6 +145,11 @@ export interface IStorage {
   getTeamKycApplicationById(id: string): Promise<TeamKycApplication | undefined>;
   createTeamKycApplication(app: InsertTeamKyc): Promise<TeamKycApplication>;
   updateTeamKycStatus(id: string, status: string, reviewNotes?: string, teamUsername?: string, teamPassword?: string): Promise<TeamKycApplication>;
+  updateTeamKycPhoto(id: string, storedName: string, originalName: string): Promise<TeamKycApplication>;
+  getTeamKycDocuments(applicationId: string): Promise<TeamKycDocument[]>;
+  createTeamKycDocument(doc: InsertTeamKycDocument): Promise<TeamKycDocument>;
+  getTeamKycDocumentById(id: string): Promise<TeamKycDocument | undefined>;
+  deleteTeamKycDocument(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -661,6 +669,34 @@ export class DatabaseStorage implements IStorage {
     if (teamPassword !== undefined) updateData.teamPassword = teamPassword;
     const [updated] = await db.update(teamKycApplications).set(updateData).where(eq(teamKycApplications.id, id)).returning();
     return updated;
+  }
+
+  async updateTeamKycPhoto(id: string, storedName: string, originalName: string): Promise<TeamKycApplication> {
+    const [updated] = await db.update(teamKycApplications)
+      .set({ photoStoredName: storedName, photoOriginalName: originalName })
+      .where(eq(teamKycApplications.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getTeamKycDocuments(applicationId: string): Promise<TeamKycDocument[]> {
+    return db.select().from(teamKycDocuments)
+      .where(eq(teamKycDocuments.applicationId, applicationId))
+      .orderBy(desc(teamKycDocuments.uploadedAt));
+  }
+
+  async createTeamKycDocument(doc: InsertTeamKycDocument): Promise<TeamKycDocument> {
+    const [created] = await db.insert(teamKycDocuments).values(doc).returning();
+    return created;
+  }
+
+  async getTeamKycDocumentById(id: string): Promise<TeamKycDocument | undefined> {
+    const [doc] = await db.select().from(teamKycDocuments).where(eq(teamKycDocuments.id, id));
+    return doc;
+  }
+
+  async deleteTeamKycDocument(id: string): Promise<void> {
+    await db.delete(teamKycDocuments).where(eq(teamKycDocuments.id, id));
   }
 }
 

@@ -9,7 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   CheckCircle2, XCircle, User, Briefcase, GraduationCap,
   Phone, Heart, Landmark, ChevronDown, ChevronUp, Loader2,
-  Link2, Copy, Check, PenTool, Shield,
+  Link2, Copy, Check, PenTool, Shield, FileText, Download,
+  Camera, ImageIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -50,11 +51,34 @@ interface TeamKycApp {
   declarationAgreed: boolean | null;
   declarationName: string | null;
   declarationDate: string | null;
+  photoStoredName: string | null;
+  photoOriginalName: string | null;
   status: string;
   reviewNotes: string | null;
   teamUsername: string | null;
   createdAt: string;
 }
+
+interface TeamKycDocument {
+  id: string;
+  applicationId: string;
+  docType: string;
+  originalName: string;
+  storedName: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+}
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  cv_resume: "CV / Resume",
+  national_id: "National ID Copy",
+  passport_copy: "Passport Copy",
+  academic_certificate: "Academic Certificate",
+  professional_certificate: "Professional Certificate / License",
+  reference_letter: "Reference Letter",
+  other: "Other Document",
+};
 
 export default function TeamKycAdmin() {
   const { authenticated, role } = useAuth();
@@ -79,6 +103,15 @@ export default function TeamKycAdmin() {
 
   const { data: apps = [], isLoading } = useQuery<TeamKycApp[]>({
     queryKey: ["/api/team-kyc"],
+  });
+
+  const { data: docs = [] } = useQuery<TeamKycDocument[]>({
+    queryKey: ["/api/team-kyc", expanded, "documents"],
+    queryFn: () =>
+      expanded
+        ? fetch(`/api/team-kyc/${expanded}/documents`).then(r => r.json())
+        : Promise.resolve([]),
+    enabled: !!expanded,
   });
 
   const reviewMutation = useMutation({
@@ -109,6 +142,12 @@ export default function TeamKycAdmin() {
         <p className="text-sm mt-0.5">{String(value)}</p>
       </div>
     );
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   };
 
   const pending = apps.filter(a => a.status === "pending").length;
@@ -193,8 +232,18 @@ export default function TeamKycAdmin() {
                 onClick={() => setExpanded(expanded === app.id ? null : app.id)}
               >
                 <div className="flex items-center gap-4 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <User className="w-4 h-4 text-primary" />
+                  {/* Photo thumbnail or avatar */}
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center flex-shrink-0 border border-border">
+                    {app.photoStoredName ? (
+                      <img
+                        src={`/api/team-kyc/${app.id}/photo`}
+                        alt={app.fullName}
+                        className="w-full h-full object-cover"
+                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                      />
+                    ) : (
+                      <User className="w-4 h-4 text-primary" />
+                    )}
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-sm truncate">{app.fullName}</p>
@@ -206,6 +255,11 @@ export default function TeamKycAdmin() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+                  {app.photoStoredName && (
+                    <span className="hidden sm:flex items-center gap-1 text-[10px] text-blue-600 font-semibold bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded px-1.5 py-0.5">
+                      <Camera className="w-3 h-3" /> Photo
+                    </span>
+                  )}
                   {app.declarationAgreed && (
                     <span className="hidden sm:flex items-center gap-1 text-[10px] text-green-600 font-semibold bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded px-1.5 py-0.5">
                       <CheckCircle2 className="w-3 h-3" /> Declared
@@ -222,18 +276,42 @@ export default function TeamKycAdmin() {
               {expanded === app.id && (
                 <div className="border-t border-border p-5 space-y-6 bg-muted/10">
 
-                  {/* Personal */}
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5 mb-3">
-                      <User className="w-3.5 h-3.5" /> Personal Details
-                    </p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <Row label="Full Name" value={app.fullName} />
-                      <Row label="Date of Birth" value={app.dateOfBirth} />
-                      <Row label="Gender" value={app.gender} />
-                      <Row label="Nationality" value={app.nationality} />
-                      <Row label="Passport / ID No." value={app.passportNumber} />
-                      <Row label="Marital Status" value={app.maritalStatus} />
+                  {/* Photo + Personal in same row */}
+                  <div className="flex items-start gap-6">
+                    {/* Photo panel */}
+                    <div className="flex-shrink-0">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2 flex items-center gap-1">
+                        <Camera className="w-3 h-3" /> Photo
+                      </p>
+                      <div className="w-28 h-32 rounded-lg border border-border bg-muted/30 overflow-hidden flex items-center justify-center" data-testid={`photo-preview-${app.id}`}>
+                        {app.photoStoredName ? (
+                          <img
+                            src={`/api/team-kyc/${app.id}/photo`}
+                            alt={app.fullName}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                            <ImageIcon className="w-6 h-6" />
+                            <p className="text-[9px] text-center px-2">No photo uploaded</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Personal Details */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5 mb-3">
+                        <User className="w-3.5 h-3.5" /> Personal Details
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <Row label="Full Name" value={app.fullName} />
+                        <Row label="Date of Birth" value={app.dateOfBirth} />
+                        <Row label="Gender" value={app.gender} />
+                        <Row label="Nationality" value={app.nationality} />
+                        <Row label="Passport / ID No." value={app.passportNumber} />
+                        <Row label="Marital Status" value={app.maritalStatus} />
+                      </div>
                     </div>
                   </div>
 
@@ -306,6 +384,48 @@ export default function TeamKycAdmin() {
                     </div>
                   </div>
 
+                  {/* Supporting Documents */}
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5 mb-3">
+                      <FileText className="w-3.5 h-3.5" /> Supporting Documents
+                    </p>
+                    {docs.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No documents uploaded with this application.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {docs.map(doc => (
+                          <div
+                            key={doc.id}
+                            className="flex items-center justify-between gap-3 p-3 rounded-lg bg-background border border-border"
+                            data-testid={`admin-doc-${doc.id}`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <FileText className="w-4 h-4 text-primary" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold truncate">{doc.originalName}</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {DOC_TYPE_LABELS[doc.docType] || doc.docType} · {formatBytes(doc.size)}
+                                </p>
+                              </div>
+                            </div>
+                            <a
+                              href={`/api/team-kyc-documents/${doc.id}/download`}
+                              download
+                              className="flex-shrink-0"
+                              data-testid={`btn-download-doc-${doc.id}`}
+                            >
+                              <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs">
+                                <Download className="w-3 h-3" /> Download
+                              </Button>
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Statutory Declaration */}
                   <div className={`rounded-lg border p-4 ${app.declarationAgreed ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-muted/30 border-border"}`}>
                     <p className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 mb-3 text-primary">
@@ -360,25 +480,21 @@ export default function TeamKycAdmin() {
                           Allocate Login Credentials <span className="text-[10px] font-normal">(required to approve)</span>
                         </p>
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-1">
-                            <Input
-                              className="bg-background border-border text-sm"
-                              placeholder="Username"
-                              value={usernames[app.id] || ""}
-                              onChange={e => setUsernames({ ...usernames, [app.id]: e.target.value })}
-                              data-testid={`input-team-kyc-username-${app.id}`}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Input
-                              className="bg-background border-border text-sm"
-                              placeholder="Password"
-                              type="password"
-                              value={passwords[app.id] || ""}
-                              onChange={e => setPasswords({ ...passwords, [app.id]: e.target.value })}
-                              data-testid={`input-team-kyc-password-${app.id}`}
-                            />
-                          </div>
+                          <Input
+                            className="bg-background border-border text-sm"
+                            placeholder="Username"
+                            value={usernames[app.id] || ""}
+                            onChange={e => setUsernames({ ...usernames, [app.id]: e.target.value })}
+                            data-testid={`input-team-kyc-username-${app.id}`}
+                          />
+                          <Input
+                            className="bg-background border-border text-sm"
+                            placeholder="Password"
+                            type="password"
+                            value={passwords[app.id] || ""}
+                            onChange={e => setPasswords({ ...passwords, [app.id]: e.target.value })}
+                            data-testid={`input-team-kyc-password-${app.id}`}
+                          />
                         </div>
                         <p className="text-[10px] text-muted-foreground">
                           These credentials will be stored securely and used for the team member's platform login. Send them to the team member after approval.
