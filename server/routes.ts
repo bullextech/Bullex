@@ -117,10 +117,14 @@ function createUploader(destDir: string, prefix: string) {
   });
 }
 
+const teamUploadsDir = path.join(process.cwd(), "uploads", "team");
+if (!fs.existsSync(teamUploadsDir)) fs.mkdirSync(teamUploadsDir, { recursive: true });
+
 const kycUpload = createUploader(kycUploadsDir, "kyc");
 const tradeUpload = createUploader(tradeUploadsDir, "trade");
 const enquiryUpload = createUploader(enquiryUploadsDir, "enquiry");
 const hrUpload = createUploader(hrUploadsDir, "hr");
+const teamUpload = createUploader(teamUploadsDir, "team");
 
 const VALID_KYC_DOC_TYPES = [
   "certificate_of_incorporation",
@@ -244,12 +248,12 @@ export async function registerRoutes(
   });
 
   app.post("/api/team/members", requireAdminAuth, async (req, res) => {
-    const { username, password, name, department, email } = req.body;
+    const { username, password, name, department, email, ...rest } = req.body;
     if (!username || !password || !name) {
       return res.status(400).json({ message: "username, password, and name are required" });
     }
     try {
-      const member = await storage.createTeamMember({ username, password, name, department: department || null, email: email || null });
+      const member = await storage.createTeamMember({ username, password, name, department: department || null, email: email || null, ...rest });
       res.json({ ...member, password: undefined });
     } catch (err: any) {
       if (err.message?.includes("unique")) {
@@ -259,9 +263,125 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/team/members/:id", requireAdminAuth, async (req, res) => {
+    try {
+      const { password, ...data } = req.body;
+      const updateData: any = { ...data };
+      if (password) updateData.password = password;
+      const member = await storage.updateTeamMember(req.params.id, updateData);
+      res.json({ ...member, password: undefined });
+    } catch (err: any) {
+      if (err.message?.includes("unique")) {
+        return res.status(409).json({ message: "Username already exists" });
+      }
+      res.status(500).json({ message: "Failed to update team member" });
+    }
+  });
+
+  app.post("/api/team/members/:id/photo", requireAdminAuth, teamUpload.single("photo"), async (req, res) => {
+    const file = req.file;
+    try {
+      if (!file) return res.status(400).json({ message: "No file uploaded" });
+      const member = await storage.getTeamMemberById(req.params.id);
+      if (!member) {
+        fs.unlinkSync(path.join(teamUploadsDir, file.filename));
+        return res.status(404).json({ message: "Member not found" });
+      }
+      if (member.photoStoredName) {
+        const oldPath = path.join(teamUploadsDir, member.photoStoredName);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+      const updated = await storage.updateTeamMemberPhoto(req.params.id, file.filename);
+      res.json({ ...updated, password: undefined });
+    } catch (err: any) {
+      if (file) { const fp = path.join(teamUploadsDir, file.filename); if (fs.existsSync(fp)) fs.unlinkSync(fp); }
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/team/members/:id/photo", requireAdminAuth, async (req, res) => {
+    try {
+      const member = await storage.getTeamMemberById(req.params.id);
+      if (!member || !member.photoStoredName) return res.status(404).json({ message: "No photo" });
+      const filePath = path.join(teamUploadsDir, member.photoStoredName);
+      if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
+      res.sendFile(filePath);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/team/members/:id/documents", requireAdminAuth, async (req, res) => {
+    const docs = await storage.getTeamMemberDocuments(req.params.id);
+    res.json(docs);
+  });
+
+  app.post("/api/team/members/:id/documents", requireAdminAuth, teamUpload.single("file"), async (req, res) => {
+    const file = req.file;
+    try {
+      if (!file) return res.status(400).json({ message: "No file uploaded" });
+      const member = await storage.getTeamMemberById(req.params.id);
+      if (!member) {
+        fs.unlinkSync(path.join(teamUploadsDir, file.filename));
+        return res.status(404).json({ message: "Member not found" });
+      }
+      const doc = await storage.createTeamMemberDocument({
+        memberId: req.params.id,
+        docType: req.body.docType || "other",
+        originalName: file.originalname,
+        storedName: file.filename,
+        mimeType: file.mimetype,
+        size: file.size,
+      });
+      res.json(doc);
+    } catch (err: any) {
+      if (file) { const fp = path.join(teamUploadsDir, file.filename); if (fs.existsSync(fp)) fs.unlinkSync(fp); }
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/team/documents/:docId/download", requireAdminAuth, async (req, res) => {
+    try {
+      const doc = await storage.getTeamMemberDocumentById(req.params.docId);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      const filePath = path.join(teamUploadsDir, doc.storedName);
+      if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found on disk" });
+      res.download(filePath, doc.originalName);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/team/documents/:docId", requireAdminAuth, async (req, res) => {
+    try {
+      const doc = await storage.getTeamMemberDocumentById(req.params.docId);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      const filePath = path.join(teamUploadsDir, doc.storedName);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      await storage.deleteTeamMemberDocument(req.params.docId);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.delete("/api/team/members/:id", requireAdminAuth, async (req, res) => {
-    await storage.deleteTeamMember(req.params.id);
-    res.json({ success: true });
+    try {
+      const member = await storage.getTeamMemberById(req.params.id);
+      if (member?.photoStoredName) {
+        const photoPath = path.join(teamUploadsDir, member.photoStoredName);
+        if (fs.existsSync(photoPath)) fs.unlinkSync(photoPath);
+      }
+      const docs = await storage.getTeamMemberDocuments(req.params.id);
+      for (const doc of docs) {
+        const fp = path.join(teamUploadsDir, doc.storedName);
+        if (fs.existsSync(fp)) fs.unlinkSync(fp);
+      }
+      await storage.deleteTeamMember(req.params.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   app.get("/api/team-kyc", requireAdminAuth, async (req, res) => {

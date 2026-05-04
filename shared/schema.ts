@@ -359,12 +359,55 @@ export const teamMembers = pgTable("team_members", {
   name: text("name").notNull(),
   department: text("department"),
   email: text("email"),
+  dateOfBirth: text("date_of_birth"),
+  gender: text("gender"),
+  nationality: text("nationality"),
+  passportNumber: text("passport_number"),
+  maritalStatus: text("marital_status"),
+  phone: text("phone"),
+  homeAddress: text("home_address"),
+  city: text("city"),
+  country: text("country"),
+  position: text("position"),
+  employmentType: text("employment_type"),
+  startDate: text("start_date"),
+  highestQualification: text("highest_qualification"),
+  institution: text("institution"),
+  graduationYear: text("graduation_year"),
+  previousEmployer: text("previous_employer"),
+  previousRole: text("previous_role"),
+  yearsExperience: text("years_experience"),
+  emergencyName: text("emergency_name"),
+  emergencyRelationship: text("emergency_relationship"),
+  emergencyPhone: text("emergency_phone"),
+  bankName: text("bank_name"),
+  bankBranch: text("bank_branch"),
+  payrollAccountName: text("payroll_account_name"),
+  payrollAccountNumber: text("payroll_account_number"),
+  payrollSwift: text("payroll_swift"),
+  photoStoredName: text("photo_stored_name"),
+  additionalNotes: text("additional_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true, createdAt: true });
 export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type TeamMember = typeof teamMembers.$inferSelect;
+
+export const teamMemberDocuments = pgTable("team_member_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").notNull(),
+  docType: text("doc_type").notNull(),
+  originalName: text("original_name").notNull(),
+  storedName: text("stored_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+});
+
+export const insertTeamMemberDocumentSchema = createInsertSchema(teamMemberDocuments).omit({ id: true, uploadedAt: true });
+export type InsertTeamMemberDocument = z.infer<typeof insertTeamMemberDocumentSchema>;
+export type TeamMemberDocument = typeof teamMemberDocuments.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;

@@ -38,6 +38,9 @@ import {
   teamMembers,
   type TeamMember,
   type InsertTeamMember,
+  teamMemberDocuments,
+  type TeamMemberDocument,
+  type InsertTeamMemberDocument,
   teamKycApplications,
   type TeamKycApplication,
   type InsertTeamKyc,
@@ -124,8 +127,16 @@ export interface IStorage {
 
   getAllTeamMembers(): Promise<TeamMember[]>;
   getTeamMemberByUsername(username: string): Promise<TeamMember | undefined>;
+  getTeamMemberById(id: string): Promise<TeamMember | undefined>;
   createTeamMember(member: InsertTeamMember): Promise<TeamMember>;
+  updateTeamMember(id: string, data: Partial<InsertTeamMember>): Promise<TeamMember>;
+  updateTeamMemberPhoto(id: string, photoStoredName: string): Promise<TeamMember>;
   deleteTeamMember(id: string): Promise<void>;
+
+  getTeamMemberDocuments(memberId: string): Promise<TeamMemberDocument[]>;
+  getTeamMemberDocumentById(id: string): Promise<TeamMemberDocument | undefined>;
+  createTeamMemberDocument(doc: InsertTeamMemberDocument): Promise<TeamMemberDocument>;
+  deleteTeamMemberDocument(id: string): Promise<void>;
 
   getTeamKycApplications(): Promise<TeamKycApplication[]>;
   getTeamKycApplicationById(id: string): Promise<TeamKycApplication | undefined>;
@@ -591,8 +602,42 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async getTeamMemberById(id: string): Promise<TeamMember | undefined> {
+    const [member] = await db.select().from(teamMembers).where(eq(teamMembers.id, id));
+    return member;
+  }
+
+  async updateTeamMember(id: string, data: Partial<InsertTeamMember>): Promise<TeamMember> {
+    const [updated] = await db.update(teamMembers).set(data).where(eq(teamMembers.id, id)).returning();
+    return updated;
+  }
+
+  async updateTeamMemberPhoto(id: string, photoStoredName: string): Promise<TeamMember> {
+    const [updated] = await db.update(teamMembers).set({ photoStoredName }).where(eq(teamMembers.id, id)).returning();
+    return updated;
+  }
+
   async deleteTeamMember(id: string): Promise<void> {
+    await db.delete(teamMemberDocuments).where(eq(teamMemberDocuments.memberId, id));
     await db.delete(teamMembers).where(eq(teamMembers.id, id));
+  }
+
+  async getTeamMemberDocuments(memberId: string): Promise<TeamMemberDocument[]> {
+    return db.select().from(teamMemberDocuments).where(eq(teamMemberDocuments.memberId, memberId)).orderBy(desc(teamMemberDocuments.uploadedAt));
+  }
+
+  async getTeamMemberDocumentById(id: string): Promise<TeamMemberDocument | undefined> {
+    const [doc] = await db.select().from(teamMemberDocuments).where(eq(teamMemberDocuments.id, id));
+    return doc;
+  }
+
+  async createTeamMemberDocument(doc: InsertTeamMemberDocument): Promise<TeamMemberDocument> {
+    const [created] = await db.insert(teamMemberDocuments).values(doc).returning();
+    return created;
+  }
+
+  async deleteTeamMemberDocument(id: string): Promise<void> {
+    await db.delete(teamMemberDocuments).where(eq(teamMemberDocuments.id, id));
   }
 
   async getTeamKycApplications(): Promise<TeamKycApplication[]> {
