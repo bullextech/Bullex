@@ -392,6 +392,7 @@ export const teamMembers = pgTable("team_members", {
   payrollSwift: text("payroll_swift"),
   photoStoredName: text("photo_stored_name"),
   additionalNotes: text("additional_notes"),
+  allowedModules: text("allowed_modules").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

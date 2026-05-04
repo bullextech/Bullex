@@ -16,8 +16,9 @@ import {
   User, Phone, Briefcase, GraduationCap, Heart, Landmark, Lock,
   ChevronRight, Camera, Edit2, Save, FilePlus, UserCheck,
   CheckCircle2, XCircle, PenTool, ImageIcon, AlertCircle, ClipboardList,
-  Mail, Send, Copy, ExternalLink,
+  Mail, Send, Copy, ExternalLink, ShieldCheck,
 } from "lucide-react";
+import { PLATFORM_MODULES } from "@/components/admin-sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -34,7 +35,7 @@ interface TeamMember {
   emergencyPhone: string | null; bankName: string | null; bankBranch: string | null;
   payrollAccountName: string | null; payrollAccountNumber: string | null;
   payrollSwift: string | null; photoStoredName: string | null;
-  additionalNotes: string | null; createdAt: string;
+  additionalNotes: string | null; allowedModules: string[] | null; createdAt: string;
 }
 
 interface TeamDoc {
@@ -140,6 +141,18 @@ function MemberAvatar({ member, size = "md" }: { member: TeamMember; size?: "sm"
   );
 }
 
+// ── Employment type → default module preset ───────────────────────────────────
+const ALL_MODULE_IDS = PLATFORM_MODULES.map(m => m.id);
+
+function getModulePreset(employmentType: string | null): string[] {
+  const et = (employmentType || "").toLowerCase();
+  if (et.includes("full") || et.includes("permanent")) return [...ALL_MODULE_IDS];
+  if (et.includes("part")) return ["dashboard", "documents", "vault"];
+  if (et.includes("contract")) return ["dashboard", "enquiries", "trading", "documents"];
+  if (et.includes("intern") || et.includes("train")) return ["dashboard"];
+  return ["dashboard", "documents"];
+}
+
 // ── KYC Detail Panel ─────────────────────────────────────────────────────────
 function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void }) {
   const { toast } = useToast();
@@ -147,6 +160,10 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
   const [kycUsername, setKycUsername] = useState("");
   const [kycPassword, setKycPassword] = useState("");
   const [reviewNote, setReviewNote] = useState(app.reviewNotes || "");
+  const [allowedModules, setAllowedModules] = useState<string[]>(() => getModulePreset(app.employmentType));
+
+  const toggleModule = (id: string) =>
+    setAllowedModules(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
 
   const lbl = "text-[10px] font-bold uppercase tracking-wider text-muted-foreground";
 
@@ -157,7 +174,7 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
   });
 
   const reviewMutation = useMutation({
-    mutationFn: (body: { status: string; reviewNotes?: string; teamUsername?: string; teamPassword?: string }) =>
+    mutationFn: (body: { status: string; reviewNotes?: string; teamUsername?: string; teamPassword?: string; allowedModules?: string[] }) =>
       apiRequest("PATCH", `/api/team-kyc/${app.id}`, body),
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ["/api/team-kyc"] });
@@ -178,7 +195,11 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
       toast({ title: "Credentials Required", description: "Enter a username and password before approving.", variant: "destructive" });
       return;
     }
-    reviewMutation.mutate({ status: "approved", reviewNotes: reviewNote, teamUsername: kycUsername, teamPassword: kycPassword });
+    if (allowedModules.length === 0) {
+      toast({ title: "No Access Selected", description: "Grant at least one platform module before approving.", variant: "destructive" });
+      return;
+    }
+    reviewMutation.mutate({ status: "approved", reviewNotes: reviewNote, teamUsername: kycUsername, teamPassword: kycPassword, allowedModules });
   };
 
   const handleReject = () => {
@@ -592,30 +613,111 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
               </div>
 
               {app.status !== "approved" && (
-                <div className="space-y-3 border border-border rounded-lg p-4 bg-muted/10">
-                  <p className="text-xs font-bold uppercase tracking-wider text-primary">Allocate Login Credentials</p>
-                  <p className="text-xs text-muted-foreground">Set the username and password the team member will use to log in to Bullex. Required to approve.</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className={lbl}>Username <span className="text-destructive">*</span></Label>
-                      <Input
-                        className="bg-background border-border text-sm"
-                        placeholder="e.g. john.doe@bullex"
-                        value={kycUsername}
-                        onChange={e => setKycUsername(e.target.value)}
-                        data-testid={`input-kyc-username-${app.id}`}
-                      />
+                <div className="space-y-4 border border-border rounded-lg p-4 bg-muted/10">
+                  {/* Login credentials */}
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-primary">Allocate Login Credentials</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Set the username and password for Bullex login. Required to approve.</p>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label className={lbl}>Password <span className="text-destructive">*</span></Label>
-                      <Input
-                        type="password"
-                        className="bg-background border-border text-sm"
-                        placeholder="Set a strong password"
-                        value={kycPassword}
-                        onChange={e => setKycPassword(e.target.value)}
-                        data-testid={`input-kyc-password-${app.id}`}
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className={lbl}>Username <span className="text-destructive">*</span></Label>
+                        <Input
+                          className="bg-background border-border text-sm"
+                          placeholder="e.g. john.doe@bullex"
+                          value={kycUsername}
+                          onChange={e => setKycUsername(e.target.value)}
+                          data-testid={`input-kyc-username-${app.id}`}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className={lbl}>Password <span className="text-destructive">*</span></Label>
+                        <Input
+                          type="password"
+                          className="bg-background border-border text-sm"
+                          placeholder="Set a strong password"
+                          value={kycPassword}
+                          onChange={e => setKycPassword(e.target.value)}
+                          data-testid={`input-kyc-password-${app.id}`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Platform access permissions */}
+                  <div className="space-y-2.5 pt-3 border-t border-border">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5" /> Platform Access Permissions
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Select which modules this team member can access.
+                          {app.employmentType && <span className="ml-1 italic">Auto-suggested for <strong>{app.employmentType}</strong>.</span>}
+                        </p>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded flex-shrink-0 ${allowedModules.length > 0 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}>
+                        {allowedModules.length}/{PLATFORM_MODULES.length} modules
+                      </span>
+                    </div>
+
+                    {/* Quick presets */}
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-[10px] text-muted-foreground self-center">Quick presets:</span>
+                      {[
+                        { label: "Full Access", modules: ALL_MODULE_IDS },
+                        { label: "Full-Time", modules: ALL_MODULE_IDS },
+                        { label: "Part-Time", modules: ["dashboard", "documents", "vault"] },
+                        { label: "Contractor", modules: ["dashboard", "enquiries", "trading", "documents"] },
+                        { label: "Intern", modules: ["dashboard"] },
+                      ].map(p => (
+                        <button
+                          key={p.label}
+                          onClick={() => setAllowedModules(p.modules)}
+                          data-testid={`btn-preset-${p.label.toLowerCase().replace(/\s+/g, "-")}`}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-muted hover:bg-primary hover:text-primary-foreground rounded transition-colors border border-border"
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setAllowedModules([])}
+                        className="px-2 py-0.5 text-[10px] font-bold text-muted-foreground hover:text-destructive rounded transition-colors"
+                      >
+                        Clear all
+                      </button>
+                    </div>
+
+                    {/* Module toggles */}
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {PLATFORM_MODULES.map(mod => {
+                        const Icon = mod.icon;
+                        const active = allowedModules.includes(mod.id);
+                        return (
+                          <button
+                            key={mod.id}
+                            onClick={() => toggleModule(mod.id)}
+                            data-testid={`btn-module-${mod.id}`}
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-md border text-left transition-all ${
+                              active
+                                ? "bg-primary/8 border-primary/30 dark:bg-primary/10"
+                                : "bg-background border-border hover:border-muted-foreground/40"
+                            }`}
+                          >
+                            <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
+                              active ? "bg-primary border-primary" : "border-muted-foreground/30 bg-background"
+                            }`}>
+                              {active && <CheckCircle2 className="w-3.5 h-3.5 text-primary-foreground" />}
+                            </div>
+                            <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs font-semibold ${active ? "text-foreground" : "text-muted-foreground"}`}>{mod.title}</p>
+                              <p className="text-[10px] text-muted-foreground">{mod.description}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

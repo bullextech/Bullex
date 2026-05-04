@@ -78,9 +78,10 @@ declare module "express-session" {
   interface SessionData {
     authenticated: boolean;
     username: string;
-    role: "admin" | "client";
+    role: "admin" | "client" | "team";
     clientKycId: string;
     clientCompanyName: string;
+    allowedModules: string[];
   }
 }
 
@@ -250,8 +251,9 @@ export async function registerRoutes(
         req.session.authenticated = true;
         req.session.username = teamMember.username;
         req.session.role = "team";
+        req.session.allowedModules = teamMember.allowedModules ?? [];
         req.session.save(() => {
-          return res.json({ authenticated: true, username: teamMember.username, role: "team", name: teamMember.name });
+          return res.json({ authenticated: true, username: teamMember.username, role: "team", name: teamMember.name, allowedModules: teamMember.allowedModules ?? [] });
         });
       });
       return;
@@ -572,7 +574,7 @@ export async function registerRoutes(
 
   app.patch("/api/team-kyc/:id", requireAdminAuth, async (req, res) => {
     try {
-      const { status, reviewNotes, teamUsername, teamPassword } = req.body;
+      const { status, reviewNotes, teamUsername, teamPassword, allowedModules } = req.body;
       const app = await storage.getTeamKycApplicationById(req.params.id);
       if (!app) return res.status(404).json({ message: "Application not found" });
 
@@ -587,6 +589,7 @@ export async function registerRoutes(
             await storage.createTeamMember({
               username: teamUsername,
               password: teamPassword,
+              allowedModules: Array.isArray(allowedModules) ? allowedModules : [],
               name: app.fullName,
               department: app.department || null,
               email: app.email || null,
@@ -620,6 +623,7 @@ export async function registerRoutes(
             });
           } else {
             await storage.updateTeamMember(existing.id, {
+              allowedModules: Array.isArray(allowedModules) ? allowedModules : (existing.allowedModules ?? []),
               name: app.fullName,
               department: app.department || null,
               email: app.email || null,
@@ -669,7 +673,12 @@ export async function registerRoutes(
 
   app.get("/api/auth/me", (req, res) => {
     if (req.session && req.session.authenticated) {
-      return res.json({ authenticated: true, username: req.session.username, role: req.session.role || "admin" });
+      return res.json({
+        authenticated: true,
+        username: req.session.username,
+        role: req.session.role || "admin",
+        allowedModules: req.session.allowedModules ?? null,
+      });
     }
     res.json({ authenticated: false });
   });

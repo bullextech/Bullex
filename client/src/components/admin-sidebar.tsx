@@ -9,30 +9,36 @@ import {
   Layers,
   UserPlus,
   Users,
-  UserCheck,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
-const mainNavItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Registrations", url: "/registrations", icon: UserPlus },
-  { title: "KYC Admin", url: "/kyc-admin", icon: ShieldCheck },
-  { title: "Enquiries", url: "/trade-enquiries", icon: SearchCheck },
-  { title: "Documents", url: "/documents", icon: FileText },
-  { title: "Trading", url: "/trading", icon: Link2 },
-  { title: "Vault", url: "/vault", icon: FolderOpen },
-  { title: "Blockchain", url: "/blockchain", icon: Layers },
+export const PLATFORM_MODULES = [
+  { id: "dashboard",      title: "Dashboard",      url: "/dashboard",       icon: LayoutDashboard, description: "Platform overview, metrics & summary" },
+  { id: "registrations",  title: "Registrations",  url: "/registrations",   icon: UserPlus,        description: "Client registration applications" },
+  { id: "kyc-admin",      title: "KYC Admin",      url: "/kyc-admin",       icon: ShieldCheck,     description: "Client KYC reviews & approvals" },
+  { id: "enquiries",      title: "Enquiries",      url: "/trade-enquiries", icon: SearchCheck,     description: "Trade enquiry management" },
+  { id: "documents",      title: "Documents",      url: "/documents",       icon: FileText,        description: "Document generation & management" },
+  { id: "trading",        title: "Trading",        url: "/trading",         icon: Link2,           description: "Trade order management" },
+  { id: "vault",          title: "Vault",          url: "/vault",           icon: FolderOpen,      description: "Document vault & file storage" },
+  { id: "blockchain",     title: "Blockchain",     url: "/blockchain",      icon: Layers,          description: "Blockchain ledger & verification" },
 ];
 
 const adminOnlyItems = [
-  { title: "Team Members", url: "/team-members", icon: Users },
+  { id: "team-members", title: "Team Members", url: "/team-members", icon: Users },
 ];
 
 export function AdminSidebar() {
   const [location] = useLocation();
-  const { role } = useAuth();
+  const { role, allowedModules } = useAuth();
 
-  const allItems = role === "admin" ? [...mainNavItems, ...adminOnlyItems] : mainNavItems;
+  const visibleModules = role === "admin"
+    ? PLATFORM_MODULES
+    : PLATFORM_MODULES.filter(m => (allowedModules ?? []).includes(m.id));
+
+  const allItems = [
+    ...visibleModules,
+    ...(role === "admin" ? adminOnlyItems : []),
+  ];
 
   return (
     <aside className="w-52 flex-shrink-0 border-r border-border bg-background flex flex-col h-full overflow-y-auto">

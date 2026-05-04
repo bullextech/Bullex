@@ -6,6 +6,7 @@ interface AuthState {
   authenticated: boolean;
   username: string | null;
   role: string | null;
+  allowedModules: string[] | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -15,6 +16,7 @@ const AuthContext = createContext<AuthState>({
   authenticated: false,
   username: null,
   role: null,
+  allowedModules: null,
   loading: true,
   login: async () => ({ success: false }),
   logout: async () => {},
@@ -24,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authenticated, setAuthenticated] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
+  const [allowedModules, setAllowedModules] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAuthenticated(true);
           setUsername(data.username || null);
           setRole(data.role || null);
+          setAllowedModules(data.role === "team" ? (data.allowedModules ?? []) : null);
         }
       })
       .catch(() => {})
@@ -52,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthenticated(true);
         setUsername(data.username);
         setRole(data.role);
+        setAllowedModules(data.role === "team" ? (data.allowedModules ?? []) : null);
         queryClient.clear();
         return { success: true };
       }
@@ -66,11 +71,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthenticated(false);
     setUsername(null);
     setRole(null);
+    setAllowedModules(null);
     queryClient.clear();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ authenticated, username, role, loading, login, logout }}>
+    <AuthContext.Provider value={{ authenticated, username, role, allowedModules, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -12,6 +12,7 @@ import { ClientAuthProvider } from "@/hooks/use-client-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shield } from "lucide-react";
 import NotFound from "@/pages/not-found";
+import AccessDenied from "@/pages/access-denied";
 import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
 import KYC from "@/pages/kyc";
@@ -34,23 +35,23 @@ import HumanResources from "@/pages/human-resources";
 import TeamMembers from "@/pages/team-members";
 import TeamKYC from "@/pages/team-kyc";
 
+// Always requires login; admins get full access, team members get all modules unrestricted by this gate
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
   const { authenticated, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="p-6 space-y-6">
-        <Skeleton className="h-8 w-72" />
-        <Skeleton className="h-[400px]" />
-      </div>
-    );
-  }
-
-  if (!authenticated) {
-    return <Login />;
-  }
-
+  if (loading) return <div className="p-6 space-y-6"><Skeleton className="h-8 w-72" /><Skeleton className="h-[400px]" /></div>;
+  if (!authenticated) return <Login />;
   return <Component />;
+}
+
+// Requires login AND a specific module in allowedModules (for team members).
+// Admins bypass the module check entirely.
+function ModuleRoute({ component: Component, moduleId }: { component: () => JSX.Element; moduleId: string }) {
+  const { authenticated, loading, role, allowedModules } = useAuth();
+  if (loading) return <div className="p-6 space-y-6"><Skeleton className="h-8 w-72" /><Skeleton className="h-[400px]" /></div>;
+  if (!authenticated) return <Login />;
+  if (role === "admin") return <Component />;
+  if (role === "team" && (allowedModules ?? []).includes(moduleId)) return <Component />;
+  return <AccessDenied />;
 }
 
 function KycStandaloneShell() {
@@ -68,9 +69,7 @@ function KycStandaloneShell() {
         </div>
         <ThemeToggle />
       </header>
-      <main className="flex-1">
-        <KYC />
-      </main>
+      <main className="flex-1"><KYC /></main>
       <footer className="border-t border-border bg-muted/30 px-4 py-2 text-center">
         <p className="text-[10px] text-muted-foreground">Bullex is a proprietary platform of Bullfrog Group.</p>
       </footer>
@@ -82,17 +81,16 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>
-      <Route path="/products" component={Products} />
-      <Route path="/kyc-admin">{() => <ProtectedRoute component={KycAdmin} />}</Route>
-      <Route path="/documents">{() => <ProtectedRoute component={DocumentGenerator} />}</Route>
-      <Route path="/trading">{() => <ProtectedRoute component={Trading} />}</Route>
-      <Route path="/vault">{() => <ProtectedRoute component={Vault} />}</Route>
-      <Route path="/blockchain">{() => <ProtectedRoute component={Blockchain} />}</Route>
-      <Route path="/platform" component={Platform} />
-      <Route path="/trade-enquiries">{() => <ProtectedRoute component={TradeEnquiries} />}</Route>
-      <Route path="/registrations">{() => <ProtectedRoute component={RegistrationsAdmin} />}</Route>
+      <Route path="/dashboard">{() => <ModuleRoute component={Dashboard} moduleId="dashboard" />}</Route>
+      <Route path="/registrations">{() => <ModuleRoute component={RegistrationsAdmin} moduleId="registrations" />}</Route>
+      <Route path="/kyc-admin">{() => <ModuleRoute component={KycAdmin} moduleId="kyc-admin" />}</Route>
+      <Route path="/trade-enquiries">{() => <ModuleRoute component={TradeEnquiries} moduleId="enquiries" />}</Route>
+      <Route path="/documents">{() => <ModuleRoute component={DocumentGenerator} moduleId="documents" />}</Route>
+      <Route path="/trading">{() => <ModuleRoute component={Trading} moduleId="trading" />}</Route>
+      <Route path="/vault">{() => <ModuleRoute component={Vault} moduleId="vault" />}</Route>
+      <Route path="/blockchain">{() => <ModuleRoute component={Blockchain} moduleId="blockchain" />}</Route>
       <Route path="/team-members">{() => <ProtectedRoute component={TeamMembers} />}</Route>
+      <Route path="/platform" component={Platform} />
       <Route path="/client-portal" component={ClientPortal} />
       <Route path="/investor" component={Investor} />
       <Route path="/human-resources" component={HumanResources} />
@@ -104,7 +102,6 @@ function Router() {
 
 function AppShell() {
   const { authenticated } = useAuth();
-
   return (
     <div className="flex flex-col h-screen w-full">
       <TopNavbar />
