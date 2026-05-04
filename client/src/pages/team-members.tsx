@@ -90,6 +90,7 @@ const MEMBER_TABS = [
   { key: "education", label: "Education", icon: GraduationCap },
   { key: "emergency", label: "Emergency", icon: Heart },
   { key: "bank", label: "Bank", icon: Landmark },
+  { key: "access", label: "Access", icon: ShieldCheck },
   { key: "documents", label: "Documents", icon: FileText },
 ];
 
@@ -770,6 +771,10 @@ export default function TeamMembersPage() {
   const [tab, setTab] = useState("credentials");
   const [form, setForm] = useState({ ...emptyForm });
   const [formError, setFormError] = useState("");
+  const [profileModules, setProfileModules] = useState<string[]>([]);
+
+  const toggleProfileModule = (id: string) =>
+    setProfileModules(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [docType, setDocType] = useState("cv");
@@ -909,6 +914,7 @@ export default function TeamMembersPage() {
       payrollAccountName: m.payrollAccountName || "", payrollAccountNumber: m.payrollAccountNumber || "",
       payrollSwift: m.payrollSwift || "", additionalNotes: m.additionalNotes || "",
     });
+    setProfileModules(m.allowedModules ?? []);
     setTab("credentials");
     setPanel("edit");
   };
@@ -927,6 +933,11 @@ export default function TeamMembersPage() {
     const body: any = Object.fromEntries(Object.entries(form).filter(([k, v]) => v !== "" || k === "password"));
     if (!body.password) delete body.password;
     updateMutation.mutate({ id: selectedId, body });
+  };
+
+  const handleSaveModules = () => {
+    if (!selectedId) return;
+    updateMutation.mutate({ id: selectedId, body: { allowedModules: profileModules } });
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1376,6 +1387,96 @@ export default function TeamMembersPage() {
                         <div className="space-y-1.5">
                           <Label className={lbl}>Account Number / IBAN</Label>
                           <Input className={inp} value={form.payrollAccountNumber} onChange={e => up("payrollAccountNumber", e.target.value)} />
+                        </div>
+                      </div>
+                    )}
+
+                    {tab === "access" && (
+                      <div className="space-y-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-bold">Platform Access Permissions</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Control which modules <strong>{selected?.name}</strong> can access when logged in to Bullex.
+                              Changes take effect on their next login.
+                            </p>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-1 rounded flex-shrink-0 ${profileModules.length > 0 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}>
+                            {profileModules.length}/{PLATFORM_MODULES.length} modules
+                          </span>
+                        </div>
+
+                        {/* Quick presets */}
+                        <div className="flex flex-wrap gap-1.5 pb-1">
+                          <span className="text-[10px] text-muted-foreground self-center">Quick presets:</span>
+                          {[
+                            { label: "Full Access", modules: ALL_MODULE_IDS },
+                            { label: "Part-Time", modules: ["dashboard", "documents", "vault"] },
+                            { label: "Contractor", modules: ["dashboard", "enquiries", "trading", "documents"] },
+                            { label: "Intern", modules: ["dashboard"] },
+                          ].map(p => (
+                            <button
+                              key={p.label}
+                              onClick={() => setProfileModules(p.modules)}
+                              data-testid={`btn-profile-preset-${p.label.toLowerCase().replace(/\s+/g, "-")}`}
+                              className="px-2 py-0.5 text-[10px] font-bold bg-muted hover:bg-primary hover:text-primary-foreground rounded transition-colors border border-border"
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                          <button
+                            onClick={() => setProfileModules([])}
+                            className="px-2 py-0.5 text-[10px] font-bold text-muted-foreground hover:text-destructive rounded transition-colors"
+                          >
+                            Clear all
+                          </button>
+                        </div>
+
+                        {/* Module toggles */}
+                        <div className="grid grid-cols-1 gap-1.5">
+                          {PLATFORM_MODULES.map(mod => {
+                            const Icon = mod.icon;
+                            const active = profileModules.includes(mod.id);
+                            return (
+                              <button
+                                key={mod.id}
+                                onClick={() => toggleProfileModule(mod.id)}
+                                data-testid={`btn-profile-module-${mod.id}`}
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-md border text-left transition-all ${
+                                  active
+                                    ? "bg-primary/8 border-primary/30 dark:bg-primary/10"
+                                    : "bg-background border-border hover:border-muted-foreground/40"
+                                }`}
+                              >
+                                <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
+                                  active ? "bg-primary border-primary" : "border-muted-foreground/30 bg-background"
+                                }`}>
+                                  {active && <CheckCircle2 className="w-3.5 h-3.5 text-primary-foreground" />}
+                                </div>
+                                <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-xs font-semibold ${active ? "text-foreground" : "text-muted-foreground"}`}>{mod.title}</p>
+                                  <p className="text-[10px] text-muted-foreground">{mod.description}</p>
+                                </div>
+                                <span className={`text-[10px] font-bold flex-shrink-0 ${active ? "text-primary" : "text-muted-foreground/40"}`}>
+                                  {active ? "Allowed" : "Blocked"}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div className="pt-1">
+                          <Button
+                            onClick={handleSaveModules}
+                            disabled={updateMutation.isPending}
+                            className="rounded-none text-xs font-bold uppercase tracking-wider h-9"
+                            data-testid="button-save-access"
+                          >
+                            {updateMutation.isPending
+                              ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Saving...</>
+                              : <><ShieldCheck className="w-3.5 h-3.5 mr-1.5" />Save Access Permissions</>}
+                          </Button>
                         </div>
                       </div>
                     )}
