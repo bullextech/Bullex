@@ -31,6 +31,7 @@ import {
   Trash2,
   Loader2,
   X,
+  Mail,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -76,7 +77,19 @@ interface PendingDoc {
 export default function TeamKYC() {
   const { toast } = useToast();
   const [tab, setTab] = useState(0);
-  const [form, setForm] = useState({ ...empty });
+
+  // Pre-fill from invite URL params (?name=&email=&position=&department=&ref=invite)
+  const params = new URLSearchParams(window.location.search);
+  const inviteRef = params.get("ref") === "invite";
+  const initForm = {
+    ...empty,
+    fullName: params.get("name") || "",
+    email: params.get("email") || "",
+    positionApplied: params.get("position") || "",
+    department: params.get("department") || "",
+  };
+
+  const [form, setForm] = useState(initForm);
   const [declarationAgreed, setDeclarationAgreed] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -278,6 +291,24 @@ export default function TeamKYC() {
 
       <main className="flex-1 py-8 px-4">
         <div className="max-w-3xl mx-auto">
+
+          {/* Invite banner */}
+          {inviteRef && (
+            <div className="mb-5 flex items-start gap-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-3.5">
+              <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Mail className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                  You've been invited to join Bullfrog Group
+                  {params.get("position") ? ` as ${params.get("position")}` : ""}
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">
+                  The HR team has pre-filled some fields for you. Please review all sections and complete the form accurately.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-primary mb-1">Staff Employment KYC Form</h2>

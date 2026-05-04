@@ -16,6 +16,7 @@ import {
   User, Phone, Briefcase, GraduationCap, Heart, Landmark, Lock,
   ChevronRight, Camera, Edit2, Save, FilePlus, UserCheck,
   CheckCircle2, XCircle, PenTool, ImageIcon, AlertCircle, ClipboardList,
+  Mail, Send, Copy, ExternalLink,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -530,6 +531,22 @@ export default function TeamMembersPage() {
   // KYC state
   const [selectedKycId, setSelectedKycId] = useState<string | null>(null);
   const [kycFilter, setKycFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
+
+  // Invite modal state
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ name: "", email: "", position: "", department: "", message: "" });
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const upInvite = (f: string, v: string) => setInviteForm(p => ({ ...p, [f]: v }));
+
+  const inviteMutation = useMutation({
+    mutationFn: (body: object) => apiRequest("POST", "/api/team-kyc/invite", body),
+    onSuccess: async (res) => {
+      const data = await res.json();
+      setInviteLink(data.kycUrl || null);
+      toast({ title: "Invitation Sent", description: `KYC invitation email sent to ${inviteForm.email}` });
+    },
+    onError: (err: any) => toast({ title: "Invite Failed", description: err.message, variant: "destructive" }),
+  });
 
   const up = (f: string, v: string) => setForm(p => ({ ...p, [f]: v }));
   const lbl = "text-[10px] font-bold uppercase tracking-wider text-muted-foreground";
@@ -1208,12 +1225,21 @@ export default function TeamMembersPage() {
           {/* Left list */}
           <div className={`flex flex-col ${selectedKycId ? "w-72 flex-shrink-0 border-r border-border" : "flex-1"} overflow-hidden`}>
             <div className="border-b border-border px-5 py-4 flex-shrink-0">
-              <div className="flex items-center gap-2.5 mb-3">
-                <UserCheck className="w-4 h-4 text-primary" />
-                <div>
-                  <h1 className="text-sm font-bold tracking-tight">KYC Applications</h1>
-                  <p className="text-[10px] text-muted-foreground">Staff onboarding submissions</p>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2.5">
+                  <UserCheck className="w-4 h-4 text-primary" />
+                  <div>
+                    <h1 className="text-sm font-bold tracking-tight">KYC Applications</h1>
+                    <p className="text-[10px] text-muted-foreground">Staff onboarding submissions</p>
+                  </div>
                 </div>
+                <button
+                  onClick={() => { setShowInvite(true); setInviteLink(null); }}
+                  data-testid="btn-invite-candidate"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded text-[10px] font-bold uppercase tracking-wider hover:bg-primary/90 transition-colors"
+                >
+                  <Mail className="w-3 h-3" /> Invite
+                </button>
               </div>
               {/* Filter bar */}
               <div className="flex gap-1">
@@ -1289,9 +1315,142 @@ export default function TeamMembersPage() {
                 <UserCheck className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
                 <p className="text-sm font-semibold text-muted-foreground">Select an application to review</p>
                 <p className="text-xs text-muted-foreground mt-1">View all details, documents, and take action from the Review tab.</p>
+                <button
+                  onClick={() => { setShowInvite(true); setInviteLink(null); }}
+                  data-testid="btn-invite-candidate-empty"
+                  className="mt-4 flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded text-xs font-bold hover:bg-primary/90 transition-colors mx-auto"
+                >
+                  <Mail className="w-3.5 h-3.5" /> Invite a Candidate
+                </button>
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Invite Candidate Modal ── */}
+      {showInvite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-background border border-border rounded-lg shadow-2xl w-full max-w-md">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-primary" />
+                <h2 className="text-sm font-bold">Invite Candidate</h2>
+              </div>
+              <button
+                onClick={() => setShowInvite(false)}
+                data-testid="btn-invite-modal-close"
+                className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground rounded transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              {inviteLink ? (
+                /* Success state */
+                <div className="space-y-4">
+                  <div className="flex flex-col items-center text-center gap-2 py-2">
+                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    </div>
+                    <p className="text-sm font-semibold">Invitation Sent!</p>
+                    <p className="text-xs text-muted-foreground">An email with the KYC form link has been sent to <strong>{inviteForm.email}</strong>.</p>
+                  </div>
+                  <div className="bg-muted/50 border border-border rounded p-3 space-y-1.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">KYC Form Link</p>
+                    <p className="text-xs text-primary break-all">{inviteLink}</p>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(inviteLink); toast({ title: "Link Copied" }); }}
+                      data-testid="btn-copy-invite-link"
+                      className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground hover:text-foreground transition-colors mt-1"
+                    >
+                      <Copy className="w-3 h-3" /> Copy Link
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => { setShowInvite(false); setInviteForm({ name: "", email: "", position: "", department: "", message: "" }); setInviteLink(null); }}
+                    data-testid="btn-invite-done"
+                    className="w-full py-2 bg-primary text-primary-foreground rounded text-xs font-bold hover:bg-primary/90 transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                /* Form state */
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">Send the KYC onboarding form link to a candidate with their details pre-filled.</p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Full Name</Label>
+                      <Input
+                        value={inviteForm.name}
+                        onChange={e => upInvite("name", e.target.value)}
+                        placeholder="Jane Doe"
+                        className="h-9 text-xs rounded-none bg-background border-border"
+                        data-testid="input-invite-name"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Email <span className="text-destructive">*</span></Label>
+                      <Input
+                        value={inviteForm.email}
+                        onChange={e => upInvite("email", e.target.value)}
+                        placeholder="jane@example.com"
+                        type="email"
+                        className="h-9 text-xs rounded-none bg-background border-border"
+                        data-testid="input-invite-email"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Position</Label>
+                      <Input
+                        value={inviteForm.position}
+                        onChange={e => upInvite("position", e.target.value)}
+                        placeholder="e.g. Trade Analyst"
+                        className="h-9 text-xs rounded-none bg-background border-border"
+                        data-testid="input-invite-position"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Department</Label>
+                      <Input
+                        value={inviteForm.department}
+                        onChange={e => upInvite("department", e.target.value)}
+                        placeholder="e.g. Operations"
+                        className="h-9 text-xs rounded-none bg-background border-border"
+                        data-testid="input-invite-department"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Personal Message (optional)</Label>
+                    <Textarea
+                      value={inviteForm.message}
+                      onChange={e => upInvite("message", e.target.value)}
+                      placeholder="e.g. Welcome to the team! Please complete your KYC as soon as possible."
+                      className="text-xs rounded-none bg-background border-border resize-none min-h-[64px]"
+                      data-testid="input-invite-message"
+                    />
+                  </div>
+
+                  <button
+                    disabled={!inviteForm.email || inviteMutation.isPending}
+                    onClick={() => inviteMutation.mutate(inviteForm)}
+                    data-testid="btn-send-invite"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary text-primary-foreground rounded text-xs font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {inviteMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

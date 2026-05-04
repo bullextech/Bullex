@@ -876,6 +876,56 @@ export async function sendEnquiryClientResponseNotification(enquiry: {
   return sendEmail(TRADE_EMAIL, `Enquiry ${responseLabel} – ${enquiry.enquiryRef} by ${clientCompany}`, emailWrapper(body));
 }
 
+export async function sendTeamKycInvite(
+  to: string,
+  candidateName: string,
+  position: string | null,
+  department: string | null,
+  personalMessage: string | null,
+  kycUrl: string
+): Promise<boolean> {
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">You're Invited to Join Bullfrog Group</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${candidateName || "Candidate"},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      You have been invited by the HR team at <strong>Bullfrog Group</strong> to complete your Staff Onboarding KYC application on the Bullex platform.
+    </p>
+    ${position || department ? `
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 20px 0;">
+      ${position ? `<p style="color: #1d4ed8; margin: 0; font-size: 14px;"><strong>Position:</strong> ${position}</p>` : ""}
+      ${department ? `<p style="color: #1d4ed8; margin: ${position ? "6px" : "0"} 0 0; font-size: 14px;"><strong>Department:</strong> ${department}</p>` : ""}
+    </div>
+    ` : ""}
+    ${personalMessage ? `
+    <div style="background: #f8fafc; border-left: 4px solid #e2e8f0; padding: 12px 16px; margin: 20px 0;">
+      <p style="color: #475569; margin: 0; font-style: italic; font-size: 14px;">"${personalMessage}"</p>
+    </div>
+    ` : ""}
+    <p style="color: #475569; line-height: 1.6;">
+      Please click the button below to access your personalised KYC form. Complete all sections accurately — your application will be reviewed by our admin team, and upon approval, your Bullex login credentials will be sent to you.
+    </p>
+    <div style="text-align: center; margin: 32px 0;">
+      <a href="${kycUrl}" style="background: #dc2626; color: #ffffff; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 15px; display: inline-block; letter-spacing: 0.5px;">
+        Complete Your KYC Application →
+      </a>
+    </div>
+    <p style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
+      Or copy this link: <a href="${kycUrl}" style="color: #2563eb;">${kycUrl}</a>
+    </p>
+    <div style="background: #fefce8; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; margin: 24px 0;">
+      <p style="color: #92400e; margin: 0; font-size: 13px;">
+        This invitation was sent on behalf of Bullfrog Group HR. If you believe this was sent in error, please disregard this email.
+      </p>
+    </div>
+    <p style="color: #475569; margin: 24px 0 0;">Warm regards,<br /><strong>Bullfrog Group HR Team</strong></p>
+  `;
+  return sendEmail(
+    to,
+    `Staff Onboarding Invitation${position ? ` — ${position}` : ""} · Bullfrog Group`,
+    emailWrapper(body)
+  );
+}
+
 export async function sendTeamKycAdminNotification(
   to: string,
   fullName: string,

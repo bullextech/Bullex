@@ -410,6 +410,32 @@ export async function registerRoutes(
     res.json(apps.map(a => ({ ...a, teamPassword: undefined })));
   });
 
+  // Send KYC invitation email to a candidate (admin only)
+  app.post("/api/team-kyc/invite", requireAdminAuth, async (req, res) => {
+    try {
+      const { name, email, position, department, message } = req.body;
+      if (!email) return res.status(400).json({ message: "Candidate email is required" });
+
+      const proto = req.headers["x-forwarded-proto"] || req.protocol;
+      const host = req.headers["x-forwarded-host"] || req.get("host");
+      const baseUrl = `${proto}://${host}`;
+      const params = new URLSearchParams();
+      if (name) params.set("name", name);
+      if (email) params.set("email", email);
+      if (position) params.set("position", position);
+      if (department) params.set("department", department);
+      params.set("ref", "invite");
+      const kycUrl = `${baseUrl}/team-kyc?${params.toString()}`;
+
+      const { sendTeamKycInvite } = await import("./email.js");
+      const sent = await sendTeamKycInvite(email, name || "Candidate", position || null, department || null, message || null, kycUrl);
+      if (!sent) return res.status(500).json({ message: "Email could not be sent. Check RESEND_API_KEY." });
+      res.json({ success: true, kycUrl });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.post("/api/team-kyc", async (req, res) => {
     try {
       const { fullName, email, ...rest } = req.body;

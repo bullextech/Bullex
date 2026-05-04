@@ -33,7 +33,6 @@ import RegistrationsAdmin from "@/pages/registrations-admin";
 import HumanResources from "@/pages/human-resources";
 import TeamMembers from "@/pages/team-members";
 import TeamKYC from "@/pages/team-kyc";
-import TeamKycAdmin from "@/pages/team-kyc-admin";
 
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
   const { authenticated, loading } = useAuth();
@@ -94,7 +93,6 @@ function Router() {
       <Route path="/trade-enquiries">{() => <ProtectedRoute component={TradeEnquiries} />}</Route>
       <Route path="/registrations">{() => <ProtectedRoute component={RegistrationsAdmin} />}</Route>
       <Route path="/team-members">{() => <ProtectedRoute component={TeamMembers} />}</Route>
-      <Route path="/team-kyc-admin">{() => <ProtectedRoute component={TeamKycAdmin} />}</Route>
       <Route path="/client-portal" component={ClientPortal} />
       <Route path="/investor" component={Investor} />
       <Route path="/human-resources" component={HumanResources} />
