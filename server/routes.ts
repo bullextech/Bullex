@@ -11,7 +11,7 @@ import { insertTradeSchema, insertKycSchema, insertDocumentSchema, type Trade } 
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification, sendJobApplicationToHR, sendJobApplicationAcknowledgement } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification, sendJobApplicationToHR, sendJobApplicationAcknowledgement, sendTeamKycAdminNotification, sendTeamKycConfirmation } from "./email";
 import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures } from "./documentFileGenerator";
 
 const ADMIN_CHECKLISTS: Record<string, string[]> = {
@@ -397,6 +397,27 @@ export async function registerRoutes(
       }
       const app = await storage.createTeamKycApplication({ fullName, email, ...rest });
       res.json(app);
+
+      // Fire emails in background after responding
+      const submittedAt = new Date().toLocaleDateString("en-GB", {
+        day: "2-digit", month: "long", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      });
+      const adminEmail = process.env.ADMIN_EMAIL || process.env.ADMIN_USERNAME;
+      if (adminEmail) {
+        sendTeamKycAdminNotification(
+          adminEmail,
+          fullName,
+          email,
+          rest.positionApplied || null,
+          rest.department || null,
+          submittedAt
+        ).catch((err) => console.error("[email] team-kyc admin notify failed:", err));
+      }
+      if (email) {
+        sendTeamKycConfirmation(email, fullName)
+          .catch((err) => console.error("[email] team-kyc confirmation failed:", err));
+      }
     } catch (err: any) {
       res.status(500).json({ message: err.message || "Failed to submit application" });
     }

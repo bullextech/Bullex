@@ -847,6 +847,7 @@ export async function sendEnquiryClientResponseNotification(enquiry: {
 }, clientResponse: string, clientCompany: string): Promise<boolean> {
   const TRADE_EMAIL = "trade@bullex.tech";
   const sideLabel = enquiry.side === "sell" ? "SELL" : "BUY";
+
   const accepted = clientResponse === "accepted";
   const responseLabel = accepted ? "ACCEPTED" : "REJECTED";
   const highlightColor = accepted ? "#dcfce7" : "#fee2e2";
@@ -873,4 +874,63 @@ export async function sendEnquiryClientResponseNotification(enquiry: {
     </table>
   `;
   return sendEmail(TRADE_EMAIL, `Enquiry ${responseLabel} – ${enquiry.enquiryRef} by ${clientCompany}`, emailWrapper(body));
+}
+
+export async function sendTeamKycAdminNotification(
+  to: string,
+  fullName: string,
+  applicantEmail: string,
+  position: string | null,
+  department: string | null,
+  submittedAt: string
+): Promise<boolean> {
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">New Team KYC Application Received</h2>
+    <p style="color: #475569; line-height: 1.6;">A new staff onboarding application has been submitted and requires your review.</p>
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #1d4ed8; margin: 0; font-weight: 700; font-size: 16px;">${fullName}</p>
+      <p style="color: #3b82f6; margin: 6px 0 0; font-size: 14px;">${applicantEmail}</p>
+      ${position ? `<p style="color: #3b82f6; margin: 4px 0 0; font-size: 13px;">Role: ${position}${department ? ` · ${department}` : ""}</p>` : ""}
+    </div>
+    <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+      <tr style="background: #f8fafc;">
+        <th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th>
+        <th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th>
+      </tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Applicant Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${fullName}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${applicantEmail}</td></tr>
+      ${position ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Position Applied</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${position}</td></tr>` : ""}
+      ${department ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Department</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${department}</td></tr>` : ""}
+      <tr><td style="color: #64748b; padding: 8px 12px;">Submitted</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${submittedAt}</td></tr>
+    </table>
+    <div style="background: #fefce8; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; margin: 16px 0;">
+      <p style="color: #92400e; margin: 0; font-size: 13px;">Please log in to the Bullex admin panel, navigate to Team KYC Applications, and review the submission to allocate login credentials upon approval.</p>
+    </div>
+  `;
+  return sendEmail(to, `New Team KYC Application — ${fullName}`, emailWrapper(body));
+}
+
+export async function sendTeamKycConfirmation(
+  to: string,
+  fullName: string
+): Promise<boolean> {
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Application Received — Thank You</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${fullName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      Your employment onboarding application has been successfully submitted to the Bullex Team. Our HR/Admin team will review your details and get back to you shortly.
+    </p>
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #166534; margin: 0; font-weight: 600;">&#10003; Application Status: Submitted</p>
+      <p style="color: #166534; margin: 8px 0 0; font-size: 13px;">Your statutory declaration has been recorded. All details are held securely and treated in strict confidence.</p>
+    </div>
+    <p style="color: #475569; line-height: 1.6;">
+      Once your application is reviewed and approved, you will receive your Bullex platform login credentials by email.
+    </p>
+    <p style="color: #475569; line-height: 1.6;">
+      For any questions in the meantime, please contact HR at <a href="mailto:career@bullex.tech" style="color: #2563eb;">career@bullex.tech</a>.
+    </p>
+    <p style="color: #475569; margin: 24px 0 0;">Warm regards,<br /><strong>Bullfrog Group HR Team</strong></p>
+  `;
+  return sendEmail(to, "Bullex — Your Team KYC Application Has Been Received", emailWrapper(body));
 }
