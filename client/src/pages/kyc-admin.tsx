@@ -969,7 +969,7 @@ export default function KycAdmin() {
                                 {app.status !== "approved" && (
                                   <div className="space-y-1.5">
                                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Client Portal Credentials</label>
-                                    <p className="text-[10px] text-muted-foreground">Required when approving. These credentials will be sent to the client.</p>
+                                    <p className="text-[10px] text-muted-foreground">Optional. If provided, these credentials will be sent to the client upon approval.</p>
                                     <div className="grid grid-cols-2 gap-2">
                                       <Input
                                         className="rounded-none border-border text-sm"
@@ -995,11 +995,7 @@ export default function KycAdmin() {
                                     className="flex-1 rounded-none h-10 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider"
                                     disabled={updateStatus.isPending}
                                     onClick={() => {
-                                      if (!clientUsernames[app.id] || !clientPasswords[app.id]) {
-                                        toast({ title: "Credentials Required", description: "Please set a username and password for the client portal before approving.", variant: "destructive" });
-                                        return;
-                                      }
-                                      updateStatus.mutate({ id: app.id, status: "approved", notes: reviewNotes[app.id], category: categories[app.id] || app.category || undefined, products: products[app.id] !== undefined ? products[app.id] : (app.products || undefined), clientUsername: clientUsernames[app.id], clientPassword: clientPasswords[app.id] });
+                                      updateStatus.mutate({ id: app.id, status: "approved", notes: reviewNotes[app.id], category: categories[app.id] || app.category || undefined, products: products[app.id] !== undefined ? products[app.id] : (app.products || undefined), clientUsername: clientUsernames[app.id] || undefined, clientPassword: clientPasswords[app.id] || undefined });
                                     }}
                                     data-testid={`button-approve-${app.id}`}
                                   >
