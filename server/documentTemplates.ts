@@ -659,6 +659,186 @@ Date: ${today()}
 
 Signature & Bank Seal: _______________`,
 
+  NCNDA: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const partyA = v(seller?.name);
+    const partyAAddress = v(seller?.address);
+    const partyAContact = v(seller?.contact);
+    const partyB = v(buyer?.name);
+    const partyBAddress = v(buyer?.address);
+    const partyBContact = v(buyer?.contact);
+    const effectiveDate = product?.validity?.trim() || today();
+    const governingLaw = product?.governingLaw?.trim() || "_______________";
+    const jurisdiction = product?.recapValidity?.trim() || "_______________";
+    const proposedTransaction = product?.commodity?.trim() || "Sale and Purchase of various metals, minerals and energy products as may be mutually agreed between the Parties in writing from time to time during the Term of this Agreement";
+    return `MUTUAL NON-CIRCUMVENTION NON-DISCLOSURE AGREEMENT (NCNDA)
+${"=".repeat(70)}
+
+This Mutual Non-Circumvention Non-Disclosure Agreement ("Agreement") is made on ${effectiveDate} ("Effective Date") by and between,
+
+1. ${partyA}, a company incorporated under the laws of ${governingLaw}, having its registered office at ${partyAAddress}, represented by its authorised signatory, ${partyAContact} (hereinafter referred to as "Party A", which expression, unless it be repugnant to the context or meaning thereof, shall be deemed to mean and include its successors and assigns) of the one part;
+
+AND
+
+2. ${partyB}, a company incorporated and registered under applicable laws, having its registered office at ${partyBAddress}, represented by its authorised signatory, ${partyBContact} (hereinafter referred to as "Party B", which expression shall, unless it be repugnant to the context or meaning thereof, mean and include its successors and permitted assigns) of the other part.
+
+"Party A" and "Party B" are collectively referred to as "Parties" and individually as "Party".
+
+WHEREAS:
+
+The Parties wish to explore discussions during which either Party may disclose its Confidential Information to the other for the Proposed Transaction (as defined below).
+
+NOW, THEREFORE, in consideration of the foregoing and for other good and valuable consideration, the receipt and sufficiency of which is hereby acknowledged, the Parties hereto agree as follows:
+
+
+${"═".repeat(70)}
+1. DEFINITIONS
+${"═".repeat(70)}
+
+1.1 "Confidential Information" shall mean and include, without limitation:
+
+   (a) the existence and terms of this Agreement;
+   (b) the fact that the parties are or have been in discussions for the Proposed Transaction under this Agreement and any other fact with respect to such Proposed Transaction;
+   (c) current, future, and proposed products and services of the Disclosing Party;
+   (d) technical and non-technical information (regardless of whether such information is in tangible or intangible form) including but not limited to data, drawings, designs, ideas, concepts, formulae, methods, techniques, processes, financials, financial business plans, pricing, unpublished price sensitive information, business methods or trade secrets and compilations, reports, forecasts, studies, samples, statistics, summaries, interpretations and other materials (including any notes, records, analyses, correspondences or any derivatives of the foregoing), prepared by or for Recipient / Recipient's Representatives that contain, are based on, or otherwise reflect or are derived from, in whole or in part, any Confidential Information;
+   (e) all intellectual property related information, inventions, improvements, modifications or discoveries, whether patentable or not, patent and patent applications, copyrights, trade secrets; and
+   (f) any copies, notes, compilations or other documents, including any textual, numerical, graphical drawing or image fixed on paper, any electronic medium, any like media or any storage device containing such media, containing or embodying Confidential Information.
+
+1.2 "Disclosing Party" means the person which discloses directly or indirectly Confidential Information in a particular instance or on whose behalf Confidential Information is furnished.
+
+1.3 "Proposed Transaction" shall mean and include ${proposedTransaction}.
+
+1.4 "Representatives" means with respect to a Party, any affiliates, or directors, officers, employees, representatives, consultants, advisors or agents of a Party or its affiliates.
+
+1.5 "Recipient" means the Party receiving Confidential Information, whether directly or indirectly from a Disclosing Party.
+
+
+${"═".repeat(70)}
+2. TREATMENT OF CONFIDENTIAL INFORMATION
+${"═".repeat(70)}
+
+The Recipient agrees to do the following in respect of the Confidential Information disclosed by the Disclosing Party:
+
+   (a) keep the Confidential Information strictly confidential and not disclose, disseminate or divulge to anyone, except where applicable in accordance with the terms of this Agreement;
+   (b) except in connection with the Proposed Transaction, agrees not to use or exploit any of the Confidential Information, in whole or in part, in any way for any other purpose or for commercial benefit;
+   (c) not cause or permit the use of Confidential Information, directly or indirectly, for obtaining intellectual property rights;
+   (d) promptly notify the Disclosing Party in writing upon learning of any unauthorised disclosure or use of the Confidential Information and take all steps reasonably requested by the Disclosing Party to remedy any such unauthorised disclosure or use.
+
+
+${"═".repeat(70)}
+3. NON-CIRCUMVENTION
+${"═".repeat(70)}
+
+Each Party agrees not to circumvent, avoid, bypass, or obviate the other Party, directly or indirectly, in connection with the Proposed Transaction or any transaction arising from or related to the discussions between the Parties. Neither Party shall contact, deal with, or otherwise be involved with any business contacts, clients, customers, associates, or other entities introduced by the other Party without the prior written consent of the introducing Party.
+
+
+${"═".repeat(70)}
+4. AUTHORISED USERS
+${"═".repeat(70)}
+
+The Recipient will use the Disclosing Party's Confidential Information solely in connection with the Proposed Transaction. The Recipient will not disclose the Disclosing Party's Confidential Information to third parties, except to those Representatives of the Recipient who are required to have the information in order to participate in the Proposed Transaction and provided that such Representatives' confidentiality obligations are similar to those of the Recipient's under this Agreement.
+
+
+${"═".repeat(70)}
+5. EXCEPTIONS
+${"═".repeat(70)}
+
+The restrictions in Clause 2 shall not apply to Confidential Information which:
+
+   (a) is lawfully known to the Recipient free of any restriction or obligation of confidence; or
+   (b) is independently developed without reference to, benefit or use of any part of the Disclosing Party's Confidential Information; or
+   (c) is lawfully disclosed to the Recipient, without restriction, after acceptance of this Agreement, by an independent third party who has a legal right to make such disclosure and is free from any obligation of confidence or non-use; or
+   (d) is publicly known or generally in the public domain prior to the disclosure; or
+   (e) is required to be disclosed by the Recipient pursuant to a legal, judicial, or administrative procedure, or is otherwise required by law; provided that the Recipient agrees to give the Disclosing Party reasonable advance notice so that the Disclosing Party may contest the disclosure or seek a protective order.
+
+
+${"═".repeat(70)}
+6. OWNERSHIP OF CONFIDENTIAL INFORMATION
+${"═".repeat(70)}
+
+All Confidential Information will remain the exclusive property of the Disclosing Party. Any disclosure of Confidential Information will not constitute an express or implied grant to the Recipient of any rights to or under the Disclosing Party's intellectual property rights.
+
+
+${"═".repeat(70)}
+7. RETURN OF CONFIDENTIAL INFORMATION
+${"═".repeat(70)}
+
+The Recipient will return or destroy all Confidential Information (in any form and including, without limitation, all summaries, correspondence, copies and excerpts of Confidential Information) promptly following the Disclosing Party's request. At the Disclosing Party's option, the Recipient will provide written certification of its compliance with this Clause. The Recipient may retain one (1) copy of the Confidential Information with its legal counsel for archival purposes.
+
+
+${"═".repeat(70)}
+8. TERM AND SURVIVAL OF OBLIGATIONS
+${"═".repeat(70)}
+
+   (a) This Agreement shall commence upon the Effective Date and will continue for a period of 1 (one) year from the Effective Date, unless terminated earlier by either Party by giving thirty (30) days prior written notice to the other Party.
+   (b) The confidentiality and non-circumvention obligations of each Party set forth herein shall continue to apply for a period of 1 (one) year post the expiry or termination of this Agreement.
+
+
+${"═".repeat(70)}
+9. DATA PROTECTION
+${"═".repeat(70)}
+
+In so far as the Recipient receives Confidential Information from the Disclosing Party that includes any data relating to an identified or identifiable individual ("Personal Data"), the Recipient shall:
+
+   (a) process the Personal Data only on behalf of the Disclosing Party and in accordance with instructions contained in this Agreement or received from the Disclosing Party from time to time and for the business purpose stated in this Agreement;
+   (b) provide the Disclosing Party with full co-operation and assistance in relation to any complaint or request made in respect of any Personal Data;
+   (c) not transfer the Personal Data of the concerned individual as disclosed by the Disclosing Party to any third party, without the prior written consent of the Disclosing Party.
+
+
+${"═".repeat(70)}
+10. ANTI-BRIBERY AND ANTI-CORRUPTION
+${"═".repeat(70)}
+
+In connection with this Agreement, the Parties warrant that neither they nor their directors, officers, shareholders, employees, agents, consultants or representatives have given, offered, promised or authorised and shall not give, offer, promise or authorise anything of value, directly or indirectly, to a government official or any other person to influence or reward official action. Each Party shall comply with all applicable anti-corruption and anti-bribery laws including the U.S. Foreign Corrupt Practices Act of 1977 (FCPA), the United Kingdom Bribery Act 2010, and any other applicable anti-bribery law or regulation.
+
+
+${"═".repeat(70)}
+11. CODE OF CONDUCT
+${"═".repeat(70)}
+
+Party B acknowledges that the business activities of Party A are self-regulated by the Bullfrog Code of Conduct ("Code") and agrees that it and its employees shall at all times abide by the Code. Party B further undertakes that it will promptly report any violation of the Code to legal@bullex.tech. Both Parties undertake to maintain confidentiality of all communication received in this regard.
+
+
+${"═".repeat(70)}
+12. GOVERNING LAW AND JURISDICTION
+${"═".repeat(70)}
+
+This Agreement will be governed, construed and enforced in accordance with the laws of ${governingLaw}. The Parties shall submit to the exclusive jurisdiction of the courts of ${jurisdiction}.
+
+
+${"═".repeat(70)}
+13. MISCELLANEOUS
+${"═".repeat(70)}
+
+   (a) The Parties warrant that the signatory signing this Agreement on their respective behalf is duly authorised to do so and irrevocably binds the respective Parties to this Agreement.
+   (b) No amendment, variation, or modification to this Agreement will be effective unless it is in writing and signed by both Parties.
+   (c) If any provision in this Agreement is found to be invalid or unenforceable in any respect in any jurisdiction, the validity and enforceability of the remaining provisions shall not be affected.
+   (d) This Agreement constitutes the entire agreement between the Parties concerning the subject matter of this Agreement and shall supersede any and all prior discussions, negotiations, agreements and understandings between the Parties regarding such subject-matter.
+   (e) Parties may not assign or delegate its rights, benefits, interests and obligations under this Agreement wholly or in part without the prior written consent of the other Party.
+   (f) Trade Sanction Provisions: Both Parties represent and warrant that they comply with all applicable Sanctions laws. Neither Party nor any person directly or indirectly controlling or dealing with either Party (i) is a Sanctioned Person, (ii) is controlled by or is acting on behalf of a Sanctioned Person, or (iii) will fund any repayment or payment of obligations with proceeds derived from any transaction that would be prohibited by Sanctions.
+   (g) This Agreement may be executed in any number of counterparts (including by facsimile or electronic mail in PDF form), all of which will be one and the same agreement.
+
+
+IN WITNESS WHEREOF, the Parties hereto execute this Agreement by their authorised representatives.
+
+${"─".repeat(70)}
+For and on behalf of Party A:              For and on behalf of Party B:
+
+${partyA.padEnd(43)}${partyB}
+
+Name: ___________________________         Name: ___________________________
+
+Title: __________________________         Title: __________________________
+
+Date:  ${today().padEnd(37)}Date:  ${today()}
+
+Signature: ______________________         Signature: ______________________
+
+(who by their signature hereto warrants    (who by their signature hereto warrants
+their authority)                           their authority)
+${"─".repeat(70)}
+`;
+  },
+
   LC: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `LETTER OF CREDIT (LC)
 ${"=".repeat(40)}
 

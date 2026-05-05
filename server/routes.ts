@@ -60,6 +60,16 @@ const ADMIN_CHECKLISTS: Record<string, string[]> = {
     "SPA number matches Deal Recap number",
     "Governing law and jurisdiction confirmed",
   ],
+  NCNDA: [
+    "Party A details verified against KYC / company records",
+    "Party B details verified against approved KYC application",
+    "Effective date and term correctly stated",
+    "Proposed Transaction description complete",
+    "Governing law and jurisdiction confirmed",
+    "Non-circumvention clause reviewed",
+    "Both party signatories authorised",
+    "Sanctions and anti-bribery clauses reviewed",
+  ],
 };
 const DEFAULT_CHECKLIST = [
   "Document details complete and accurate",

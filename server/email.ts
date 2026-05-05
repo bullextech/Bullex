@@ -451,6 +451,7 @@ export async function sendSignaturePendingEmail(
     POP: "Proof of Product",
     POF: "Proof of Funds",
     BCL: "Bank Comfort Letter",
+    NCNDA: "Non-Circumvention Non-Disclosure Agreement",
   };
   const fullType = docTypeLabels[docType] || docType;
 

@@ -65,7 +65,8 @@ Bullex is a proprietary commodity trading platform of Bullfrog Group — an inst
 - **Contact**: team@bullex.tech, tokenisation inquiries, investor onboarding, Dubai office
 - **KYC Registration**: 10-section institutional KYC form
 - **Blockchain Trading**: Commodity trade execution with blockchain verification
-- **Document Generator**: Generate Deal Recap, FCO, SCO, ICPO, SPA, LOI, POP, POF, BCL with DOCX/PDF output, auto-email with PDF attachment, KYC client auto-fill, Review step (preview content before generating DOCX), Digital Signatures (draw-to-sign buyer/admin signature for all doc types, embedded in regenerated PDF/DOCX), Convert to PDF available for all doc types after signing
+- **Document Generator**: Generate Deal Recap, FCO, SCO, ICPO, SPA, LOI, POP, POF, BCL, NCNDA with DOCX/PDF output, auto-email with PDF attachment, KYC client auto-fill, Review step (preview content before generating DOCX), Digital Signatures (draw-to-sign buyer/admin signature for all doc types, embedded in regenerated PDF/DOCX), Convert to PDF available for all doc types after signing
+  - **NCNDA template**: 13-clause Mutual Non-Circumvention Non-Disclosure Agreement — Party A (seller fields) + Party B (buyer fields) auto-filled from approved KYC; fields: effective date (validity), governing law, jurisdiction (recapValidity), proposed transaction (commodity)
   - **Deal Recap template**: 4 chapters (Introductory & Background, Scope & Commercial Terms, Financial & Operational Arrangements, Miscellaneous & Boilerplate) + dual signatory block + Annex I (Product Specification, Quality Premiums/Penalties, Sampling/Quality/Moisture/Quantity procedures)
   - **LOI template**: 12-row editable table with 3 sections (Issued to Seller, LOI Details, Issued by Buyer) + LOI-specific fields (validity, refPerson, contractConfirmation, docsForPayment, otherTerms, compliance)
   - **SCO template**: Seller's conditional offer with commodity parameters table (9 items) + issuer signatory section
@@ -106,7 +107,7 @@ Producer, Buyer, Seller, Analysis Agency, Port Agent, Shipping Agent, Chartering
 - `trades` - Commodity trades (tradeRef BFG-YYYY-XXXX, buyer/seller, origin/destination, incoterm, blockchain hash, stageDocuments JSONB)
 - `blocks` - Blockchain blocks (hash, previous hash, nonce, verification, dataType: "trade"|"kyc", dataId, dataSummary)
 - `kyc_change_requests` - Change requests for approved KYC applications (kycApplicationId, changedFields JSONB, reason, status: pending|approved|rejected, adminNotes, reviewedAt)
-- `documents` - Trade documents (Deal Recap, FCO, SCO, ICPO, SPA, LOI, POP, POF, BCL) with docxPath, pdfPath, buyerEmail, sellerEmail, buyerSignature/sellerSignature (base64 PNG), buyerSignedName/sellerSignedName, buyerSignedAt/sellerSignedAt, enquiryRef, dealRecapNumber, sentTo, sentToClientId (links to KYC app id), recipientResponse (pending|accepted|rejected), recipientRespondedAt, recipientAmendmentNotes, parentDocId
+- `documents` - Trade documents (Deal Recap, FCO, SCO, ICPO, SPA, LOI, POP, POF, BCL, NCNDA) with docxPath, pdfPath, buyerEmail, sellerEmail, buyerSignature/sellerSignature (base64 PNG), buyerSignedName/sellerSignedName, buyerSignedAt/sellerSignedAt, enquiryRef, dealRecapNumber, sentTo, sentToClientId (links to KYC app id), recipientResponse (pending|accepted|rejected), recipientRespondedAt, recipientAmendmentNotes, parentDocId
 - `trade_enquiries` - Trade enquiry records (enquiryRef format: [Party3]-[Product3]-DDMM-NNN, product, specifications, producer, quantity, unit, loadingPort, incoterms, validity, additionalInfo, status: open|under_review|quoted|closed|cancelled)
 - `trade_enquiry_documents` - Files attached to trade enquiries (enquiryId, originalName, storedName, mimeType, size)
 
