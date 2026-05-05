@@ -1595,12 +1595,15 @@ export async function registerRoutes(
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
       if (!doc.content) return res.status(404).json({ message: "Document content not available" });
-      if (doc.buyerSignature) {
+      const hasSigDocx = doc.docType === "NCNDA" ? (doc.sellerSignature || doc.buyerSignature) : doc.buyerSignature;
+      if (hasSigDocx) {
         const result = await regenerateWithSignatures(
           doc.id, doc.title, doc.content,
-          doc.buyerSignature || undefined, undefined,
-          doc.buyerSignedName || undefined, undefined,
-          doc.buyerSignedAt ? new Date(doc.buyerSignedAt) : undefined, undefined,
+          doc.buyerSignature || undefined, doc.sellerSignature || undefined,
+          doc.buyerSignedName || undefined, doc.sellerSignedName || undefined,
+          doc.buyerSignedAt ? new Date(doc.buyerSignedAt) : undefined,
+          doc.sellerSignedAt ? new Date(doc.sellerSignedAt) : undefined,
+          doc.docType,
         );
         const filePath = getDocFilePath(result.docxPath);
         res.setHeader("Content-Disposition", `attachment; filename="${doc.docType}_${doc.title.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_")}.docx"`);
@@ -1623,12 +1626,15 @@ export async function registerRoutes(
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
       if (!doc.content) return res.status(404).json({ message: "Document content not available" });
-      if (doc.buyerSignature) {
+      const hasSigPdf = doc.docType === "NCNDA" ? (doc.sellerSignature || doc.buyerSignature) : doc.buyerSignature;
+      if (hasSigPdf) {
         const result = await regenerateWithSignatures(
           doc.id, doc.title, doc.content,
-          doc.buyerSignature || undefined, undefined,
-          doc.buyerSignedName || undefined, undefined,
-          doc.buyerSignedAt ? new Date(doc.buyerSignedAt) : undefined, undefined,
+          doc.buyerSignature || undefined, doc.sellerSignature || undefined,
+          doc.buyerSignedName || undefined, doc.sellerSignedName || undefined,
+          doc.buyerSignedAt ? new Date(doc.buyerSignedAt) : undefined,
+          doc.sellerSignedAt ? new Date(doc.sellerSignedAt) : undefined,
+          doc.docType,
         );
         const filePath = getDocFilePath(result.pdfPath);
         res.setHeader("Content-Disposition", `attachment; filename="${doc.docType}_${doc.title.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_")}.pdf"`);
@@ -1651,13 +1657,16 @@ export async function registerRoutes(
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
       if (!doc.content) return res.status(400).json({ message: "Document has no content" });
-      if (!doc.buyerSignature) return res.status(400).json({ message: "Document must be signed before converting to PDF" });
+      const hasSigConvert = doc.docType === "NCNDA" ? (doc.sellerSignature || doc.buyerSignature) : doc.buyerSignature;
+      if (!hasSigConvert) return res.status(400).json({ message: "Document must be signed before converting to PDF" });
 
       const result = await regenerateWithSignatures(
         doc.id, doc.title, doc.content,
-        doc.buyerSignature || undefined, undefined,
-        doc.buyerSignedName || undefined, undefined,
-        doc.buyerSignedAt ? new Date(doc.buyerSignedAt) : undefined, undefined,
+        doc.buyerSignature || undefined, doc.sellerSignature || undefined,
+        doc.buyerSignedName || undefined, doc.sellerSignedName || undefined,
+        doc.buyerSignedAt ? new Date(doc.buyerSignedAt) : undefined,
+        doc.sellerSignedAt ? new Date(doc.sellerSignedAt) : undefined,
+        doc.docType,
       );
 
       const updated = await storage.updateDocument(doc.id, { pdfPath: result.pdfPath, status: "final" });
@@ -1742,6 +1751,7 @@ export async function registerRoutes(
             updated.sellerSignedName || undefined,
             updated.buyerSignedAt ? new Date(updated.buyerSignedAt) : undefined,
             updated.sellerSignedAt ? new Date(updated.sellerSignedAt) : undefined,
+            updated.docType,
           );
         } catch (regenErr: any) {
           console.error("Failed to regenerate files with signature:", regenErr.message);
@@ -1787,6 +1797,7 @@ export async function registerRoutes(
             updated.sellerSignedName || undefined,
             updated.buyerSignedAt ? new Date(updated.buyerSignedAt) : undefined,
             updated.sellerSignedAt ? new Date(updated.sellerSignedAt) : undefined,
+            updated.docType,
           );
         } catch (regenErr: any) {
           console.error("Failed to regenerate files after removing signature:", regenErr.message);
@@ -1828,12 +1839,25 @@ export async function registerRoutes(
       });
 
       if (recipientEmail) {
-        const pdfOrDocx = doc.pdfPath || doc.docxPath;
         const recipientRole = isNcnda ? "Party B" : "Buyer" as any;
-        if (pdfOrDocx) {
-          sendDocumentEmail(recipientEmail, isNcnda ? "Party B" : "Recipient", doc.docType, doc.title, recipientRole, pdfOrDocx, ccEmail || undefined)
-            .catch(err => console.error("[docs] Failed to email recipient:", err));
-        }
+        const sendWithAttachment = async () => {
+          try {
+            const { regenerateWithSignatures } = await import("./documentFileGenerator");
+            const fresh = await regenerateWithSignatures(
+              doc.id, doc.title, doc.content!,
+              doc.buyerSignature || undefined, doc.sellerSignature || undefined,
+              doc.buyerSignedName || undefined, doc.sellerSignedName || undefined,
+              doc.buyerSignedAt ? new Date(doc.buyerSignedAt) : undefined,
+              doc.sellerSignedAt ? new Date(doc.sellerSignedAt) : undefined,
+              doc.docType,
+            );
+            await storage.updateDocument(doc.id, { pdfPath: fresh.pdfPath, docxPath: fresh.docxPath });
+            await sendDocumentEmail(recipientEmail, isNcnda ? "Party B" : "Recipient", doc.docType, doc.title, recipientRole, fresh.pdfPath, ccEmail || undefined);
+          } catch (err: any) {
+            console.error("[docs] Failed to email recipient:", err.message);
+          }
+        };
+        sendWithAttachment();
         sendSignaturePendingEmail(recipientEmail, isNcnda ? "Party B (Receiving Party)" : "Recipient", doc.docType, doc.title)
           .catch(err => console.error("[docs] Failed to send signature pending email:", err));
       }
