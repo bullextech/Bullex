@@ -909,12 +909,23 @@ function buildLoiPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
   doc.moveDown(1);
 }
 
+const DISCLAIMER_TEXT =
+  "DISCLAIMER: The information contained in this document may be privileged and/or confidential, and is intended only for the use of the person to whom it is addressed. If the reader of this message is not the intended recipient (or such recipient's employee or agent), you are hereby notified not to read, distribute, use or copy this document or the materials attached. If you have received this document in error, please notify the sender and delete the document from your computer. In compliance with regulatory requirements, all messages sent to or from this server are archived and may be read by someone other than the recipient. This document has been scanned for viruses and malware, and may have been automatically archived by Bullfrog Group.";
+
 function buildFooterParagraphs(): Paragraph[] {
   return [
     new Paragraph({ spacing: { before: 600 } }),
     new Paragraph({
       border: { top: { style: BorderStyle.SINGLE, size: 1, color: "999999" } },
-      spacing: { before: 200, after: 60 },
+      spacing: { before: 200, after: 80 },
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: DISCLAIMER_TEXT, italics: true, size: 14, font: "Calibri", color: "666666" })],
+      spacing: { after: 60 },
+    }),
+    new Paragraph({
+      border: { top: { style: BorderStyle.SINGLE, size: 1, color: "DDDDDD" } },
+      spacing: { before: 60, after: 40 },
     }),
     new Paragraph({
       children: [new TextRun({ text: "Issued by Bullex Trading Platform", italics: true, size: 16, font: "Calibri", color: "666666" })],
@@ -1469,11 +1480,17 @@ function addSignatureBlockPdf(
 }
 
 function addPdfFooter(doc: PDFKit.PDFDocument, leftMargin: number, pageWidth: number) {
-  if (doc.y > 700) doc.addPage();
-  doc.moveDown(2);
-  const footerY = doc.y;
-  doc.moveTo(leftMargin, footerY).lineTo(leftMargin + pageWidth, footerY).stroke("#999999");
+  const disclaimerH = doc.font("Helvetica-Oblique").fontSize(7).heightOfString(DISCLAIMER_TEXT, { width: pageWidth });
+  if (doc.y > 750 - disclaimerH - 40) doc.addPage();
+  doc.moveDown(1.5);
+  const lineY = doc.y;
+  doc.moveTo(leftMargin, lineY).lineTo(leftMargin + pageWidth, lineY).stroke("#999999");
   doc.moveDown(0.5);
+  doc.font("Helvetica-Oblique").fontSize(7).fillColor("#555555")
+    .text(DISCLAIMER_TEXT, leftMargin, doc.y, { width: pageWidth, lineGap: 1 });
+  doc.moveDown(0.5);
+  doc.moveTo(leftMargin, doc.y).lineTo(leftMargin + pageWidth, doc.y).stroke("#DDDDDD");
+  doc.moveDown(0.3);
   doc.font("Helvetica-Oblique").fontSize(8).fillColor("#666666")
     .text("Issued by Bullex Trading Platform", leftMargin, doc.y, { width: pageWidth, align: "center" });
 }
