@@ -43,3 +43,6 @@ waitForPort = 5000
 
 [userenv.shared]
 EMAIL_FROM = "Bullex Trading Platform <noreply@bullex.tech>"
+
+[agent]
+integrations = ["onedrive:1.0.0"]

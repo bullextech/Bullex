@@ -9,6 +9,7 @@ import {
   Layers,
   UserPlus,
   Users,
+  Cloud,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -25,6 +26,7 @@ export const PLATFORM_MODULES = [
 
 const adminOnlyItems = [
   { id: "team-members", title: "Team Members", url: "/team-members", icon: Users },
+  { id: "db-backup", title: "DB Backup", url: "/db-backup", icon: Cloud },
 ];
 
 export function AdminSidebar() {

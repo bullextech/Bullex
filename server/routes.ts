@@ -2491,5 +2491,26 @@ export async function registerRoutes(
     }
   });
 
+  // ── OneDrive Database Backup ─────────────────────────────────────────────────
+  app.post("/api/backup/run", requireAdminAuth, async (_req, res) => {
+    try {
+      const { runBackup } = await import("./onedrive-backup");
+      const result = await runBackup();
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Backup failed" });
+    }
+  });
+
+  app.get("/api/backup/list", requireAdminAuth, async (_req, res) => {
+    try {
+      const { listBackups } = await import("./onedrive-backup");
+      const files = await listBackups();
+      res.json(files);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to list backups" });
+    }
+  });
+
   return httpServer;
 }
