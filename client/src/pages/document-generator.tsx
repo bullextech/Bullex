@@ -260,6 +260,10 @@ export default function DocumentGenerator() {
       return res.json();
     },
     onSuccess: (result: { content: string }) => {
+      if (!result.content) {
+        toast({ title: "Preview Failed", description: "Document content could not be generated. Please try again.", variant: "destructive" });
+        return;
+      }
       setReviewContent(result.content);
     },
     onError: (error: Error) => {
