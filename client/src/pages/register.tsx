@@ -380,7 +380,7 @@ export default function Register() {
       </main>
 
       <footer className="border-t border-border bg-muted/30 px-4 py-3 text-center">
-        <p className="text-[10px] text-muted-foreground">Bullex is a proprietary platform of Bullfrog Group. All registrations are subject to compliance review.</p>
+        <p className="text-[10px] text-muted-foreground font-bold">Bullex is a proprietary platform of Bullfrog Group. All registrations are subject to compliance review.</p>
       </footer>
     </div>
   );

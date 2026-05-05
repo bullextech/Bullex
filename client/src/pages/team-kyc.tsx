@@ -265,7 +265,7 @@ export default function TeamKYC() {
           </div>
         </main>
         <footer className="border-t border-border bg-muted/30 px-4 py-2 text-center">
-          <p className="text-[10px] text-muted-foreground">Bullex is a proprietary platform of Bullfrog Group. All information is handled in strict confidence.</p>
+          <p className="text-[10px] text-muted-foreground font-bold">Bullex is a proprietary platform of Bullfrog Group. All information is handled in strict confidence.</p>
         </footer>
       </div>
     );
@@ -845,7 +845,7 @@ export default function TeamKYC() {
       </main>
 
       <footer className="border-t border-border bg-muted/30 px-4 py-3 text-center">
-        <p className="text-[10px] text-muted-foreground">Bullex is a proprietary platform of Bullfrog Group. All personal information is handled with strict confidentiality.</p>
+        <p className="text-[10px] text-muted-foreground font-bold">Bullex is a proprietary platform of Bullfrog Group. All personal information is handled with strict confidentiality.</p>
       </footer>
     </div>
   );

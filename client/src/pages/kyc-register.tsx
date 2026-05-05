@@ -241,7 +241,7 @@ export default function KycRegister() {
           </div>
         </div>
         <div className="border-t border-border bg-muted/30 px-6 py-4 text-center">
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-[10px] text-muted-foreground font-bold">
             Bullex is a proprietary platform of Bullfrog Group.
           </p>
         </div>
@@ -1128,7 +1128,7 @@ export default function KycRegister() {
       </div>
 
       <div className="border-t border-border bg-muted/30 px-6 py-4 text-center">
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-[10px] text-muted-foreground font-bold">
           Bullex is a proprietary platform of Bullfrog Group.
         </p>
       </div>

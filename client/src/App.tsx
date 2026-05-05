@@ -72,7 +72,7 @@ function KycStandaloneShell() {
       </header>
       <main className="flex-1"><KYC /></main>
       <footer className="border-t border-border bg-muted/30 px-4 py-2 text-center">
-        <p className="text-[10px] text-muted-foreground">Bullex is a proprietary platform of Bullfrog Group.</p>
+        <p className="text-[10px] text-muted-foreground font-bold">Bullex is a proprietary platform of Bullfrog Group.</p>
       </footer>
     </div>
   );
@@ -115,7 +115,7 @@ function AppShell() {
             <Router />
           </div>
           <footer className="border-t border-border bg-muted/30 px-4 py-2 text-center flex-shrink-0">
-            <p className="text-[10px] text-muted-foreground" data-testid="text-global-footer">
+            <p className="text-[10px] text-muted-foreground font-bold" data-testid="text-global-footer">
               Bullex is a proprietary platform of Bullfrog Group.
             </p>
           </footer>
