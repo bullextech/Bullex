@@ -1808,11 +1808,13 @@ export async function registerRoutes(
         return res.status(400).json({ message: `Cannot send document in '${doc.status}' state. Must be draft, final, or rejected.` });
       }
 
-      if (!doc.buyerSignature) {
-        return res.status(400).json({ message: "Document must be signed before sending" });
+      const isNcnda = doc.docType === "NCNDA";
+      const hasSig = isNcnda ? (doc.sellerSignature || doc.buyerSignature) : doc.buyerSignature;
+      if (!hasSig) {
+        return res.status(400).json({ message: isNcnda ? "NCNDA must be signed by Party A (Issuer) before sending" : "Document must be signed before sending" });
       }
 
-      const { recipientEmail, clientId } = req.body;
+      const { recipientEmail, clientId, ccEmail } = req.body;
       if (!recipientEmail) {
         return res.status(400).json({ message: "Recipient email is required" });
       }
@@ -1827,11 +1829,12 @@ export async function registerRoutes(
 
       if (recipientEmail) {
         const pdfOrDocx = doc.pdfPath || doc.docxPath;
+        const recipientRole = isNcnda ? "Party B" : "Buyer" as any;
         if (pdfOrDocx) {
-          sendDocumentEmail(recipientEmail, "Recipient", doc.docType, doc.title, "Bullex Trading", pdfOrDocx)
+          sendDocumentEmail(recipientEmail, isNcnda ? "Party B" : "Recipient", doc.docType, doc.title, recipientRole, pdfOrDocx, ccEmail || undefined)
             .catch(err => console.error("[docs] Failed to email recipient:", err));
         }
-        sendSignaturePendingEmail(recipientEmail, "Recipient", doc.docType, doc.title)
+        sendSignaturePendingEmail(recipientEmail, isNcnda ? "Party B (Receiving Party)" : "Recipient", doc.docType, doc.title)
           .catch(err => console.error("[docs] Failed to send signature pending email:", err));
       }
 

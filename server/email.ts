@@ -6,7 +6,7 @@ interface EmailAttachment {
   content: string;
 }
 
-async function sendEmail(to: string, subject: string, html: string, attachments?: EmailAttachment[]): Promise<boolean> {
+async function sendEmail(to: string, subject: string, html: string, attachments?: EmailAttachment[], cc?: string[]): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.log("[email] RESEND_API_KEY not set, skipping email");
@@ -22,6 +22,9 @@ async function sendEmail(to: string, subject: string, html: string, attachments?
     };
     if (attachments && attachments.length > 0) {
       payload.attachments = attachments;
+    }
+    if (cc && cc.length > 0) {
+      payload.cc = cc;
     }
 
     const response = await fetch("https://api.resend.com/emails", {
@@ -537,8 +540,9 @@ export async function sendDocumentEmail(
   recipientName: string,
   docType: string,
   docTitle: string,
-  role: "Buyer" | "Seller",
-  pdfFilePath: string
+  role: "Buyer" | "Seller" | "Party A" | "Party B",
+  pdfFilePath: string,
+  ccEmail?: string
 ): Promise<boolean> {
   const docTypeLabels: Record<string, string> = {
     DEAL_RECAP: "Deal Recap",
@@ -549,6 +553,8 @@ export async function sendDocumentEmail(
     POP: "Proof of Product",
     POF: "Proof of Funds",
     BCL: "Bank Comfort Letter",
+    NCNDA: "Non-Circumvention Non-Disclosure Agreement",
+    SCO: "Seller's Conditional Offer",
   };
 
   const fullType = docTypeLabels[docType] || docType;
@@ -589,7 +595,8 @@ export async function sendDocumentEmail(
     content: pdfBase64,
   }];
 
-  return sendEmail(to, `${fullType} (${docType}) – ${docTitle}`, emailWrapper(body), attachments);
+  const ccList = ccEmail ? [ccEmail] : undefined;
+  return sendEmail(to, `${fullType} (${docType}) – ${docTitle}`, emailWrapper(body), attachments, ccList);
 }
 
 export async function sendKycOnboardingInviteEmail(

@@ -354,6 +354,7 @@ export default function DocumentGenerator() {
   const [sendDocId, setSendDocId] = useState<string | null>(null);
   const [sendEmail, setSendEmail] = useState("");
   const [sendClientId, setSendClientId] = useState("");
+  const [sendCcEmail, setSendCcEmail] = useState("");
   const [respondDocId, setRespondDocId] = useState<string | null>(null);
   const [respondAction, setRespondAction] = useState<"accepted" | "rejected" | null>(null);
   const [amendmentNotes, setAmendmentNotes] = useState("");
@@ -363,8 +364,8 @@ export default function DocumentGenerator() {
   const [reviewNotes, setReviewNotes] = useState("");
 
   const sendDoc = useMutation({
-    mutationFn: async ({ id, recipientEmail, clientId }: { id: string; recipientEmail: string; clientId?: string }) => {
-      const res = await apiRequest("POST", `/api/documents/${id}/send`, { recipientEmail, clientId });
+    mutationFn: async ({ id, recipientEmail, clientId, ccEmail }: { id: string; recipientEmail: string; clientId?: string; ccEmail?: string }) => {
+      const res = await apiRequest("POST", `/api/documents/${id}/send`, { recipientEmail, clientId, ccEmail });
       return res.json();
     },
     onSuccess: (updated: Doc) => {
@@ -471,6 +472,7 @@ export default function DocumentGenerator() {
 
   const canSend = (doc: Doc): boolean => {
     if (doc.status === "sent" || doc.status === "accepted" || doc.status === "final") return false;
+    if (doc.docType === "NCNDA") return !!(doc.sellerSignature || doc.buyerSignature);
     return !!doc.buyerSignature;
   };
 
@@ -747,10 +749,16 @@ export default function DocumentGenerator() {
                         </Badge>
                       );
                     })()}
-                    {doc.buyerSignature && (
+                    {(doc.docType === "NCNDA" ? doc.sellerSignature : doc.buyerSignature) && (
                       <Badge className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" data-testid={`badge-signed-${doc.id}`}>
                         <FileSignature className="w-3 h-3 mr-0.5" />
-                        Signed
+                        {doc.docType === "NCNDA" ? "Party A Signed" : "Signed"}
+                      </Badge>
+                    )}
+                    {doc.docType === "NCNDA" && doc.buyerSignature && (
+                      <Badge className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" data-testid={`badge-partyb-signed-${doc.id}`}>
+                        <FileSignature className="w-3 h-3 mr-0.5" />
+                        Party B Signed
                       </Badge>
                     )}
                     {doc.recipientResponse === "rejected" && (
@@ -798,7 +806,7 @@ export default function DocumentGenerator() {
                         <Download className="w-4 h-4 text-blue-600" />
                       </Button>
                     )}
-                    {doc.buyerSignature && !doc.pdfPath && (
+                    {(doc.docType === "NCNDA" ? (doc.sellerSignature || doc.buyerSignature) : doc.buyerSignature) && !doc.pdfPath && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1731,25 +1739,28 @@ export default function DocumentGenerator() {
                   <FileSignature className="w-4 h-4" />
                   Digital Signatures
                 </Label>
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="border rounded-lg p-3 space-y-2" data-testid="section-buyer-signature">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase">Buyer / Issuer Signature</p>
-                    {viewDoc.buyerSignature ? (
+                <div className={`grid gap-4 ${viewDoc.docType === "NCNDA" ? "grid-cols-2" : "grid-cols-1"}`}>
+                  {/* Party A / Seller signature (Issuer for NCNDA) */}
+                  <div className="border rounded-lg p-3 space-y-2" data-testid="section-seller-signature">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">
+                      {viewDoc.docType === "NCNDA" ? "Party A (Issuer)" : "Buyer / Issuer Signature"}
+                    </p>
+                    {(viewDoc.docType === "NCNDA" ? viewDoc.sellerSignature : viewDoc.buyerSignature) ? (
                       <div className="space-y-1.5">
                         <div className="bg-white border rounded p-2 flex justify-center">
-                          <img src={viewDoc.buyerSignature} alt="Buyer Signature" className="max-h-16 object-contain" data-testid="img-buyer-signature" />
+                          <img src={(viewDoc.docType === "NCNDA" ? viewDoc.sellerSignature : viewDoc.buyerSignature)!} alt="Signature" className="max-h-16 object-contain" data-testid={viewDoc.docType === "NCNDA" ? "img-seller-signature" : "img-buyer-signature"} />
                         </div>
-                        <p className="text-xs text-muted-foreground" data-testid="text-buyer-signed-name">
-                          Signed by: <span className="font-medium text-foreground">{viewDoc.buyerSignedName}</span>
+                        <p className="text-xs text-muted-foreground" data-testid={viewDoc.docType === "NCNDA" ? "text-seller-signed-name" : "text-buyer-signed-name"}>
+                          Signed by: <span className="font-medium text-foreground">{viewDoc.docType === "NCNDA" ? viewDoc.sellerSignedName : viewDoc.buyerSignedName}</span>
                         </p>
-                        {viewDoc.buyerSignedAt && (
-                          <p className="text-xs text-muted-foreground" data-testid="text-buyer-signed-date">
-                            Date: {new Date(viewDoc.buyerSignedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                        {(viewDoc.docType === "NCNDA" ? viewDoc.sellerSignedAt : viewDoc.buyerSignedAt) && (
+                          <p className="text-xs text-muted-foreground">
+                            Date: {new Date((viewDoc.docType === "NCNDA" ? viewDoc.sellerSignedAt : viewDoc.buyerSignedAt)!).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
                           </p>
                         )}
                         <div className="flex items-center gap-2">
                           <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px]">Signed</Badge>
-                          <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] text-destructive" onClick={() => { if (confirm("Remove buyer signature?")) removeSignature.mutate({ id: viewDoc.id, party: "buyer" }); }} data-testid="button-remove-buyer-sig">
+                          <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] text-destructive" onClick={() => { if (confirm(`Remove ${viewDoc.docType === "NCNDA" ? "Party A" : "buyer"} signature?`)) removeSignature.mutate({ id: viewDoc.id, party: viewDoc.docType === "NCNDA" ? "seller" : "buyer" }); }} data-testid="button-remove-partya-sig">
                             <X className="w-3 h-3 mr-0.5" />Remove
                           </Button>
                         </div>
@@ -1760,18 +1771,58 @@ export default function DocumentGenerator() {
                           <p className="text-xs text-muted-foreground">{viewDoc.status === "pending_review" ? "Awaiting admin approval" : "Not yet signed"}</p>
                         </div>
                         {viewDoc.status !== "pending_review" && (
-                          <Button variant="outline" size="sm" className="w-full" onClick={() => openSignDialog(viewDoc.id, "buyer")} data-testid="button-sign-buyer">
+                          <Button variant="outline" size="sm" className="w-full" onClick={() => openSignDialog(viewDoc.id, viewDoc.docType === "NCNDA" ? "seller" : "buyer")} data-testid="button-sign-partya">
                             <FileSignature className="w-3.5 h-3.5 mr-1.5" />
-                            Sign as Buyer
+                            {viewDoc.docType === "NCNDA" ? "Sign as Party A (Issuer)" : "Sign as Buyer"}
                           </Button>
                         )}
                       </div>
                     )}
                   </div>
+
+                  {/* Party B signature (only shown for NCNDA) */}
+                  {viewDoc.docType === "NCNDA" && (
+                    <div className="border rounded-lg p-3 space-y-2" data-testid="section-partyb-signature">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase">Party B (Receiving Party)</p>
+                      {viewDoc.buyerSignature ? (
+                        <div className="space-y-1.5">
+                          <div className="bg-white border rounded p-2 flex justify-center">
+                            <img src={viewDoc.buyerSignature} alt="Party B Signature" className="max-h-16 object-contain" data-testid="img-partyb-signature" />
+                          </div>
+                          <p className="text-xs text-muted-foreground" data-testid="text-partyb-signed-name">
+                            Signed by: <span className="font-medium text-foreground">{viewDoc.buyerSignedName}</span>
+                          </p>
+                          {viewDoc.buyerSignedAt && (
+                            <p className="text-xs text-muted-foreground">
+                              Date: {new Date(viewDoc.buyerSignedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px]">Signed</Badge>
+                            <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] text-destructive" onClick={() => { if (confirm("Remove Party B signature?")) removeSignature.mutate({ id: viewDoc.id, party: "buyer" }); }} data-testid="button-remove-partyb-sig">
+                              <X className="w-3 h-3 mr-0.5" />Remove
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="bg-muted/50 border border-dashed rounded p-4 flex items-center justify-center min-h-[60px]">
+                            <p className="text-xs text-muted-foreground">{viewDoc.status === "pending_review" ? "Awaiting admin approval" : "Optional — sign after receipt"}</p>
+                          </div>
+                          {viewDoc.status !== "pending_review" && (
+                            <Button variant="outline" size="sm" className="w-full" onClick={() => openSignDialog(viewDoc.id, "buyer")} data-testid="button-sign-partyb">
+                              <FileSignature className="w-3.5 h-3.5 mr-1.5" />
+                              Sign as Party B
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {viewDoc.buyerSignature && !viewDoc.pdfPath && viewDoc.status !== "sent" && viewDoc.status !== "accepted" && (
+              {(viewDoc.docType === "NCNDA" ? (viewDoc.sellerSignature || viewDoc.buyerSignature) : viewDoc.buyerSignature) && !viewDoc.pdfPath && viewDoc.status !== "sent" && viewDoc.status !== "accepted" && (
                 <div className="border-t pt-4">
                   <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg p-4 text-center space-y-3">
                     <p className="text-sm font-medium text-orange-800 dark:text-orange-200">{viewDoc.docType} is signed and ready to finalize</p>
@@ -1905,7 +1956,13 @@ export default function DocumentGenerator() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" data-testid="text-sign-dialog-title">
               <FileSignature className="w-5 h-5 text-primary" />
-              Sign as {signParty === "buyer" ? "Buyer" : "Seller"}
+              {(() => {
+                const doc = docs?.find(d => d.id === signDocId);
+                if (doc?.docType === "NCNDA") {
+                  return signParty === "seller" ? "Sign as Party A (Issuer)" : "Sign as Party B (Receiving Party)";
+                }
+                return signParty === "buyer" ? "Sign as Buyer" : "Sign as Seller";
+              })()}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -1999,53 +2056,78 @@ export default function DocumentGenerator() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!sendDocId} onOpenChange={(open) => { if (!open) { setSendDocId(null); setSendEmail(""); setSendClientId(""); } }}>
+      <Dialog open={!!sendDocId} onOpenChange={(open) => { if (!open) { setSendDocId(null); setSendEmail(""); setSendClientId(""); setSendCcEmail(""); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" data-testid="text-send-dialog-title">
               <Send className="w-5 h-5 text-primary" />
-              Send Document to Client
+              {docs?.find(d => d.id === sendDocId)?.docType === "NCNDA" ? "Send NCNDA to Party B" : "Send Document to Client"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Send this document to a registered client for review and acceptance. The document will appear in their Client Portal and an email notification will be sent.</p>
-            <div className="space-y-2">
-              <Label>Select Client</Label>
-              <Select value={sendClientId} onValueChange={(val) => {
-                setSendClientId(val);
-                const client = approvedClients.find((c) => c.id === val);
-                if (client) setSendEmail(client.contactEmail || client.signatoryEmail || "");
-              }}>
-                <SelectTrigger data-testid="select-send-client">
-                  <SelectValue placeholder="Choose a registered client" />
-                </SelectTrigger>
-                <SelectContent>
-                  {approvedClients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.companyName} — {c.contactName}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Recipient Email</Label>
-              <Input
-                type="email"
-                value={sendEmail}
-                onChange={(e) => setSendEmail(e.target.value)}
-                placeholder="Enter recipient email address"
-                data-testid="input-send-email"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => { setSendDocId(null); setSendEmail(""); setSendClientId(""); }} data-testid="button-cancel-send">
-                Cancel
-              </Button>
-              <Button onClick={() => { if (sendDocId && sendEmail) sendDoc.mutate({ id: sendDocId, recipientEmail: sendEmail, clientId: sendClientId || undefined }); }} disabled={!sendEmail || sendDoc.isPending} data-testid="button-confirm-send">
-                <Send className="w-3.5 h-3.5 mr-1.5" />
-                {sendDoc.isPending ? "Sending..." : "Send to Client"}
-              </Button>
-            </div>
-          </div>
+          {(() => {
+            const sendingDoc = docs?.find(d => d.id === sendDocId);
+            const isNcndaSend = sendingDoc?.docType === "NCNDA";
+            return (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  {isNcndaSend
+                    ? "Send the signed NCNDA to Party B (Receiving Party) for review and countersignature. An email with the PDF attached will be sent to the recipient, with a copy to the issuing party."
+                    : "Send this document to a registered client for review and acceptance. The document will appear in their Client Portal and an email notification will be sent."}
+                </p>
+                <div className="space-y-2">
+                  <Label>{isNcndaSend ? "Party B — Select Client (optional)" : "Select Client"}</Label>
+                  <Select value={sendClientId} onValueChange={(val) => {
+                    setSendClientId(val);
+                    const client = approvedClients.find((c) => c.id === val);
+                    if (client) setSendEmail(client.contactEmail || client.signatoryEmail || "");
+                  }}>
+                    <SelectTrigger data-testid="select-send-client">
+                      <SelectValue placeholder="Choose a registered client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {approvedClients.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.companyName} — {c.contactName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isNcndaSend ? "Party B Email (Receiving Party) *" : "Recipient Email"}</Label>
+                  <Input
+                    type="email"
+                    value={sendEmail}
+                    onChange={(e) => setSendEmail(e.target.value)}
+                    placeholder={isNcndaSend ? "Party B email address" : "Enter recipient email address"}
+                    data-testid="input-send-email"
+                  />
+                </div>
+                {isNcndaSend && (
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1.5">
+                      Party A Email (Issuer — CC)
+                      <span className="text-xs text-muted-foreground font-normal">optional</span>
+                    </Label>
+                    <Input
+                      type="email"
+                      value={sendCcEmail}
+                      onChange={(e) => setSendCcEmail(e.target.value)}
+                      placeholder="Issuing party email for copy"
+                      data-testid="input-send-cc-email"
+                    />
+                  </div>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => { setSendDocId(null); setSendEmail(""); setSendClientId(""); setSendCcEmail(""); }} data-testid="button-cancel-send">
+                    Cancel
+                  </Button>
+                  <Button onClick={() => { if (sendDocId && sendEmail) sendDoc.mutate({ id: sendDocId, recipientEmail: sendEmail, clientId: sendClientId || undefined, ccEmail: sendCcEmail || undefined }); }} disabled={!sendEmail || sendDoc.isPending} data-testid="button-confirm-send">
+                    <Send className="w-3.5 h-3.5 mr-1.5" />
+                    {sendDoc.isPending ? "Sending..." : isNcndaSend ? "Send NCNDA to Party B" : "Send to Client"}
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
