@@ -1596,6 +1596,8 @@ export async function registerRoutes(
       if (!doc) return res.status(404).json({ message: "Document not found" });
       if (!doc.content) return res.status(404).json({ message: "Document content not available" });
       const hasSigDocx = doc.docType === "NCNDA" ? (doc.sellerSignature || doc.buyerSignature) : doc.buyerSignature;
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
       if (hasSigDocx) {
         const result = await regenerateWithSignatures(
           doc.id, doc.title, doc.content,
@@ -1606,6 +1608,7 @@ export async function registerRoutes(
           doc.docType,
         );
         const filePath = getDocFilePath(result.docxPath);
+        if (!filePath) return res.status(500).json({ message: "Failed to generate DOCX file" });
         res.setHeader("Content-Disposition", `attachment; filename="${doc.docType}_${doc.title.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_")}.docx"`);
         res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
         return res.sendFile(filePath);
@@ -1613,6 +1616,7 @@ export async function registerRoutes(
       const docxPath = await generateDocx(doc.id, doc.title, doc.content);
       await storage.updateDocument(doc.id, { docxPath });
       const filePath = getDocFilePath(docxPath);
+      if (!filePath) return res.status(500).json({ message: "Failed to generate DOCX file" });
       res.setHeader("Content-Disposition", `attachment; filename="${doc.docType}_${doc.title.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_")}.docx"`);
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
       res.sendFile(filePath);
@@ -1627,6 +1631,8 @@ export async function registerRoutes(
       if (!doc) return res.status(404).json({ message: "Document not found" });
       if (!doc.content) return res.status(404).json({ message: "Document content not available" });
       const hasSigPdf = doc.docType === "NCNDA" ? (doc.sellerSignature || doc.buyerSignature) : doc.buyerSignature;
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
       if (hasSigPdf) {
         const result = await regenerateWithSignatures(
           doc.id, doc.title, doc.content,
@@ -1637,6 +1643,7 @@ export async function registerRoutes(
           doc.docType,
         );
         const filePath = getDocFilePath(result.pdfPath);
+        if (!filePath) return res.status(500).json({ message: "Failed to generate PDF file" });
         res.setHeader("Content-Disposition", `attachment; filename="${doc.docType}_${doc.title.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_")}.pdf"`);
         res.setHeader("Content-Type", "application/pdf");
         return res.sendFile(filePath);
@@ -1644,6 +1651,7 @@ export async function registerRoutes(
       const pdfPath = await generatePdf(doc.id, doc.title, doc.content);
       await storage.updateDocument(doc.id, { pdfPath });
       const filePath = getDocFilePath(pdfPath);
+      if (!filePath) return res.status(500).json({ message: "Failed to generate PDF file" });
       res.setHeader("Content-Disposition", `attachment; filename="${doc.docType}_${doc.title.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_")}.pdf"`);
       res.setHeader("Content-Type", "application/pdf");
       res.sendFile(filePath);
