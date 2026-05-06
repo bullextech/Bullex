@@ -1508,7 +1508,7 @@ export async function registerRoutes(
 
       const enquiryRef = req.body.enquiryRef || null;
 
-      const content = generateDocumentContent(parsed.data.docType, trade, buyerDetails, sellerDetails, { ...productDetails, loiIssueNumber: issueNumber });
+      const content = generateDocumentContent(parsed.data.docType, trade, buyerDetails, sellerDetails, { ...productDetails, loiIssueNumber: issueNumber, dealRecapNumber: dealRecapNumber || undefined });
       const adminChecks = buildAdminChecks(parsed.data.docType);
       const result = await storage.createDocument({
         ...parsed.data,
@@ -1970,7 +1970,7 @@ export async function registerRoutes(
 
       const buyerDetails = { name: buyerName, address: "", contact: parentDoc.buyerEmail || "", bank: "", swift: "" };
       const sellerDetails = { name: sellerName, address: "", contact: parentDoc.sellerEmail || "", bank: "", swift: "" };
-      const productDetails = { commodity, origin, quantity, incoterm, price, paymentTerms, qualitySpecs, currency: "USD" };
+      const productDetails = { commodity, origin, quantity, incoterm, price, paymentTerms, qualitySpecs, currency: "USD", dealRecapNumber: dealRecapNumber || undefined };
 
       let trade: Trade | undefined;
       if (parentDoc.tradeRef) {

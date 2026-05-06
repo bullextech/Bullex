@@ -37,6 +37,7 @@ export interface ProductDetails {
   qualityPremiums?: string;
   specialNote?: string;
   loiIssueNumber?: string | null;
+  dealRecapNumber?: string | null;
 }
 
 const today = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
@@ -364,68 +365,266 @@ Company: ${v(buyer?.name, trade?.buyerName)}
 Date: ${today()}
 Signature: _______________`,
 
-  SPA: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `SALES & PURCHASE AGREEMENT (SPA)
-${"=".repeat(40)}
+  SPA: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const spaNum = product?.dealRecapNumber || trade?.tradeRef || "_______________";
+    const curDate = today();
+    const commodity = v(product?.commodity, trade?.commodity);
+    const quantity = v(product?.quantity, trade ? `${trade.quantity} ${trade.unit || "MT"}` : undefined);
+    const origin = v(product?.origin, trade?.origin);
+    const loadingPort = v(product?.loadingPort, trade?.origin);
+    const dischargePort = v(product?.dischargePort, trade?.destination);
+    const price = v(product?.price, trade ? String(trade.pricePerUnit) : undefined);
+    const cur = product?.currency || trade?.currency || "USD";
+    const incoterm = v(product?.incoterm, trade?.incoterm);
+    const paymentTerms = product?.paymentTerms?.trim() || "Irrevocable, Transferable, Confirmed Documentary Letter of Credit (DLC), payable at sight, issued from a prime international bank";
+    const qualitySpecs = v(product?.qualitySpecs);
+    const laycan = v(product?.laycan);
+    const sName = v(seller?.name, trade?.sellerName);
+    const sAddr = v(seller?.address);
+    const sPic = v(seller?.contact);
+    const bName = v(buyer?.name, trade?.buyerName);
+    const bAddr = v(buyer?.address);
+    const bPic = v(buyer?.contact);
+    const sellerBankName = v(seller?.bank);
+    const sellerSwift = v(seller?.swift);
+    const buyerBankName = v(buyer?.bank);
+    const buyerSwift = v(buyer?.swift);
+    const govLaw = v(product?.governingLaw, "Dubai, UAE");
+    const arbitration = v(product?.governingLaw, "Dubai International Arbitration Centre (DIAC)");
 
-Date: ${today()}
-Agreement Reference: ${trade?.tradeRef || "_______________"}
+    return `SALES AND PURCHASE AGREEMENT (SPA)
+${"=".repeat(60)}
+SPA No: ${spaNum}
+Date: ${curDate}
 
-PARTIES
-${sellerBlock(seller, trade)}
-(hereinafter referred to as "Seller")
-
-${buyerBlock(buyer, trade)}
-(hereinafter referred to as "Buyer")
-
-RECITALS
-WHEREAS the Seller desires to sell and the Buyer desires to purchase the commodity described herein under the terms and conditions set forth in this Agreement.
-
-ARTICLE 1 — COMMODITY
-${tradeBlock(trade, buyer, seller, product)}
-
-${qualityBlock(product)}
-
-ARTICLE 2 — PRICE AND PAYMENT
-${paymentBlock(product)}
-
-ARTICLE 3 — DELIVERY
-${deliveryBlock(trade, product)}
-
-ARTICLE 4 — ${inspectionBlock(product)}
-
-ARTICLE 5 — DOCUMENTATION
-The Seller shall provide the following documents:
-a) Full set of Bills of Lading (3/3)
-b) Certificate of Origin
-c) Certificate of Analysis / Quality
-d) Certificate of Weight
-e) Commercial Invoice
-f) Packing List
-g) Insurance Certificate (if CIF)
-
-ARTICLE 6 — FORCE MAJEURE
-Neither party shall be liable for failure to perform due to circumstances beyond their reasonable control, including but not limited to acts of God, war, government sanctions, or natural disasters.
-
-ARTICLE 7 — ARBITRATION
-All disputes arising from this Agreement shall be settled by arbitration under ICC Rules in London, England.
-
-ARTICLE 8 — GOVERNING LAW
-This Agreement shall be governed by English Law.
-${specialNoteBlock(product)}
+CONTRACT PREAMBLE
+This Contract for sale and purchase of Commodity (hereinafter more particularly defined) made on this ${curDate} between:
 
 SELLER
-Name: _______________
-Title: _______________
-Company: ${v(seller?.name, trade?.sellerName)}
-Date: ${today()}
-Signature: _______________
+Name of Company: ${sName}
+Address: ${sAddr}
+PIC: ${sPic}
+Email: ${seller?.contact || "_______________"}
+
+(hereinafter referred to as the Seller, which expression unless repugnant to the context shall mean and include its permitted assigns, successors, representatives, administrators and executors)
 
 BUYER
+Name of Company: ${bName}
+Address: ${bAddr}
+PIC: ${bPic}
+Email: ${buyer?.contact || "_______________"}
+
+(hereinafter referred to as the Buyer, which expression unless repugnant to the context shall mean and include its permitted assigns, successors, representatives, administrators and executors)
+
+WHEREAS the Seller with full corporate authority, makes an irrevocable firm commitment to deliver the Commodity on ${incoterm} basis and hereby certifies, represents and warrants, that it can fulfill the requirement of this Contract and provide the Commodity in accordance with the below mentioned mutually agreed terms and conditions;
+
+AND WHEREAS the Buyer agrees and makes an irrevocable commitment to purchase the Commodity under the below mentioned mutually terms and conditions;
+
+NOW THIS AGREEMENT WITNESSETH AND IT IS HEREBY AGREED BY AND BETWEEN THE PARTIES HERETO AS FOLLOWS:
+
+Article 1. Definitions
+In this Contract the following terms shall, unless repugnant to the context, have the following meaning:
+
+1.1
+Arbitration Rules of the Dubai International Arbitration Centre shall mean and refer to the existing rules and subsequent modifications, amendments, revisions, substitutions thereto.
+
+1.2
+Business Day shall mean a day other than Saturday, Sunday, or a national holiday in the countries where the Parties are situated.
+
+1.3
+SGS shall mean Société Générale de Surveillance.
+
+1.4
+Commodity shall mean ${commodity} as per specifications in Article 3 and as per quantity in Article 4.
+
+1.5
+MT shall mean and refer to metric ton of ${commodity}.
+
+1.6
+Force Majeure Event shall mean and include any event, other than insufficiency of funds and non availability of Commodity, the consequences of which are beyond the control of the affected Party and which event cannot be prevented, overcome or remedied under the circumstances by the exercise by the affected Party of a standard of care and diligence consistent with that of a prudent man. The following shall be deemed to be Force Majeure Events:
+a. An Act of God, fire, explosion, natural disasters such as flood, storm, lightning, avalanche, earthquake;
+b. A strike, lock out or other industrial problem; An act of public enemy, war, terrorism, sabotage, blockade, revolution, civil unrest, riot, insurrection, epidemic;
+c. Change in applicable laws substantially preventing performance of obligations.
+
+1.8
+Parties shall mean and refer to both the Buyer and the Seller.
+
+1.9
+Party shall mean and refer to either the Buyer or the Seller.
+
+1.10
+UCP 600 or URDG shall mean and refer to the International Chamber of Commerce Uniform Customs and Practice for Documentary Credits, Publication Number 600 and all subsequent modifications, amendments, revisions, substitutions thereto.
+
+1.15
+USD shall mean the currency of the United States of America.
+
+Article 2. Aids to Interpretation
+In this Contract unless repugnant to the context:
+
+2.1
+Words denoting singular include the plural and vice versa.
+
+2.2
+The headings are for convenience only and shall not affect interpretation.
+
+2.3
+Reference to any legislation, legislative provision, enactment, rules, includes any modification, re-enactment, substitution, subordinate legislation thereto.
+
+Article 3. Name of Commodity and Specifications
+Commodity: ${commodity}
+Specifications: ${qualitySpecs}
+
+Article 4. Quantity
+Total: ${quantity} Metric Tons per month (+/- 10% Buyers option)
+
+Article 5. Price
+Contract Price: ${cur} ${price} per Metric Ton on ${incoterm} basis.
+
+Article 6. Origin and Delivery
+6.1 Origin: ${origin}
+6.2 Port of Loading: ${loadingPort}
+6.3 Port of Discharge: ${dischargePort}
+
+Article 7. Packing
+Commodity shall be packed and marked in accordance with internationally accepted norms and standards applicable to the commodity.
+
+Article 8. Shipment
+8.1 Latest date of shipment: ${laycan}
+8.2 Partial Shipment: Allowed (+/- 10% at Buyer's option)
+8.3 Transshipment: As mutually agreed between the Parties.
+
+Article 9. Contract Price and Value
+The total contract value is ${cur} ${price} per Metric Ton on ${incoterm} basis. The contract price is firm and fixed for the duration of this Agreement unless mutually amended in writing by both Parties.
+
+Article 10. Price Adjustment
+In the event the quality of the Commodity does not conform to the specifications in Article 3, the Buyer shall have the right to either:
+a. Reject the cargo and hold the Seller liable and responsible for the Buyer's losses; or
+b. Accept the cargo, only if a price revision is mutually agreed upon by the Parties; failing such agreement the Buyer shall have the right to reject the cargo and hold the Seller responsible for the Buyer's losses including cost of DLC opening, lost profits and any claims from end buyers.
+
+Article 11. Payment Terms
+Payment Method: ${paymentTerms}
+The DLC shall be valid for 90 days and shall be in conformity with rules of UCP Code 600 or URDG, latest revision as on date. All banking charges at Seller's bank are to Seller's account; all banking charges at Buyer's bank are to Buyer's account.
+
+Article 12. Transfer of Title and Risk, Insurance
+12.1 The Title with respect to each shipment shall pass from the Seller to the Buyer when the Seller receives payment reimbursement as set forth in Article 11.
+12.2 All risk of loss, damage or destruction to the Commodity sold under this Contract shall pass from the Seller to the Buyer at the time of passing of the Bill of Lading.
+12.3 Insurance for the Commodity shall be covered by the respective Party under ${incoterm} terms applicable to this Agreement.
+
+Article 13. Advice of Delivery
+13.1 The Seller shall send to the Buyer the Delivery advice within 1 Day after completion of loading advising the Commodity name, quantity, Bill of Lading date and ETA.
+13.3 The Seller shall send a copy of documents as stipulated in Article 17 by e-mail within 2 Days after loading.
+13.4 The Seller shall send to the Buyer 5, 3, 2, and 1 days notices of vessel estimated arrival at discharge port.
+
+Article 14. Sampling and Analysis
+The Seller shall, at its sole expense, appoint SGS (Société Générale de Surveillance) as analysis agency at loading port to determine the specifications of ${commodity} and other contents in the shipment, and provide a certificate showing Technical Specifications. The Buyer may appoint its own protective analysis agents at its sole expense.
+
+Article 15. Weighing
+At Loading Port, the Seller at its sole expense shall appoint SGS (Société Générale de Surveillance) to determine the weight of the shipment. The weight of the Commodity certified by SGS shall be the basis for the Seller's invoice. Certificate of Weight prepared by Seller's appointed Surveyor shall be final and binding on both Parties.
+
+Article 16. Payment
+16.1 Payment shall be guaranteed by opening a Documentary Letter of Credit (DLC), payable at sight, issued from a prime international bank. The DLC should be valid for 90 days.
+16.2 The DLC shall be in conformity with UCP Code 600 or URDG, latest revision as on date, and any subsequent amendments thereto.
+16.3 The DLC shall be payable against the Seller's sight draft for 100% of the value of the commodity, provided the sight draft is accompanied by documents as per Article 17.1.
+16.4 Following completion of weighing, sampling, analysis and certification at the delivery point, the Seller shall prepare an invoice in USD based on the value of the shipment as per Technical Specifications issued by SGS at Loading Port.
+
+Article 17. Documents to be Presented
+17.1 For Payment - The following documents must be presented within agreed days after date but within the validity of the Letter of Credit:
+17.1.1 Signed commercial invoice in 3 originals indicating value of goods shipped, contract number, DLC number.
+17.1.2 3/3 full set of original "clean on board" Ocean Bills of Lading.
+17.1.3 Certificate of Quality in 1 original and 3 copies issued by SGS at Loading Port, showing actual analysis results as per Article 14.
+17.1.4 Certificate of Weight in 1 original and 3 copies issued by SGS at Loading Port certifying actual surveyed weight of cargo onboard vessel.
+17.1.5 Certificate of Origin in 1 original and 3 copies issued by any Chamber of Commerce in ${origin}.
+17.1.6 Cargo Manifest.
+17.1.7 Packing List.
+
+Article 18. Taxes
+Any export fees, taxes, duties, tariffs or other charges levied on the shipment in the country where the Commodity is loaded shall be to the sole account of the Seller. Any import fees, taxes, duties, tariffs or other charges in the country where the Commodity is unloaded shall be to the sole account of the Buyer.
+
+Article 19. Loss of Cargo
+In the event of partial or total loss of cargo, the weight and analysis as determined at Loading Port shall be final and shall be the basis of invoicing and payment.
+
+Article 20. Force Majeure
+20.1 If at any time during the existence of this Contract either Party is prevented from performing any obligation under this Contract as a result of a Force Majeure Event, the affected Party must within 7 days notify the other Party specifying: (a) the nature of the Force Majeure Event; (b) the estimated duration; (c) the obligations affected; (d) steps taken to remedy or mitigate the effects. Certificate issued by a Chamber of Commerce shall be sufficient proof of the existence of the Force Majeure Event.
+20.2 If agreed that the Force Majeure Event substantially prevents the affected Party from performing obligations, the period for performance shall be extended by a period equal to the duration of the Force Majeure Event. Time lost during Force Majeure will not count as lay time, even if the vessel is on demurrage.
+20.3 If operation of the Force Majeure Event exceeds 30 days, either Party may by notice in writing refuse further performance of the Contract, in which case neither Party shall have the right to claim damages arising out of the said Force Majeure Event.
+
+Article 21. Dispute Resolution
+21.1 Good faith negotiations: If a dispute arises, either Party shall make a written request within 10 days of the dispute. The Parties shall endeavour to resolve the dispute by good faith negotiations within 15 days of receipt of the request for resolution.
+21.2 Arbitration:
+a. If within 30 days the dispute is not resolved by good faith negotiations, it shall be referred for resolution by arbitration.
+b. All disputes shall be submitted for arbitration in accordance with the Arbitration Rules of the ${arbitration} by arbitrators appointed in accordance with the said Rules. The arbitral award shall be final and binding on both Parties and enforceable in any country where assets of the Parties are situated.
+c. The venue of arbitration proceedings shall be ${govLaw}.
+d. The law governing the arbitration agreement and the arbitral proceedings shall be the law of ${govLaw}.
+f. The cost of arbitration shall be borne by the losing Party, unless otherwise determined by the Arbitral award.
+
+Article 22. Performance
+The performance of this contract is an essence of this contract. Seller shall either show past performance documents or shall pay a performance bond as agreed to Buyer's bank for opening of LC. Buyer's bank shall confirm opening of LC for the transaction and requesting Seller's bank to irrevocably confirm opening of Performance Bond within 3 banking days from date of receipt of Buyer's LC.
+
+Article 23. Banking Information
+23.1 Seller's Bank:
+Bank Name: ${sellerBankName}
+Address: ${sAddr}
+Account Name: ${sName}
+Swift Code: ${sellerSwift}
+
+23.2 Buyer's Bank:
+Bank Name: ${buyerBankName}
+Address: ${bAddr}
+Account Name: ${bName}
+Swift Code: ${buyerSwift}
+
+Article 24. Limit of Liability
+24.1 Seller shall not be liable for any special, indirect, punitive, exemplary, incidental, or consequential loss or damages of any nature, howsoever caused, whether based on warranty, contract, tort (including negligence) or strict liability.
+24.2 The total liability of Seller arising out of performance or nonperformance of this Agreement shall not exceed the price of the discrete unit/shipment involved in the applicable claim.
+24.3 The limitations of liability set forth in this article shall prevail over any conflicting provisions contained in any documents comprising the contract.
+
+Article 25. Miscellaneous
+25.1 Notices: Any notice or communication under this Contract must be in writing and delivered on a Business Day, either by prepaid courier, facsimile, or email to the recipient at the address or e-mail specified hereinabove.
+25.2 Confidentiality: The Parties agree that the terms of this Contract shall remain confidential between the Parties and neither Party shall disclose any terms to any third Party unless required by law or with prior written consent of the other Party.
+25.3 Entire Agreement: This Contract constitutes the entire agreement between the Parties in relation to its subject matter and supersedes all prior arrangements, understandings, negotiations or provisions.
+25.4 Amendment: Any amendments to this Contract shall be by way of writing only, including any amendments to this clause as well.
+25.5 Insurance: The Seller shall cover by own cost all risks insurance issued by a 1st class Insurance company for the benefit of the Buyer.
+25.6 Warranty: The commodity supplied by the Seller is considered not to constitute a hazard to health or safety provided that it is handled and used in accordance with normal accepted safe working practices.
+25.7 Assignment: This Contract, in whole or in part, or any rights and/or obligations hereunder, is not assignable without the prior written consent of the other Party.
+25.8 Counterparts: This Contract is executed in two counterparts both of which, taken together, shall be deemed to constitute the same instrument.
+25.9 Waiver: The failure by a Party to enforce any of its rights under the Contract will not constitute a waiver of those rights.
+25.10 Severance: If any provision of this Contract is prohibited or unenforceable in any jurisdiction, that provision shall be ineffective to the extent of the prohibition without invalidating the remaining provisions.
+25.11 Persons signing Contract: Each person who signs this Contract on behalf of a Party warrants that they are duly authorized by that Party to do so and that they bind that Party by their actions.
+
+Article 26. Electronic Signatures and Digital Execution
+26.1 The Parties expressly agree that this Agreement and all related transaction documents, amendments, notices, invoices, shipping documents, banking communications, and commercial correspondence may be executed, transmitted, and stored electronically.
+26.2 Any document executed by electronic signature, digital signature, PDF signature, DocuSign, Adobe Sign, encrypted signature platform, blockchain verification system, SWIFT authenticated message, or scanned signed copy transmitted by electronic mail shall be deemed valid, binding, enforceable, and legally equivalent to an original manually signed document.
+26.3 The Parties agree that electronically transmitted copies of this Agreement and related documents shall be admissible as evidence in any judicial, arbitral, banking, or administrative proceedings and shall constitute original documents for all contractual and legal purposes.
+26.4 Neither Party shall challenge the validity, enforceability, admissibility, or authenticity of any electronically signed or digitally transmitted document solely on the basis that such document exists in electronic form.
+26.5 Electronic communications exchanged through official company email addresses, SWIFT messages, secured trade platforms, or mutually accepted digital communication systems shall constitute valid written communications between the Parties.
+26.6 The Parties acknowledge and accept that counterparts transmitted electronically shall together constitute one and the same instrument.
+
+Article 27. Confidentiality and Non-Disclosure Disclaimer
+27.1 This Agreement, including all commercial terms, pricing structures, banking information, trade procedures, vessel details, suppliers, buyers, intermediaries, and all related documents and communications exchanged between the Parties, shall be treated as strictly private and confidential.
+27.2 Neither Party shall disclose, reproduce, circulate, publish, or communicate any confidential information to any third party without prior written consent from the other Party, except where disclosure is required by: (a) Applicable law or governmental authority; (b) Banking institutions involved in the transaction; (c) Insurance providers, inspectors, surveyors, shipping agents, legal advisors, auditors, or regulatory authorities strictly for purposes connected with the transaction.
+27.3 The receiving Party shall ensure that its employees, affiliates, agents, representatives, consultants, and subcontractors maintain the same level of confidentiality.
+27.4 Any unauthorized disclosure of confidential information causing commercial, financial, reputational, or operational damage to the other Party shall constitute a material breach and shall entitle the affected Party to seek injunctive relief, damages, and all other remedies available under applicable law and arbitration rules.
+27.5 The confidentiality obligations contained herein shall survive termination, expiration, cancellation, or completion of this Agreement for a period of five (5) years from the date of termination.
+27.6 This Article shall not restrict either Party from disclosing information required for legal proceedings, regulatory compliance, or professional advice, provided that reasonable notice is given to the other Party.
+
+IN WITNESS WHEREOF the Parties hereto have executed this Agreement as of the date first written above.
+
+SELLER
+For and on behalf of: ${sName}
 Name: _______________
-Title: _______________
-Company: ${v(buyer?.name, trade?.buyerName)}
-Date: ${today()}
-Signature: _______________`,
+Title/Designation: _______________
+Signature: _______________
+Date: ${curDate}
+Stamp:
+
+BUYER
+For and on behalf of: ${bName}
+Name: _______________
+Title/Designation: _______________
+Signature: _______________
+Date: ${curDate}
+Stamp:`;
+  },
 
   LOI: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
     const cur = product?.currency || trade?.currency || "USD";
@@ -877,8 +1076,8 @@ Currency & Amount: ${product?.currency || "USD"} ${v(product?.price)}
 Tolerance: +/- 10%
 Expiry Date: _______________
 Latest Shipment Date: _______________
-Port of Loading: ${v(product?.loadingPort, trade?.loadingPort)}
-Port of Discharge: ${v(product?.dischargePort, trade?.dischargePort)}
+Port of Loading: ${v(product?.loadingPort, trade?.origin)}
+Port of Discharge: ${v(product?.dischargePort, trade?.destination)}
 Incoterms: ${v(product?.incoterm, trade ? trade.incoterm : undefined)}
 Partial Shipment: Allowed / Not Allowed
 Transhipment: Allowed / Not Allowed
