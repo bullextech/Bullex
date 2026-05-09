@@ -231,7 +231,7 @@ export default function TradeEnquiries() {
 
               <AccordionItem value="header" className="border rounded-md mb-2">
                 <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
-                  <span className="flex items-center gap-1.5"><Send className="w-3.5 h-3.5" /> LOI Header</span>
+                  <span className="flex items-center gap-1.5"><Send className="w-3.5 h-3.5" /> Enquiry Header</span>
                 </AccordionTrigger>
                 <AccordionContent className="px-3 pb-3">
                   <div className="border rounded-md overflow-hidden">
@@ -286,7 +286,7 @@ export default function TradeEnquiries() {
 
               <AccordionItem value="params" className="border rounded-md mb-2">
                 <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
-                  <span className="flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> LOI Parameters</span>
+                  <span className="flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> Enquiry Parameters</span>
                 </AccordionTrigger>
                 <AccordionContent className="px-3 pb-3">
                   <div className="border rounded-md overflow-hidden">
@@ -683,7 +683,7 @@ function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
         <div className="space-y-4 mt-2">
           <div className="border rounded-md overflow-hidden">
             <div className="text-xs font-bold uppercase tracking-wider p-2 bg-muted/60 border-b flex items-center gap-1.5">
-              <Send className="w-3.5 h-3.5" /> LOI Header
+              <Send className="w-3.5 h-3.5" /> Enquiry Header
             </div>
             <div className="p-3 space-y-0">
               {row("Issued to Seller", enquiry.sellerName)}
@@ -703,7 +703,7 @@ function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
 
           <div className="border rounded-md overflow-hidden">
             <div className="text-xs font-bold uppercase tracking-wider p-2 bg-muted/60 border-b flex items-center gap-1.5">
-              <ClipboardList className="w-3.5 h-3.5" /> LOI Parameters
+              <ClipboardList className="w-3.5 h-3.5" /> Enquiry Parameters
             </div>
             <div className="divide-y">
               {[
