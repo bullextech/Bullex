@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -14,7 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import {
   Search, Plus, FileText, Download, Trash2, Upload, Eye, X,
   Scale, Clock, Info, User, Mail, Send, ClipboardList, FileSignature,
-  MapPin, Package, ChevronDown, ChevronUp,
+  MapPin, Package, ChevronDown, ChevronUp, ArrowRight, CheckCircle2,
 } from "lucide-react";
 import type { TradeEnquiry, TradeEnquiryDocument } from "@shared/schema";
 
@@ -141,14 +142,21 @@ export default function TradeEnquiries() {
     },
   });
 
+  const [, navigate] = useLocation();
+
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const res = await apiRequest("PATCH", `/api/trade-enquiries/${id}/status`, { status });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/trade-enquiries"] });
-      toast({ title: "Status updated" });
+      if (data?.createdTradeRef) {
+        toast({ title: "Enquiry accepted — trade created", description: `Trade ${data.createdTradeRef} has been opened in Blockchain Trading.` });
+        setTimeout(() => navigate("/trading"), 1200);
+      } else {
+        toast({ title: "Status updated" });
+      }
     },
   });
 
@@ -605,6 +613,13 @@ function EnquiryCard({ enquiry, onView, onStatusChange, onDelete }: {
                 <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={() => onStatusChange("rejected")} data-testid={`button-reject-${enquiry.id}`}>Reject</Button>
               </>
             )}
+            {enquiry.status === "accepted" && (
+              <a href="/trading" data-testid={`link-trading-${enquiry.id}`}>
+                <Button size="sm" className="h-8 text-xs bg-primary hover:bg-primary/90 text-white">
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> View Trade <ArrowRight className="w-3 h-3 ml-1" />
+                </Button>
+              </a>
+            )}
             <Button variant="ghost" size="sm" className="text-destructive" onClick={onDelete} data-testid={`button-delete-${enquiry.id}`}><Trash2 className="w-3.5 h-3.5" /></Button>
           </div>
         </div>
@@ -841,11 +856,18 @@ function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
               </>
             )}
             {enquiry.status === "accepted" && (
-              <a href={`/documents?enquiryRef=${encodeURIComponent(enquiry.enquiryRef)}&enqProduct=${encodeURIComponent(enquiry.product || "")}&enqQuantity=${encodeURIComponent(enquiry.quantity ? (enquiry.quantity + " " + (enquiry.unit || "MT")) : "")}&enqOrigin=${encodeURIComponent(enquiry.origin || enquiry.loadingPort || "")}&enqIncoterm=${encodeURIComponent(enquiry.incoterms || "")}&enqSpecs=${encodeURIComponent(enquiry.specifications || "")}&enqValidity=${encodeURIComponent(enquiry.validity || "")}&enqCreatedBy=${encodeURIComponent(enquiry.createdBy || "")}&enqEmail=${encodeURIComponent(enquiry.email || "")}`} data-testid="link-generate-doc">
-                <Button variant="outline" size="sm">
-                  <FileText className="w-3.5 h-3.5 mr-1.5" /> Generate Document
-                </Button>
-              </a>
+              <>
+                <a href="/trading" data-testid="link-detail-trading">
+                  <Button size="sm" className="bg-primary hover:bg-primary/90 text-white">
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Go to Trading <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  </Button>
+                </a>
+                <a href={`/documents?enquiryRef=${encodeURIComponent(enquiry.enquiryRef)}&enqProduct=${encodeURIComponent(enquiry.product || "")}&enqQuantity=${encodeURIComponent(enquiry.quantity ? (enquiry.quantity + " " + (enquiry.unit || "MT")) : "")}&enqOrigin=${encodeURIComponent(enquiry.origin || enquiry.loadingPort || "")}&enqIncoterm=${encodeURIComponent(enquiry.incoterms || "")}&enqSpecs=${encodeURIComponent(enquiry.specifications || "")}&enqValidity=${encodeURIComponent(enquiry.validity || "")}&enqCreatedBy=${encodeURIComponent(enquiry.createdBy || "")}&enqEmail=${encodeURIComponent(enquiry.email || "")}`} data-testid="link-generate-doc">
+                  <Button variant="outline" size="sm">
+                    <FileText className="w-3.5 h-3.5 mr-1.5" /> Generate Document
+                  </Button>
+                </a>
+              </>
             )}
             <div className="flex-1" />
             <Button variant="destructive" size="sm" onClick={onDelete} data-testid="button-detail-delete">

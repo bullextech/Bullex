@@ -2340,6 +2340,8 @@ export async function registerRoutes(
           });
 
           console.log(`[trade] Auto-created trade ${trade.tradeRef} from enquiry ${existing.enquiryRef}, blockchain block #${blockNumber}`);
+          sendEnquiryStatusNotification(existing, status).catch(() => {});
+          return res.json({ ...updated, createdTradeRef: trade.tradeRef });
         } catch (err: any) {
           console.error("[trade] Auto-create trade failed:", err.message);
         }
