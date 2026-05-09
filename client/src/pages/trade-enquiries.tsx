@@ -22,6 +22,21 @@ const UNIT_OPTIONS = ["MT", "KG", "LBS", "BBL", "GAL", "LTR", "OZ", "TON"];
 const CURRENCY_OPTIONS = ["USD", "EUR", "GBP", "AED", "CNY"];
 const INCOTERM_OPTIONS = ["FOB", "CIF", "CFR", "EXW", "FCA", "CPT", "CIP", "DAP", "DPU", "DDP"];
 
+const PAYMENT_DOC_OPTIONS = [
+  "Commercial Invoice",
+  "Packing List",
+  "Bill of Lading",
+  "Certificate of Origin",
+  "Assay Report (SGS / Bureau Veritas)",
+  "Certificate of Quantity & Quality",
+  "Insurance Policy (110% of invoice value)",
+  "Seller's Export Permit",
+  "Weight / Tare Certificate",
+  "Draft Survey Report",
+  "Certificate of Analysis",
+  "Customs Declaration",
+];
+
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   open: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
@@ -105,6 +120,7 @@ export default function TradeEnquiries() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<EnquiryForm>({ ...emptyForm });
   const [specRows, setSpecRows] = useState<SpecRow[]>(emptySpecRows);
+  const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sideFilter, setSideFilter] = useState<string>("all");
@@ -170,7 +186,8 @@ export default function TradeEnquiries() {
       return;
     }
     const specText = specRows.filter(r => r.parameter.trim()).map(r => `${r.parameter}: ${r.specification}${r.rejection ? ` (Rejection: ${r.rejection})` : ""}`).join("\n");
-    createMutation.mutate({ ...form, specifications: specText || form.specifications });
+    const docsText = selectedDocs.join("\n");
+    createMutation.mutate({ ...form, specifications: specText || form.specifications, docsForPayment: docsText || form.docsForPayment });
   };
 
   const f = (field: keyof EnquiryForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -383,7 +400,24 @@ export default function TradeEnquiries() {
                     <div className="grid grid-cols-[40px_130px_1fr] border-b">
                       <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">11</div>
                       <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-start pt-2">Documents for Payment</div>
-                      <div className="p-1"><Textarea className="text-xs border-0 shadow-none focus-visible:ring-0 min-h-[80px]" placeholder={"Commercial Invoice, 3 originals\nPacking List, 3 originals\nCertificate of Origin\nAssay Report by SGS\nInsurance Policy 110% of invoice value"} value={form.docsForPayment} onChange={f("docsForPayment")} rows={4} data-testid="input-docs-for-payment" /></div>
+                      <div className="p-2">
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {PAYMENT_DOC_OPTIONS.map((doc) => (
+                            <label key={doc} className="flex items-center gap-2 cursor-pointer group" data-testid={`checkbox-doc-${doc.replace(/\s+/g, "-").toLowerCase()}`}>
+                              <input
+                                type="checkbox"
+                                className="w-3.5 h-3.5 rounded accent-primary cursor-pointer"
+                                checked={selectedDocs.includes(doc)}
+                                onChange={(e) => setSelectedDocs(prev => e.target.checked ? [...prev, doc] : prev.filter(d => d !== doc))}
+                              />
+                              <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">{doc}</span>
+                            </label>
+                          ))}
+                        </div>
+                        {selectedDocs.length > 0 && (
+                          <p className="text-[10px] text-primary mt-2 font-medium">{selectedDocs.length} document{selectedDocs.length > 1 ? "s" : ""} selected</p>
+                        )}
+                      </div>
                     </div>
                     <div className="grid grid-cols-[40px_130px_1fr] border-b">
                       <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">12</div>
@@ -431,7 +465,7 @@ export default function TradeEnquiries() {
               <Button onClick={handleSubmit} disabled={createMutation.isPending} data-testid="button-submit-enquiry">
                 {createMutation.isPending ? "Creating..." : "Submit Enquiry"}
               </Button>
-              <Button variant="outline" onClick={() => { setShowForm(false); setForm({ ...emptyForm }); setSpecRows(emptySpecRows); }} data-testid="button-cancel-enquiry">
+              <Button variant="outline" onClick={() => { setShowForm(false); setForm({ ...emptyForm }); setSpecRows(emptySpecRows); setSelectedDocs([]); }} data-testid="button-cancel-enquiry">
                 Cancel
               </Button>
             </div>
@@ -689,7 +723,30 @@ function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
               {[
                 ["09", "Payment Terms", enquiry.paymentTerms],
                 ["10", "Performance Bond", enquiry.performanceBond],
-                ["11", "Documents for Payment", enquiry.docsForPayment],
+              ].map(([sr, label, val]) => val ? (
+                <div key={sr} className="grid grid-cols-[40px_140px_1fr] text-sm">
+                  <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">{sr}</div>
+                  <div className="p-2 border-r text-xs text-muted-foreground">{label}</div>
+                  <div className="p-2 text-xs font-medium whitespace-pre-wrap">{val}</div>
+                </div>
+              ) : null)}
+              {enquiry.docsForPayment && (
+                <div className="grid grid-cols-[40px_140px_1fr] text-sm">
+                  <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">11</div>
+                  <div className="p-2 border-r text-xs text-muted-foreground">Documents for Payment</div>
+                  <div className="p-2">
+                    <ul className="space-y-0.5">
+                      {enquiry.docsForPayment.split("\n").filter(Boolean).map((doc, i) => (
+                        <li key={i} className="text-xs font-medium flex items-start gap-1.5">
+                          <span className="text-primary mt-0.5">✓</span>
+                          <span>{doc}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+              {[
                 ["12", "Other Terms", enquiry.otherTerms],
                 ["13", "Compliance", enquiry.compliance],
               ].map(([sr, label, val]) => val ? (
