@@ -218,6 +218,24 @@ export const tradeEnquiries = pgTable("trade_enquiries", {
   clientRespondedBy: text("client_responded_by"),
   clientRespondedAt: timestamp("client_responded_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  // LOI template fields
+  origin: text("origin"),
+  deliveryPeriod: text("delivery_period"),
+  price: text("price"),
+  currency: text("currency").default("USD"),
+  paymentTerms: text("payment_terms"),
+  sellerName: text("seller_name"),
+  sellerAddress: text("seller_address"),
+  sellerContact: text("seller_contact"),
+  buyerName: text("buyer_name"),
+  buyerAddress: text("buyer_address"),
+  buyerContact: text("buyer_contact"),
+  dischargePort: text("discharge_port"),
+  refPerson: text("ref_person"),
+  contractConfirmation: text("contract_confirmation"),
+  docsForPayment: text("docs_for_payment"),
+  otherTerms: text("other_terms"),
+  compliance: text("compliance"),
 });
 
 export const tradeEnquiryDocuments = pgTable("trade_enquiry_documents", {

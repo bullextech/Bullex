@@ -9,16 +9,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   Search, Plus, FileText, Download, Trash2, Upload, Eye, X,
-  Package, MapPin, Scale, Clock, Info, ChevronDown, User, Mail
+  Scale, Clock, Info, User, Mail, Send, ClipboardList, FileSignature,
+  MapPin, Package, ChevronDown, ChevronUp,
 } from "lucide-react";
 import type { TradeEnquiry, TradeEnquiryDocument } from "@shared/schema";
 
-const INCOTERM_OPTIONS = ["FOB", "CIF", "CFR", "EXW", "FCA", "CPT", "CIP", "DAP", "DPU", "DDP"];
 const UNIT_OPTIONS = ["MT", "KG", "LBS", "BBL", "GAL", "LTR", "OZ", "TON"];
+const CURRENCY_OPTIONS = ["USD", "EUR", "GBP", "AED", "CNY"];
+const INCOTERM_OPTIONS = ["FOB", "CIF", "CFR", "EXW", "FCA", "CPT", "CIP", "DAP", "DPU", "DDP"];
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
@@ -46,53 +48,77 @@ function isActive(status: string) {
   return status !== "closed" && status !== "cancelled" && status !== "rejected";
 }
 
-interface EnquiryForm {
-  side: "buy" | "sell";
-  product: string;
-  specifications: string;
-  producer: string;
-  quantity: string;
-  unit: string;
-  loadingPort: string;
-  incoterms: string;
-  validity: string;
-  additionalInfo: string;
-  createdBy: string;
-  email: string;
-}
-
-const emptyForm: EnquiryForm = {
-  side: "buy",
-  product: "",
-  specifications: "",
-  producer: "",
-  quantity: "",
-  unit: "MT",
-  loadingPort: "",
-  incoterms: "FOB",
-  validity: "",
-  additionalInfo: "",
-  createdBy: "",
-  email: "",
-};
-
 interface ApprovedClient {
   id: string;
   companyName: string;
   contactName: string;
   contactEmail: string;
+  signatoryName?: string;
+  signatoryTitle?: string;
+  registeredAddress?: string;
+  primaryBusinessAddress?: string;
   status: string;
 }
+
+interface SpecRow { parameter: string; specification: string; rejection: string; }
+
+interface EnquiryForm {
+  side: "buy" | "sell";
+  // Header
+  sellerName: string;
+  sellerAddress: string;
+  sellerContact: string;
+  refPerson: string;
+  validity: string;
+  incoterms: string;
+  buyerName: string;
+  buyerAddress: string;
+  buyerContact: string;
+  createdBy: string;
+  email: string;
+  // Parameters
+  product: string;
+  origin: string;
+  quantity: string;
+  unit: string;
+  deliveryPeriod: string;
+  price: string;
+  currency: string;
+  contractConfirmation: string;
+  specifications: string;
+  paymentTerms: string;
+  docsForPayment: string;
+  otherTerms: string;
+  compliance: string;
+  // Closing
+  producer: string;
+  loadingPort: string;
+  dischargePort: string;
+  additionalInfo: string;
+}
+
+const emptyForm: EnquiryForm = {
+  side: "buy",
+  sellerName: "", sellerAddress: "", sellerContact: "", refPerson: "",
+  validity: "", incoterms: "CIF",
+  buyerName: "", buyerAddress: "", buyerContact: "", createdBy: "", email: "",
+  product: "", origin: "", quantity: "", unit: "MT", deliveryPeriod: "",
+  price: "", currency: "USD", contractConfirmation: "",
+  specifications: "", paymentTerms: "", docsForPayment: "", otherTerms: "", compliance: "",
+  producer: "", loadingPort: "", dischargePort: "", additionalInfo: "",
+};
+
+const emptySpecRows: SpecRow[] = [{ parameter: "", specification: "", rejection: "" }];
 
 export default function TradeEnquiries() {
   const { toast } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<EnquiryForm>({ ...emptyForm });
+  const [specRows, setSpecRows] = useState<SpecRow[]>(emptySpecRows);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sideFilter, setSideFilter] = useState<string>("all");
   const [viewEnquiry, setViewEnquiry] = useState<TradeEnquiry | null>(null);
-  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
 
   const { data: enquiries = [], isLoading } = useQuery<TradeEnquiry[]>({
     queryKey: ["/api/trade-enquiries"],
@@ -104,13 +130,14 @@ export default function TradeEnquiries() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: EnquiryForm) => {
+    mutationFn: async (data: EnquiryForm & { specifications: string }) => {
       const res = await apiRequest("POST", "/api/trade-enquiries", data);
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trade-enquiries"] });
       setForm({ ...emptyForm });
+      setSpecRows(emptySpecRows);
       setShowForm(false);
       toast({ title: "Trade enquiry created successfully" });
     },
@@ -128,9 +155,6 @@ export default function TradeEnquiries() {
       queryClient.invalidateQueries({ queryKey: ["/api/trade-enquiries"] });
       toast({ title: "Status updated" });
     },
-    onError: (err: Error) => {
-      toast({ title: "Failed to update status", description: err.message, variant: "destructive" });
-    },
   });
 
   const deleteMutation = useMutation({
@@ -142,9 +166,6 @@ export default function TradeEnquiries() {
       setViewEnquiry(null);
       toast({ title: "Enquiry deleted" });
     },
-    onError: (err: Error) => {
-      toast({ title: "Failed to delete", description: err.message, variant: "destructive" });
-    },
   });
 
   const filtered = enquiries.filter((e) => {
@@ -152,26 +173,40 @@ export default function TradeEnquiries() {
       !searchTerm ||
       e.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
       e.enquiryRef.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.producer?.toLowerCase().includes(searchTerm.toLowerCase());
+      (e.sellerName || e.producer || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || (statusFilter === "active" ? isActive(e.status) && e.status !== "accepted" : e.status === statusFilter);
     const matchesSide = sideFilter === "all" || e.side === sideFilter;
     return matchesSearch && matchesStatus && matchesSide;
   });
 
+  const fillFromKyc = (kyc: ApprovedClient, role: "seller" | "buyer") => {
+    const address = kyc.registeredAddress || kyc.primaryBusinessAddress || "";
+    const contact = `${kyc.signatoryName || kyc.contactName}${kyc.signatoryTitle ? `, ${kyc.signatoryTitle}` : ""}`;
+    if (role === "seller") {
+      setForm(f => ({ ...f, sellerName: kyc.companyName, sellerAddress: address, sellerContact: contact }));
+    } else {
+      setForm(f => ({ ...f, buyerName: kyc.companyName, buyerAddress: address, buyerContact: contact, createdBy: kyc.contactName, email: kyc.contactEmail }));
+    }
+  };
+
   const handleSubmit = () => {
     if (!form.product.trim()) {
-      toast({ title: "Product is required", variant: "destructive" });
+      toast({ title: "Commodity is required", variant: "destructive" });
       return;
     }
-    createMutation.mutate(form);
+    const specText = specRows.filter(r => r.parameter.trim()).map(r => `${r.parameter}: ${r.specification}${r.rejection ? ` (Rejection: ${r.rejection})` : ""}`).join("\n");
+    createMutation.mutate({ ...form, specifications: specText || form.specifications });
   };
+
+  const f = (field: keyof EnquiryForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm(prev => ({ ...prev, [field]: e.target.value }));
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Trade Enquiries</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage commodity trade enquiries and requests</p>
+          <p className="text-sm text-muted-foreground mt-1">Manage commodity trade enquiries and LOI parameters</p>
         </div>
         <Button onClick={() => setShowForm(!showForm)} data-testid="button-new-enquiry">
           <Plus className="w-4 h-4 mr-2" />
@@ -181,203 +216,254 @@ export default function TradeEnquiries() {
 
       {showForm && (
         <Card className="border-primary/30">
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              Trade Enquiry Template
+              <FileText className="w-5 h-5 text-primary" />
+              Trade Enquiry — LOI Template
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Enquiry Type *</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={form.side === "buy" ? "default" : "outline"}
-                  className={form.side === "buy" ? "bg-green-600 hover:bg-green-700 text-white flex-1" : "flex-1"}
-                  onClick={() => setForm({ ...form, side: "buy" })}
-                  data-testid="button-side-buy"
-                >
-                  BUY
-                </Button>
-                <Button
-                  type="button"
-                  variant={form.side === "sell" ? "default" : "outline"}
-                  className={form.side === "sell" ? "bg-red-600 hover:bg-red-700 text-white flex-1" : "flex-1"}
-                  onClick={() => setForm({ ...form, side: "sell" })}
-                  data-testid="button-side-sell"
-                >
-                  SELL
-                </Button>
-              </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={form.side === "buy" ? "default" : "outline"}
+                className={form.side === "buy" ? "bg-green-600 hover:bg-green-700 text-white flex-1" : "flex-1"}
+                onClick={() => setForm(p => ({ ...p, side: "buy" }))}
+                data-testid="button-side-buy"
+              >BUY</Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={form.side === "sell" ? "default" : "outline"}
+                className={form.side === "sell" ? "bg-red-600 hover:bg-red-700 text-white flex-1" : "flex-1"}
+                onClick={() => setForm(p => ({ ...p, side: "sell" }))}
+                data-testid="button-side-sell"
+              >SELL</Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Client (KYC Approved) *</Label>
-                <Select
-                  value={form.createdBy ? `${form.createdBy}|||${form.email}` : ""}
-                  onValueChange={(v) => {
-                    const [name, email] = v.split("|||");
-                    setForm({ ...form, createdBy: name, email: email || "" });
-                  }}
-                >
-                  <SelectTrigger data-testid="select-client">
-                    <SelectValue placeholder="Select a client..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allKycClients.map((c) => (
-                      <SelectItem key={c.id} value={`${c.contactName}|||${c.contactEmail}`}>
-                        {c.companyName} — {c.contactName}
-                      </SelectItem>
+            <Accordion type="multiple" defaultValue={["header", "params", "closing"]} className="w-full">
+
+              <AccordionItem value="header" className="border rounded-md mb-2">
+                <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                  <span className="flex items-center gap-1.5"><Send className="w-3.5 h-3.5" /> LOI Header</span>
+                </AccordionTrigger>
+                <AccordionContent className="px-3 pb-3">
+                  <div className="border rounded-md overflow-hidden">
+                    <div className="grid grid-cols-[140px_1fr] border-b">
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center bg-muted/30">Issued to Seller</div>
+                      <div className="p-1 space-y-1">
+                        {allKycClients.length > 0 && (
+                          <Select onValueChange={(val) => { const kyc = allKycClients.find(k => k.id === val); if (kyc) fillFromKyc(kyc, "seller"); }}>
+                            <SelectTrigger className="h-7 text-xs" data-testid="select-seller-kyc"><SelectValue placeholder="Select from KYC..." /></SelectTrigger>
+                            <SelectContent>{allKycClients.map(k => <SelectItem key={k.id} value={k.id}>{k.companyName}</SelectItem>)}</SelectContent>
+                          </Select>
+                        )}
+                        <Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Seller company name" value={form.sellerName} onChange={f("sellerName")} data-testid="input-seller-name" />
+                        <Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Seller address" value={form.sellerAddress} onChange={f("sellerAddress")} data-testid="input-seller-address" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-[140px_1fr] border-b">
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center bg-muted/30">Attention (PIC)</div>
+                      <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Seller contact person & title" value={form.sellerContact} onChange={f("sellerContact")} data-testid="input-seller-contact" /></div>
+                    </div>
+                    <div className="grid grid-cols-[140px_1fr] border-b">
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center bg-muted/30">Ref</div>
+                      <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Reference person (e.g. Mr. John Smith)" value={form.refPerson} onChange={f("refPerson")} data-testid="input-ref-person" /></div>
+                    </div>
+                    <div className="grid grid-cols-[140px_1fr] border-b">
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center bg-muted/30">Valid Till</div>
+                      <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. Saturday 2nd August, 2025 – 2000HRS Dubai Time" value={form.validity} onChange={f("validity")} data-testid="input-validity" /></div>
+                    </div>
+                    <div className="grid grid-cols-[140px_1fr] border-b">
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center bg-muted/30">Purchase Incoterms</div>
+                      <div className="p-1">
+                        <Select value={form.incoterms} onValueChange={(v) => setForm(p => ({ ...p, incoterms: v }))}>
+                          <SelectTrigger className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" data-testid="select-incoterms"><SelectValue /></SelectTrigger>
+                          <SelectContent>{INCOTERM_OPTIONS.map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-[140px_1fr] border-b">
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center bg-muted/30">Issued by Buyer</div>
+                      <div className="p-1 space-y-1">
+                        {allKycClients.length > 0 && (
+                          <Select onValueChange={(val) => { const kyc = allKycClients.find(k => k.id === val); if (kyc) fillFromKyc(kyc, "buyer"); }}>
+                            <SelectTrigger className="h-7 text-xs" data-testid="select-buyer-kyc"><SelectValue placeholder="Select from KYC..." /></SelectTrigger>
+                            <SelectContent>{allKycClients.map(k => <SelectItem key={k.id} value={k.id}>{k.companyName}</SelectItem>)}</SelectContent>
+                          </Select>
+                        )}
+                        <Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Buyer company name" value={form.buyerName} onChange={f("buyerName")} data-testid="input-buyer-name" />
+                        <Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Buyer address" value={form.buyerAddress} onChange={f("buyerAddress")} data-testid="input-buyer-address" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-[140px_1fr]">
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center bg-muted/30">Attention (PIC)</div>
+                      <div className="p-1 space-y-1">
+                        <Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Buyer contact person & title" value={form.buyerContact} onChange={f("buyerContact")} data-testid="input-buyer-contact" />
+                        <div className="grid grid-cols-2 gap-1">
+                          <Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Created by (name)" value={form.createdBy} onChange={f("createdBy")} data-testid="input-created-by" />
+                          <Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Email" value={form.email} onChange={f("email")} data-testid="input-email" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="params" className="border rounded-md mb-2">
+                <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                  <span className="flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> LOI Parameters</span>
+                </AccordionTrigger>
+                <AccordionContent className="px-3 pb-3">
+                  <div className="border rounded-md overflow-hidden">
+                    <div className="grid grid-cols-[40px_130px_1fr] text-xs bg-muted/60 font-semibold border-b">
+                      <div className="p-2 border-r text-center">Sr.</div>
+                      <div className="p-2 border-r">Parameters</div>
+                      <div className="p-2">Details</div>
+                    </div>
+                    {[
+                      { sr: "01", label: "Commodity", field: "product" as keyof EnquiryForm, placeholder: "e.g. Iron Ore, Copper Cathode, Gasoil 10ppm", required: true },
+                      { sr: "02", label: "Origin", field: "origin" as keyof EnquiryForm, placeholder: "e.g. Kamsar, Guinea" },
+                    ].map(({ sr, label, field, placeholder, required }) => (
+                      <div key={sr} className="grid grid-cols-[40px_130px_1fr] border-b">
+                        <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">{sr}</div>
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">{label}{required && " *"}</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder={placeholder} value={form[field] as string} onChange={f(field)} data-testid={`input-${field}`} /></div>
+                      </div>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Created By</Label>
-                <Input
-                  value={form.createdBy}
-                  readOnly
-                  className="bg-muted/50"
-                  placeholder="Auto-filled from client"
-                  data-testid="input-created-by"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input
-                  value={form.email}
-                  readOnly
-                  className="bg-muted/50"
-                  placeholder="Auto-filled from client"
-                  data-testid="input-email"
-                />
-              </div>
-            </div>
+                    <div className="grid grid-cols-[40px_130px_1fr] border-b">
+                      <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">03</div>
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Quantity</div>
+                      <div className="p-1 flex gap-1">
+                        <Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0 flex-1" placeholder="e.g. 50,000" value={form.quantity} onChange={f("quantity")} data-testid="input-quantity" />
+                        <Select value={form.unit} onValueChange={(v) => setForm(p => ({ ...p, unit: v }))}>
+                          <SelectTrigger className="h-8 text-xs w-20 border-0 shadow-none" data-testid="select-unit"><SelectValue /></SelectTrigger>
+                          <SelectContent>{UNIT_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-[40px_130px_1fr] border-b">
+                      <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">04</div>
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Incoterms Terms</div>
+                      <div className="p-1">
+                        <Select value={form.incoterms} onValueChange={(v) => setForm(p => ({ ...p, incoterms: v }))}>
+                          <SelectTrigger className="h-8 text-xs border-0 shadow-none focus-visible:ring-0"><SelectValue /></SelectTrigger>
+                          <SelectContent>{INCOTERM_OPTIONS.map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-[40px_130px_1fr] border-b">
+                      <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">05</div>
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Delivery Period</div>
+                      <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. 15-30 April 2026" value={form.deliveryPeriod} onChange={f("deliveryPeriod")} data-testid="input-delivery-period" /></div>
+                    </div>
+                    <div className="grid grid-cols-[40px_130px_1fr] border-b">
+                      <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">06</div>
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Price</div>
+                      <div className="p-1 flex gap-1">
+                        <Select value={form.currency} onValueChange={(v) => setForm(p => ({ ...p, currency: v }))}>
+                          <SelectTrigger className="h-8 text-xs w-20 border-0 shadow-none" data-testid="select-currency"><SelectValue /></SelectTrigger>
+                          <SelectContent>{CURRENCY_OPTIONS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0 flex-1" placeholder="e.g. 70 per MT" value={form.price} onChange={f("price")} data-testid="input-price" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-[40px_130px_1fr] border-b">
+                      <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">07</div>
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Contract Confirmation</div>
+                      <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. Subject to Producer's Confirmation of cargo" value={form.contractConfirmation} onChange={f("contractConfirmation")} data-testid="input-contract-confirmation" /></div>
+                    </div>
+                    <div className="border-b">
+                      <div className="grid grid-cols-[40px_1fr] border-b">
+                        <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">08</div>
+                        <div className="p-2 text-xs font-medium text-muted-foreground">Commodity Specifications</div>
+                      </div>
+                      <div className="px-2 py-1.5">
+                        <div className="border rounded-md overflow-hidden">
+                          <div className="grid grid-cols-[1fr_1fr_1fr_32px] bg-muted/50 border-b">
+                            <div className="p-1.5 text-[10px] font-semibold text-muted-foreground uppercase">Parameter</div>
+                            <div className="p-1.5 text-[10px] font-semibold text-muted-foreground uppercase border-l">Specification</div>
+                            <div className="p-1.5 text-[10px] font-semibold text-muted-foreground uppercase border-l">Rejection Limit</div>
+                            <div className="border-l" />
+                          </div>
+                          {specRows.map((row, idx) => (
+                            <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_32px] border-b last:border-b-0">
+                              <div className="p-0.5"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. Al2O3" value={row.parameter} onChange={(e) => setSpecRows(rows => rows.map((r, i) => i === idx ? { ...r, parameter: e.target.value } : r))} data-testid={`input-spec-param-${idx}`} /></div>
+                              <div className="p-0.5 border-l"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. 45% min" value={row.specification} onChange={(e) => setSpecRows(rows => rows.map((r, i) => i === idx ? { ...r, specification: e.target.value } : r))} data-testid={`input-spec-value-${idx}`} /></div>
+                              <div className="p-0.5 border-l"><Input className="h-7 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. < 40%" value={row.rejection} onChange={(e) => setSpecRows(rows => rows.map((r, i) => i === idx ? { ...r, rejection: e.target.value } : r))} data-testid={`input-spec-reject-${idx}`} /></div>
+                              <div className="flex items-center justify-center border-l">
+                                {specRows.length > 1 && (
+                                  <button type="button" onClick={() => setSpecRows(rows => rows.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive" data-testid={`button-remove-spec-${idx}`}>
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" className="mt-1 h-6 text-[10px] text-muted-foreground" onClick={() => setSpecRows(rows => [...rows, { parameter: "", specification: "", rejection: "" }])} data-testid="button-add-spec-row">
+                          <Plus className="w-3 h-3 mr-1" /> Add Row
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-[40px_130px_1fr] border-b">
+                      <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">09</div>
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Payment Terms</div>
+                      <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. By DLC against 2% Performance Bond" value={form.paymentTerms} onChange={f("paymentTerms")} data-testid="input-payment-terms" /></div>
+                    </div>
+                    <div className="grid grid-cols-[40px_130px_1fr] border-b">
+                      <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">10</div>
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-start pt-2">Documents for Payment</div>
+                      <div className="p-1"><Textarea className="text-xs border-0 shadow-none focus-visible:ring-0 min-h-[80px]" placeholder={"Commercial Invoice, 3 originals\nPacking List, 3 originals\nCertificate of Origin\nAssay Report by SGS\nInsurance Policy 110% of invoice value"} value={form.docsForPayment} onChange={f("docsForPayment")} rows={4} data-testid="input-docs-for-payment" /></div>
+                    </div>
+                    <div className="grid grid-cols-[40px_130px_1fr] border-b">
+                      <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">11</div>
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-start pt-2">Other Terms</div>
+                      <div className="p-1"><Textarea className="text-xs border-0 shadow-none focus-visible:ring-0 min-h-[60px]" placeholder="Other terms and conditions..." value={form.otherTerms} onChange={f("otherTerms")} rows={3} data-testid="input-other-terms" /></div>
+                    </div>
+                    <div className="grid grid-cols-[40px_130px_1fr]">
+                      <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">12</div>
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-start pt-2">Compliance</div>
+                      <div className="p-1"><Textarea className="text-xs border-0 shadow-none focus-visible:ring-0 min-h-[40px]" placeholder="Seller must send KYC documents to compliance@bullfrog.ae upon signing of SPA..." value={form.compliance} onChange={f("compliance")} rows={2} data-testid="input-compliance" /></div>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="product">Product / Commodity *</Label>
-                <Input
-                  id="product"
-                  placeholder="e.g. Iron Ore, Copper Cathode, Gasoil 10ppm"
-                  value={form.product}
-                  onChange={(e) => setForm({ ...form, product: e.target.value })}
-                  data-testid="input-product"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="producer">Producer / Supplier</Label>
-                <Input
-                  id="producer"
-                  placeholder="e.g. Mining Corp Ltd"
-                  value={form.producer}
-                  onChange={(e) => setForm({ ...form, producer: e.target.value })}
-                  data-testid="input-producer"
-                />
-              </div>
-            </div>
+              <AccordionItem value="closing" className="border rounded-md mb-2">
+                <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                  <span className="flex items-center gap-1.5"><FileSignature className="w-3.5 h-3.5" /> Closing & Logistics</span>
+                </AccordionTrigger>
+                <AccordionContent className="px-3 pb-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Loading Port</Label>
+                      <Input className="h-8 text-xs mt-1" placeholder="e.g. Kamsar, Guinea" value={form.loadingPort} onChange={f("loadingPort")} data-testid="input-loading-port" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Discharge Port</Label>
+                      <Input className="h-8 text-xs mt-1" placeholder="e.g. Rizhao, China" value={form.dischargePort} onChange={f("dischargePort")} data-testid="input-discharge-port" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Producer / Supplier</Label>
+                    <Input className="h-8 text-xs mt-1" placeholder="e.g. Mining Corp Ltd" value={form.producer} onChange={f("producer")} data-testid="input-producer" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Special Notes</Label>
+                    <Textarea className="text-xs mt-1" placeholder="Any additional notes or special conditions" value={form.additionalInfo} onChange={f("additionalInfo")} rows={2} data-testid="input-additional-info" />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
 
-            <div className="space-y-2">
-              <Label htmlFor="specifications">Specifications / Quality Details</Label>
-              <Textarea
-                id="specifications"
-                placeholder="e.g. Al2O3: 45% min, SiO2: 3.5% max, Fe2O3: 18% max, Moisture: 10% max"
-                value={form.specifications}
-                onChange={(e) => setForm({ ...form, specifications: e.target.value })}
-                rows={3}
-                data-testid="input-specifications"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="quantity">Quantity</Label>
-                <Input
-                  id="quantity"
-                  placeholder="e.g. 50,000"
-                  value={form.quantity}
-                  onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-                  data-testid="input-quantity"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="unit">Unit</Label>
-                <Select value={form.unit} onValueChange={(v) => setForm({ ...form, unit: v })}>
-                  <SelectTrigger data-testid="select-unit">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {UNIT_OPTIONS.map((u) => (
-                      <SelectItem key={u} value={u}>{u}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="loadingPort">Loading Port</Label>
-                <Input
-                  id="loadingPort"
-                  placeholder="e.g. Kamsar, Guinea"
-                  value={form.loadingPort}
-                  onChange={(e) => setForm({ ...form, loadingPort: e.target.value })}
-                  data-testid="input-loading-port"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="incoterms">Incoterms</Label>
-                <Select value={form.incoterms} onValueChange={(v) => setForm({ ...form, incoterms: v })}>
-                  <SelectTrigger data-testid="select-incoterms">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INCOTERM_OPTIONS.map((i) => (
-                      <SelectItem key={i} value={i}>{i}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="validity">Validity Period</Label>
-                <Input
-                  id="validity"
-                  placeholder="e.g. 7 working days, 30 days from date of issue"
-                  value={form.validity}
-                  onChange={(e) => setForm({ ...form, validity: e.target.value })}
-                  data-testid="input-validity"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="additionalInfo">Additional Information</Label>
-              <Textarea
-                id="additionalInfo"
-                placeholder="Any additional notes, shipping requirements, payment preferences, or special conditions"
-                value={form.additionalInfo}
-                onChange={(e) => setForm({ ...form, additionalInfo: e.target.value })}
-                rows={3}
-                data-testid="input-additional-info"
-              />
-            </div>
+            </Accordion>
 
             <div className="flex gap-2 pt-2">
-              <Button
-                onClick={handleSubmit}
-                disabled={createMutation.isPending}
-                data-testid="button-submit-enquiry"
-              >
+              <Button onClick={handleSubmit} disabled={createMutation.isPending} data-testid="button-submit-enquiry">
                 {createMutation.isPending ? "Creating..." : "Submit Enquiry"}
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => { setShowForm(false); setForm({ ...emptyForm }); }}
-                data-testid="button-cancel-enquiry"
-              >
+              <Button variant="outline" onClick={() => { setShowForm(false); setForm({ ...emptyForm }); setSpecRows(emptySpecRows); }} data-testid="button-cancel-enquiry">
                 Cancel
               </Button>
             </div>
@@ -388,18 +474,10 @@ export default function TradeEnquiries() {
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by product, reference, producer..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-            data-testid="input-search-enquiries"
-          />
+          <Input placeholder="Search by commodity, reference, seller..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" data-testid="input-search-enquiries" />
         </div>
         <Select value={sideFilter} onValueChange={setSideFilter}>
-          <SelectTrigger className="w-28" data-testid="select-side-filter">
-            <SelectValue placeholder="All Types" />
-          </SelectTrigger>
+          <SelectTrigger className="w-28" data-testid="select-side-filter"><SelectValue placeholder="All Types" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
             <SelectItem value="buy">Buy</SelectItem>
@@ -407,9 +485,7 @@ export default function TradeEnquiries() {
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40" data-testid="select-status-filter">
-            <SelectValue placeholder="All Statuses" />
-          </SelectTrigger>
+          <SelectTrigger className="w-40" data-testid="select-status-filter"><SelectValue placeholder="All Statuses" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
             <SelectItem value="active">Pending</SelectItem>
@@ -424,9 +500,7 @@ export default function TradeEnquiries() {
 
       {isLoading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 bg-muted/50 rounded-lg animate-pulse" />
-          ))}
+          {[1, 2, 3].map((i) => <div key={i} className="h-24 bg-muted/50 rounded-lg animate-pulse" />)}
         </div>
       ) : filtered.length === 0 ? (
         <Card>
@@ -444,11 +518,7 @@ export default function TradeEnquiries() {
               enquiry={enquiry}
               onView={() => setViewEnquiry(enquiry)}
               onStatusChange={(status) => statusMutation.mutate({ id: enquiry.id, status })}
-              onDelete={() => {
-                if (confirm("Delete this enquiry and all attached documents?")) {
-                  deleteMutation.mutate(enquiry.id);
-                }
-              }}
+              onDelete={() => { if (confirm("Delete this enquiry and all attached documents?")) deleteMutation.mutate(enquiry.id); }}
             />
           ))}
         </div>
@@ -458,47 +528,29 @@ export default function TradeEnquiries() {
         <EnquiryDetailDialog
           enquiry={viewEnquiry}
           onClose={() => setViewEnquiry(null)}
-          onStatusChange={(status) => {
-            statusMutation.mutate({ id: viewEnquiry.id, status });
-            setViewEnquiry({ ...viewEnquiry, status });
-          }}
-          onDelete={() => {
-            if (confirm("Delete this enquiry and all attached documents?")) {
-              deleteMutation.mutate(viewEnquiry.id);
-            }
-          }}
+          onStatusChange={(status) => { statusMutation.mutate({ id: viewEnquiry.id, status }); setViewEnquiry({ ...viewEnquiry, status }); }}
+          onDelete={() => { if (confirm("Delete this enquiry and all attached documents?")) deleteMutation.mutate(viewEnquiry.id); }}
         />
       )}
     </div>
   );
 }
 
-function getValidityInfo(enquiry: TradeEnquiry): { daysLeft: number | null; label: string; color: string } {
-  if (!enquiry.validity || !enquiry.createdAt) return { daysLeft: null, label: "", color: "" };
+function getValidityInfo(enquiry: TradeEnquiry): { label: string; color: string } {
+  if (!enquiry.validity || !enquiry.createdAt) return { label: "", color: "" };
   const validityStr = String(enquiry.validity).trim();
   const daysMatch = validityStr.match(/(\d+)/);
-  if (!daysMatch) return { daysLeft: null, label: enquiry.validity, color: "" };
+  if (!daysMatch) return { label: enquiry.validity, color: "" };
   const validityDays = parseInt(daysMatch[1]);
-  const created = new Date(enquiry.createdAt);
-  const expiry = new Date(created.getTime() + validityDays * 24 * 60 * 60 * 1000);
-  const now = new Date();
-  const msLeft = expiry.getTime() - now.getTime();
-  const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
-  if (daysLeft <= 0) return { daysLeft: 0, label: "Expired", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border border-red-200" };
-  if (daysLeft <= 5) return { daysLeft, label: `${daysLeft}d left`, color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 border border-orange-200" };
-  return { daysLeft, label: `${daysLeft}d left`, color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border border-green-200" };
+  const expiry = new Date(new Date(enquiry.createdAt).getTime() + validityDays * 86400000);
+  const daysLeft = Math.ceil((expiry.getTime() - Date.now()) / 86400000);
+  if (daysLeft <= 0) return { label: "Expired", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border border-red-200" };
+  if (daysLeft <= 5) return { label: `${daysLeft}d left`, color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 border border-orange-200" };
+  return { label: `${daysLeft}d left`, color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border border-green-200" };
 }
 
-function EnquiryCard({
-  enquiry,
-  onView,
-  onStatusChange,
-  onDelete,
-}: {
-  enquiry: TradeEnquiry;
-  onView: () => void;
-  onStatusChange: (status: string) => void;
-  onDelete: () => void;
+function EnquiryCard({ enquiry, onView, onStatusChange, onDelete }: {
+  enquiry: TradeEnquiry; onView: () => void; onStatusChange: (s: string) => void; onDelete: () => void;
 }) {
   const validity = getValidityInfo(enquiry);
   return (
@@ -506,92 +558,42 @@ function EnquiryCard({
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <Badge
-                className={`text-[10px] font-bold ${enquiry.side === "sell" ? "bg-red-600 text-white" : "bg-green-600 text-white"}`}
-                data-testid={`badge-side-${enquiry.id}`}
-              >
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <Badge className={`text-[10px] font-bold ${enquiry.side === "sell" ? "bg-red-600 text-white" : "bg-green-600 text-white"}`} data-testid={`badge-side-${enquiry.id}`}>
                 {enquiry.side === "sell" ? "SELL" : "BUY"}
               </Badge>
-              <span className="font-mono text-xs text-muted-foreground" data-testid={`text-ref-${enquiry.id}`}>
-                {enquiry.enquiryRef}
-              </span>
-              <Badge className={`text-[10px] ${STATUS_COLORS[enquiry.status]}`} data-testid={`badge-status-${enquiry.id}`}>
-                {STATUS_LABELS[enquiry.status]}
-              </Badge>
+              <span className="font-mono text-xs text-muted-foreground" data-testid={`text-ref-${enquiry.id}`}>{enquiry.enquiryRef}</span>
+              <Badge className={`text-[10px] ${STATUS_COLORS[enquiry.status]}`} data-testid={`badge-status-${enquiry.id}`}>{STATUS_LABELS[enquiry.status]}</Badge>
               {enquiry.clientResponse && (
-                <Badge
-                  className={`text-[10px] font-bold ${enquiry.clientResponse === "accepted" ? "bg-emerald-600 text-white" : "bg-orange-600 text-white"}`}
-                  data-testid={`badge-client-response-${enquiry.id}`}
-                >
+                <Badge className={`text-[10px] font-bold ${enquiry.clientResponse === "accepted" ? "bg-emerald-600 text-white" : "bg-orange-600 text-white"}`} data-testid={`badge-client-response-${enquiry.id}`}>
                   {enquiry.clientResponse === "accepted" ? "CLIENT ACCEPTED" : "CLIENT REJECTED"}
                 </Badge>
               )}
             </div>
-            <h3 className="font-semibold text-base truncate" data-testid={`text-product-${enquiry.id}`}>
-              {enquiry.product}
-            </h3>
+            <h3 className="font-semibold text-base truncate" data-testid={`text-product-${enquiry.id}`}>{enquiry.product}</h3>
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
-              {enquiry.createdBy && (
-                <span className="flex items-center gap-1">
-                  <User className="w-3.5 h-3.5" /> {enquiry.createdBy}
-                </span>
-              )}
-              {enquiry.email && (
-                <span className="flex items-center gap-1">
-                  <Mail className="w-3.5 h-3.5" /> {enquiry.email}
-                </span>
-              )}
-              {enquiry.producer && (
-                <span className="flex items-center gap-1">
-                  <Package className="w-3.5 h-3.5" /> {enquiry.producer}
-                </span>
-              )}
-              {enquiry.quantity && (
-                <span className="flex items-center gap-1">
-                  <Scale className="w-3.5 h-3.5" /> {enquiry.quantity} {enquiry.unit}
-                </span>
-              )}
-              {enquiry.loadingPort && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" /> {enquiry.loadingPort}
-                </span>
-              )}
-              {enquiry.incoterms && (
-                <span className="flex items-center gap-1">
-                  <Info className="w-3.5 h-3.5" /> {enquiry.incoterms}
-                </span>
-              )}
-              {enquiry.validity && (
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" /> Validity: {enquiry.validity}
-                </span>
-              )}
+              {(enquiry.sellerName || enquiry.producer) && <span className="flex items-center gap-1"><Package className="w-3.5 h-3.5" /> {enquiry.sellerName || enquiry.producer}</span>}
+              {enquiry.quantity && <span className="flex items-center gap-1"><Scale className="w-3.5 h-3.5" /> {enquiry.quantity} {enquiry.unit}</span>}
+              {(enquiry.origin || enquiry.loadingPort) && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {enquiry.origin || enquiry.loadingPort}</span>}
+              {enquiry.incoterms && <span className="flex items-center gap-1"><Info className="w-3.5 h-3.5" /> {enquiry.incoterms}</span>}
+              {enquiry.price && <span className="flex items-center gap-1 font-medium text-foreground">{enquiry.currency || "USD"} {enquiry.price}</span>}
+              {enquiry.validity && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {enquiry.validity}</span>}
               {validity.label && isActive(enquiry.status) && (
                 <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${validity.color}`} data-testid={`badge-validity-${enquiry.id}`}>
-                  <Clock className="w-3 h-3" />
-                  {validity.label}
+                  <Clock className="w-3 h-3" />{validity.label}
                 </span>
               )}
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <Button variant="outline" size="sm" onClick={onView} data-testid={`button-view-${enquiry.id}`}>
-              <Eye className="w-3.5 h-3.5 mr-1" /> View
-            </Button>
+            <Button variant="outline" size="sm" onClick={onView} data-testid={`button-view-${enquiry.id}`}><Eye className="w-3.5 h-3.5 mr-1" /> View</Button>
             {isActive(enquiry.status) && enquiry.status !== "accepted" && (
               <>
-                <Button size="sm" className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white" onClick={() => onStatusChange("accepted")} data-testid={`button-accept-${enquiry.id}`}>
-                  Accept
-                </Button>
-                <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={() => onStatusChange("rejected")} data-testid={`button-reject-${enquiry.id}`}>
-                  Reject
-                </Button>
+                <Button size="sm" className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white" onClick={() => onStatusChange("accepted")} data-testid={`button-accept-${enquiry.id}`}>Accept</Button>
+                <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={() => onStatusChange("rejected")} data-testid={`button-reject-${enquiry.id}`}>Reject</Button>
               </>
             )}
-            <Button variant="ghost" size="sm" className="text-destructive" onClick={onDelete} data-testid={`button-delete-${enquiry.id}`}>
-              <Trash2 className="w-3.5 h-3.5" />
-            </Button>
+            <Button variant="ghost" size="sm" className="text-destructive" onClick={onDelete} data-testid={`button-delete-${enquiry.id}`}><Trash2 className="w-3.5 h-3.5" /></Button>
           </div>
         </div>
       </CardContent>
@@ -599,16 +601,8 @@ function EnquiryCard({
   );
 }
 
-function EnquiryDetailDialog({
-  enquiry,
-  onClose,
-  onStatusChange,
-  onDelete,
-}: {
-  enquiry: TradeEnquiry;
-  onClose: () => void;
-  onStatusChange: (status: string) => void;
-  onDelete: () => void;
+function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
+  enquiry: TradeEnquiry; onClose: () => void; onStatusChange: (s: string) => void; onDelete: () => void;
 }) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
@@ -623,16 +617,8 @@ function EnquiryDetailDialog({
   });
 
   const deleteDocMutation = useMutation({
-    mutationFn: async (docId: string) => {
-      await apiRequest("DELETE", `/api/trade-enquiry-documents/${docId}`);
-    },
-    onSuccess: () => {
-      refetchDocs();
-      toast({ title: "Document removed" });
-    },
-    onError: (err: Error) => {
-      toast({ title: "Failed to remove document", description: err.message, variant: "destructive" });
-    },
+    mutationFn: async (docId: string) => { await apiRequest("DELETE", `/api/trade-enquiry-documents/${docId}`); },
+    onSuccess: () => { refetchDocs(); toast({ title: "Document removed" }); },
   });
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -642,15 +628,8 @@ function EnquiryDetailDialog({
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(`/api/trade-enquiries/${enquiry.id}/documents`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Upload failed");
-      }
+      const res = await fetch(`/api/trade-enquiries/${enquiry.id}/documents`, { method: "POST", body: formData, credentials: "include" });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Upload failed"); }
       refetchDocs();
       toast({ title: "Document uploaded" });
     } catch (err: any) {
@@ -661,107 +640,110 @@ function EnquiryDetailDialog({
     }
   };
 
-  const created = new Date(enquiry.createdAt).toLocaleDateString("en-GB", {
-    day: "2-digit", month: "short", year: "numeric",
-  });
+  const created = new Date(enquiry.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+  const row = (label: string, value: string | null | undefined, testId?: string) =>
+    value ? (
+      <div className="flex justify-between py-1.5 border-b border-border/30 text-sm last:border-b-0">
+        <span className="text-muted-foreground text-xs shrink-0 mr-4">{label}</span>
+        <span className="font-medium text-right break-words" data-testid={testId}>{value}</span>
+      </div>
+    ) : null;
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-6">
             <div className="flex items-center gap-2">
               <FileText className="w-5 h-5" />
-              Trade Enquiry — {enquiry.enquiryRef}
+              {enquiry.enquiryRef}
             </div>
             <div className="flex items-center gap-2">
-              <Badge
-                className={`font-bold ${enquiry.side === "sell" ? "bg-red-600 text-white" : "bg-green-600 text-white"}`}
-                data-testid="badge-detail-side"
-              >
+              <Badge className={`font-bold ${enquiry.side === "sell" ? "bg-red-600 text-white" : "bg-green-600 text-white"}`} data-testid="badge-detail-side">
                 {enquiry.side === "sell" ? "SELL" : "BUY"}
               </Badge>
-              <Badge className={STATUS_COLORS[enquiry.status]} data-testid="badge-detail-status">
-                {STATUS_LABELS[enquiry.status]}
-              </Badge>
+              <Badge className={STATUS_COLORS[enquiry.status]} data-testid="badge-detail-status">{STATUS_LABELS[enquiry.status]}</Badge>
             </div>
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 mt-2">
-          <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-            <h4 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Enquiry Details</h4>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">Type:</span>
-                <span className={`ml-2 font-bold ${enquiry.side === "sell" ? "text-red-600" : "text-green-600"}`}>
-                  {enquiry.side === "sell" ? "SELL" : "BUY"}
-                </span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Date:</span>
-                <span className="ml-2 font-medium">{created}</span>
-              </div>
-              {enquiry.createdBy && (
-                <div>
-                  <span className="text-muted-foreground">Created By:</span>
-                  <span className="ml-2 font-medium" data-testid="text-detail-created-by">{enquiry.createdBy}</span>
-                </div>
-              )}
-              {enquiry.email && (
-                <div>
-                  <span className="text-muted-foreground">Email:</span>
-                  <span className="ml-2 font-medium" data-testid="text-detail-email">{enquiry.email}</span>
-                </div>
-              )}
-              <div>
-                <span className="text-muted-foreground">Product:</span>
-                <span className="ml-2 font-medium" data-testid="text-detail-product">{enquiry.product}</span>
-              </div>
-              {enquiry.producer && (
-                <div>
-                  <span className="text-muted-foreground">Producer:</span>
-                  <span className="ml-2 font-medium">{enquiry.producer}</span>
-                </div>
-              )}
-              {enquiry.quantity && (
-                <div>
-                  <span className="text-muted-foreground">Quantity:</span>
-                  <span className="ml-2 font-medium">{enquiry.quantity} {enquiry.unit}</span>
-                </div>
-              )}
-              {enquiry.loadingPort && (
-                <div>
-                  <span className="text-muted-foreground">Loading Port:</span>
-                  <span className="ml-2 font-medium">{enquiry.loadingPort}</span>
-                </div>
-              )}
-              {enquiry.incoterms && (
-                <div>
-                  <span className="text-muted-foreground">Incoterms:</span>
-                  <span className="ml-2 font-medium">{enquiry.incoterms}</span>
-                </div>
-              )}
-              {enquiry.validity && (
-                <div className="col-span-2">
-                  <span className="text-muted-foreground">Validity:</span>
-                  <span className="ml-2 font-medium">{enquiry.validity}</span>
-                </div>
-              )}
+          <div className="border rounded-md overflow-hidden">
+            <div className="text-xs font-bold uppercase tracking-wider p-2 bg-muted/60 border-b flex items-center gap-1.5">
+              <Send className="w-3.5 h-3.5" /> LOI Header
+            </div>
+            <div className="p-3 space-y-0">
+              {row("Issued to Seller", enquiry.sellerName)}
+              {row("Seller Address", enquiry.sellerAddress)}
+              {row("Seller Contact (PIC)", enquiry.sellerContact)}
+              {row("Ref", enquiry.refPerson)}
+              {row("Date", created)}
+              {row("Valid Till", enquiry.validity)}
+              {row("Purchase Incoterms", enquiry.incoterms)}
+              {row("Issued by Buyer", enquiry.buyerName)}
+              {row("Buyer Address", enquiry.buyerAddress)}
+              {row("Buyer Contact (PIC)", enquiry.buyerContact)}
+              {row("Created By", enquiry.createdBy, "text-detail-created-by")}
+              {row("Email", enquiry.email, "text-detail-email")}
             </div>
           </div>
 
-          {enquiry.specifications && (
-            <div className="bg-muted/50 rounded-lg p-4">
-              <h4 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground mb-2">Specifications</h4>
-              <p className="text-sm whitespace-pre-wrap" data-testid="text-detail-specs">{enquiry.specifications}</p>
+          <div className="border rounded-md overflow-hidden">
+            <div className="text-xs font-bold uppercase tracking-wider p-2 bg-muted/60 border-b flex items-center gap-1.5">
+              <ClipboardList className="w-3.5 h-3.5" /> LOI Parameters
             </div>
-          )}
+            <div className="divide-y">
+              {[
+                ["01", "Commodity", enquiry.product],
+                ["02", "Origin", enquiry.origin],
+                ["03", "Quantity", enquiry.quantity ? `${enquiry.quantity} ${enquiry.unit}` : null],
+                ["04", "Incoterms", enquiry.incoterms],
+                ["05", "Delivery Period", enquiry.deliveryPeriod],
+                ["06", "Price", enquiry.price ? `${enquiry.currency || "USD"} ${enquiry.price}` : null],
+                ["07", "Contract Confirmation", enquiry.contractConfirmation],
+              ].map(([sr, label, val]) => val ? (
+                <div key={sr} className="grid grid-cols-[40px_140px_1fr] text-sm">
+                  <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">{sr}</div>
+                  <div className="p-2 border-r text-xs text-muted-foreground">{label}</div>
+                  <div className="p-2 text-xs font-medium" data-testid={`text-detail-${label?.toLowerCase().replace(/\s+/g, "-")}`}>{val}</div>
+                </div>
+              ) : null)}
+              {enquiry.specifications && (
+                <div className="grid grid-cols-[40px_1fr] text-sm">
+                  <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">08</div>
+                  <div className="p-2">
+                    <p className="text-xs text-muted-foreground mb-1">Commodity Specifications</p>
+                    <p className="text-xs whitespace-pre-wrap" data-testid="text-detail-specs">{enquiry.specifications}</p>
+                  </div>
+                </div>
+              )}
+              {[
+                ["09", "Payment Terms", enquiry.paymentTerms],
+                ["10", "Documents for Payment", enquiry.docsForPayment],
+                ["11", "Other Terms", enquiry.otherTerms],
+                ["12", "Compliance", enquiry.compliance],
+              ].map(([sr, label, val]) => val ? (
+                <div key={sr} className="grid grid-cols-[40px_140px_1fr] text-sm">
+                  <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">{sr}</div>
+                  <div className="p-2 border-r text-xs text-muted-foreground">{label}</div>
+                  <div className="p-2 text-xs font-medium whitespace-pre-wrap">{val}</div>
+                </div>
+              ) : null)}
+            </div>
+          </div>
 
-          {enquiry.additionalInfo && (
-            <div className="bg-muted/50 rounded-lg p-4">
-              <h4 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground mb-2">Additional Information</h4>
-              <p className="text-sm whitespace-pre-wrap" data-testid="text-detail-additional">{enquiry.additionalInfo}</p>
+          {(enquiry.loadingPort || enquiry.dischargePort || enquiry.producer || enquiry.additionalInfo) && (
+            <div className="border rounded-md overflow-hidden">
+              <div className="text-xs font-bold uppercase tracking-wider p-2 bg-muted/60 border-b flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5" /> Logistics
+              </div>
+              <div className="p-3 space-y-0">
+                {row("Loading Port", enquiry.loadingPort)}
+                {row("Discharge Port", enquiry.dischargePort)}
+                {row("Producer / Supplier", enquiry.producer)}
+                {row("Special Notes", enquiry.additionalInfo)}
+              </div>
             </div>
           )}
 
@@ -784,58 +766,28 @@ function EnquiryDetailDialog({
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Attached Documents</h4>
               <label>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
-                  onChange={handleUpload}
-                  disabled={uploading}
-                  data-testid="input-upload-doc"
-                />
+                <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" onChange={handleUpload} disabled={uploading} data-testid="input-upload-doc" />
                 <Button variant="outline" size="sm" asChild className="cursor-pointer" disabled={uploading}>
-                  <span>
-                    <Upload className="w-3.5 h-3.5 mr-1.5" />
-                    {uploading ? "Uploading..." : "Attach File"}
-                  </span>
+                  <span><Upload className="w-3.5 h-3.5 mr-1.5" />{uploading ? "Uploading..." : "Attach File"}</span>
                 </Button>
               </label>
             </div>
-
             {docs.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-3">No documents attached</p>
             ) : (
               <div className="space-y-2">
                 {docs.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center justify-between bg-background rounded-md px-3 py-2 border"
-                    data-testid={`doc-row-${doc.id}`}
-                  >
+                  <div key={doc.id} className="flex items-center justify-between bg-background rounded-md px-3 py-2 border" data-testid={`doc-row-${doc.id}`}>
                     <div className="flex items-center gap-2 min-w-0">
                       <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
                       <span className="text-sm truncate">{doc.originalName}</span>
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        ({(doc.size / 1024).toFixed(0)} KB)
-                      </span>
+                      <span className="text-xs text-muted-foreground shrink-0">({(doc.size / 1024).toFixed(0)} KB)</span>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        asChild
-                        data-testid={`button-download-doc-${doc.id}`}
-                      >
-                        <a href={`/api/trade-enquiry-documents/${doc.id}/download`} target="_blank" rel="noreferrer">
-                          <Download className="w-3.5 h-3.5" />
-                        </a>
+                      <Button variant="ghost" size="sm" asChild data-testid={`button-download-doc-${doc.id}`}>
+                        <a href={`/api/trade-enquiry-documents/${doc.id}/download`} target="_blank" rel="noreferrer"><Download className="w-3.5 h-3.5" /></a>
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive"
-                        onClick={() => deleteDocMutation.mutate(doc.id)}
-                        data-testid={`button-delete-doc-${doc.id}`}
-                      >
+                      <Button variant="ghost" size="sm" className="text-destructive" onClick={() => deleteDocMutation.mutate(doc.id)} data-testid={`button-delete-doc-${doc.id}`}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
@@ -848,26 +800,20 @@ function EnquiryDetailDialog({
           <div className="flex items-center gap-2 pt-2 border-t">
             {isActive(enquiry.status) && enquiry.status !== "accepted" && (
               <>
-                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => onStatusChange("accepted")} data-testid="button-detail-accept">
-                  Accept
-                </Button>
-                <Button size="sm" variant="destructive" onClick={() => onStatusChange("rejected")} data-testid="button-detail-reject">
-                  Reject
-                </Button>
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => onStatusChange("accepted")} data-testid="button-detail-accept">Accept</Button>
+                <Button size="sm" variant="destructive" onClick={() => onStatusChange("rejected")} data-testid="button-detail-reject">Reject</Button>
               </>
             )}
             {enquiry.status === "accepted" && (
-              <a href={`/documents?enquiryRef=${encodeURIComponent(enquiry.enquiryRef)}&enqProduct=${encodeURIComponent(enquiry.product || "")}&enqQuantity=${encodeURIComponent(enquiry.quantity ? (enquiry.quantity + " " + (enquiry.unit || "MT")) : "")}&enqOrigin=${encodeURIComponent(enquiry.loadingPort || "")}&enqIncoterm=${encodeURIComponent(enquiry.incoterms || "")}&enqSpecs=${encodeURIComponent(enquiry.specifications || "")}&enqValidity=${encodeURIComponent(enquiry.validity || "")}&enqCreatedBy=${encodeURIComponent(enquiry.createdBy || "")}&enqEmail=${encodeURIComponent(enquiry.email || "")}`} data-testid="link-generate-doc">
+              <a href={`/documents?enquiryRef=${encodeURIComponent(enquiry.enquiryRef)}&enqProduct=${encodeURIComponent(enquiry.product || "")}&enqQuantity=${encodeURIComponent(enquiry.quantity ? (enquiry.quantity + " " + (enquiry.unit || "MT")) : "")}&enqOrigin=${encodeURIComponent(enquiry.origin || enquiry.loadingPort || "")}&enqIncoterm=${encodeURIComponent(enquiry.incoterms || "")}&enqSpecs=${encodeURIComponent(enquiry.specifications || "")}&enqValidity=${encodeURIComponent(enquiry.validity || "")}&enqCreatedBy=${encodeURIComponent(enquiry.createdBy || "")}&enqEmail=${encodeURIComponent(enquiry.email || "")}`} data-testid="link-generate-doc">
                 <Button variant="outline" size="sm">
-                  <FileText className="w-3.5 h-3.5 mr-1.5" />
-                  Generate Document
+                  <FileText className="w-3.5 h-3.5 mr-1.5" /> Generate Document
                 </Button>
               </a>
             )}
             <div className="flex-1" />
             <Button variant="destructive" size="sm" onClick={onDelete} data-testid="button-detail-delete">
-              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-              Delete Enquiry
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete Enquiry
             </Button>
           </div>
         </div>
