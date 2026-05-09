@@ -572,6 +572,7 @@ function getValidityInfo(enquiry: TradeEnquiry): { label: string; color: string 
 function EnquiryCard({ enquiry, onView, onStatusChange, onDelete }: {
   enquiry: TradeEnquiry; onView: () => void; onStatusChange: (s: string) => void; onDelete: () => void;
 }) {
+  const [, nav] = useLocation();
   const validity = getValidityInfo(enquiry);
   return (
     <Card className="hover:shadow-md transition-shadow" data-testid={`card-enquiry-${enquiry.id}`}>
@@ -614,11 +615,9 @@ function EnquiryCard({ enquiry, onView, onStatusChange, onDelete }: {
               </>
             )}
             {enquiry.status === "accepted" && (
-              <a href={enquiry.linkedTradeRef ? `/trading?tradeRef=${encodeURIComponent(enquiry.linkedTradeRef)}` : "/trading"} data-testid={`link-trading-${enquiry.id}`}>
-                <Button size="sm" className="h-8 text-xs bg-primary hover:bg-primary/90 text-white">
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> View Trade <ArrowRight className="w-3 h-3 ml-1" />
-                </Button>
-              </a>
+              <Button size="sm" className="h-8 text-xs bg-primary hover:bg-primary/90 text-white" onClick={() => nav(enquiry.linkedTradeRef ? `/trading?tradeRef=${encodeURIComponent(enquiry.linkedTradeRef)}` : "/trading")} data-testid={`link-trading-${enquiry.id}`}>
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> View Trade <ArrowRight className="w-3 h-3 ml-1" />
+              </Button>
             )}
             <Button variant="ghost" size="sm" className="text-destructive" onClick={onDelete} data-testid={`button-delete-${enquiry.id}`}><Trash2 className="w-3.5 h-3.5" /></Button>
           </div>
@@ -632,6 +631,7 @@ function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
   enquiry: TradeEnquiry; onClose: () => void; onStatusChange: (s: string) => void; onDelete: () => void;
 }) {
   const { toast } = useToast();
+  const [, nav] = useLocation();
   const [uploading, setUploading] = useState(false);
 
   const { data: docs = [], refetch: refetchDocs } = useQuery<TradeEnquiryDocument[]>({
@@ -857,16 +857,12 @@ function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
             )}
             {enquiry.status === "accepted" && (
               <>
-                <a href={enquiry.linkedTradeRef ? `/trading?tradeRef=${encodeURIComponent(enquiry.linkedTradeRef)}` : "/trading"} data-testid="link-detail-trading">
-                  <Button size="sm" className="bg-primary hover:bg-primary/90 text-white">
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Go to Trading <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                  </Button>
-                </a>
-                <a href={`/documents?enquiryRef=${encodeURIComponent(enquiry.enquiryRef)}&enqProduct=${encodeURIComponent(enquiry.product || "")}&enqQuantity=${encodeURIComponent(enquiry.quantity ? (enquiry.quantity + " " + (enquiry.unit || "MT")) : "")}&enqOrigin=${encodeURIComponent(enquiry.origin || enquiry.loadingPort || "")}&enqIncoterm=${encodeURIComponent(enquiry.incoterms || "")}&enqSpecs=${encodeURIComponent(enquiry.specifications || "")}&enqValidity=${encodeURIComponent(enquiry.validity || "")}&enqCreatedBy=${encodeURIComponent(enquiry.createdBy || "")}&enqEmail=${encodeURIComponent(enquiry.email || "")}`} data-testid="link-generate-doc">
-                  <Button variant="outline" size="sm">
-                    <FileText className="w-3.5 h-3.5 mr-1.5" /> Generate Document
-                  </Button>
-                </a>
+                <Button size="sm" className="bg-primary hover:bg-primary/90 text-white" onClick={() => { onClose(); nav(enquiry.linkedTradeRef ? `/trading?tradeRef=${encodeURIComponent(enquiry.linkedTradeRef)}` : "/trading"); }} data-testid="link-detail-trading">
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Go to Trading <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => { onClose(); nav(`/documents?enquiryRef=${encodeURIComponent(enquiry.enquiryRef)}&enqProduct=${encodeURIComponent(enquiry.product || "")}&enqQuantity=${encodeURIComponent(enquiry.quantity ? (enquiry.quantity + " " + (enquiry.unit || "MT")) : "")}&enqOrigin=${encodeURIComponent(enquiry.origin || enquiry.loadingPort || "")}&enqIncoterm=${encodeURIComponent(enquiry.incoterms || "")}&enqSpecs=${encodeURIComponent(enquiry.specifications || "")}&enqValidity=${encodeURIComponent(enquiry.validity || "")}&enqCreatedBy=${encodeURIComponent(enquiry.createdBy || "")}&enqEmail=${encodeURIComponent(enquiry.email || "")}`); }} data-testid="link-generate-doc">
+                  <FileText className="w-3.5 h-3.5 mr-1.5" /> Generate Document
+                </Button>
               </>
             )}
             <div className="flex-1" />
