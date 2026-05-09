@@ -127,7 +127,7 @@ function getStageLabel(status: string) {
 }
 
 export default function Trading() {
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const [expandedTrade, setExpandedTrade] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
