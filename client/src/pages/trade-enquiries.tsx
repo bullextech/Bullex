@@ -76,6 +76,7 @@ interface EnquiryForm {
   contractConfirmation: string;
   specifications: string;
   paymentTerms: string;
+  performanceBond: string;
   docsForPayment: string;
   otherTerms: string;
   compliance: string;
@@ -93,7 +94,7 @@ const emptyForm: EnquiryForm = {
   buyerName: "", buyerAddress: "", buyerContact: "", createdBy: "", email: "",
   product: "", origin: "", quantity: "", unit: "MT", deliveryPeriod: "",
   price: "", currency: "USD", contractConfirmation: "",
-  specifications: "", paymentTerms: "", docsForPayment: "", otherTerms: "", compliance: "",
+  specifications: "", paymentTerms: "", performanceBond: "", docsForPayment: "", otherTerms: "", compliance: "",
   producer: "", loadingPort: "", dischargePort: "", additionalInfo: "",
 };
 
@@ -372,20 +373,25 @@ export default function TradeEnquiries() {
                     <div className="grid grid-cols-[40px_130px_1fr] border-b">
                       <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">09</div>
                       <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Payment Terms</div>
-                      <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. By DLC against 2% Performance Bond" value={form.paymentTerms} onChange={f("paymentTerms")} data-testid="input-payment-terms" /></div>
+                      <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. By DLC at Sight" value={form.paymentTerms} onChange={f("paymentTerms")} data-testid="input-payment-terms" /></div>
                     </div>
                     <div className="grid grid-cols-[40px_130px_1fr] border-b">
                       <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">10</div>
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Performance Bond</div>
+                      <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. 2% Performance Bond via MT760" value={form.performanceBond} onChange={f("performanceBond")} data-testid="input-performance-bond" /></div>
+                    </div>
+                    <div className="grid grid-cols-[40px_130px_1fr] border-b">
+                      <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">11</div>
                       <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-start pt-2">Documents for Payment</div>
                       <div className="p-1"><Textarea className="text-xs border-0 shadow-none focus-visible:ring-0 min-h-[80px]" placeholder={"Commercial Invoice, 3 originals\nPacking List, 3 originals\nCertificate of Origin\nAssay Report by SGS\nInsurance Policy 110% of invoice value"} value={form.docsForPayment} onChange={f("docsForPayment")} rows={4} data-testid="input-docs-for-payment" /></div>
                     </div>
                     <div className="grid grid-cols-[40px_130px_1fr] border-b">
-                      <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">11</div>
+                      <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">12</div>
                       <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-start pt-2">Other Terms</div>
                       <div className="p-1"><Textarea className="text-xs border-0 shadow-none focus-visible:ring-0 min-h-[60px]" placeholder="Other terms and conditions..." value={form.otherTerms} onChange={f("otherTerms")} rows={3} data-testid="input-other-terms" /></div>
                     </div>
                     <div className="grid grid-cols-[40px_130px_1fr]">
-                      <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">12</div>
+                      <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">13</div>
                       <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-start pt-2">Compliance</div>
                       <div className="p-1"><Textarea className="text-xs border-0 shadow-none focus-visible:ring-0 min-h-[40px]" placeholder="Seller must send KYC documents to compliance@bullfrog.ae upon signing of SPA..." value={form.compliance} onChange={f("compliance")} rows={2} data-testid="input-compliance" /></div>
                     </div>
@@ -682,9 +688,10 @@ function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
               )}
               {[
                 ["09", "Payment Terms", enquiry.paymentTerms],
-                ["10", "Documents for Payment", enquiry.docsForPayment],
-                ["11", "Other Terms", enquiry.otherTerms],
-                ["12", "Compliance", enquiry.compliance],
+                ["10", "Performance Bond", enquiry.performanceBond],
+                ["11", "Documents for Payment", enquiry.docsForPayment],
+                ["12", "Other Terms", enquiry.otherTerms],
+                ["13", "Compliance", enquiry.compliance],
               ].map(([sr, label, val]) => val ? (
                 <div key={sr} className="grid grid-cols-[40px_140px_1fr] text-sm">
                   <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">{sr}</div>

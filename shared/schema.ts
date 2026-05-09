@@ -236,6 +236,7 @@ export const tradeEnquiries = pgTable("trade_enquiries", {
   docsForPayment: text("docs_for_payment"),
   otherTerms: text("other_terms"),
   compliance: text("compliance"),
+  performanceBond: text("performance_bond"),
 });
 
 export const tradeEnquiryDocuments = pgTable("trade_enquiry_documents", {
