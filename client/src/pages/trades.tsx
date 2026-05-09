@@ -153,6 +153,7 @@ export default function Trading() {
 
   const urlParams = new URLSearchParams(window.location.search);
   const enquiryId = urlParams.get("enquiry");
+  const linkedTradeRefParam = urlParams.get("tradeRef");
 
   const { data: prefillEnquiry } = useQuery<TradeEnquiry>({
     queryKey: ["/api/trade-enquiries", enquiryId],
@@ -163,6 +164,17 @@ export default function Trading() {
     },
     enabled: !!enquiryId && !enquiryPrefilled,
   });
+
+  useEffect(() => {
+    if (!linkedTradeRefParam || !trades?.length) return;
+    const match = trades.find((t) => t.tradeRef === linkedTradeRefParam);
+    if (match) {
+      setExpandedTrade(match.id);
+      setTimeout(() => {
+        document.getElementById(`trade-card-${match.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+    }
+  }, [linkedTradeRefParam, trades]);
 
   useEffect(() => {
     if (prefillEnquiry && !enquiryPrefilled) {
@@ -612,7 +624,7 @@ export default function Trading() {
               const docs = (trade.stageDocuments as Record<string, boolean>) || {};
 
               return (
-                <div key={trade.id} className="border-b border-border last:border-b-0" data-testid={`trade-row-${trade.id}`}>
+                <div key={trade.id} id={`trade-card-${trade.id}`} className="border-b border-border last:border-b-0" data-testid={`trade-row-${trade.id}`}>
                   <button
                     className="w-full grid grid-cols-12 gap-2 px-5 py-4 items-center hover:bg-muted/30 transition-colors text-left"
                     onClick={() => setExpandedTrade(isExpanded ? null : trade.id)}

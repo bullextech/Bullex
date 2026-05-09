@@ -614,7 +614,7 @@ function EnquiryCard({ enquiry, onView, onStatusChange, onDelete }: {
               </>
             )}
             {enquiry.status === "accepted" && (
-              <a href="/trading" data-testid={`link-trading-${enquiry.id}`}>
+              <a href={enquiry.linkedTradeRef ? `/trading?tradeRef=${encodeURIComponent(enquiry.linkedTradeRef)}` : "/trading"} data-testid={`link-trading-${enquiry.id}`}>
                 <Button size="sm" className="h-8 text-xs bg-primary hover:bg-primary/90 text-white">
                   <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> View Trade <ArrowRight className="w-3 h-3 ml-1" />
                 </Button>
@@ -857,7 +857,7 @@ function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
             )}
             {enquiry.status === "accepted" && (
               <>
-                <a href="/trading" data-testid="link-detail-trading">
+                <a href={enquiry.linkedTradeRef ? `/trading?tradeRef=${encodeURIComponent(enquiry.linkedTradeRef)}` : "/trading"} data-testid="link-detail-trading">
                   <Button size="sm" className="bg-primary hover:bg-primary/90 text-white">
                     <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Go to Trading <ArrowRight className="w-3.5 h-3.5 ml-1" />
                   </Button>

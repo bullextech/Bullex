@@ -114,7 +114,7 @@ export interface IStorage {
   getTradeEnquiries(): Promise<TradeEnquiry[]>;
   getTradeEnquiryById(id: string): Promise<TradeEnquiry | undefined>;
   createTradeEnquiry(enquiry: InsertTradeEnquiry): Promise<TradeEnquiry>;
-  updateTradeEnquiryStatus(id: string, status: string): Promise<TradeEnquiry>;
+  updateTradeEnquiryStatus(id: string, status: string, linkedTradeRef?: string): Promise<TradeEnquiry>;
   deleteTradeEnquiry(id: string): Promise<void>;
 
   updateTradeEnquiryClientResponse(id: string, response: string, respondedBy: string): Promise<TradeEnquiry>;
@@ -542,8 +542,10 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateTradeEnquiryStatus(id: string, status: string): Promise<TradeEnquiry> {
-    const [updated] = await db.update(tradeEnquiries).set({ status }).where(eq(tradeEnquiries.id, id)).returning();
+  async updateTradeEnquiryStatus(id: string, status: string, linkedTradeRef?: string): Promise<TradeEnquiry> {
+    const fields: any = { status };
+    if (linkedTradeRef) fields.linkedTradeRef = linkedTradeRef;
+    const [updated] = await db.update(tradeEnquiries).set(fields).where(eq(tradeEnquiries.id, id)).returning();
     return updated;
   }
 

@@ -2278,8 +2278,6 @@ export async function registerRoutes(
       if (!valid.includes(status)) return res.status(400).json({ message: "Invalid status" });
       const existing = await storage.getTradeEnquiryById(req.params.id);
       if (!existing) return res.status(404).json({ message: "Enquiry not found" });
-      const updated = await storage.updateTradeEnquiryStatus(req.params.id, status);
-
       if (status === "accepted" && existing.status !== "accepted") {
         try {
           const categoryMap: Record<string, string> = {
@@ -2340,6 +2338,7 @@ export async function registerRoutes(
           });
 
           console.log(`[trade] Auto-created trade ${trade.tradeRef} from enquiry ${existing.enquiryRef}, blockchain block #${blockNumber}`);
+          const updated = await storage.updateTradeEnquiryStatus(req.params.id, status, trade.tradeRef);
           sendEnquiryStatusNotification(existing, status).catch(() => {});
           return res.json({ ...updated, createdTradeRef: trade.tradeRef });
         } catch (err: any) {
@@ -2347,6 +2346,7 @@ export async function registerRoutes(
         }
       }
 
+      const updated = await storage.updateTradeEnquiryStatus(req.params.id, status);
       sendEnquiryStatusNotification(existing, status).catch(() => {});
       res.json(updated);
     } catch (error: any) {
