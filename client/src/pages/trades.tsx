@@ -42,7 +42,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import type { Trade, Block, TradeDocument, KycApplication } from "@shared/schema";
 
 const stageDefinitions = [
@@ -128,6 +128,7 @@ function getStageLabel(status: string) {
 
 export default function Trading() {
   const [, navigate] = useLocation();
+  const searchString = useSearch();
   const [expandedTrade, setExpandedTrade] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -151,7 +152,7 @@ export default function Trading() {
     incoterm: "CIF",
   });
 
-  const urlParams = new URLSearchParams(window.location.search);
+  const urlParams = new URLSearchParams(searchString);
   const enquiryId = urlParams.get("enquiry");
   const linkedTradeRefParam = urlParams.get("tradeRef");
 
