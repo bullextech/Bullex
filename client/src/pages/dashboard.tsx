@@ -153,7 +153,7 @@ export default function Dashboard() {
             </Badge>
           </div>
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-dashboard-title">
-            Commodity Trading Dashboard
+            Admin Dashboard
           </h1>
           <p className="text-sm text-muted-foreground">
             Physically backed trades, full provenance tracking, and transparent blockchain settlement
