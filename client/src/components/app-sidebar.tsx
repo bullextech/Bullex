@@ -44,8 +44,8 @@ const adminNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "KYC Admin", url: "/kyc-admin", icon: ShieldCheck },
   { title: "Enquiries", url: "/trade-enquiries", icon: SearchCheck },
-  { title: "Document Generator", url: "/documents", icon: FileText },
   { title: "Trading", url: "/trading", icon: Link2 },
+  { title: "Document Generator", url: "/documents", icon: FileText },
   { title: "Vault", url: "/vault", icon: FolderOpen },
   { title: "Blockchain", url: "/blockchain", icon: Layers },
 ];
