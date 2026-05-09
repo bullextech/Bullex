@@ -18,8 +18,8 @@ export const PLATFORM_MODULES = [
   { id: "registrations",  title: "Registrations",  url: "/registrations",   icon: UserPlus,        description: "Client registration applications" },
   { id: "kyc-admin",      title: "KYC Admin",      url: "/kyc-admin",       icon: ShieldCheck,     description: "Client KYC reviews & approvals" },
   { id: "enquiries",      title: "Enquiries",      url: "/trade-enquiries", icon: SearchCheck,     description: "Trade enquiry management" },
-  { id: "documents",      title: "Documents",      url: "/documents",       icon: FileText,        description: "Document generation & management" },
   { id: "trading",        title: "Trading",        url: "/trading",         icon: Link2,           description: "Trade order management" },
+  { id: "documents",      title: "Documents",      url: "/documents",       icon: FileText,        description: "Document generation & management" },
   { id: "vault",          title: "Vault",          url: "/vault",           icon: FolderOpen,      description: "Document vault & file storage" },
   { id: "blockchain",     title: "Blockchain",     url: "/blockchain",      icon: Layers,          description: "Blockchain ledger & verification" },
 ];
