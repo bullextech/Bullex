@@ -22,20 +22,6 @@ const UNIT_OPTIONS = ["MT", "KG", "LBS", "BBL", "GAL", "LTR", "OZ", "TON"];
 const CURRENCY_OPTIONS = ["USD", "EUR", "GBP", "AED", "CNY"];
 const INCOTERM_OPTIONS = ["FOB", "CIF", "CFR", "EXW", "FCA", "CPT", "CIP", "DAP", "DPU", "DDP"];
 
-const PAYMENT_DOC_OPTIONS = [
-  "Commercial Invoice",
-  "Packing List",
-  "Bill of Lading",
-  "Certificate of Origin",
-  "Assay Report (SGS / Bureau Veritas)",
-  "Certificate of Quantity & Quality",
-  "Insurance Policy (110% of invoice value)",
-  "Seller's Export Permit",
-  "Weight / Tare Certificate",
-  "Draft Survey Report",
-  "Certificate of Analysis",
-  "Customs Declaration",
-];
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
@@ -120,7 +106,7 @@ export default function TradeEnquiries() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<EnquiryForm>({ ...emptyForm });
   const [specRows, setSpecRows] = useState<SpecRow[]>(emptySpecRows);
-  const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sideFilter, setSideFilter] = useState<string>("all");
@@ -135,7 +121,15 @@ export default function TradeEnquiries() {
       const res = await apiRequest("POST", "/api/trade-enquiries", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: async (newEnquiry) => {
+      if (pendingFiles.length > 0) {
+        await Promise.allSettled(pendingFiles.map(file => {
+          const fd = new FormData();
+          fd.append("file", file);
+          return fetch(`/api/trade-enquiries/${newEnquiry.id}/documents`, { method: "POST", body: fd, credentials: "include" });
+        }));
+        setPendingFiles([]);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/trade-enquiries"] });
       setForm({ ...emptyForm });
       setSpecRows(emptySpecRows);
@@ -186,8 +180,7 @@ export default function TradeEnquiries() {
       return;
     }
     const specText = specRows.filter(r => r.parameter.trim()).map(r => `${r.parameter}: ${r.specification}${r.rejection ? ` (Rejection: ${r.rejection})` : ""}`).join("\n");
-    const docsText = selectedDocs.join("\n");
-    createMutation.mutate({ ...form, specifications: specText || form.specifications, docsForPayment: docsText || form.docsForPayment });
+    createMutation.mutate({ ...form, specifications: specText || form.specifications });
   };
 
   const f = (field: keyof EnquiryForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -399,23 +392,40 @@ export default function TradeEnquiries() {
                     </div>
                     <div className="grid grid-cols-[40px_130px_1fr] border-b">
                       <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">11</div>
-                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-start pt-2">Documents for Payment</div>
-                      <div className="p-2">
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {PAYMENT_DOC_OPTIONS.map((doc) => (
-                            <label key={doc} className="flex items-center gap-2 cursor-pointer group" data-testid={`checkbox-doc-${doc.replace(/\s+/g, "-").toLowerCase()}`}>
-                              <input
-                                type="checkbox"
-                                className="w-3.5 h-3.5 rounded accent-primary cursor-pointer"
-                                checked={selectedDocs.includes(doc)}
-                                onChange={(e) => setSelectedDocs(prev => e.target.checked ? [...prev, doc] : prev.filter(d => d !== doc))}
-                              />
-                              <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">{doc}</span>
-                            </label>
-                          ))}
-                        </div>
-                        {selectedDocs.length > 0 && (
-                          <p className="text-[10px] text-primary mt-2 font-medium">{selectedDocs.length} document{selectedDocs.length > 1 ? "s" : ""} selected</p>
+                      <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Attach Documents</div>
+                      <div className="p-2 flex items-center gap-3">
+                        <label className="cursor-pointer">
+                          <input
+                            type="file"
+                            multiple
+                            className="hidden"
+                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                            onChange={(e) => {
+                              const files = Array.from(e.target.files || []);
+                              setPendingFiles(prev => [...prev, ...files]);
+                              e.target.value = "";
+                            }}
+                            data-testid="input-attach-docs"
+                          />
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium hover:bg-muted/60 transition-colors">
+                            <Upload className="w-3.5 h-3.5" /> Attach File
+                          </span>
+                        </label>
+                        {pendingFiles.length > 0 && (
+                          <div className="flex-1 space-y-1">
+                            {pendingFiles.map((file, i) => (
+                              <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <FileText className="w-3 h-3 shrink-0" />
+                                <span className="truncate">{file.name}</span>
+                                <button type="button" onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))} className="shrink-0 hover:text-destructive" data-testid={`button-remove-file-${i}`}>
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {pendingFiles.length === 0 && (
+                          <span className="text-xs text-muted-foreground">No files attached</span>
                         )}
                       </div>
                     </div>
@@ -465,7 +475,7 @@ export default function TradeEnquiries() {
               <Button onClick={handleSubmit} disabled={createMutation.isPending} data-testid="button-submit-enquiry">
                 {createMutation.isPending ? "Creating..." : "Submit Enquiry"}
               </Button>
-              <Button variant="outline" onClick={() => { setShowForm(false); setForm({ ...emptyForm }); setSpecRows(emptySpecRows); setSelectedDocs([]); }} data-testid="button-cancel-enquiry">
+              <Button variant="outline" onClick={() => { setShowForm(false); setForm({ ...emptyForm }); setSpecRows(emptySpecRows); setPendingFiles([]); }} data-testid="button-cancel-enquiry">
                 Cancel
               </Button>
             </div>
