@@ -165,25 +165,6 @@ export default function Trading() {
   });
 
   useEffect(() => {
-    const ref = sessionStorage.getItem("highlightTradeRef");
-    if (ref) {
-      sessionStorage.removeItem("highlightTradeRef");
-      setHighlightTradeRef(ref);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!highlightTradeRef || !trades?.length) return;
-    const match = trades.find((t) => t.tradeRef === highlightTradeRef);
-    if (match) {
-      setExpandedTrade(match.id);
-      setTimeout(() => {
-        document.getElementById(`trade-card-${match.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 400);
-    }
-  }, [highlightTradeRef, trades]);
-
-  useEffect(() => {
     if (prefillEnquiry && !enquiryPrefilled) {
       const product = prefillEnquiry.product.toUpperCase();
       let matchedCategory = "";
@@ -218,6 +199,25 @@ export default function Trading() {
   const { data: trades, isLoading } = useQuery<Trade[]>({
     queryKey: ["/api/trades"],
   });
+
+  useEffect(() => {
+    const ref = sessionStorage.getItem("highlightTradeRef");
+    if (ref) {
+      sessionStorage.removeItem("highlightTradeRef");
+      setHighlightTradeRef(ref);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!highlightTradeRef || !trades?.length) return;
+    const match = trades.find((t) => t.tradeRef === highlightTradeRef);
+    if (match) {
+      setExpandedTrade(match.id);
+      setTimeout(() => {
+        document.getElementById(`trade-card-${match.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 400);
+    }
+  }, [highlightTradeRef, trades]);
 
   const { data: blocks } = useQuery<Block[]>({
     queryKey: ["/api/blocks"],
