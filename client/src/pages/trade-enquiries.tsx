@@ -48,17 +48,6 @@ function isActive(status: string) {
   return status !== "closed" && status !== "cancelled" && status !== "rejected";
 }
 
-interface ApprovedClient {
-  id: string;
-  companyName: string;
-  contactName: string;
-  contactEmail: string;
-  signatoryName?: string;
-  signatoryTitle?: string;
-  registeredAddress?: string;
-  primaryBusinessAddress?: string;
-  status: string;
-}
 
 interface SpecRow { parameter: string; specification: string; rejection: string; }
 
@@ -124,11 +113,6 @@ export default function TradeEnquiries() {
     queryKey: ["/api/trade-enquiries"],
   });
 
-  const { data: allKycClients = [] } = useQuery<ApprovedClient[]>({
-    queryKey: ["/api/kyc"],
-    select: (data: any[]) => data.filter((k: any) => k.status === "approved"),
-  });
-
   const createMutation = useMutation({
     mutationFn: async (data: EnquiryForm & { specifications: string }) => {
       const res = await apiRequest("POST", "/api/trade-enquiries", data);
@@ -178,16 +162,6 @@ export default function TradeEnquiries() {
     const matchesSide = sideFilter === "all" || e.side === sideFilter;
     return matchesSearch && matchesStatus && matchesSide;
   });
-
-  const fillFromKyc = (kyc: ApprovedClient, role: "seller" | "buyer") => {
-    const address = kyc.registeredAddress || kyc.primaryBusinessAddress || "";
-    const contact = `${kyc.signatoryName || kyc.contactName}${kyc.signatoryTitle ? `, ${kyc.signatoryTitle}` : ""}`;
-    if (role === "seller") {
-      setForm(f => ({ ...f, sellerName: kyc.companyName, sellerAddress: address, sellerContact: contact }));
-    } else {
-      setForm(f => ({ ...f, buyerName: kyc.companyName, buyerAddress: address, buyerContact: contact, createdBy: kyc.contactName, email: kyc.contactEmail }));
-    }
-  };
 
   const handleSubmit = () => {
     if (!form.product.trim()) {
@@ -253,12 +227,6 @@ export default function TradeEnquiries() {
                     <div className="grid grid-cols-[140px_1fr] border-b">
                       <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center bg-muted/30">Issued to Seller</div>
                       <div className="p-1 space-y-1">
-                        {allKycClients.length > 0 && (
-                          <Select onValueChange={(val) => { const kyc = allKycClients.find(k => k.id === val); if (kyc) fillFromKyc(kyc, "seller"); }}>
-                            <SelectTrigger className="h-7 text-xs" data-testid="select-seller-kyc"><SelectValue placeholder="Select from KYC..." /></SelectTrigger>
-                            <SelectContent>{allKycClients.map(k => <SelectItem key={k.id} value={k.id}>{k.companyName}</SelectItem>)}</SelectContent>
-                          </Select>
-                        )}
                         <Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Seller company name" value={form.sellerName} onChange={f("sellerName")} data-testid="input-seller-name" />
                         <Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Seller address" value={form.sellerAddress} onChange={f("sellerAddress")} data-testid="input-seller-address" />
                       </div>
@@ -287,12 +255,6 @@ export default function TradeEnquiries() {
                     <div className="grid grid-cols-[140px_1fr] border-b">
                       <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center bg-muted/30">Issued by Buyer</div>
                       <div className="p-1 space-y-1">
-                        {allKycClients.length > 0 && (
-                          <Select onValueChange={(val) => { const kyc = allKycClients.find(k => k.id === val); if (kyc) fillFromKyc(kyc, "buyer"); }}>
-                            <SelectTrigger className="h-7 text-xs" data-testid="select-buyer-kyc"><SelectValue placeholder="Select from KYC..." /></SelectTrigger>
-                            <SelectContent>{allKycClients.map(k => <SelectItem key={k.id} value={k.id}>{k.companyName}</SelectItem>)}</SelectContent>
-                          </Select>
-                        )}
                         <Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Buyer company name" value={form.buyerName} onChange={f("buyerName")} data-testid="input-buyer-name" />
                         <Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="Buyer address" value={form.buyerAddress} onChange={f("buyerAddress")} data-testid="input-buyer-address" />
                       </div>
