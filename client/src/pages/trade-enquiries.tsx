@@ -191,7 +191,7 @@ export default function TradeEnquiries() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Trade Enquiries</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage commodity trade enquiries and LOI parameters</p>
+          <p className="text-sm text-muted-foreground mt-1">Manage commodity trade enquiries</p>
         </div>
         <Button onClick={() => setShowForm(!showForm)} data-testid="button-new-enquiry">
           <Plus className="w-4 h-4 mr-2" />
@@ -204,7 +204,7 @@ export default function TradeEnquiries() {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <FileText className="w-5 h-5 text-primary" />
-              Trade Enquiry — LOI Template
+              New Trade Enquiry
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
