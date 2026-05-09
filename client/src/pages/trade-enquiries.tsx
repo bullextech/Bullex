@@ -393,7 +393,7 @@ export default function TradeEnquiries() {
                     <div className="grid grid-cols-[40px_130px_1fr]">
                       <div className="p-2 border-r text-xs text-center font-medium text-muted-foreground">13</div>
                       <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-start pt-2">Compliance</div>
-                      <div className="p-1"><Textarea className="text-xs border-0 shadow-none focus-visible:ring-0 min-h-[40px]" placeholder="Seller must send KYC documents to compliance@bullfrog.ae upon signing of SPA..." value={form.compliance} onChange={f("compliance")} rows={2} data-testid="input-compliance" /></div>
+                      <div className="p-1"><Textarea className="text-xs border-0 shadow-none focus-visible:ring-0 min-h-[40px]" placeholder="Buyer/Seller KYC should be completed" value={form.compliance} onChange={f("compliance")} rows={2} data-testid="input-compliance" /></div>
                     </div>
                   </div>
                 </AccordionContent>
