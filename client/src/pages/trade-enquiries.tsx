@@ -153,7 +153,8 @@ export default function TradeEnquiries() {
       queryClient.invalidateQueries({ queryKey: ["/api/trade-enquiries"] });
       if (data?.createdTradeRef) {
         toast({ title: "Enquiry accepted — trade created", description: `Trade ${data.createdTradeRef} has been opened in Blockchain Trading.` });
-        setTimeout(() => navigate(`/trading?tradeRef=${encodeURIComponent(data.createdTradeRef)}`), 1200);
+        sessionStorage.setItem("highlightTradeRef", data.createdTradeRef);
+        setTimeout(() => navigate("/trading"), 1200);
       } else {
         toast({ title: "Status updated" });
       }
@@ -573,6 +574,10 @@ function EnquiryCard({ enquiry, onView, onStatusChange, onDelete }: {
   enquiry: TradeEnquiry; onView: () => void; onStatusChange: (s: string) => void; onDelete: () => void;
 }) {
   const [, nav] = useLocation();
+  const goToTrade = () => {
+    if (enquiry.linkedTradeRef) sessionStorage.setItem("highlightTradeRef", enquiry.linkedTradeRef);
+    nav("/trading");
+  };
   const validity = getValidityInfo(enquiry);
   return (
     <Card className="hover:shadow-md transition-shadow" data-testid={`card-enquiry-${enquiry.id}`}>
@@ -615,7 +620,7 @@ function EnquiryCard({ enquiry, onView, onStatusChange, onDelete }: {
               </>
             )}
             {enquiry.status === "accepted" && (
-              <Button size="sm" className="h-8 text-xs bg-primary hover:bg-primary/90 text-white" onClick={() => nav(enquiry.linkedTradeRef ? `/trading?tradeRef=${encodeURIComponent(enquiry.linkedTradeRef)}` : "/trading")} data-testid={`link-trading-${enquiry.id}`}>
+              <Button size="sm" className="h-8 text-xs bg-primary hover:bg-primary/90 text-white" onClick={goToTrade} data-testid={`link-trading-${enquiry.id}`}>
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> View Trade <ArrowRight className="w-3 h-3 ml-1" />
               </Button>
             )}
@@ -632,6 +637,11 @@ function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
 }) {
   const { toast } = useToast();
   const [, nav] = useLocation();
+  const goToTrade = () => {
+    if (enquiry.linkedTradeRef) sessionStorage.setItem("highlightTradeRef", enquiry.linkedTradeRef);
+    onClose();
+    nav("/trading");
+  };
   const [uploading, setUploading] = useState(false);
 
   const { data: docs = [], refetch: refetchDocs } = useQuery<TradeEnquiryDocument[]>({
@@ -857,7 +867,7 @@ function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
             )}
             {enquiry.status === "accepted" && (
               <>
-                <Button size="sm" className="bg-primary hover:bg-primary/90 text-white" onClick={() => { onClose(); nav(enquiry.linkedTradeRef ? `/trading?tradeRef=${encodeURIComponent(enquiry.linkedTradeRef)}` : "/trading"); }} data-testid="link-detail-trading">
+                <Button size="sm" className="bg-primary hover:bg-primary/90 text-white" onClick={goToTrade} data-testid="link-detail-trading">
                   <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Go to Trading <ArrowRight className="w-3.5 h-3.5 ml-1" />
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => { onClose(); nav(`/documents?enquiryRef=${encodeURIComponent(enquiry.enquiryRef)}&enqProduct=${encodeURIComponent(enquiry.product || "")}&enqQuantity=${encodeURIComponent(enquiry.quantity ? (enquiry.quantity + " " + (enquiry.unit || "MT")) : "")}&enqOrigin=${encodeURIComponent(enquiry.origin || enquiry.loadingPort || "")}&enqIncoterm=${encodeURIComponent(enquiry.incoterms || "")}&enqSpecs=${encodeURIComponent(enquiry.specifications || "")}&enqValidity=${encodeURIComponent(enquiry.validity || "")}&enqCreatedBy=${encodeURIComponent(enquiry.createdBy || "")}&enqEmail=${encodeURIComponent(enquiry.email || "")}`); }} data-testid="link-generate-doc">

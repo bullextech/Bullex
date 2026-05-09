@@ -42,7 +42,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation, useSearch } from "wouter";
+import { useLocation } from "wouter";
 import type { Trade, Block, TradeDocument, KycApplication } from "@shared/schema";
 
 const stageDefinitions = [
@@ -128,8 +128,8 @@ function getStageLabel(status: string) {
 
 export default function Trading() {
   const [, navigate] = useLocation();
-  const searchString = useSearch();
   const [expandedTrade, setExpandedTrade] = useState<string | null>(null);
+  const [highlightTradeRef, setHighlightTradeRef] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showNewTrade, setShowNewTrade] = useState(false);
@@ -152,9 +152,7 @@ export default function Trading() {
     incoterm: "CIF",
   });
 
-  const urlParams = new URLSearchParams(searchString);
-  const enquiryId = urlParams.get("enquiry");
-  const linkedTradeRefParam = urlParams.get("tradeRef");
+  const enquiryId = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("enquiry");
 
   const { data: prefillEnquiry } = useQuery<TradeEnquiry>({
     queryKey: ["/api/trade-enquiries", enquiryId],
@@ -167,15 +165,23 @@ export default function Trading() {
   });
 
   useEffect(() => {
-    if (!linkedTradeRefParam || !trades?.length) return;
-    const match = trades.find((t) => t.tradeRef === linkedTradeRefParam);
+    const ref = sessionStorage.getItem("highlightTradeRef");
+    if (ref) {
+      sessionStorage.removeItem("highlightTradeRef");
+      setHighlightTradeRef(ref);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!highlightTradeRef || !trades?.length) return;
+    const match = trades.find((t) => t.tradeRef === highlightTradeRef);
     if (match) {
       setExpandedTrade(match.id);
       setTimeout(() => {
         document.getElementById(`trade-card-${match.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 300);
+      }, 400);
     }
-  }, [linkedTradeRefParam, trades]);
+  }, [highlightTradeRef, trades]);
 
   useEffect(() => {
     if (prefillEnquiry && !enquiryPrefilled) {
