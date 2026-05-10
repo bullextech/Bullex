@@ -212,7 +212,7 @@ export default function Trading() {
     if (!highlightTradeRef || !trades?.length) return;
     const match = trades.find((t) => t.tradeRef === highlightTradeRef);
     if (match) {
-      setExpandedTrade(match.id);
+      setExpandedTrade(String(match.id));
       setTimeout(() => {
         document.getElementById(`trade-card-${match.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 400);
@@ -624,7 +624,7 @@ export default function Trading() {
 
           {filteredTrades.length > 0 ? (
             filteredTrades.map((trade) => {
-              const isExpanded = expandedTrade === trade.id;
+              const isExpanded = expandedTrade === String(trade.id);
               const currentStageIdx = statusFlow.indexOf(trade.status);
               const currentStage = stageDefinitions[currentStageIdx] || stageDefinitions[0];
               const StageIcon = currentStage.icon;
@@ -634,7 +634,7 @@ export default function Trading() {
                 <div key={trade.id} id={`trade-card-${trade.id}`} className="border-b border-border last:border-b-0" data-testid={`trade-row-${trade.id}`}>
                   <button
                     className="w-full grid grid-cols-12 gap-2 px-5 py-4 items-center hover:bg-muted/30 transition-colors text-left"
-                    onClick={() => setExpandedTrade(isExpanded ? null : trade.id)}
+                    onClick={() => setExpandedTrade(isExpanded ? null : String(trade.id))}
                     data-testid={`button-expand-trade-${trade.id}`}
                   >
                     <div className="col-span-2">
