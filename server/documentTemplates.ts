@@ -38,6 +38,18 @@ export interface ProductDetails {
   specialNote?: string;
   loiIssueNumber?: string | null;
   dealRecapNumber?: string | null;
+  vesselName?: string;
+  notifyParty?: string;
+  packing?: string;
+  charterPartyDate?: string;
+  freightAdvance?: string;
+  loadingTimeDays?: string;
+  loadingTimeHours?: string;
+  placeOfIssue?: string;
+  dateOfIssue?: string;
+  companyOnBehalf?: string;
+  masterOfVessel?: string;
+  agentsName?: string;
 }
 
 const today = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
@@ -1035,6 +1047,173 @@ Signature: ______________________         Signature: ______________________
 (who by their signature hereto warrants    (who by their signature hereto warrants
 their authority)                           their authority)
 ${"─".repeat(70)}
+`;
+  },
+
+  BL: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const shipper = v(seller?.name, trade?.sellerName);
+    const consignee = v(buyer?.name, trade?.buyerName);
+    const notifyParty = v(product?.notifyParty, buyer?.address);
+    const vessel = v(product?.vesselName);
+    const pol = v(product?.loadingPort, trade?.origin);
+    const pod = v(product?.dischargePort, trade?.destination);
+    const commodityName = v(product?.commodity, trade?.commodity);
+    const qtyMT = v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined);
+    const countryOrigin = v(product?.origin, trade?.origin);
+    const packing = v(product?.packing);
+    const cpDate = v(product?.charterPartyDate);
+    const freightAdv = v(product?.freightAdvance);
+    const ldDays = v(product?.loadingTimeDays, "___");
+    const ldHours = v(product?.loadingTimeHours, "___");
+    const placeIssue = v(product?.placeOfIssue);
+    const dateIssue = v(product?.dateOfIssue, today());
+    const company = v(product?.companyOnBehalf);
+    const master = v(product?.masterOfVessel, vessel);
+    const agents = v(product?.agentsName);
+
+    return `BILL OF LADING
+${"=".repeat(60)}
+B/L No. 01
+TO BE USED WITH CHARTER-PARTIES
+CODE NAME: "CONGENBILL" EDITION 1994
+ADOPTED BY THE BALTIC AND INTERNATIONAL MARITIME COUNCIL (BIMCO)
+${"─".repeat(60)}
+
+SHIPPER
+${shipper}
+
+CONSIGNEE
+${consignee}
+
+NOTIFY ADDRESS
+${notifyParty}
+
+VESSEL                                    PORT OF LOADING
+${vessel.padEnd(42)}${pol}
+
+PORT OF DISCHARGE
+${pod}
+
+${"─".repeat(60)}
+DESCRIPTION OF GOODS
+${"─".repeat(60)}
+
+NAME OF COMMODITY: ${commodityName}
+${qtyMT} METRIC TONS
+COUNTRY OF ORIGIN: ${countryOrigin}
+PACKING: ${packing}
+
+'CLEAN ON BOARD'
+'FREIGHT PAYABLE AS PER CHARTER PARTY'
+
+(of which NIL on deck at Shipper's risk; the Carrier not being responsible
+for loss or damage howsoever arising)
+
+${"─".repeat(60)}
+
+FREIGHT AS PER CHARTER PARTY DATED ${cpDate}
+
+SHIPPED at the Port of Loading in apparent good order and condition on board
+the Vessel for carriage to the Port of Discharge or so near thereto as she
+may safely get the goods specified above. Weight, measure, quality, quantity,
+condition, contents and value unknown.
+
+IN WITNESS whereof the Master or Agent of the said Vessel has signed the
+number of Bills of Lading indicated below all this tenor and date, any one of
+which being accomplished the others shall be void.
+
+FOR CONDITIONS OF CARRIAGE SEE OVERLEAF
+
+${"─".repeat(60)}
+FREIGHT ADVANCE
+Received on account of freight: ${freightAdv}
+
+TIME USED FOR LOADING
+${ldDays} days    ${ldHours} hours
+
+NUMBER OF ORIGINAL B/Ls: THREE (3)
+
+${"─".repeat(60)}
+PLACE AND DATE OF ISSUE
+${placeIssue} DATED ${dateIssue}
+
+FOR AND ON BEHALF OF ${company}
+MASTER OF ${master}
+
+FOR ${agents}
+AS AGENTS ONLY
+
+${"=".repeat(60)}
+CONDITIONS OF CARRIAGE
+${"=".repeat(60)}
+
+1. All terms and conditions, liberties and exceptions of the Charter Party
+   dated as overleaf, including the Law and Arbitration Clauses, are herewith
+   incorporated.
+
+2. General Paramount Clause.
+
+   (a) The Hague Rules contained in the International Convention for the
+   Unification of certain rules relating to Bills of Lading, dated Brussels
+   the 25th August 1924 as enacted in the country of shipment, shall apply
+   to this Bill of Lading. When no such enactment is in force in the country
+   of shipment, the corresponding legislation of the country of destination
+   shall apply, but in respect of shipments to which no such enactments are
+   compulsorily applicable, the terms of the said Convention shall apply.
+
+   (b) Trades where Hague-Visby Rules apply. In trades where the
+   International Brussels Convention 1924 as amended by the Protocol signed
+   at Brussels on February 23rd 1968 — the Hague Visby Rules — apply
+   compulsorily, the provisions of the respective legislation shall apply to
+   this Bill of Lading.
+
+   (c) The Carrier shall in no case be responsible for loss or damage to the
+   cargo, howsoever arising prior to loading into and after discharge from
+   the vessel or while the cargo is in the charge of another Carrier, or in
+   respect of deck cargo or live animals.
+
+3. General Average.
+   General Average shall be adjusted, stated and settled according to
+   York-Antwerp Rules 1994, or any subsequent modification thereof, in London
+   unless another place is agreed in the Charter Party. Cargo's contribution
+   to General Average shall be paid to the Carrier even when such average is
+   the result of a fault, neglect or error of the Master, Pilot or Crew. The
+   Charterers, Shippers and Consignees expressly renounce the Belgian
+   Commercial Code Part II, Art. 148.
+
+4. New Jason Clause.
+   In the event of accident, danger, damage or disaster before or after the
+   commencement of the voyage, resulting from any cause whatsoever, whether
+   due to negligence or not, for which, or for the consequence of which, the
+   Carrier is not responsible, by statute, contract or otherwise, the cargo,
+   Shippers, consignees or the owners of the cargo shall contribute with the
+   Carrier in General Average to the payment of any sacrifices, losses or
+   expenses of a General Average nature that may be made or incurred and
+   shall pay salvage and special charges incurred in respect of the cargo.
+   If a salving vessel is owned or operated by the Carrier, salvage shall be
+   paid for as fully as if the said salving vessel or vessels belonged to
+   strangers. Such deposit as the Carrier, or his agents, may deem sufficient
+   to cover the estimated contribution of the goods and any salvage and
+   special charges thereon shall, if required, be made by the cargo Shippers,
+   Consignees or owners of the goods to the Carrier before delivery.
+
+5. Both-to-Blame Collision Clause.
+   If the Vessel comes into collision with another vessel as a result of the
+   negligence of the other vessel and any act, neglect or default of the
+   Master, Mariner, Pilot or the servants of the Carrier in the navigation
+   or in the management of the Vessel, the owners of the cargo carried
+   hereunder will indemnify the Carrier against all loss or liability to
+   the other or non-carrying vessel or her owners in so far as such loss or
+   liability represents loss of, or damage to, or any claim whatsoever of
+   the owners of said cargo, paid or payable by the other or non-carrying
+   ship or her Owners to the owners of said cargo and set-off, recouped or
+   recovered by the other or non-carrying vessel or her Owners as part of
+   their claim against the carrying Vessel or the Carrier.
+
+   The foregoing provisions shall also apply where the owners, operators or
+   those in charge of any vessel or vessels or objects other than, or in
+   addition to, the colliding vessels, or objects are at fault in respect of
+   a collision or contact.
 `;
   },
 
