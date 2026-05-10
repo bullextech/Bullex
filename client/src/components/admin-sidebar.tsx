@@ -10,6 +10,7 @@ import {
   UserPlus,
   Users,
   Cloud,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -22,6 +23,7 @@ export const PLATFORM_MODULES = [
   { id: "documents",      title: "Documents",      url: "/documents",       icon: FileText,        description: "Document generation & management" },
   { id: "vault",          title: "Vault",          url: "/vault",           icon: FolderOpen,      description: "Document vault & file storage" },
   { id: "blockchain",     title: "Blockchain",     url: "/blockchain",      icon: Layers,          description: "Blockchain ledger & verification" },
+  { id: "tasks",          title: "Task Board",     url: "/tasks",           icon: ClipboardList,   description: "Team task tracking & progress" },
 ];
 
 const adminOnlyItems = [

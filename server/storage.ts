@@ -47,6 +47,12 @@ import {
   teamKycDocuments,
   type TeamKycDocument,
   type InsertTeamKycDocument,
+  teamTasks,
+  type TeamTask,
+  type InsertTeamTask,
+  taskUpdates,
+  type TaskUpdate,
+  type InsertTaskUpdate,
 } from "@shared/schema";
 
 export const pool = new pg.Pool({
@@ -150,6 +156,14 @@ export interface IStorage {
   createTeamKycDocument(doc: InsertTeamKycDocument): Promise<TeamKycDocument>;
   getTeamKycDocumentById(id: string): Promise<TeamKycDocument | undefined>;
   deleteTeamKycDocument(id: string): Promise<void>;
+
+  getTeamTasks(): Promise<TeamTask[]>;
+  getTeamTaskById(id: string): Promise<TeamTask | undefined>;
+  createTeamTask(task: InsertTeamTask): Promise<TeamTask>;
+  updateTeamTask(id: string, data: Partial<InsertTeamTask>): Promise<TeamTask>;
+  deleteTeamTask(id: string): Promise<void>;
+  getTaskUpdates(taskId: string): Promise<TaskUpdate[]>;
+  createTaskUpdate(update: InsertTaskUpdate): Promise<TaskUpdate>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -701,6 +715,44 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTeamKycDocument(id: string): Promise<void> {
     await db.delete(teamKycDocuments).where(eq(teamKycDocuments.id, id));
+  }
+
+  async getTeamTasks(): Promise<TeamTask[]> {
+    return db.select().from(teamTasks).orderBy(desc(teamTasks.createdAt));
+  }
+
+  async getTeamTaskById(id: string): Promise<TeamTask | undefined> {
+    const [task] = await db.select().from(teamTasks).where(eq(teamTasks.id, id));
+    return task;
+  }
+
+  async createTeamTask(task: InsertTeamTask): Promise<TeamTask> {
+    const [created] = await db.insert(teamTasks).values(task).returning();
+    return created;
+  }
+
+  async updateTeamTask(id: string, data: Partial<InsertTeamTask>): Promise<TeamTask> {
+    const [updated] = await db.update(teamTasks)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(teamTasks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTeamTask(id: string): Promise<void> {
+    await db.delete(taskUpdates).where(eq(taskUpdates.taskId, id));
+    await db.delete(teamTasks).where(eq(teamTasks.id, id));
+  }
+
+  async getTaskUpdates(taskId: string): Promise<TaskUpdate[]> {
+    return db.select().from(taskUpdates)
+      .where(eq(taskUpdates.taskId, taskId))
+      .orderBy(taskUpdates.createdAt);
+  }
+
+  async createTaskUpdate(update: InsertTaskUpdate): Promise<TaskUpdate> {
+    const [created] = await db.insert(taskUpdates).values(update).returning();
+    return created;
   }
 }
 

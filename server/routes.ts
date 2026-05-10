@@ -2543,6 +2543,65 @@ export async function registerRoutes(
     }
   });
 
+  // ── Team Task Board ───────────────────────────────────────────────────────────
+  app.get("/api/tasks", requireAuth, async (_req, res) => {
+    try {
+      const tasks = await storage.getTeamTasks();
+      res.json(tasks);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.post("/api/tasks", requireAuth, async (req, res) => {
+    try {
+      const { title, description, priority, status, assignee, dueDate, createdBy } = req.body;
+      if (!title) return res.status(400).json({ message: "Title is required" });
+      const task = await storage.createTeamTask({ title, description, priority: priority || "medium", status: status || "todo", assignee, dueDate, createdBy });
+      res.json(task);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
+    try {
+      const task = await storage.updateTeamTask(req.params.id, req.body);
+      res.json(task);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.delete("/api/tasks/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteTeamTask(req.params.id);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/tasks/:id/updates", requireAuth, async (req, res) => {
+    try {
+      const updates = await storage.getTaskUpdates(req.params.id);
+      res.json(updates);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.post("/api/tasks/:id/updates", requireAuth, async (req, res) => {
+    try {
+      const { author, text } = req.body;
+      if (!text) return res.status(400).json({ message: "Text is required" });
+      const update = await storage.createTaskUpdate({ taskId: req.params.id, author: author || "Admin", text });
+      res.json(update);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   // ── OneDrive Database Backup ─────────────────────────────────────────────────
   app.post("/api/backup/run", requireAdminAuth, async (_req, res) => {
     try {

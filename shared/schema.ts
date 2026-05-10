@@ -452,6 +452,35 @@ export const insertTeamKycDocumentSchema = createInsertSchema(teamKycDocuments).
 export type InsertTeamKycDocument = z.infer<typeof insertTeamKycDocumentSchema>;
 export type TeamKycDocument = typeof teamKycDocuments.$inferSelect;
 
+export const teamTasks = pgTable("team_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  priority: text("priority").notNull().default("medium"),
+  status: text("status").notNull().default("todo"),
+  assignee: text("assignee"),
+  dueDate: text("due_date"),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertTeamTaskSchema = createInsertSchema(teamTasks).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertTeamTask = z.infer<typeof insertTeamTaskSchema>;
+export type TeamTask = typeof teamTasks.$inferSelect;
+
+export const taskUpdates = pgTable("task_updates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id").notNull(),
+  author: text("author").notNull(),
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertTaskUpdateSchema = createInsertSchema(taskUpdates).omit({ id: true, createdAt: true });
+export type InsertTaskUpdate = z.infer<typeof insertTaskUpdateSchema>;
+export type TaskUpdate = typeof taskUpdates.$inferSelect;
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 // TeamKycApplication types already defined above
