@@ -216,6 +216,9 @@ export default function Trading() {
       setTimeout(() => {
         document.getElementById(`trade-card-${match.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 400);
+      // auto-clear highlight after 5 seconds
+      const timer = setTimeout(() => setHighlightTradeRef(null), 5000);
+      return () => clearTimeout(timer);
     }
   }, [highlightTradeRef, trades]);
 
@@ -630,8 +633,9 @@ export default function Trading() {
               const StageIcon = currentStage.icon;
               const docs = (trade.stageDocuments as Record<string, boolean>) || {};
 
+              const isHighlighted = trade.tradeRef === highlightTradeRef;
               return (
-                <div key={trade.id} id={`trade-card-${trade.id}`} className="border-b border-border last:border-b-0" data-testid={`trade-row-${trade.id}`}>
+                <div key={trade.id} id={`trade-card-${trade.id}`} className={`border-b border-border last:border-b-0 transition-colors duration-700 ${isHighlighted ? "border-l-4 border-l-amber-500 bg-amber-50 dark:bg-amber-950/20" : ""}`} data-testid={`trade-row-${trade.id}`}>
                   <button
                     className="w-full grid grid-cols-12 gap-2 px-5 py-4 items-center hover:bg-muted/30 transition-colors text-left"
                     onClick={() => setExpandedTrade(isExpanded ? null : String(trade.id))}
@@ -665,7 +669,18 @@ export default function Trading() {
                   </button>
 
                   {isExpanded && (
-                    <div className="border-t border-border bg-muted/10" data-testid={`trade-detail-${trade.id}`}>
+                    <div className={`border-t border-border ${isHighlighted ? "bg-amber-50/60 dark:bg-amber-950/10" : "bg-muted/10"}`} data-testid={`trade-detail-${trade.id}`}>
+                      {(trade as any).enquiryRef && (
+                        <div className="px-5 pt-4 pb-0">
+                          <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-3 py-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">From Enquiry</span>
+                            <span className="font-mono text-sm font-bold text-amber-800 dark:text-amber-300">{(trade as any).enquiryRef}</span>
+                            {(trade as any).specifications && (
+                              <span className="text-xs text-amber-700 dark:text-amber-400 ml-2 truncate max-w-xs">— {(trade as any).specifications}</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       <div className="px-5 py-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div>
                           <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4">Trade Details</h4>

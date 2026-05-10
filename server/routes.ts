@@ -2290,22 +2290,27 @@ export async function registerRoutes(
           const commodityCategory = categoryMap[existing.product] || "minerals";
 
           const isBuyer = existing.side === "buy";
-          const buyerName = isBuyer ? (existing.createdBy || "TBD") : "TBD";
-          const sellerName = !isBuyer ? (existing.createdBy || "TBD") : "TBD";
+          const buyerName = existing.buyerName || (isBuyer ? (existing.createdBy || "TBD") : "TBD");
+          const sellerName = existing.sellerName || (!isBuyer ? (existing.createdBy || "TBD") : "Bullfrog Group");
+          // parse numeric price from enquiry price string e.g. "850" or "850 USD/MT"
+          const parsedPrice = parseFloat((existing.price || "0").replace(/[^\d.]/g, "")) || 0;
+          const qty = parseFloat(existing.quantity || "0") || 0;
 
           const trade = await storage.createPreDealTrade({
             commodity: existing.product,
             commodityCategory,
-            quantity: parseFloat(existing.quantity || "0") || 0,
+            quantity: qty,
             unit: existing.unit || "MT",
-            pricePerUnit: 0,
-            totalValue: 0,
-            currency: "USD",
+            pricePerUnit: parsedPrice,
+            totalValue: parsedPrice * qty,
+            currency: existing.currency || "USD",
             buyerName,
             sellerName,
-            origin: existing.loadingPort || "TBD",
-            destination: "TBD",
+            origin: existing.origin || existing.loadingPort || "TBD",
+            destination: existing.dischargePort || "TBD",
             incoterm: existing.incoterms || "FOB",
+            enquiryRef: existing.enquiryRef,
+            specifications: existing.specifications || "",
           });
 
           const latestBlock = await storage.getLatestBlock();

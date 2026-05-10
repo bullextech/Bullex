@@ -336,6 +336,8 @@ export class DatabaseStorage implements IStorage {
       previousHash: null,
       blockNumber: null,
       nonce: null,
+      enquiryRef: tradeInput.enquiryRef || null,
+      specifications: tradeInput.specifications || null,
     }).returning();
 
     return trade;

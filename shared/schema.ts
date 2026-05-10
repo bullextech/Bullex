@@ -99,6 +99,8 @@ export const trades = pgTable("trades", {
   previousHash: text("previous_hash"),
   blockNumber: integer("block_number"),
   nonce: integer("nonce"),
+  enquiryRef: text("enquiry_ref"),
+  specifications: text("specifications"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
