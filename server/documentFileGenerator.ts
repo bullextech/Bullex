@@ -405,6 +405,411 @@ function isNcndaContent(content: string): boolean {
   return content.includes("MUTUAL NON-CIRCUMVENTION NON-DISCLOSURE") || content.includes("NON-CIRCUMVENTION NON-DISCLOSURE AGREEMENT");
 }
 
+function isBlContent(content: string): boolean {
+  return content.includes("BILL OF LADING") && content.includes("CONGENBILL");
+}
+
+interface BlData {
+  shipper: string;
+  consignee: string;
+  notifyAddress: string;
+  vessel: string;
+  portOfLoading: string;
+  portOfDischarge: string;
+  commodityName: string;
+  quantityMT: string;
+  countryOfOrigin: string;
+  packing: string;
+  charterPartyDate: string;
+  freightAdvance: string;
+  loadingTimeDays: string;
+  loadingTimeHours: string;
+  placeOfIssue: string;
+  dateOfIssue: string;
+  companyOnBehalf: string;
+  masterOfVessel: string;
+  agentsName: string;
+}
+
+function parseBlContent(content: string): BlData {
+  const sanitized = sanitizeUnicode(content);
+  const lines = sanitized.split("\n");
+
+  const lineAfterLabel = (label: string): string => {
+    const idx = lines.findIndex(l => l.trim() === label);
+    if (idx >= 0) {
+      for (let i = idx + 1; i < lines.length; i++) {
+        const t = lines[i].trim();
+        if (t && !t.match(/^[=─\-]+$/)) return t;
+      }
+    }
+    return "";
+  };
+
+  const extractAfterPrefix = (prefix: string): string => {
+    const line = lines.find(l => l.trim().startsWith(prefix));
+    return line ? line.trim().slice(prefix.length).trim() : "";
+  };
+
+  const vesselHeaderIdx = lines.findIndex(l => l.includes("VESSEL") && l.includes("PORT OF LOADING"));
+  let vessel = "";
+  let portOfLoading = "";
+  if (vesselHeaderIdx >= 0 && vesselHeaderIdx + 1 < lines.length) {
+    const vl = lines[vesselHeaderIdx + 1];
+    vessel = vl.substring(0, 42).trim();
+    portOfLoading = vl.substring(42).trim();
+  }
+
+  const loadingTimeLine = lines.find(l => l.includes(" days ") && l.includes(" hours") && !l.includes("used"));
+  const daysMatch = loadingTimeLine?.match(/(\S+)\s+days/);
+  const hoursMatch = loadingTimeLine?.match(/(\S+)\s+hours/);
+
+  const placeIdx = lines.findIndex(l => l.trim() === "PLACE AND DATE OF ISSUE");
+  let placeOfIssue = "";
+  let dateOfIssue = "";
+  if (placeIdx >= 0) {
+    for (let i = placeIdx + 1; i < lines.length; i++) {
+      const t = lines[i].trim();
+      if (t && !t.match(/^[─=\-]+$/)) {
+        if (t.includes(" DATED ")) {
+          const parts = t.split(" DATED ");
+          placeOfIssue = parts[0].trim();
+          dateOfIssue = parts[1]?.trim() || "";
+        }
+        break;
+      }
+    }
+  }
+
+  const agentsIdx = lines.findIndex(l => l.trim() === "AS AGENTS ONLY");
+  const agentsRaw = agentsIdx > 0 ? lines[agentsIdx - 1].trim() : "";
+  const agentsName = agentsRaw.startsWith("FOR ") ? agentsRaw.slice(4).trim() : agentsRaw;
+
+  return {
+    shipper: lineAfterLabel("SHIPPER"),
+    consignee: lineAfterLabel("CONSIGNEE"),
+    notifyAddress: lineAfterLabel("NOTIFY ADDRESS"),
+    vessel,
+    portOfLoading,
+    portOfDischarge: lineAfterLabel("PORT OF DISCHARGE"),
+    commodityName: extractAfterPrefix("NAME OF COMMODITY:"),
+    quantityMT: (() => {
+      const l = lines.find(l => l.trim().endsWith("METRIC TONS") && !l.includes("NUMBER OF"));
+      return l ? l.trim().replace("METRIC TONS", "").trim() : "";
+    })(),
+    countryOfOrigin: extractAfterPrefix("COUNTRY OF ORIGIN:"),
+    packing: extractAfterPrefix("PACKING:"),
+    charterPartyDate: extractAfterPrefix("FREIGHT AS PER CHARTER PARTY DATED "),
+    freightAdvance: extractAfterPrefix("Received on account of freight:"),
+    loadingTimeDays: daysMatch?.[1] || "___",
+    loadingTimeHours: hoursMatch?.[1] || "___",
+    placeOfIssue,
+    dateOfIssue,
+    companyOnBehalf: extractAfterPrefix("FOR AND ON BEHALF OF "),
+    masterOfVessel: extractAfterPrefix("MASTER OF "),
+    agentsName,
+  };
+}
+
+const BL_CLAUSES = [
+  {
+    num: "1.", title: "Terms and Conditions of Charter Party",
+    paras: ["All terms and conditions, liberties and exceptions of the Charter Party dated as overleaf, including the Law and Arbitration Clauses, are herewith incorporated."],
+  },
+  {
+    num: "2.", title: "General Paramount Clause",
+    paras: [
+      "(a)  The Hague Rules contained in the International Convention for the Unification of certain rules relating to Bills of Lading, dated Brussels the 25th August 1924 as enacted in the country of shipment, shall apply to this Bill of Lading. When no such enactment is in force in the country of shipment, the corresponding legislation of the country of destination shall apply, but in respect of shipments to which no such enactments are compulsorily applicable, the terms of the said Convention shall apply.",
+      "(b)  Trades where Hague-Visby Rules apply. In trades where the International Brussels Convention 1924 as amended by the Protocol signed at Brussels on February 23rd 1968 — the Hague Visby Rules — apply compulsorily, the provisions of the respective legislation shall apply to this Bill of Lading.",
+      "(c)  The Carrier shall in no case be responsible for loss or damage to the cargo, howsoever arising prior to loading into and after discharge from the vessel or while the cargo is in the charge of another Carrier, or in respect of deck cargo or live animals.",
+    ],
+  },
+  {
+    num: "3.", title: "General Average",
+    paras: ["General Average shall be adjusted, stated and settled according to York-Antwerp Rules 1994, or any subsequent modification thereof, in London unless another place is agreed in the Charter Party. Cargo's contribution to General Average shall be paid to the Carrier even when such average is the result of a fault, neglect or error of the Master, Pilot or Crew. The Charterers, Shippers and Consignees expressly renounce the Belgian Commercial Code Part II, Art. 148."],
+  },
+  {
+    num: "4.", title: "New Jason Clause",
+    paras: ["In the event of accident, danger, damage or disaster before or after the commencement of the voyage, resulting from any cause whatsoever, whether due to negligence or not, for which, or for the consequence of which, the Carrier is not responsible, by statute, contract or otherwise, the cargo, Shippers, consignees or the owners of the cargo shall contribute with the Carrier in General Average to the payment of any sacrifices, losses or expenses of a General Average nature that may be made or incurred and shall pay salvage and special charges incurred in respect of the cargo. If a salving vessel is owned or operated by the Carrier, salvage shall be paid for as fully as if the said salving vessel or vessels belonged to strangers. Such deposit as the Carrier, or his agents, may deem sufficient to cover the estimated contribution of the goods and any salvage and special charges thereon shall, if required, be made by the cargo Shippers, Consignees or owners of the goods to the Carrier before delivery."],
+  },
+  {
+    num: "5.", title: "Both-to-Blame Collision Clause",
+    paras: [
+      "If the Vessel comes into collision with another vessel as a result of the negligence of the other vessel and any act, neglect or default of the Master, Mariner, Pilot or the servants of the Carrier in the navigation or in the management of the Vessel, the owners of the cargo carried hereunder will indemnify the Carrier against all loss or liability to the other or non-carrying vessel or her owners in so far as such loss or liability represents loss of, or damage to, or any claim whatsoever of the owners of said cargo, paid or payable by the other or non-carrying ship or her Owners to the owners of said cargo and set-off, recouped or recovered by the other or non-carrying vessel or her Owners as part of their claim against the carrying Vessel or the Carrier.",
+      "The foregoing provisions shall also apply where the owners, operators or those in charge of any vessel or vessels or objects other than, or in addition to, the colliding vessels, or objects are at fault in respect of a collision or contact.",
+    ],
+  },
+];
+
+function buildBlDocx(content: string): (Paragraph | Table)[] {
+  const bl = parseBlContent(content);
+  const children: (Paragraph | Table)[] = [];
+
+  const solid = { style: BorderStyle.SINGLE as const, size: 4, color: "000000" };
+  const blBorder = { top: solid, bottom: solid, left: solid, right: solid };
+
+  const lbl = (text: string) => new Paragraph({ children: [new TextRun({ text, size: 15, font: "Calibri", color: "444444" })], spacing: { before: 40, after: 16 } });
+  const val = (text: string, bold = false, size = 19) => new Paragraph({ children: [new TextRun({ text: text || " ", bold, size, font: "Calibri" })], spacing: { before: 16, after: 40 } });
+  const blankLine = () => new Paragraph({ children: [new TextRun({ text: " ", size: 14 })], spacing: { before: 20, after: 20 } });
+
+  const blCell = (paras: Paragraph[], width: number): TableCell =>
+    new TableCell({ children: paras, borders: blBorder, width: { size: width, type: WidthType.DXA }, verticalAlign: VerticalAlign.TOP });
+
+  const fullRow = (paras: Paragraph[]): Table =>
+    new Table({ rows: [new TableRow({ children: [blCell(paras, 10000)] })], width: { size: 10000, type: WidthType.DXA } });
+
+  // 1. HEADER: CONGENBILL left | B/L identity right
+  children.push(new Table({
+    rows: [new TableRow({
+      children: [
+        new TableCell({
+          children: [
+            new Paragraph({ children: [new TextRun({ text: 'CODE NAME: "CONGENBILL"', bold: true, size: 22, font: "Calibri" })], spacing: { before: 60, after: 30 } }),
+            new Paragraph({ children: [new TextRun({ text: "EDITION 1994", bold: true, size: 20, font: "Calibri" })], spacing: { after: 20 } }),
+            new Paragraph({ children: [new TextRun({ text: "ADOPTED BY THE BALTIC AND INTERNATIONAL MARITIME COUNCIL (BIMCO)", size: 14, font: "Calibri" })], spacing: { after: 60 } }),
+          ],
+          borders: blBorder,
+          width: { size: 6200, type: WidthType.DXA },
+          verticalAlign: VerticalAlign.CENTER,
+        }),
+        new TableCell({
+          children: [
+            new Paragraph({ children: [new TextRun({ text: "B/L No. 01", bold: true, size: 20, font: "Calibri" })], alignment: AlignmentType.CENTER, spacing: { before: 40, after: 24 } }),
+            new Paragraph({ children: [new TextRun({ text: "BILL OF LADING", bold: true, size: 30, font: "Calibri" })], alignment: AlignmentType.CENTER, spacing: { after: 24 } }),
+            new Paragraph({ children: [new TextRun({ text: "TO BE USED WITH CHARTER-PARTIES", size: 16, font: "Calibri" })], alignment: AlignmentType.CENTER, spacing: { after: 20 } }),
+            new Paragraph({ children: [new TextRun({ text: "Reference No.", size: 14, font: "Calibri", color: "555555" })], spacing: { after: 40 } }),
+          ],
+          borders: blBorder,
+          width: { size: 3800, type: WidthType.DXA },
+          verticalAlign: VerticalAlign.CENTER,
+        }),
+      ],
+    })],
+    width: { size: 10000, type: WidthType.DXA },
+  }));
+
+  // 2-4. SHIPPER / CONSIGNEE / NOTIFY ADDRESS
+  children.push(fullRow([lbl("Shipper"), val(bl.shipper), blankLine(), blankLine()]));
+  children.push(fullRow([lbl("Consignee"), val(bl.consignee), blankLine(), blankLine()]));
+  children.push(fullRow([lbl("Notify address"), val(bl.notifyAddress), blankLine()]));
+
+  // 5. VESSEL + PORT OF LOADING
+  children.push(new Table({
+    rows: [new TableRow({ children: [blCell([lbl("Vessel"), val(bl.vessel), blankLine()], 5500), blCell([lbl("Port of Loading"), val(bl.portOfLoading), blankLine()], 4500)] })],
+    width: { size: 10000, type: WidthType.DXA },
+  }));
+
+  // 6. PORT OF DISCHARGE
+  children.push(fullRow([lbl("Port of discharge"), val(bl.portOfDischarge)]));
+
+  // 7. DESCRIPTION OF GOODS
+  children.push(fullRow([
+    lbl("Description of goods"),
+    blankLine(),
+    val(`NAME OF COMMODITY: ${bl.commodityName || "_______________"}`),
+    val(`${bl.quantityMT || "_______________"} METRIC TONS`),
+    val(`COUNTRY OF ORIGIN: ${bl.countryOfOrigin || "_______________"}`),
+    val(`PACKING: ${bl.packing || "_______________"}`),
+    blankLine(),
+    new Paragraph({ children: [new TextRun({ text: "'CLEAN ON BOARD'", bold: true, size: 18, font: "Calibri" })], alignment: AlignmentType.CENTER, spacing: { before: 40, after: 20 } }),
+    new Paragraph({ children: [new TextRun({ text: "'FREIGHT PAYABLE AS PER CHARTER PARTY'", bold: true, size: 18, font: "Calibri" })], alignment: AlignmentType.CENTER, spacing: { after: 40 } }),
+    new Paragraph({ children: [new TextRun({ text: "(of which NIL on deck at Shipper's risk; the Carrier not being responsible for loss or damage howsoever arising)", size: 15, font: "Calibri", italics: true })], alignment: AlignmentType.CENTER, spacing: { after: 60 } }),
+  ]));
+
+  // 8. CHARTER PARTY + SHIPPED STATEMENT
+  const shippedText = "SHIPPED at the Port of Loading in apparent good order and condition on board the Vessel for carriage to the Port of Discharge or so near thereto as she may safely get the goods specified above. Weight, measure, quality, quantity, condition, contents and value unknown.";
+  const witnessText = "IN WITNESS whereof the Master or Agent of the said Vessel has signed the number of Bills of Lading indicated below all this tenor and date, any one of which being accomplished the others shall be void.";
+  children.push(new Table({
+    rows: [new TableRow({
+      children: [
+        blCell([
+          lbl("Freight payable as per"),
+          val(`CHARTER PARTY DATED ${bl.charterPartyDate || "_______________"}`),
+          blankLine(),
+          new Paragraph({ children: [new TextRun({ text: "FREIGHT ADVANCE", bold: true, size: 16, font: "Calibri" })], spacing: { before: 40, after: 10 } }),
+          new Paragraph({ children: [new TextRun({ text: `Received on account of freight: ${bl.freightAdvance || "_______________"}`, size: 17, font: "Calibri" })], spacing: { before: 10, after: 30 } }),
+          new Paragraph({ children: [new TextRun({ text: "─".repeat(28), size: 10, font: "Calibri", color: "888888" })], spacing: { before: 10, after: 20 } }),
+          new Paragraph({ children: [new TextRun({ text: `Time used for loading  ${bl.loadingTimeDays} days   ${bl.loadingTimeHours} hours`, size: 17, font: "Calibri" })], spacing: { before: 10, after: 40 } }),
+        ], 4000),
+        blCell([
+          new Paragraph({ children: [new TextRun({ text: shippedText, size: 15, font: "Calibri" })], spacing: { before: 40, after: 60 } }),
+          new Paragraph({ children: [new TextRun({ text: witnessText, size: 15, font: "Calibri" })], spacing: { before: 40, after: 60 } }),
+          new Paragraph({ children: [new TextRun({ text: "FOR CONDITIONS OF CARRIAGE SEE OVERLEAF", bold: true, size: 15, font: "Calibri" })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 40 } }),
+        ], 6000),
+      ],
+    })],
+    width: { size: 10000, type: WidthType.DXA },
+  }));
+
+  // 9. BOTTOM: ORIGINALS + PLACE/DATE/SIGNATURE
+  children.push(new Table({
+    rows: [new TableRow({
+      children: [
+        blCell([
+          lbl("Freight payable at"),
+          blankLine(), blankLine(), blankLine(),
+          lbl("Number of original B/Ls"),
+          new Paragraph({ children: [new TextRun({ text: "THREE (3)", bold: true, size: 30, font: "Calibri" })], alignment: AlignmentType.CENTER, spacing: { before: 80, after: 80 } }),
+        ], 3200),
+        blCell([
+          lbl("Place and date of issue"),
+          val(`${bl.placeOfIssue || "_______________"}   DATED   ${bl.dateOfIssue || "_______________"}`),
+          blankLine(),
+          lbl("Signature"),
+          new Paragraph({ children: [new TextRun({ text: "─".repeat(44), size: 14, font: "Calibri", color: "777777" })], spacing: { before: 20, after: 40 } }),
+          blankLine(),
+          new Paragraph({ children: [new TextRun({ text: `FOR AND ON BEHALF OF  ${bl.companyOnBehalf || "_______________"}`, bold: true, size: 17, font: "Calibri" })], spacing: { before: 20, after: 10 } }),
+          new Paragraph({ children: [new TextRun({ text: `MASTER OF  ${bl.masterOfVessel || "_______________"}`, size: 17, font: "Calibri" })], spacing: { before: 10, after: 40 } }),
+          blankLine(),
+          new Paragraph({ children: [new TextRun({ text: `FOR  ${bl.agentsName || "_______________"}`, size: 17, font: "Calibri" })], spacing: { before: 20, after: 10 } }),
+          new Paragraph({ children: [new TextRun({ text: "AS AGENTS ONLY", size: 17, font: "Calibri" })], spacing: { before: 10, after: 40 } }),
+        ], 6800),
+      ],
+    })],
+    width: { size: 10000, type: WidthType.DXA },
+  }));
+
+  // PAGE BREAK
+  children.push(new Paragraph({ children: [new PageBreak()], spacing: { before: 0, after: 0 } }));
+
+  // === CONDITIONS OF CARRIAGE — PAGE 2 ===
+  children.push(new Paragraph({ children: [new TextRun({ text: "CONDITIONS OF CARRIAGE", bold: true, size: 28, font: "Calibri" })], alignment: AlignmentType.CENTER, spacing: { before: 200, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" } } }));
+  children.push(new Paragraph({ children: [new TextRun({ text: 'BILL OF LADING  \u2022  CODE NAME: "CONGENBILL"  \u2022  EDITION 1994', size: 16, font: "Calibri", italics: true })], alignment: AlignmentType.CENTER, spacing: { before: 80, after: 200 } }));
+
+  for (const clause of BL_CLAUSES) {
+    children.push(new Paragraph({
+      children: [new TextRun({ text: `${clause.num}  `, bold: true, size: 20, font: "Calibri" }), new TextRun({ text: clause.title, bold: true, size: 20, font: "Calibri" })],
+      spacing: { before: 200, after: 80 },
+    }));
+    for (const para of clause.paras) {
+      children.push(new Paragraph({ children: [new TextRun({ text: para, size: 17, font: "Calibri" })], spacing: { before: 40, after: 80 }, indent: { left: 240 } }));
+    }
+  }
+  return children;
+}
+
+function buildBlPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: number, pageWidth: number) {
+  const bl = parseBlContent(content);
+  let y = doc.y;
+  const x = leftMargin;
+  const W = pageWidth;
+
+  const box = (bx: number, by: number, bw: number, bh: number) => doc.rect(bx, by, bw, bh).lineWidth(0.5).fillColor("#FFFFFF").fill().stroke("#000000");
+
+  const labeledBox = (bx: number, by: number, bw: number, bh: number, label: string, value: string) => {
+    box(bx, by, bw, bh);
+    doc.font("Helvetica").fontSize(7).fillColor("#444444").text(label, bx + 3, by + 3, { width: bw - 6, lineBreak: false });
+    if (value) doc.font("Helvetica").fontSize(9).fillColor("#000000").text(value, bx + 3, by + 14, { width: bw - 6 });
+  };
+
+  // 1. HEADER
+  const hH = 65;
+  const lW = Math.floor(W * 0.63);
+  const rW = W - lW;
+  box(x, y, lW, hH);
+  box(x + lW, y, rW, hH);
+  doc.font("Helvetica-Bold").fontSize(10).fillColor("#000000").text('CODE NAME: "CONGENBILL"', x + 4, y + 6, { width: lW - 8 });
+  doc.font("Helvetica-Bold").fontSize(9).text("EDITION 1994", x + 4, y + 20, { width: lW - 8 });
+  doc.font("Helvetica").fontSize(7).text("ADOPTED BY THE BALTIC AND INTERNATIONAL MARITIME COUNCIL (BIMCO)", x + 4, y + 32, { width: lW - 8 });
+  doc.font("Helvetica-Bold").fontSize(9).fillColor("#000000").text("B/L No. 01", x + lW + 4, y + 5, { width: rW - 8, align: "center" });
+  doc.font("Helvetica-Bold").fontSize(13).text("BILL OF LADING", x + lW + 4, y + 18, { width: rW - 8, align: "center" });
+  doc.font("Helvetica").fontSize(7).text("TO BE USED WITH CHARTER-PARTIES", x + lW + 4, y + 35, { width: rW - 8, align: "center" });
+  doc.font("Helvetica").fontSize(7).fillColor("#555555").text("Reference No.", x + lW + 4, y + 50, { width: rW - 8 });
+  y += hH;
+
+  // 2. SHIPPER
+  labeledBox(x, y, W, 65, "Shipper", bl.shipper); y += 65;
+  // 3. CONSIGNEE
+  labeledBox(x, y, W, 65, "Consignee", bl.consignee); y += 65;
+  // 4. NOTIFY ADDRESS
+  labeledBox(x, y, W, 50, "Notify address", bl.notifyAddress); y += 50;
+
+  // 5. VESSEL + PORT OF LOADING
+  const vW = Math.floor(W * 0.55);
+  const pW = W - vW;
+  labeledBox(x, y, vW, 45, "Vessel", bl.vessel);
+  labeledBox(x + vW, y, pW, 45, "Port of Loading", bl.portOfLoading);
+  y += 45;
+
+  // 6. PORT OF DISCHARGE
+  labeledBox(x, y, W, 40, "Port of discharge", bl.portOfDischarge); y += 40;
+
+  // 7. DESCRIPTION OF GOODS
+  const dH = 125;
+  box(x, y, W, dH);
+  doc.font("Helvetica").fontSize(7).fillColor("#444444").text("Description of goods", x + 3, y + 3, { width: W - 6, lineBreak: false });
+  doc.font("Helvetica").fontSize(8).fillColor("#000000").text(`NAME OF COMMODITY: ${bl.commodityName || "_______________"}`, x + 3, y + 15, { width: W - 6, lineBreak: false });
+  doc.font("Helvetica").fontSize(8).text(`${bl.quantityMT || "_______________"} METRIC TONS`, x + 3, y + 26, { width: W - 6, lineBreak: false });
+  doc.font("Helvetica").fontSize(8).text(`COUNTRY OF ORIGIN: ${bl.countryOfOrigin || "_______________"}`, x + 3, y + 37, { width: W - 6, lineBreak: false });
+  doc.font("Helvetica").fontSize(8).text(`PACKING: ${bl.packing || "_______________"}`, x + 3, y + 48, { width: W - 6, lineBreak: false });
+  doc.font("Helvetica-Bold").fontSize(9).text("'CLEAN ON BOARD'", x + 3, y + 63, { width: W - 6, align: "center", lineBreak: false });
+  doc.font("Helvetica-Bold").fontSize(9).text("'FREIGHT PAYABLE AS PER CHARTER PARTY'", x + 3, y + 76, { width: W - 6, align: "center", lineBreak: false });
+  doc.font("Helvetica-Oblique").fontSize(7).fillColor("#333333").text("(of which NIL on deck at Shipper's risk; the Carrier not being responsible for loss or damage howsoever arising)", x + 3, y + 90, { width: W - 6, align: "center" });
+  y += dH;
+
+  // 8. CHARTER PARTY + SHIPPED STATEMENT
+  const mH = 108;
+  const mLW = Math.floor(W * 0.38);
+  const mRW = W - mLW;
+  box(x, y, mLW, mH);
+  box(x + mLW, y, mRW, mH);
+
+  doc.font("Helvetica").fontSize(7).fillColor("#444444").text("Freight payable as per", x + 3, y + 3, { width: mLW - 6, lineBreak: false });
+  doc.font("Helvetica").fontSize(8).fillColor("#000000").text(`CHARTER PARTY DATED ${bl.charterPartyDate || "_______________"}`, x + 3, y + 13, { width: mLW - 6 });
+  doc.font("Helvetica-Bold").fontSize(7).text("FREIGHT ADVANCE", x + 3, y + 33, { width: mLW - 6, lineBreak: false });
+  doc.font("Helvetica").fontSize(7).text(`Received on account of freight:`, x + 3, y + 43, { width: mLW - 6, lineBreak: false });
+  doc.font("Helvetica").fontSize(7).text(bl.freightAdvance || "_______________", x + 3, y + 53, { width: mLW - 6 });
+  doc.moveTo(x + 3, y + 63).lineTo(x + mLW - 3, y + 63).lineWidth(0.3).stroke("#888888");
+  doc.font("Helvetica").fontSize(7).fillColor("#000000").text(`Time used for loading  ${bl.loadingTimeDays} days   ${bl.loadingTimeHours} hours`, x + 3, y + 67, { width: mLW - 6 });
+
+  const combined = "SHIPPED at the Port of Loading in apparent good order and condition on board the Vessel for carriage to the Port of Discharge or so near thereto as she may safely get the goods specified above. Weight, measure, quality, quantity, condition, contents and value unknown. IN WITNESS whereof the Master or Agent of the said Vessel has signed the number of Bills of Lading indicated below all this tenor and date, any one of which being accomplished the others shall be void.";
+  doc.font("Helvetica").fontSize(7).fillColor("#000000").text(combined, x + mLW + 4, y + 4, { width: mRW - 8, align: "justify", lineGap: 1 });
+  doc.font("Helvetica-Bold").fontSize(7).text("FOR CONDITIONS OF CARRIAGE SEE OVERLEAF", x + mLW + 4, y + mH - 13, { width: mRW - 8, align: "center", lineBreak: false });
+  y += mH;
+
+  // 9. BOTTOM: ORIGINALS + PLACE/DATE/SIGNATURE
+  const bH = 112;
+  const bLW = Math.floor(W * 0.33);
+  const bRW = W - bLW;
+  box(x, y, bLW, bH);
+  box(x + bLW, y, bRW, bH);
+
+  doc.font("Helvetica").fontSize(7).fillColor("#444444").text("Freight payable at", x + 3, y + 3, { width: bLW - 6, lineBreak: false });
+  doc.font("Helvetica").fontSize(7).text("Number of original B/Ls", x + 3, y + 46, { width: bLW - 6, lineBreak: false });
+  doc.font("Helvetica-Bold").fontSize(15).fillColor("#000000").text("THREE (3)", x + 3, y + 58, { width: bLW - 6, align: "center", lineBreak: false });
+
+  doc.font("Helvetica").fontSize(7).fillColor("#444444").text("Place and date of issue", x + bLW + 4, y + 3, { width: bRW - 8, lineBreak: false });
+  doc.font("Helvetica").fontSize(8).fillColor("#000000").text(`${bl.placeOfIssue || "_______________"}  DATED  ${bl.dateOfIssue || "_______________"}`, x + bLW + 4, y + 13, { width: bRW - 8 });
+  doc.font("Helvetica").fontSize(7).fillColor("#444444").text("Signature", x + bLW + 4, y + 30, { width: bRW - 8, lineBreak: false });
+  doc.moveTo(x + bLW + 4, y + 42).lineTo(x + W - 4, y + 42).lineWidth(0.3).stroke("#888888");
+  doc.font("Helvetica-Bold").fontSize(8).fillColor("#000000").text(`FOR AND ON BEHALF OF  ${bl.companyOnBehalf || "_______________"}`, x + bLW + 4, y + 54, { width: bRW - 8 });
+  doc.font("Helvetica").fontSize(8).text(`MASTER OF  ${bl.masterOfVessel || "_______________"}`, x + bLW + 4, y + 66, { width: bRW - 8 });
+  doc.font("Helvetica").fontSize(8).text(`FOR  ${bl.agentsName || "_______________"}`, x + bLW + 4, y + 84, { width: bRW - 8, lineBreak: false });
+  doc.font("Helvetica").fontSize(8).text("AS AGENTS ONLY", x + bLW + 4, y + 96, { width: bRW - 8, lineBreak: false });
+  y += bH;
+  doc.y = y;
+
+  // === PAGE 2: CONDITIONS OF CARRIAGE ===
+  doc.addPage();
+  doc.font("Helvetica-Bold").fontSize(14).fillColor("#000000").text("CONDITIONS OF CARRIAGE", leftMargin, doc.y, { width: pageWidth, align: "center" });
+  doc.moveDown(0.2);
+  doc.moveTo(leftMargin, doc.y).lineTo(leftMargin + pageWidth, doc.y).lineWidth(1).stroke("#000000");
+  doc.moveDown(0.5);
+  doc.font("Helvetica-Oblique").fontSize(8).text('BILL OF LADING  \u2022  CODE NAME: "CONGENBILL"  \u2022  EDITION 1994', leftMargin, doc.y, { width: pageWidth, align: "center" });
+  doc.moveDown(1);
+
+  for (const clause of BL_CLAUSES) {
+    if (doc.y > 700) doc.addPage();
+    doc.font("Helvetica-Bold").fontSize(9).fillColor("#000000").text(`${clause.num}  ${clause.title}`, leftMargin, doc.y, { width: pageWidth });
+    doc.moveDown(0.4);
+    for (const para of clause.paras) {
+      doc.font("Helvetica").fontSize(8).text(para, leftMargin + 12, doc.y, { width: pageWidth - 12, align: "justify", lineGap: 1.5 });
+      doc.moveDown(0.5);
+    }
+    doc.moveDown(0.5);
+  }
+}
+
 function buildNcndaSignatoryDocx(content: string): Table {
   const partyAMatch = content.match(/1\.\s+([^\n,]+),\s*a company/);
   const partyBMatch = content.match(/2\.\s+([^\n,]+),\s*a company/);
@@ -944,6 +1349,8 @@ export async function generateDocx(docId: string, title: string, content: string
     children = buildLoiDocx(content);
   } else if (isNcndaContent(content)) {
     children = buildNcndaDocx(content);
+  } else if (isBlContent(content)) {
+    children = buildBlDocx(content);
   } else {
     children = buildGenericDocx(content);
   }
@@ -1070,6 +1477,8 @@ export async function generatePdf(docId: string, title: string, content: string)
       buildLoiPdf(doc, content, leftMargin, pageWidth);
     } else if (isNcndaContent(content)) {
       buildNcndaPdf(doc, content, leftMargin, pageWidth);
+    } else if (isBlContent(content)) {
+      buildBlPdf(doc, content, leftMargin, pageWidth);
     } else {
       buildGenericPdf(doc, content, leftMargin, pageWidth);
     }
@@ -1593,6 +2002,8 @@ export async function regenerateWithSignatures(
     docxChildren = buildLoiDocx(content);
   } else if (isNcndaContent(content)) {
     docxChildren = buildNcndaDocx(content);
+  } else if (isBlContent(content)) {
+    docxChildren = buildBlDocx(content);
   } else {
     docxChildren = buildGenericDocx(content);
   }
@@ -1622,6 +2033,8 @@ export async function regenerateWithSignatures(
       buildLoiPdf(pdfDoc, content, leftMargin, pageWidth);
     } else if (isNcndaContent(content)) {
       buildNcndaPdf(pdfDoc, content, leftMargin, pageWidth);
+    } else if (isBlContent(content)) {
+      buildBlPdf(pdfDoc, content, leftMargin, pageWidth);
     } else {
       buildGenericPdf(pdfDoc, content, leftMargin, pageWidth);
     }
