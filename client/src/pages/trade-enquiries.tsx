@@ -151,10 +151,14 @@ export default function TradeEnquiries() {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/trade-enquiries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trades"] });
       if (data?.createdTradeRef) {
-        toast({ title: "Enquiry accepted — trade created", description: `Trade ${data.createdTradeRef} has been opened in Blockchain Trading.` });
         sessionStorage.setItem("highlightTradeRef", data.createdTradeRef);
-        setTimeout(() => navigate("/trading"), 1200);
+        toast({
+          title: `Trade ${data.createdTradeRef} registered`,
+          description: "Enquiry accepted — navigating to Trade Register.",
+        });
+        setTimeout(() => navigate("/trading"), 600);
       } else {
         toast({ title: "Status updated" });
       }
