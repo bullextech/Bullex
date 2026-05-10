@@ -135,7 +135,9 @@ export default function Trading() {
   const [showNewTrade, setShowNewTrade] = useState(false);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [enquiryPrefilled, setEnquiryPrefilled] = useState(false);
+  const [otherLabel, setOtherLabel] = useState<Record<string, string>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const otherFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const { toast } = useToast();
 
   const [form, setForm] = useState({
@@ -942,6 +944,117 @@ export default function Trading() {
                                         </div>
                                       );
                                     })}
+
+                                    {/* ── Other Documents (custom uploads) ── */}
+                                    {(() => {
+                                      const otherPrefix = `other_${stage.key}_`;
+                                      const otherFiles = tradeFiles?.filter((f) => f.documentKey.startsWith(otherPrefix)) || [];
+                                      const otherRefKey = `${trade.id}-other-${stage.key}`;
+                                      const isUploadingOther = uploadingKey === otherRefKey;
+                                      const labelKey = `${trade.id}_${stage.key}`;
+                                      const currentLabel = otherLabel[labelKey] || "";
+
+                                      // Group other files by their documentKey so we can show the label
+                                      const grouped: Record<string, typeof otherFiles> = {};
+                                      for (const f of otherFiles) {
+                                        if (!grouped[f.documentKey]) grouped[f.documentKey] = [];
+                                        grouped[f.documentKey].push(f);
+                                      }
+
+                                      return (
+                                        <div className="mt-3 border border-dashed border-border/60 rounded overflow-hidden" data-testid={`other-docs-${trade.id}-${stage.key}`}>
+                                          <div className="px-2 py-1.5 bg-muted/30 border-b border-border/40 flex items-center gap-1.5">
+                                            <Paperclip className="w-3 h-3 text-muted-foreground" />
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Other Documents</span>
+                                          </div>
+
+                                          {Object.entries(grouped).length > 0 && (
+                                            <div className="px-2 py-1 space-y-0.5 border-b border-border/30 bg-muted/10">
+                                              {Object.entries(grouped).map(([docKey, files]) => {
+                                                const displayLabel = docKey.replace(otherPrefix, "").replace(/_/g, " ");
+                                                return (
+                                                  <div key={docKey}>
+                                                    <div className="text-[10px] font-semibold text-foreground/70 pt-1 pb-0.5 flex items-center gap-1">
+                                                      <FileText className="w-2.5 h-2.5" />{displayLabel}
+                                                    </div>
+                                                    {files.map((f) => (
+                                                      <div key={f.id} className="flex items-center justify-between text-[10px] gap-1 pl-3" data-testid={`other-file-${f.id}`}>
+                                                        <span className="text-muted-foreground truncate flex-1">
+                                                          <Paperclip className="w-2.5 h-2.5 inline mr-1" />
+                                                          {f.originalName} <span className="opacity-50">({(f.size / 1024).toFixed(0)} KB)</span>
+                                                        </span>
+                                                        <div className="flex items-center gap-0.5 flex-shrink-0">
+                                                          <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0"
+                                                            onClick={(e) => { e.stopPropagation(); window.open(`/api/trade-documents/${f.id}/download`, "_blank"); }}
+                                                            data-testid={`btn-download-other-${f.id}`}>
+                                                            <Download className="w-2.5 h-2.5" />
+                                                          </Button>
+                                                          <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0 text-destructive hover:text-destructive"
+                                                            onClick={(e) => { e.stopPropagation(); deleteTradeDoc.mutate(f.id); }}
+                                                            disabled={deleteTradeDoc.isPending}
+                                                            data-testid={`btn-delete-other-${f.id}`}>
+                                                            <Trash2 className="w-2.5 h-2.5" />
+                                                          </Button>
+                                                        </div>
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
+
+                                          <div className="flex items-center gap-1.5 p-2">
+                                            <input
+                                              type="text"
+                                              placeholder="Document name / label…"
+                                              value={currentLabel}
+                                              onClick={(e) => e.stopPropagation()}
+                                              onChange={(e) => setOtherLabel((prev) => ({ ...prev, [labelKey]: e.target.value }))}
+                                              className="flex-1 text-[11px] border border-border rounded px-2 py-1 bg-background focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary min-w-0"
+                                              data-testid={`input-other-label-${trade.id}-${stage.key}`}
+                                            />
+                                            <input
+                                              type="file"
+                                              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.zip,.csv"
+                                              className="hidden"
+                                              ref={(el) => { otherFileInputRefs.current[otherRefKey] = el; }}
+                                              onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                  const label = currentLabel.trim() || file.name.replace(/\.[^/.]+$/, "");
+                                                  const slug = label.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_").toLowerCase();
+                                                  const docKey = `${otherPrefix}${slug}`;
+                                                  setUploadingKey(otherRefKey);
+                                                  uploadTradeDoc.mutate({ tradeId: trade.id, documentKey: docKey, file });
+                                                  setOtherLabel((prev) => ({ ...prev, [labelKey]: "" }));
+                                                }
+                                                e.target.value = "";
+                                              }}
+                                              data-testid={`input-other-file-${trade.id}-${stage.key}`}
+                                            />
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="sm"
+                                              className="h-7 px-2 text-[10px] shrink-0 border-primary/30 text-primary hover:bg-primary/5"
+                                              disabled={isUploadingOther}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                otherFileInputRefs.current[otherRefKey]?.click();
+                                              }}
+                                              data-testid={`btn-upload-other-${trade.id}-${stage.key}`}
+                                            >
+                                              {isUploadingOther ? (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                              ) : (
+                                                <><Upload className="w-3 h-3 mr-1" />Upload Other</>
+                                              )}
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                               );
