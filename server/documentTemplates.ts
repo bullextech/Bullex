@@ -1310,6 +1310,76 @@ ISSUED AT LOADING PORT
 This certificate contains only two pages.`;
   },
 
+  COW: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const commodity = v(product?.commodity, trade?.commodity);
+    const quantity = v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined);
+    const origin = v(product?.origin, trade?.origin);
+    const packing = v(product?.packing);
+    const vessel = v(product?.vesselName);
+    const loadingPort = v(product?.loadingPort, trade?.origin);
+    const dischargePort = v(product?.dischargePort, trade?.destination);
+    const blDate = v(product?.charterPartyDate);
+    const certNo = product?.loiIssueNumber || `COW-${new Date().getFullYear()}-001`;
+    const loadPeriod = product?.laycan || "_______________    TO   _______________";
+    const moisture = product?.specialNote || "_______________";
+    const dryQty = product?.annexSpecs || "_______________";
+    const agency = v(product?.analysisAgency, "_______________");
+    const dateStr = today();
+    return `CERTIFICATE OF WEIGHT
+'TO WHOM IT MAY CONCERN'
+
+                                                                  PAGE 1 OF 1
+
+REF:  Certificate No. ${certNo}
+DATE:  ${dateStr}
+
+DESCRIPTION OF GOODS
+
+NAME OF COMMODITY                 :     ${commodity}
+
+QUANTITY                          :     ${quantity} METRIC TONS
+
+COUNTRY OF ORIGIN                 :     ${origin}
+
+PACKING                           :     ${packing}
+
+NAME OF THE CARRYING VESSEL       :     ${vessel}
+
+PORT OF LOADING                   :     ${loadingPort}
+
+PORT OF DISCHARGE                 :     ${dischargePort}
+
+B/L NO. & DATE                    :     01 & DATED ${blDate}
+
+${"=".repeat(73)}
+
+In accordance with the instructions received from the shipper, we attended
+for consignment of ${commodity} while the cargo was being loaded on board the
+vessel ${vessel} and the weight loaded was determined at ${loadingPort}, by
+Draft Survey.  We hereby certifying the actual surveyed weight of cargo
+shipped at loading port in wet metric tons and dry metric tons as under:
+
+Port of loading at ${loadingPort}    :     ${loadPeriod}
+
+Quantity loaded at ${loadingPort}     :     ${quantity} METRIC TONS
+
+Free Moisture loss at 105 degrees Centigrade :     ${moisture}    PCT
+
+Dry Quantity     :     ${dryQty} METRIC TONS
+
+This certificate reflects our findings at the time, date and place of
+inspection and does not refer to any other matter.
+
+FOR ${agency}
+
+
+
+
+AUTHORIZED SIGNATORY
+ISSUED AT LOADING PORT
+This certificate contains only one page.`;
+  },
+
   COO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
     const shipper = v(seller?.name, trade?.sellerName);
     const consignee = (buyer?.name && buyer.name !== "_______________") ? buyer.name : "TO ORDER";

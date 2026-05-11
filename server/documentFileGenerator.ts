@@ -1140,6 +1140,220 @@ function buildCoaPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
   doc.font(mono).fontSize(7).text("This certificate contains only two pages.", x, doc.y);
 }
 
+function isCowContent(content: string): boolean {
+  return content.trimStart().startsWith("CERTIFICATE OF WEIGHT") && content.includes("Draft Survey");
+}
+
+interface CowData {
+  certNo: string;
+  date: string;
+  commodity: string;
+  quantity: string;
+  origin: string;
+  packing: string;
+  vessel: string;
+  portOfLoading: string;
+  portOfDischarge: string;
+  blDate: string;
+  loadPeriod: string;
+  moisture: string;
+  dryQty: string;
+  agency: string;
+}
+
+function parseCowContent(content: string): CowData {
+  const lines = content.split("\n");
+
+  const extractColon = (label: string): string => {
+    const line = lines.find(l => l.trimStart().startsWith(label));
+    if (!line) return "_______________";
+    const idx = line.indexOf(":");
+    return idx >= 0 ? line.substring(idx + 1).trim() : "";
+  };
+
+  const certNoLine = lines.find(l => l.startsWith("REF:  Certificate No. "));
+  const certNo = certNoLine ? certNoLine.replace("REF:  Certificate No. ", "").trim() : "";
+
+  const dateLine = lines.find(l => l.startsWith("DATE:  "));
+  const date = dateLine ? dateLine.replace("DATE:  ", "").trim() : "";
+
+  const commodity = extractColon("NAME OF COMMODITY");
+  const quantityRaw = extractColon("QUANTITY");
+  const quantity = quantityRaw.replace(" METRIC TONS", "").trim();
+  const origin = extractColon("COUNTRY OF ORIGIN");
+  const packing = extractColon("PACKING");
+  const vessel = extractColon("NAME OF THE CARRYING VESSEL");
+  const portOfLoading = extractColon("PORT OF LOADING");
+  const portOfDischarge = extractColon("PORT OF DISCHARGE");
+  const blRaw = extractColon("B/L NO. & DATE");
+  const blDate = blRaw.replace(/^01 & DATED\s*/i, "").trim();
+
+  const loadLine = lines.find(l => l.match(/^Port of loading at .+?\s+:\s+/));
+  let loadPeriod = "_______________    TO   _______________";
+  if (loadLine) {
+    const colonIdx = loadLine.indexOf(":");
+    if (colonIdx >= 0) loadPeriod = loadLine.substring(colonIdx + 1).trim();
+  }
+
+  const moistureLine = lines.find(l => l.includes("Free Moisture loss at 105 degrees Centigrade"));
+  let moisture = "_______________";
+  if (moistureLine) {
+    const m = moistureLine.match(/:\s+(.+?)\s+PCT/);
+    if (m) moisture = m[1].trim();
+  }
+
+  const dryLine = lines.find(l => l.startsWith("Dry Quantity"));
+  let dryQty = "_______________";
+  if (dryLine) {
+    const colonIdx = dryLine.indexOf(":");
+    if (colonIdx >= 0) dryQty = dryLine.substring(colonIdx + 1).replace("METRIC TONS", "").trim();
+  }
+
+  const forLine = lines.find(l => l.startsWith("FOR ") && !l.includes("future reference"));
+  const agency = forLine ? forLine.replace("FOR ", "").trim() : "_______________";
+
+  return { certNo, date, commodity, quantity, origin, packing, vessel, portOfLoading, portOfDischarge, blDate, loadPeriod, moisture, dryQty, agency };
+}
+
+function buildCowDocx(content: string): (Paragraph | Table)[] {
+  const cow = parseCowContent(content);
+  const ch: (Paragraph | Table)[] = [];
+  const mono = "Courier New";
+  const fs = 18;
+  const p = (text: string, opts: { bold?: boolean; size?: number; align?: (typeof AlignmentType)[keyof typeof AlignmentType]; spaceBefore?: number; spaceAfter?: number; pageBreak?: boolean } = {}) =>
+    new Paragraph({
+      children: [new TextRun({ text, bold: opts.bold || false, size: opts.size || fs, font: mono })],
+      alignment: opts.align,
+      pageBreakBefore: opts.pageBreak,
+      spacing: { before: opts.spaceBefore || 0, after: opts.spaceAfter || 60 },
+    });
+
+  ch.push(p("CERTIFICATE OF WEIGHT", { bold: true, size: 26, align: AlignmentType.CENTER, spaceAfter: 80 }));
+  ch.push(p("'TO WHOM IT MAY CONCERN'", { bold: true, size: 22, align: AlignmentType.CENTER, spaceAfter: 160 }));
+
+  ch.push(new Paragraph({ children: [new TextRun({ text: "PAGE 1 OF 1", size: fs, font: mono })], alignment: AlignmentType.RIGHT, spacing: { after: 40 } }));
+  ch.push(p(`REF:  Certificate No. ${cow.certNo}`));
+  ch.push(p(`DATE:  ${cow.date}`, { spaceAfter: 160 }));
+
+  ch.push(p("DESCRIPTION OF GOODS", { bold: true, spaceAfter: 120 }));
+
+  const descRows: [string, string][] = [
+    ["NAME OF COMMODITY", cow.commodity],
+    ["QUANTITY", `${cow.quantity} METRIC TONS`],
+    ["COUNTRY OF ORIGIN", cow.origin],
+    ["PACKING", cow.packing],
+    ["NAME OF THE CARRYING VESSEL", cow.vessel],
+    ["PORT OF LOADING", cow.portOfLoading],
+    ["PORT OF DISCHARGE", cow.portOfDischarge],
+    ["B/L NO. & DATE", `01 & DATED ${cow.blDate}`],
+  ];
+  for (const [label, val] of descRows) {
+    ch.push(new Paragraph({
+      children: [
+        new TextRun({ text: label.padEnd(34), size: fs, font: mono }),
+        new TextRun({ text: ":     ", size: fs, font: mono }),
+        new TextRun({ text: val, bold: true, size: fs, font: mono }),
+      ],
+      spacing: { before: 40, after: 80 },
+    }));
+  }
+
+  ch.push(p("=".repeat(73), { spaceBefore: 120, spaceAfter: 120 }));
+
+  ch.push(p(`In accordance with the instructions received from the shipper, we attended for consignment of ${cow.commodity} while the cargo was being loaded on board the vessel ${cow.vessel} and the weight loaded was determined at ${cow.portOfLoading}, by Draft Survey.  We hereby certifying the actual surveyed weight of cargo shipped at loading port in wet metric tons and dry metric tons as under:`, { spaceAfter: 120 }));
+
+  ch.push(new Paragraph({
+    children: [new TextRun({ text: `Port of loading at ${cow.portOfLoading}    :     ${cow.loadPeriod}`, size: fs, font: mono })],
+    spacing: { before: 60, after: 80 },
+  }));
+
+  ch.push(new Paragraph({
+    children: [new TextRun({ text: `Quantity loaded at ${cow.portOfLoading}     :     ${cow.quantity} METRIC TONS`, size: fs, font: mono })],
+    spacing: { before: 40, after: 80 },
+  }));
+
+  ch.push(new Paragraph({
+    children: [new TextRun({ text: `Free Moisture loss at 105 degrees Centigrade :     ${cow.moisture}    PCT`, size: fs, font: mono })],
+    spacing: { before: 40, after: 80 },
+  }));
+
+  ch.push(new Paragraph({
+    children: [new TextRun({ text: `Dry Quantity     :     ${cow.dryQty} METRIC TONS`, size: fs, font: mono })],
+    spacing: { before: 40, after: 160 },
+  }));
+
+  ch.push(p("This certificate reflects our findings at the time, date and place of inspection and does not refer to any other matter.", { spaceAfter: 200 }));
+
+  ch.push(p(`FOR ${cow.agency}`, { bold: true, spaceAfter: 400 }));
+  ch.push(p("AUTHORIZED SIGNATORY", { bold: true, spaceAfter: 60 }));
+  ch.push(p("ISSUED AT LOADING PORT", { spaceAfter: 200 }));
+  ch.push(p("This certificate contains only one page.", { size: 16 }));
+
+  return ch;
+}
+
+function buildCowPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: number, pageWidth: number) {
+  const cow = parseCowContent(content);
+  const x = leftMargin;
+  const W = pageWidth;
+  const mono = "Courier";
+  const monoBold = "Courier-Bold";
+
+  doc.font(monoBold).fontSize(14).fillColor("#000000").text("CERTIFICATE OF WEIGHT", x, doc.y, { width: W, align: "center" });
+  doc.moveDown(0.3);
+  doc.font(monoBold).fontSize(12).text("'TO WHOM IT MAY CONCERN'", x, doc.y, { width: W, align: "center" });
+  doc.moveDown(0.8);
+
+  doc.font(mono).fontSize(8).text("PAGE 1 OF 1", x, doc.y, { width: W, align: "right" });
+  doc.font(mono).fontSize(8).text(`REF:  Certificate No. ${cow.certNo}`, x, doc.y);
+  doc.font(mono).fontSize(8).text(`DATE:  ${cow.date}`, x, doc.y);
+  doc.moveDown(0.8);
+
+  doc.font(monoBold).fontSize(9).text("DESCRIPTION OF GOODS", x, doc.y);
+  doc.moveDown(0.5);
+
+  const descRows: [string, string][] = [
+    ["NAME OF COMMODITY", cow.commodity],
+    ["QUANTITY", `${cow.quantity} METRIC TONS`],
+    ["COUNTRY OF ORIGIN", cow.origin],
+    ["PACKING", cow.packing],
+    ["NAME OF THE CARRYING VESSEL", cow.vessel],
+    ["PORT OF LOADING", cow.portOfLoading],
+    ["PORT OF DISCHARGE", cow.portOfDischarge],
+    ["B/L NO. & DATE", `01 & DATED ${cow.blDate}`],
+  ];
+  for (const [label, val] of descRows) {
+    const labelPad = label.padEnd(34);
+    doc.font(mono).fontSize(8).text(`${labelPad}:     `, x, doc.y, { continued: true });
+    doc.font(monoBold).fontSize(8).text(val, { continued: false });
+  }
+
+  doc.moveDown(0.5);
+  doc.font(mono).fontSize(7).text("=".repeat(73), x, doc.y);
+  doc.moveDown(0.5);
+
+  doc.font(mono).fontSize(8).text(`In accordance with the instructions received from the shipper, we attended for consignment of ${cow.commodity} while the cargo was being loaded on board the vessel ${cow.vessel} and the weight loaded was determined at ${cow.portOfLoading}, by Draft Survey.  We hereby certifying the actual surveyed weight of cargo shipped at loading port in wet metric tons and dry metric tons as under:`, x, doc.y, { width: W });
+  doc.moveDown(0.6);
+
+  doc.font(mono).fontSize(8).text(`Port of loading at ${cow.portOfLoading}    :     ${cow.loadPeriod}`, x, doc.y, { width: W });
+  doc.moveDown(0.3);
+  doc.font(mono).fontSize(8).text(`Quantity loaded at ${cow.portOfLoading}     :     ${cow.quantity} METRIC TONS`, x, doc.y, { width: W });
+  doc.moveDown(0.3);
+  doc.font(mono).fontSize(8).text(`Free Moisture loss at 105 degrees Centigrade :     ${cow.moisture}    PCT`, x, doc.y, { width: W });
+  doc.moveDown(0.3);
+  doc.font(mono).fontSize(8).text(`Dry Quantity     :     ${cow.dryQty} METRIC TONS`, x, doc.y, { width: W });
+  doc.moveDown(0.8);
+
+  doc.font(mono).fontSize(8).text("This certificate reflects our findings at the time, date and place of inspection and does not refer to any other matter.", x, doc.y, { width: W });
+  doc.moveDown(0.8);
+  doc.font(monoBold).fontSize(9).text(`FOR ${cow.agency}`, x, doc.y);
+  doc.moveDown(2.5);
+  doc.font(monoBold).fontSize(8).text("AUTHORIZED SIGNATORY", x, doc.y);
+  doc.font(mono).fontSize(8).text("ISSUED AT LOADING PORT", x, doc.y);
+  doc.moveDown(0.8);
+  doc.font(mono).fontSize(7).text("This certificate contains only one page.", x, doc.y);
+}
+
 interface CooData {
   certNo: string;
   shipper: string;
@@ -2112,6 +2326,8 @@ export async function generateDocx(docId: string, title: string, content: string
     children = buildCooDocx(content);
   } else if (isCoaContent(content)) {
     children = buildCoaDocx(content);
+  } else if (isCowContent(content)) {
+    children = buildCowDocx(content);
   } else {
     children = buildGenericDocx(content);
   }
@@ -2244,6 +2460,8 @@ export async function generatePdf(docId: string, title: string, content: string)
       buildCooPdf(doc, content, leftMargin, pageWidth);
     } else if (isCoaContent(content)) {
       buildCoaPdf(doc, content, leftMargin, pageWidth);
+    } else if (isCowContent(content)) {
+      buildCowPdf(doc, content, leftMargin, pageWidth);
     } else {
       buildGenericPdf(doc, content, leftMargin, pageWidth);
     }
@@ -2808,6 +3026,8 @@ export async function regenerateWithSignatures(
       buildCooPdf(pdfDoc, content, leftMargin, pageWidth);
     } else if (isCoaContent(content)) {
       buildCoaPdf(pdfDoc, content, leftMargin, pageWidth);
+    } else if (isCowContent(content)) {
+      buildCowPdf(pdfDoc, content, leftMargin, pageWidth);
     } else {
       buildGenericPdf(pdfDoc, content, leftMargin, pageWidth);
     }
