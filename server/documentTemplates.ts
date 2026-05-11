@@ -1217,6 +1217,59 @@ ${"=".repeat(60)}
 `;
   },
 
+  COO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const shipper = v(seller?.name, trade?.sellerName);
+    const consignee = (buyer?.name && buyer.name !== "_______________") ? buyer.name : "TO ORDER";
+    const vessel = v(product?.vesselName);
+    const pol = v(product?.loadingPort, trade?.origin);
+    const pod = v(product?.dischargePort, trade?.destination);
+    const commodityName = v(product?.commodity, trade?.commodity);
+    const qtyMT = v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined);
+    const packing = v(product?.packing);
+    const countryOrigin = v(product?.origin, trade?.origin);
+    const certNo = product?.loiIssueNumber || `COO-${new Date().getFullYear()}-001`;
+
+    return `CERTIFICATE OF ORIGIN
+${"=".repeat(60)}
+CERT NO.: ${certNo}
+
+SHIPPER
+${shipper}
+
+CONSIGNEE
+${consignee}
+
+PRE-CARRIAGE BY
+_______________
+
+PORT OF LOADING
+${pol}
+
+VESSEL NAME
+${vessel}
+
+PORT OF DISCHARGE
+${pod}
+
+FINAL DESTINATION
+${pod}
+
+${"─".repeat(60)}
+DESCRIPTION OF GOODS
+${"─".repeat(60)}
+NAME OF COMMODITY: ${commodityName}
+${qtyMT} METRIC TONS
+PACKING: ${packing}
+COUNTRY OF ORIGIN: ${countryOrigin}
+
+${"─".repeat(60)}
+CERTIFICATION
+${"─".repeat(60)}
+
+IT IS HEREBY CERTIFIED THAT TO THE BEST OF OUR KNOWLEDGE AND BELIEF THE ABOVE MENTIONED GOODS ARE OF ${countryOrigin} ORIGIN.
+`;
+  },
+
   LC: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `LETTER OF CREDIT (LC)
 ${"=".repeat(40)}
 

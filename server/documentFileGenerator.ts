@@ -844,6 +844,437 @@ function buildBlPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: number
   }
 }
 
+function isCooContent(content: string): boolean {
+  return content.trimStart().startsWith("CERTIFICATE OF ORIGIN") && content.includes("CERTIFICATION");
+}
+
+interface CooData {
+  certNo: string;
+  shipper: string;
+  consignee: string;
+  portOfLoading: string;
+  vesselName: string;
+  portOfDischarge: string;
+  finalDestination: string;
+  commodityName: string;
+  quantityMT: string;
+  packing: string;
+  countryOfOrigin: string;
+}
+
+function parseCooContent(content: string): CooData {
+  const lines = content.split("\n").map(l => l.trimEnd());
+
+  const findIdx = (keyword: string): number => lines.findIndex(l => l.trim() === keyword);
+
+  const nextNonEmpty = (fromIdx: number): string => {
+    for (let i = fromIdx + 1; i < lines.length; i++) {
+      const t = lines[i].trim();
+      if (t && !t.match(/^[=─]+$/)) return t;
+    }
+    return "";
+  };
+
+  const extractAfter = (prefix: string): string => {
+    const line = lines.find(l => l.trim().startsWith(prefix));
+    return line ? line.substring(line.indexOf(prefix) + prefix.length).trim() : "";
+  };
+
+  const certLine = lines.find(l => l.startsWith("CERT NO.:"));
+  const certNo = certLine ? certLine.replace("CERT NO.: ", "").trim() : "";
+
+  const qtyLine = lines.find(l => l.includes("METRIC TONS") && !l.toLowerCase().includes("metric tons of"));
+  const quantityMT = qtyLine ? qtyLine.replace("METRIC TONS", "").trim() : "";
+
+  return {
+    certNo,
+    shipper: nextNonEmpty(findIdx("SHIPPER")),
+    consignee: nextNonEmpty(findIdx("CONSIGNEE")),
+    portOfLoading: nextNonEmpty(findIdx("PORT OF LOADING")),
+    vesselName: nextNonEmpty(findIdx("VESSEL NAME")),
+    portOfDischarge: nextNonEmpty(findIdx("PORT OF DISCHARGE")),
+    finalDestination: nextNonEmpty(findIdx("FINAL DESTINATION")),
+    commodityName: extractAfter("NAME OF COMMODITY: "),
+    quantityMT,
+    packing: extractAfter("PACKING: "),
+    countryOfOrigin: extractAfter("COUNTRY OF ORIGIN: "),
+  };
+}
+
+function buildCooDocx(content: string): (Paragraph | Table)[] {
+  const coo = parseCooContent(content);
+  const children: (Paragraph | Table)[] = [];
+
+  const S = { style: BorderStyle.SINGLE as const, size: 4, color: "000000" };
+  const BB = { top: S, bottom: S, left: S, right: S };
+
+  const lbl = (t: string, bold = false) => new Paragraph({
+    children: [new TextRun({ text: t, size: 16, font: "Arial", bold })],
+    spacing: { before: 20, after: 20 },
+  });
+  const val = (t: string, sz = 18) => new Paragraph({
+    children: [new TextRun({ text: t || " ", size: sz, font: "Arial", bold: true })],
+    spacing: { before: 10, after: 30 },
+  });
+  const sp = (n = 60) => new Paragraph({ children: [new TextRun({ text: " ", size: 12 })], spacing: { before: 0, after: n } });
+
+  // Title
+  children.push(new Paragraph({
+    children: [new TextRun({ text: "CERTIFICATE OF ORIGIN", bold: true, size: 36, font: "Arial" })],
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 200, after: 240 },
+  }));
+
+  // ── TOP 3-COLUMN TABLE ──
+  // Col A (left): 2600 | Col B (mid): 2600 | Col C (right, No.:): 4160 → total 9360
+  const CA = 2600, CB = 2600, CC = 4160, TW = CA + CB + CC;
+
+  const rightCellRestart = new TableCell({
+    children: [
+      lbl("No.:"),
+      val(coo.certNo || " "),
+      sp(200),
+    ],
+    borders: BB,
+    width: { size: CC, type: WidthType.DXA },
+    verticalMerge: VerticalMergeType.RESTART,
+    verticalAlign: VerticalAlign.TOP,
+  });
+
+  const rightCellContinue = () => new TableCell({
+    children: [new Paragraph({ children: [new TextRun({ text: "" })] })],
+    borders: BB,
+    width: { size: CC, type: WidthType.DXA },
+    verticalMerge: VerticalMergeType.CONTINUE,
+  });
+
+  const mergedAB = (paras: Paragraph[]) => new TableCell({
+    children: paras,
+    borders: BB,
+    columnSpan: 2,
+    width: { size: CA + CB, type: WidthType.DXA },
+    verticalAlign: VerticalAlign.TOP,
+  });
+
+  const cellA = (paras: Paragraph[]) => new TableCell({
+    children: paras,
+    borders: BB,
+    width: { size: CA, type: WidthType.DXA },
+    verticalAlign: VerticalAlign.TOP,
+  });
+
+  const cellB = (paras: Paragraph[]) => new TableCell({
+    children: paras,
+    borders: BB,
+    width: { size: CB, type: WidthType.DXA },
+    verticalAlign: VerticalAlign.TOP,
+  });
+
+  children.push(new Table({
+    width: { size: TW, type: WidthType.DXA },
+    rows: [
+      // Row 1: Shipper (A+B merged) | No.: (C, RESTART)
+      new TableRow({
+        children: [
+          mergedAB([lbl("Shipper"), val(coo.shipper), sp(30)]),
+          rightCellRestart,
+        ],
+      }),
+      // Row 2: Consignee (A+B merged) | CONTINUE
+      new TableRow({
+        children: [
+          mergedAB([lbl("CONSIGNEE:"), val(coo.consignee || "TO ORDER"), sp(20)]),
+          rightCellContinue(),
+        ],
+      }),
+      // Row 3: Pre-Carriage by (A) | Place of Receipt / Port of Loading (B) | CONTINUE
+      new TableRow({
+        children: [
+          cellA([lbl("Pre-Carriage by:"), sp(40), sp(40)]),
+          cellB([lbl("Place of Receipt by Pre-Carrier"), lbl("Port of Loading:"), val(coo.portOfLoading)]),
+          rightCellContinue(),
+        ],
+      }),
+      // Row 4: Vessel Name (A) | blank (B) | CONTINUE
+      new TableRow({
+        children: [
+          cellA([lbl("VESSEL NAME"), val(coo.vesselName)]),
+          cellB([sp(60)]),
+          rightCellContinue(),
+        ],
+      }),
+      // Row 5: Port of Discharge (A) | Final Destination (B) | CONTINUE
+      new TableRow({
+        children: [
+          cellA([lbl("Port of Discharge:"), val(coo.portOfDischarge)]),
+          cellB([lbl("Final Destination:"), val(coo.finalDestination)]),
+          rightCellContinue(),
+        ],
+      }),
+    ],
+  }));
+
+  // ── GOODS 4-COLUMN TABLE ──
+  // Marks & Nos | Description | Quantity | Remark
+  const GM = 1560, GD = 4200, GQ = 2000, GR = 1600; // = 9360
+  const hdrCell = (paras: Paragraph[], w: number) => new TableCell({
+    children: paras,
+    borders: BB,
+    width: { size: w, type: WidthType.DXA },
+    shading: { fill: "F0F0F0", type: ShadingType.CLEAR },
+    verticalAlign: VerticalAlign.TOP,
+  });
+  const dataCell = (paras: Paragraph[], w: number) => new TableCell({
+    children: paras,
+    borders: BB,
+    width: { size: w, type: WidthType.DXA },
+    verticalAlign: VerticalAlign.TOP,
+  });
+
+  children.push(new Table({
+    width: { size: TW, type: WidthType.DXA },
+    rows: [
+      // Header row
+      new TableRow({
+        children: [
+          hdrCell([lbl("Marks &"), lbl("Nos."), lbl("Container"), lbl("No.")], GM),
+          hdrCell([lbl("No. & Kind of Pkgs."), sp(16), lbl("Quantity"), lbl("Description of Goods")], GD),
+          hdrCell([lbl("QUANTITY")], GQ),
+          hdrCell([lbl("Remark")], GR),
+        ],
+      }),
+      // Data row
+      new TableRow({
+        children: [
+          dataCell([sp(40), sp(60)], GM),
+          dataCell([
+            sp(20),
+            new Paragraph({ children: [new TextRun({ text: `NAME OF COMMODITY: ${coo.commodityName}`, size: 18, font: "Arial" })], spacing: { before: 10, after: 14 } }),
+            new Paragraph({ children: [new TextRun({ text: `PACKING: ${coo.packing}`, size: 18, font: "Arial" })], spacing: { before: 8, after: 14 } }),
+            new Paragraph({ children: [new TextRun({ text: `COUNTRY OF ORIGIN: ${coo.countryOfOrigin}`, size: 18, font: "Arial" })], spacing: { before: 8, after: 20 } }),
+            sp(20),
+          ], GD),
+          dataCell([
+            sp(20),
+            new Paragraph({ children: [new TextRun({ text: coo.quantityMT, size: 18, font: "Arial", bold: true })], spacing: { before: 10, after: 10 } }),
+            new Paragraph({ children: [new TextRun({ text: "METRIC TONS", size: 18, font: "Arial" })], spacing: { before: 6, after: 20 } }),
+          ], GQ),
+          dataCell([sp(20)], GR),
+        ],
+      }),
+    ],
+  }));
+
+  // ── CERTIFICATION FULL-WIDTH TABLE ──
+  children.push(new Table({
+    width: { size: TW, type: WidthType.DXA },
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            children: [
+              new Paragraph({ children: [new TextRun({ text: "CERTIFICATION", bold: true, size: 22, font: "Arial" })], spacing: { before: 60, after: 30 } }),
+              new Paragraph({ children: [new TextRun({ text: " " })], spacing: { before: 0, after: 20 } }),
+              new Paragraph({
+                children: [new TextRun({
+                  text: `IT IS HEREBY CERTIFIED THAT TO THE BEST OF OUR KNOWLEDGE AND BELIEF THE ABOVE MENTIONED GOODS ARE OF ${coo.countryOfOrigin || "_______________"} ORIGIN.`,
+                  size: 18, font: "Arial",
+                })],
+                spacing: { before: 10, after: 80 },
+              }),
+              sp(100),
+            ],
+            borders: BB,
+            width: { size: TW, type: WidthType.DXA },
+            columnSpan: 1,
+          }),
+        ],
+      }),
+    ],
+  }));
+
+  return children;
+}
+
+function buildCooPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: number, pageWidth: number) {
+  const coo = parseCooContent(content);
+  const x = leftMargin;
+  const W = pageWidth;
+
+  // ── TITLE ──
+  doc.font("Helvetica-Bold").fontSize(16).fillColor("#000000")
+    .text("CERTIFICATE OF ORIGIN", x, doc.y, { width: W, align: "center" });
+  doc.moveDown(0.5);
+
+  // ── TOP SECTION: 3 columns ──
+  // Col A+B (left 60%) | Col C (right 40%: No.:)
+  const leftW = Math.round(W * 0.6);
+  const rightW = W - leftW;
+  const gap = 0;
+  const pad = 5;
+  const bw = 0.5;
+
+  // We'll draw top section rows as stacked boxes
+  // Right column (No.:) spans the height of all 5 left rows
+  // We compute row heights first, then draw
+  const fLbl = "Helvetica";
+  const fVal = "Helvetica-Bold";
+  const fsLbl = 7.5;
+  const fsVal = 8.5;
+
+  const halfW = Math.round(leftW * 0.5);
+
+  const drawBorder = (bx: number, by: number, bw2: number, bh: number) => {
+    doc.rect(bx, by, bw2, bh).lineWidth(bw).stroke("#000000");
+  };
+
+  const textH = (text: string, font: string, fs: number, w: number): number =>
+    doc.font(font).fontSize(fs).heightOfString(text, { width: w - pad * 2 });
+
+  // Row heights
+  const shipperH = Math.max(
+    textH("Shipper", fLbl, fsLbl, leftW) + textH(coo.shipper || " ", fVal, fsVal, leftW) + 20,
+    40,
+  );
+  const consigneeH = Math.max(
+    textH("CONSIGNEE:", fLbl, fsLbl, leftW) + textH(coo.consignee || "TO ORDER", fVal, fsVal, leftW) + 20,
+    36,
+  );
+  const preCarriageH = Math.max(
+    textH("Pre-Carriage by:", fLbl, fsLbl, halfW) + 16,
+    textH("Place of Receipt by Pre-Carrier\nPort of Loading:\n" + (coo.portOfLoading || " "), fLbl, fsLbl, halfW - 2) + 16,
+    36,
+  );
+  const vesselH = Math.max(
+    textH("VESSEL NAME", fLbl, fsLbl, halfW) + textH(coo.vesselName || " ", fVal, fsVal, halfW) + 16,
+    32,
+  );
+  const podH = Math.max(
+    textH("Port of Discharge:\n" + (coo.portOfDischarge || " "), fLbl, fsLbl, halfW) + 16,
+    textH("Final Destination:\n" + (coo.finalDestination || " "), fLbl, fsLbl, halfW) + 16,
+    36,
+  );
+
+  const totalLeftH = shipperH + consigneeH + preCarriageH + vesselH + podH;
+  const startY = doc.y;
+
+  // Draw right (No.:) box spanning all rows
+  drawBorder(x + leftW, startY, rightW, totalLeftH);
+  doc.font(fLbl).fontSize(fsLbl).fillColor("#000000")
+    .text("No.:", x + leftW + pad, startY + pad, { width: rightW - pad * 2 });
+  doc.font(fVal).fontSize(fsVal)
+    .text(coo.certNo || " ", x + leftW + pad, startY + pad + 12, { width: rightW - pad * 2 });
+
+  // Row 1: Shipper (full left width)
+  let cy = startY;
+  drawBorder(x, cy, leftW, shipperH);
+  doc.font(fLbl).fontSize(fsLbl).fillColor("#444444").text("Shipper", x + pad, cy + pad, { width: leftW - pad * 2 });
+  doc.font(fVal).fontSize(fsVal).fillColor("#000000").text(coo.shipper || " ", x + pad, cy + pad + 12, { width: leftW - pad * 2 });
+  cy += shipperH;
+
+  // Row 2: Consignee (full left width)
+  drawBorder(x, cy, leftW, consigneeH);
+  doc.font(fLbl).fontSize(fsLbl).fillColor("#444444").text("CONSIGNEE:", x + pad, cy + pad, { width: leftW - pad * 2 });
+  doc.font(fVal).fontSize(fsVal).fillColor("#000000").text(coo.consignee || "TO ORDER", x + pad, cy + pad + 12, { width: leftW - pad * 2 });
+  cy += consigneeH;
+
+  // Row 3: Pre-Carriage (left half) | Place of Receipt / Port of Loading (right half)
+  drawBorder(x, cy, halfW, preCarriageH);
+  doc.font(fLbl).fontSize(fsLbl).fillColor("#444444").text("Pre-Carriage by:", x + pad, cy + pad, { width: halfW - pad * 2 });
+  drawBorder(x + halfW, cy, halfW, preCarriageH);
+  doc.font(fLbl).fontSize(fsLbl).fillColor("#444444").text("Place of Receipt by Pre-Carrier", x + halfW + pad, cy + pad, { width: halfW - pad * 2 });
+  doc.font(fLbl).fontSize(fsLbl).fillColor("#444444").text("Port of Loading:", x + halfW + pad, cy + pad + 10, { width: halfW - pad * 2 });
+  doc.font(fVal).fontSize(fsVal).fillColor("#000000").text(coo.portOfLoading || " ", x + halfW + pad, cy + pad + 20, { width: halfW - pad * 2 });
+  cy += preCarriageH;
+
+  // Row 4: Vessel Name (left half) | blank (right half)
+  drawBorder(x, cy, halfW, vesselH);
+  doc.font(fLbl).fontSize(fsLbl).fillColor("#444444").text("VESSEL NAME", x + pad, cy + pad, { width: halfW - pad * 2 });
+  doc.font(fVal).fontSize(fsVal).fillColor("#000000").text(coo.vesselName || " ", x + pad, cy + pad + 12, { width: halfW - pad * 2 });
+  drawBorder(x + halfW, cy, halfW, vesselH);
+  cy += vesselH;
+
+  // Row 5: Port of Discharge (left half) | Final Destination (right half)
+  drawBorder(x, cy, halfW, podH);
+  doc.font(fLbl).fontSize(fsLbl).fillColor("#444444").text("Port of Discharge:", x + pad, cy + pad, { width: halfW - pad * 2 });
+  doc.font(fVal).fontSize(fsVal).fillColor("#000000").text(coo.portOfDischarge || " ", x + pad, cy + pad + 12, { width: halfW - pad * 2 });
+  drawBorder(x + halfW, cy, halfW, podH);
+  doc.font(fLbl).fontSize(fsLbl).fillColor("#444444").text("Final Destination:", x + halfW + pad, cy + pad, { width: halfW - pad * 2 });
+  doc.font(fVal).fontSize(fsVal).fillColor("#000000").text(coo.finalDestination || " ", x + halfW + pad, cy + pad + 12, { width: halfW - pad * 2 });
+  cy += podH;
+
+  doc.y = cy;
+  doc.moveDown(0.3);
+
+  // ── GOODS TABLE: 4 columns ──
+  // Marks (17%) | Description (44%) | Quantity (22%) | Remark (17%)
+  const GMarks = Math.round(W * 0.17);
+  const GDesc  = Math.round(W * 0.44);
+  const GQty   = Math.round(W * 0.22);
+  const GRem   = W - GMarks - GDesc - GQty;
+
+  const hdrY = doc.y;
+  const hdrH = 42;
+
+  // Header boxes
+  doc.rect(x, hdrY, GMarks, hdrH).lineWidth(bw).fillAndStroke("#F0F0F0", "#000000");
+  doc.rect(x + GMarks, hdrY, GDesc, hdrH).lineWidth(bw).fillAndStroke("#F0F0F0", "#000000");
+  doc.rect(x + GMarks + GDesc, hdrY, GQty, hdrH).lineWidth(bw).fillAndStroke("#F0F0F0", "#000000");
+  doc.rect(x + GMarks + GDesc + GQty, hdrY, GRem, hdrH).lineWidth(bw).fillAndStroke("#F0F0F0", "#000000");
+
+  doc.fillColor("#000000");
+  doc.font(fLbl).fontSize(fsLbl)
+    .text("Marks &\nNos.\nContainer\nNo.", x + pad, hdrY + pad, { width: GMarks - pad * 2 });
+  doc.font(fLbl).fontSize(fsLbl)
+    .text("No. & Kind of Pkgs.", x + GMarks + pad, hdrY + pad, { width: GDesc - pad * 2 });
+  doc.font(fLbl).fontSize(fsLbl)
+    .text("\nQuantity\nDescription of Goods", x + GMarks + pad, hdrY + pad + 8, { width: GDesc - pad * 2 });
+  doc.font(fLbl).fontSize(fsLbl)
+    .text("QUANTITY", x + GMarks + GDesc + pad, hdrY + pad, { width: GQty - pad * 2 });
+  doc.font(fLbl).fontSize(fsLbl)
+    .text("Remark", x + GMarks + GDesc + GQty + pad, hdrY + pad, { width: GRem - pad * 2 });
+
+  // Data row
+  const descText = [
+    `NAME OF COMMODITY: ${coo.commodityName}`,
+    `PACKING: ${coo.packing}`,
+    `COUNTRY OF ORIGIN: ${coo.countryOfOrigin}`,
+  ].join("\n");
+  const descH = doc.font(fVal).fontSize(fsVal).heightOfString(descText, { width: GDesc - pad * 2 });
+  const dataH = Math.max(descH + pad * 4, 60);
+  const dataY = hdrY + hdrH;
+
+  doc.rect(x, dataY, GMarks, dataH).lineWidth(bw).stroke("#000000");
+  doc.rect(x + GMarks, dataY, GDesc, dataH).lineWidth(bw).stroke("#000000");
+  doc.rect(x + GMarks + GDesc, dataY, GQty, dataH).lineWidth(bw).stroke("#000000");
+  doc.rect(x + GMarks + GDesc + GQty, dataY, GRem, dataH).lineWidth(bw).stroke("#000000");
+
+  doc.font("Helvetica").fontSize(fsVal).fillColor("#000000")
+    .text(descText, x + GMarks + pad, dataY + pad, { width: GDesc - pad * 2, lineGap: 1 });
+  doc.font(fVal).fontSize(fsVal)
+    .text(coo.quantityMT || " ", x + GMarks + GDesc + pad, dataY + pad, { width: GQty - pad * 2 });
+  doc.font("Helvetica").fontSize(fsLbl)
+    .text("METRIC TONS", x + GMarks + GDesc + pad, dataY + pad + 12, { width: GQty - pad * 2 });
+
+  doc.y = dataY + dataH;
+  doc.moveDown(0.3);
+
+  // ── CERTIFICATION SECTION ──
+  const certStartY = doc.y;
+  const certTextContent = `IT IS HEREBY CERTIFIED THAT TO THE BEST OF OUR KNOWLEDGE AND BELIEF THE ABOVE MENTIONED GOODS ARE OF ${coo.countryOfOrigin || "_______________"} ORIGIN.`;
+  const certH = doc.font("Helvetica").fontSize(fsVal).heightOfString(certTextContent, { width: W - pad * 2 }) + 60;
+
+  doc.rect(x, certStartY, W, certH).lineWidth(bw).stroke("#000000");
+  doc.font(fVal).fontSize(10).fillColor("#000000")
+    .text("CERTIFICATION", x + pad, certStartY + pad, { width: W - pad * 2 });
+  doc.moveDown(0.3);
+  doc.font("Helvetica").fontSize(fsVal)
+    .text(certTextContent, x + pad, certStartY + 22, { width: W - pad * 2, lineGap: 1.5 });
+
+  doc.y = certStartY + certH;
+  doc.moveDown(1);
+}
+
 function buildNcndaSignatoryDocx(content: string): Table {
   const partyAMatch = content.match(/1\.\s+([^\n,]+),\s*a company/);
   const partyBMatch = content.match(/2\.\s+([^\n,]+),\s*a company/);
@@ -1385,6 +1816,8 @@ export async function generateDocx(docId: string, title: string, content: string
     children = buildNcndaDocx(content);
   } else if (isBlContent(content)) {
     children = buildBlDocx(content);
+  } else if (isCooContent(content)) {
+    children = buildCooDocx(content);
   } else {
     children = buildGenericDocx(content);
   }
@@ -1513,6 +1946,8 @@ export async function generatePdf(docId: string, title: string, content: string)
       buildNcndaPdf(doc, content, leftMargin, pageWidth);
     } else if (isBlContent(content)) {
       buildBlPdf(doc, content, leftMargin, pageWidth);
+    } else if (isCooContent(content)) {
+      buildCooPdf(doc, content, leftMargin, pageWidth);
     } else {
       buildGenericPdf(doc, content, leftMargin, pageWidth);
     }
@@ -2038,6 +2473,8 @@ export async function regenerateWithSignatures(
     docxChildren = buildNcndaDocx(content);
   } else if (isBlContent(content)) {
     docxChildren = buildBlDocx(content);
+  } else if (isCooContent(content)) {
+    docxChildren = buildCooDocx(content);
   } else {
     docxChildren = buildGenericDocx(content);
   }
@@ -2069,6 +2506,8 @@ export async function regenerateWithSignatures(
       buildNcndaPdf(pdfDoc, content, leftMargin, pageWidth);
     } else if (isBlContent(content)) {
       buildBlPdf(pdfDoc, content, leftMargin, pageWidth);
+    } else if (isCooContent(content)) {
+      buildCooPdf(pdfDoc, content, leftMargin, pageWidth);
     } else {
       buildGenericPdf(pdfDoc, content, leftMargin, pageWidth);
     }
