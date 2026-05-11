@@ -301,10 +301,47 @@ export default function DocumentGenerator() {
       const idx = line.indexOf(":");
       return idx >= 0 ? line.substring(idx + 1).trim() : "";
     };
-    const nameFromRange = (startIdx: number, endIdx: number) => {
-      const slice = lines.slice(startIdx + 1, endIdx > 0 ? endIdx : undefined);
-      return slice.find(l => l.trim() && !l.includes(":"))?.trim() || "";
+    const applicantIdx = findSectionIdx("APPLICANT (BUYER)");
+    const beneficiaryIdx = findSectionIdx("BENEFICIARY (SELLER)");
+    const advisingIdx = findSectionIdx("ADVISING BANK");
+    const lcDetailsIdx = findSectionIdx("LC DETAILS");
+    const issuingIdx = findSectionIdx("ISSUING BANK");
+
+    const endOf = (idx: number, ...candidates: number[]) => {
+      const nexts = candidates.filter(c => c > idx);
+      return nexts.length > 0 ? Math.min(...nexts) : lines.length;
     };
+
+    const bName = extractFromRange(applicantIdx, endOf(applicantIdx, beneficiaryIdx, advisingIdx, lcDetailsIdx), "Company");
+    if (bName) setBuyerName(bName);
+    const bAddr = extractFromRange(applicantIdx, endOf(applicantIdx, beneficiaryIdx, advisingIdx, lcDetailsIdx), "Address");
+    if (bAddr) setBuyerAddress(bAddr);
+    const bContact = extractFromRange(applicantIdx, endOf(applicantIdx, beneficiaryIdx, advisingIdx, lcDetailsIdx), "Contact");
+    if (bContact) setBuyerContact(bContact);
+
+    const sName = extractFromRange(beneficiaryIdx, endOf(beneficiaryIdx, advisingIdx, lcDetailsIdx), "Company");
+    if (sName) setSellerName(sName);
+    const sAddr = extractFromRange(beneficiaryIdx, endOf(beneficiaryIdx, advisingIdx, lcDetailsIdx), "Address");
+    if (sAddr) setSellerAddress(sAddr);
+    const sContact = extractFromRange(beneficiaryIdx, endOf(beneficiaryIdx, advisingIdx, lcDetailsIdx), "Contact");
+    if (sContact) setSellerContact(sContact);
+
+    if (advisingIdx >= 0) {
+      const bankName = extractFromRange(advisingIdx, endOf(advisingIdx, lcDetailsIdx), "Bank Name");
+      if (bankName && bankName !== "_______________") setSellerBank(bankName);
+      const swift = extractFromRange(advisingIdx, endOf(advisingIdx, lcDetailsIdx), "SWIFT");
+      if (swift && swift !== "_______________") setSellerSwift(swift);
+    }
+
+    const lcNoLine = lines.find(l => l.trim().startsWith("LC Number:"));
+    if (lcNoLine) {
+      const val = lcNoLine.substring(lcNoLine.indexOf(":") + 1).trim();
+      if (val && val !== "_______________") setCiLcNo(val);
+    }
+    if (issuingIdx >= 0) {
+      const issuingBank = extractFromRange(issuingIdx, endOf(issuingIdx, applicantIdx, beneficiaryIdx), "Bank Name");
+      if (issuingBank && issuingBank !== "_______________") setCiLcBank(issuingBank);
+    }
 
     const commodity = extractAfter("Commodity: ");
     if (commodity) setCommodity(commodity);
@@ -325,43 +362,6 @@ export default function DocumentGenerator() {
     }
     const cur = extractAfter("Currency: ");
     if (cur) setCurrency(cur);
-
-    const applicantIdx = findSectionIdx("APPLICANT (BUYER)");
-    const beneficiaryIdx = findSectionIdx("BENEFICIARY (SELLER)");
-    const advisingIdx = findSectionIdx("ADVISING BANK");
-    const lcDetailsIdx = findSectionIdx("LC DETAILS");
-    const issuingIdx = findSectionIdx("ISSUING BANK");
-
-    const bName = nameFromRange(applicantIdx, beneficiaryIdx > applicantIdx ? beneficiaryIdx : lcDetailsIdx);
-    if (bName) setBuyerName(bName);
-    const bAddr = extractFromRange(applicantIdx, beneficiaryIdx > applicantIdx ? beneficiaryIdx : lcDetailsIdx, "Address");
-    if (bAddr) setBuyerAddress(bAddr);
-    const bContact = extractFromRange(applicantIdx, beneficiaryIdx > applicantIdx ? beneficiaryIdx : lcDetailsIdx, "Contact");
-    if (bContact) setBuyerContact(bContact);
-
-    const sName = nameFromRange(beneficiaryIdx, advisingIdx > beneficiaryIdx ? advisingIdx : lcDetailsIdx);
-    if (sName) setSellerName(sName);
-    const sAddr = extractFromRange(beneficiaryIdx, advisingIdx > beneficiaryIdx ? advisingIdx : lcDetailsIdx, "Address");
-    if (sAddr) setSellerAddress(sAddr);
-    const sContact = extractFromRange(beneficiaryIdx, advisingIdx > beneficiaryIdx ? advisingIdx : lcDetailsIdx, "Contact");
-    if (sContact) setSellerContact(sContact);
-
-    if (advisingIdx >= 0) {
-      const bankName = extractFromRange(advisingIdx, lcDetailsIdx, "Bank Name");
-      if (bankName) setSellerBank(bankName);
-      const swift = extractFromRange(advisingIdx, lcDetailsIdx, "SWIFT");
-      if (swift) setSellerSwift(swift);
-    }
-
-    const lcNoLine = lines.find(l => l.trim().startsWith("LC Number:"));
-    if (lcNoLine) {
-      const val = lcNoLine.substring(lcNoLine.indexOf(":") + 1).trim();
-      if (val && val !== "_______________") setCiLcNo(val);
-    }
-    if (issuingIdx >= 0) {
-      const issuingBank = extractFromRange(issuingIdx, applicantIdx > issuingIdx ? applicantIdx : beneficiaryIdx, "Bank Name");
-      if (issuingBank && issuingBank !== "_______________") setCiLcBank(issuingBank);
-    }
 
     const payTerms = extractAfter("Payment Terms: ");
     if (payTerms) setPaymentTerms(payTerms);

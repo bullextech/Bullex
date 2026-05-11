@@ -1405,26 +1405,21 @@ function parseCiContent(content: string): CiData {
   const shipIdx = findSectionIdx("SHIPMENT DETAILS");
 
   const extractFromRange = (startIdx: number, endIdx: number, label: string): string => {
-    const slice = lines.slice(startIdx + 1, endIdx > 0 ? endIdx : undefined);
+    const end = endIdx > 0 ? endIdx : lines.length;
+    const slice = lines.slice(startIdx + 1, end);
     const line = slice.find(l => l.trimStart().startsWith(label));
     if (!line) return "_______________";
     const idx = line.indexOf(":");
     return idx >= 0 ? line.substring(idx + 1).trim() : "_______________";
   };
 
-  const nameFromRange = (startIdx: number, endIdx: number): string => {
-    const slice = lines.slice(startIdx + 1, endIdx > 0 ? endIdx : undefined);
-    const nameLine = slice.find(l => l.trim() && !l.includes(":") && !l.match(/^[=─]+$/));
-    return nameLine?.trim() || "_______________";
-  };
-
-  const sellerName = nameFromRange(sellerIdx, buyerIdx);
+  const sellerName = extractFromRange(sellerIdx, buyerIdx, "Company");
   const sellerAddr = extractFromRange(sellerIdx, buyerIdx, "Address");
   const sellerContact = extractFromRange(sellerIdx, buyerIdx, "Contact");
   const sellerBank = extractFromRange(sellerIdx, buyerIdx, "Bank");
   const sellerSwift = extractFromRange(sellerIdx, buyerIdx, "SWIFT");
 
-  const buyerName = nameFromRange(buyerIdx, lcIdx);
+  const buyerName = extractFromRange(buyerIdx, lcIdx, "Company");
   const buyerAddr = extractFromRange(buyerIdx, lcIdx, "Address");
   const buyerContact = extractFromRange(buyerIdx, lcIdx, "Contact");
 

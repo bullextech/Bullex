@@ -1461,34 +1461,34 @@ IT IS HEREBY CERTIFIED THAT TO THE BEST OF OUR KNOWLEDGE AND BELIEF THE ABOVE ME
     const totalAmount = v(product?.qualityPremiums);
     const dateStr = today();
     return `COMMERCIAL INVOICE
-${"=".repeat(60)}
+${"=".repeat(40)}
 
-Invoice No.:         ${invoiceNo}
-Invoice Date:        ${dateStr}
+Invoice No.: ${invoiceNo}
+Invoice Date: ${dateStr}
 
 SELLER (BENEFICIARY)
-${sellerName}
-Address:  ${sellerAddr}
-Contact:  ${sellerContact}
-Bank:     ${sellerBank}
-SWIFT:    ${sellerSwift}
+Company: ${sellerName}
+Address: ${sellerAddr}
+Contact: ${sellerContact}
+Bank: ${sellerBank}
+SWIFT: ${sellerSwift}
 
 BUYER (APPLICANT)
-${buyerName}
-Address:  ${buyerAddr}
-Contact:  ${buyerContact}
+Company: ${buyerName}
+Address: ${buyerAddr}
+Contact: ${buyerContact}
 
 LETTER OF CREDIT DETAILS
-LC Number:       ${lcNo}
+LC Number: ${lcNo}
 LC Issuing Bank: ${lcBank}
 
 SHIPMENT DETAILS
-Vessel:              ${vessel}
-Voyage No.:          ${voyage}
-Port of Loading:     ${pol}
-Port of Discharge:   ${pod}
-Country of Origin:   ${origin}
-B/L No. & Date:      ${blNo} & DATED ${blDate}
+Vessel: ${vessel}
+Voyage No.: ${voyage}
+Port of Loading: ${pol}
+Port of Discharge: ${pod}
+Country of Origin: ${origin}
+B/L No. & Date: ${blNo} & DATED ${blDate}
 
 DESCRIPTION OF GOODS
 | Commodity | Quantity (MT) | Unit Price (${currency}/MT) | Total Amount (${currency}) |
@@ -1502,9 +1502,9 @@ Payment Terms: ${paymentTerms}
 
 FOR AND ON BEHALF OF ${sellerName}
 Authorised Signatory
-Name:  _______________
+Name: _______________
 Title: _______________
-Date:  ${dateStr}
+Date: ${dateStr}
 Signature & Stamp: _______________`;
   },
 
