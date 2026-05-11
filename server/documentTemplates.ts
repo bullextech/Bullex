@@ -1433,6 +1433,81 @@ IT IS HEREBY CERTIFIED THAT TO THE BEST OF OUR KNOWLEDGE AND BELIEF THE ABOVE ME
 `;
   },
 
+  CI: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const sellerName = v(seller?.name, trade?.sellerName);
+    const sellerAddr = v(seller?.address);
+    const sellerContact = v(seller?.contact);
+    const sellerBank = v(seller?.bank);
+    const sellerSwift = v(seller?.swift);
+    const buyerName = v(buyer?.name, trade?.buyerName);
+    const buyerAddr = v(buyer?.address);
+    const buyerContact = v(buyer?.contact);
+    const commodity = v(product?.commodity, trade?.commodity);
+    const quantity = v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined);
+    const origin = v(product?.origin, trade?.origin);
+    const pol = v(product?.loadingPort, trade?.origin);
+    const pod = v(product?.dischargePort, trade?.destination);
+    const unitPrice = v(product?.price, trade ? `${trade.pricePerUnit}` : undefined);
+    const currency = product?.currency || trade?.currency || "USD";
+    const paymentTerms = v(product?.paymentTerms);
+    const invoiceNo = product?.loiIssueNumber || `CI-${new Date().getFullYear()}-001`;
+    const vessel = v(product?.vesselName);
+    const voyage = v(product?.laycan);
+    const blDate = v(product?.charterPartyDate);
+    const blNo = product?.packing || "01";
+    const lcNo = v(product?.specialNote);
+    const lcBank = v(product?.annexSpecs);
+    const tolerance = product?.validity || "+/- 10%";
+    const totalAmount = v(product?.qualityPremiums);
+    const dateStr = today();
+    return `COMMERCIAL INVOICE
+${"=".repeat(60)}
+
+Invoice No.:         ${invoiceNo}
+Invoice Date:        ${dateStr}
+
+SELLER (BENEFICIARY)
+${sellerName}
+Address:  ${sellerAddr}
+Contact:  ${sellerContact}
+Bank:     ${sellerBank}
+SWIFT:    ${sellerSwift}
+
+BUYER (APPLICANT)
+${buyerName}
+Address:  ${buyerAddr}
+Contact:  ${buyerContact}
+
+LETTER OF CREDIT DETAILS
+LC Number:       ${lcNo}
+LC Issuing Bank: ${lcBank}
+
+SHIPMENT DETAILS
+Vessel:              ${vessel}
+Voyage No.:          ${voyage}
+Port of Loading:     ${pol}
+Port of Discharge:   ${pod}
+Country of Origin:   ${origin}
+B/L No. & Date:      ${blNo} & DATED ${blDate}
+
+DESCRIPTION OF GOODS
+| Commodity | Quantity (MT) | Unit Price (${currency}/MT) | Total Amount (${currency}) |
+| ${commodity} | ${quantity} MT | ${currency} ${unitPrice}/MT | ${currency} ${totalAmount} |
+
+Tolerance: ${tolerance}
+
+TOTAL INVOICE VALUE: ${currency} ${totalAmount}
+
+Payment Terms: ${paymentTerms}
+
+FOR AND ON BEHALF OF ${sellerName}
+Authorised Signatory
+Name:  _______________
+Title: _______________
+Date:  ${dateStr}
+Signature & Stamp: _______________`;
+  },
+
   LC: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `LETTER OF CREDIT (LC)
 ${"=".repeat(40)}
 

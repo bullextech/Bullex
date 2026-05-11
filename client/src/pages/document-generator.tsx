@@ -87,6 +87,7 @@ const docTypes = [
   { value: "COO", label: "Certificate of Origin", short: "COO", description: "Certified declaration of the country of origin of the shipped goods, linked to the corresponding Bill of Lading", icon: FileCheck },
   { value: "COA", label: "Certificate of Quality", short: "COA", description: "Independent quality inspection certificate with chemical analysis, moisture content and physical size results, auto-filled from the corresponding LC", icon: FileCheck },
   { value: "COW", label: "Certificate of Weight", short: "COW", description: "Draft survey weight certificate issued at loading port confirming wet and dry metric tons, auto-filled from the corresponding LC", icon: FileCheck },
+  { value: "CI", label: "Commercial Invoice", short: "CI", description: "Provisional commercial invoice showing seller/buyer details, shipment info, commodity quantity & price table, and total invoice value — auto-filled from the corresponding LC", icon: BadgeDollarSign },
 ];
 
 export default function DocumentGenerator() {
@@ -186,6 +187,16 @@ export default function DocumentGenerator() {
   const [coaMoisture, setCoaMoisture] = useState("");
   const [coaPhysicalSizes, setCoaPhysicalSizes] = useState("");
   const [coaPacking, setCoaPacking] = useState("");
+  const [ciLinkedLcId, setCiLinkedLcId] = useState("");
+  const [ciInvoiceNo, setCiInvoiceNo] = useState("");
+  const [ciVessel, setCiVessel] = useState("");
+  const [ciVoyage, setCiVoyage] = useState("");
+  const [ciBlNo, setCiBlNo] = useState("");
+  const [ciBlDate, setCiBlDate] = useState("");
+  const [ciLcNo, setCiLcNo] = useState("");
+  const [ciLcBank, setCiLcBank] = useState("");
+  const [ciTolerance, setCiTolerance] = useState("+/- 10%");
+  const [ciTotalAmount, setCiTotalAmount] = useState("");
   const [cowLinkedLcId, setCowLinkedLcId] = useState("");
   const [cowCertNo, setCowCertNo] = useState("");
   const [cowVessel, setCowVessel] = useState("");
@@ -275,6 +286,89 @@ export default function DocumentGenerator() {
     toast({ title: "Fields auto-filled", description: `Loaded from BL: ${blDoc.title}` });
   };
 
+  const fillCiFromLc = (lcDoc: Doc) => {
+    const content = lcDoc.content || "";
+    const lines = content.split("\n");
+    const extractAfter = (prefix: string) => {
+      const line = lines.find(l => l.trim().startsWith(prefix));
+      return line ? line.substring(line.indexOf(prefix) + prefix.length).trim() : "";
+    };
+    const findSectionIdx = (header: string) => lines.findIndex(l => l.trim() === header);
+    const extractFromRange = (startIdx: number, endIdx: number, prefix: string) => {
+      const slice = lines.slice(startIdx + 1, endIdx > 0 ? endIdx : undefined);
+      const line = slice.find(l => l.trim().startsWith(prefix));
+      if (!line) return "";
+      const idx = line.indexOf(":");
+      return idx >= 0 ? line.substring(idx + 1).trim() : "";
+    };
+    const nameFromRange = (startIdx: number, endIdx: number) => {
+      const slice = lines.slice(startIdx + 1, endIdx > 0 ? endIdx : undefined);
+      return slice.find(l => l.trim() && !l.includes(":"))?.trim() || "";
+    };
+
+    const commodity = extractAfter("Commodity: ");
+    if (commodity) setCommodity(commodity);
+    const qty = extractAfter("Quantity: ");
+    if (qty) setQuantity(qty);
+    const origin = extractAfter("Origin: ");
+    if (origin) setOrigin(origin);
+    const pol = extractAfter("Port of Loading: ");
+    if (pol) setLoadingPort(pol);
+    const pod = extractAfter("Port of Discharge: ");
+    if (pod) setDischargePort(pod);
+
+    const rawUnitPrice = extractAfter("Unit Price: ");
+    if (rawUnitPrice) {
+      const parts = rawUnitPrice.trim().split(" ");
+      if (parts.length >= 2) { setCurrency(parts[0]); setPrice(parts[1]); }
+      else setPrice(rawUnitPrice);
+    }
+    const cur = extractAfter("Currency: ");
+    if (cur) setCurrency(cur);
+
+    const applicantIdx = findSectionIdx("APPLICANT (BUYER)");
+    const beneficiaryIdx = findSectionIdx("BENEFICIARY (SELLER)");
+    const advisingIdx = findSectionIdx("ADVISING BANK");
+    const lcDetailsIdx = findSectionIdx("LC DETAILS");
+    const issuingIdx = findSectionIdx("ISSUING BANK");
+
+    const bName = nameFromRange(applicantIdx, beneficiaryIdx > applicantIdx ? beneficiaryIdx : lcDetailsIdx);
+    if (bName) setBuyerName(bName);
+    const bAddr = extractFromRange(applicantIdx, beneficiaryIdx > applicantIdx ? beneficiaryIdx : lcDetailsIdx, "Address");
+    if (bAddr) setBuyerAddress(bAddr);
+    const bContact = extractFromRange(applicantIdx, beneficiaryIdx > applicantIdx ? beneficiaryIdx : lcDetailsIdx, "Contact");
+    if (bContact) setBuyerContact(bContact);
+
+    const sName = nameFromRange(beneficiaryIdx, advisingIdx > beneficiaryIdx ? advisingIdx : lcDetailsIdx);
+    if (sName) setSellerName(sName);
+    const sAddr = extractFromRange(beneficiaryIdx, advisingIdx > beneficiaryIdx ? advisingIdx : lcDetailsIdx, "Address");
+    if (sAddr) setSellerAddress(sAddr);
+    const sContact = extractFromRange(beneficiaryIdx, advisingIdx > beneficiaryIdx ? advisingIdx : lcDetailsIdx, "Contact");
+    if (sContact) setSellerContact(sContact);
+
+    if (advisingIdx >= 0) {
+      const bankName = extractFromRange(advisingIdx, lcDetailsIdx, "Bank Name");
+      if (bankName) setSellerBank(bankName);
+      const swift = extractFromRange(advisingIdx, lcDetailsIdx, "SWIFT");
+      if (swift) setSellerSwift(swift);
+    }
+
+    const lcNoLine = lines.find(l => l.trim().startsWith("LC Number:"));
+    if (lcNoLine) {
+      const val = lcNoLine.substring(lcNoLine.indexOf(":") + 1).trim();
+      if (val && val !== "_______________") setCiLcNo(val);
+    }
+    if (issuingIdx >= 0) {
+      const issuingBank = extractFromRange(issuingIdx, applicantIdx > issuingIdx ? applicantIdx : beneficiaryIdx, "Bank Name");
+      if (issuingBank && issuingBank !== "_______________") setCiLcBank(issuingBank);
+    }
+
+    const payTerms = extractAfter("Payment Terms: ");
+    if (payTerms) setPaymentTerms(payTerms);
+
+    toast({ title: "Fields auto-filled", description: `Loaded from LC: ${lcDoc.title}` });
+  };
+
   const fillCowFromLc = (lcDoc: Doc) => {
     const content = lcDoc.content || "";
     const lines = content.split("\n");
@@ -347,6 +441,8 @@ export default function DocumentGenerator() {
     setCoaInspPeriod(""); setCoaLoadPeriod(""); setCoaChemSpecs(""); setCoaMoisture(""); setCoaPhysicalSizes(""); setCoaPacking("");
     setCowLinkedLcId(""); setCowCertNo(""); setCowVessel(""); setCowBlDate("");
     setCowLoadPeriod(""); setCowMoisture(""); setCowDryQty(""); setCowPacking("");
+    setCiLinkedLcId(""); setCiInvoiceNo(""); setCiVessel(""); setCiVoyage(""); setCiBlNo(""); setCiBlDate("");
+    setCiLcNo(""); setCiLcBank(""); setCiTolerance("+/- 10%"); setCiTotalAmount("");
     setReviewContent(null);
   };
 
@@ -369,21 +465,22 @@ export default function DocumentGenerator() {
       analysisAgency, analysisAgencyContact, refPerson,
       contractConfirmation, docsForPayment, otherTerms, compliance,
       recapValidity, deliveryBasis, loadingWindow, shippingTerms,
-      governingLaw, qualityPremiums,
+      governingLaw,
       qualitySpecs: selectedType?.value === "COA" ? coaChemSpecs : qualitySpecs,
-      specialNote: selectedType?.value === "COA" ? coaMoisture : selectedType?.value === "COW" ? cowMoisture : specialNote,
-      annexSpecs: selectedType?.value === "COA" ? coaPhysicalSizes : selectedType?.value === "COW" ? cowDryQty : annexSpecs,
-      laycan: selectedType?.value === "COA" ? coaInspPeriod : selectedType?.value === "COW" ? cowLoadPeriod : laycan,
-      validity: selectedType?.value === "COA" ? coaLoadPeriod : validity,
-      vesselName: selectedType?.value === "COA" ? coaVessel : selectedType?.value === "COW" ? cowVessel : blVesselName,
+      specialNote: selectedType?.value === "COA" ? coaMoisture : selectedType?.value === "COW" ? cowMoisture : selectedType?.value === "CI" ? ciLcNo : specialNote,
+      annexSpecs: selectedType?.value === "COA" ? coaPhysicalSizes : selectedType?.value === "COW" ? cowDryQty : selectedType?.value === "CI" ? ciLcBank : annexSpecs,
+      laycan: selectedType?.value === "COA" ? coaInspPeriod : selectedType?.value === "COW" ? cowLoadPeriod : selectedType?.value === "CI" ? ciVoyage : laycan,
+      validity: selectedType?.value === "COA" ? coaLoadPeriod : selectedType?.value === "CI" ? ciTolerance : validity,
+      vesselName: selectedType?.value === "COA" ? coaVessel : selectedType?.value === "COW" ? cowVessel : selectedType?.value === "CI" ? ciVessel : blVesselName,
       notifyParty: blNotifyParty,
-      packing: selectedType?.value === "COA" ? coaPacking : selectedType?.value === "COW" ? cowPacking : blPacking,
-      charterPartyDate: selectedType?.value === "COA" ? coaBlDate : selectedType?.value === "COW" ? cowBlDate : blCharterPartyDate,
+      packing: selectedType?.value === "COA" ? coaPacking : selectedType?.value === "COW" ? cowPacking : selectedType?.value === "CI" ? ciBlNo : blPacking,
+      charterPartyDate: selectedType?.value === "COA" ? coaBlDate : selectedType?.value === "COW" ? cowBlDate : selectedType?.value === "CI" ? ciBlDate : blCharterPartyDate,
+      qualityPremiums: selectedType?.value === "CI" ? ciTotalAmount : qualityPremiums,
       freightAdvance: blFreightAdvance,
       loadingTimeDays: blLoadingTimeDays, loadingTimeHours: blLoadingTimeHours,
       placeOfIssue: blPlaceOfIssue, dateOfIssue: blDateOfIssue,
       companyOnBehalf: blCompanyOnBehalf, masterOfVessel: blMasterOfVessel, agentsName: blAgentsName,
-      loiIssueNumber: selectedType?.value === "COO" ? cooCertNo : selectedType?.value === "COA" ? coaCertNo : selectedType?.value === "COW" ? cowCertNo : loiIssueNumber,
+      loiIssueNumber: selectedType?.value === "COO" ? cooCertNo : selectedType?.value === "COA" ? coaCertNo : selectedType?.value === "COW" ? cowCertNo : selectedType?.value === "CI" ? ciInvoiceNo : loiIssueNumber,
     },
   });
 
@@ -2157,7 +2254,213 @@ export default function DocumentGenerator() {
               </div>
             </div>
           )}
-          {selectedType && !reviewContent && selectedType.value !== "DEAL_RECAP" && selectedType.value !== "LOI" && selectedType.value !== "NCNDA" && selectedType.value !== "BL" && selectedType.value !== "COO" && selectedType.value !== "COA" && selectedType.value !== "COW" && (
+          {selectedType && !reviewContent && selectedType.value === "CI" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">{selectedType.description}</p>
+              <div className="space-y-2">
+                <Label>Document Title *</Label>
+                <Input placeholder="Enter Commercial Invoice title" value={title} onChange={(e) => setTitle(e.target.value)} data-testid="input-ci-title" />
+              </div>
+
+              <div className="border rounded-md overflow-hidden">
+                <div className="grid grid-cols-[160px_1fr] text-xs bg-muted/60 font-semibold border-b">
+                  <div className="p-2 border-r">Field</div><div className="p-2">Value</div>
+                </div>
+                <div className="grid grid-cols-[160px_1fr] border-b">
+                  <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center gap-1"><Landmark className="w-3 h-3" /> Linked LC</div>
+                  <div className="p-1">
+                    {docs && docs.filter(d => d.docType === "LC").length > 0 ? (
+                      <Select value={ciLinkedLcId} onValueChange={(val) => {
+                        setCiLinkedLcId(val);
+                        const lcDoc = docs?.find(d => d.id === val);
+                        if (lcDoc) fillCiFromLc(lcDoc);
+                      }}>
+                        <SelectTrigger className="h-8 text-xs" data-testid="select-ci-lc"><SelectValue placeholder="Select LC to auto-fill fields..." /></SelectTrigger>
+                        <SelectContent>
+                          {docs?.filter(d => d.docType === "LC").map(d => (
+                            <SelectItem key={d.id} value={d.id}>{d.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="text-xs text-muted-foreground p-1">No LC documents found — fill fields manually below</p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-[160px_1fr]">
+                  <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Invoice No.</div>
+                  <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder={`CI-${new Date().getFullYear()}-001`} value={ciInvoiceNo} onChange={(e) => setCiInvoiceNo(e.target.value)} data-testid="input-ci-invoice-no" /></div>
+                </div>
+              </div>
+
+              <Accordion type="multiple" defaultValue={["parties","lc","shipment","goods"]} className="w-full">
+
+                <AccordionItem value="parties" className="border rounded-md mb-2">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                    <span className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> Seller & Buyer</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3 space-y-3">
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="grid grid-cols-[160px_1fr] text-xs bg-muted/60 font-semibold border-b">
+                        <div className="p-2 border-r">Seller (Beneficiary)</div><div className="p-2">Value</div>
+                      </div>
+                      {approvedClients.length > 0 && (
+                        <div className="grid grid-cols-[160px_1fr] border-b">
+                          <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Auto-fill from KYC</div>
+                          <div className="p-1">
+                            <Select onValueChange={(val) => { const kyc = approvedClients.find(k => k.id === val); if (kyc) fillFromKyc(kyc, "seller"); }}>
+                              <SelectTrigger className="h-7 text-xs" data-testid="select-ci-seller-kyc"><SelectValue placeholder="Select registered entity..." /></SelectTrigger>
+                              <SelectContent>{approvedClients.map((k) => (<SelectItem key={k.id} value={k.id}>{k.companyName}</SelectItem>))}</SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )}
+                      {[
+                        { label: "Company Name", val: sellerName, set: setSellerName, ph: "Seller company name", tid: "input-ci-seller-name" },
+                        { label: "Address", val: sellerAddress, set: setSellerAddress, ph: "Seller address", tid: "input-ci-seller-addr" },
+                        { label: "Contact", val: sellerContact, set: setSellerContact, ph: "Contact email / phone", tid: "input-ci-seller-contact" },
+                        { label: "Bank", val: sellerBank, set: setSellerBank, ph: "Seller bank name", tid: "input-ci-seller-bank" },
+                        { label: "SWIFT", val: sellerSwift, set: setSellerSwift, ph: "SWIFT/BIC code", tid: "input-ci-seller-swift" },
+                      ].map(({ label, val, set, ph, tid }, i, arr) => (
+                        <div key={tid} className={`grid grid-cols-[160px_1fr]${i < arr.length - 1 ? " border-b" : ""}`}>
+                          <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">{label}</div>
+                          <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder={ph} value={val} onChange={(e) => set(e.target.value)} data-testid={tid} /></div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="grid grid-cols-[160px_1fr] text-xs bg-muted/60 font-semibold border-b">
+                        <div className="p-2 border-r">Buyer (Applicant)</div><div className="p-2">Value</div>
+                      </div>
+                      {approvedClients.length > 0 && (
+                        <div className="grid grid-cols-[160px_1fr] border-b">
+                          <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Auto-fill from KYC</div>
+                          <div className="p-1">
+                            <Select onValueChange={(val) => { const kyc = approvedClients.find(k => k.id === val); if (kyc) fillFromKyc(kyc, "buyer"); }}>
+                              <SelectTrigger className="h-7 text-xs" data-testid="select-ci-buyer-kyc"><SelectValue placeholder="Select registered entity..." /></SelectTrigger>
+                              <SelectContent>{approvedClients.map((k) => (<SelectItem key={k.id} value={k.id}>{k.companyName}</SelectItem>))}</SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )}
+                      {[
+                        { label: "Company Name", val: buyerName, set: setBuyerName, ph: "Buyer company name", tid: "input-ci-buyer-name" },
+                        { label: "Address", val: buyerAddress, set: setBuyerAddress, ph: "Buyer address", tid: "input-ci-buyer-addr" },
+                        { label: "Contact", val: buyerContact, set: setBuyerContact, ph: "Contact email / phone", tid: "input-ci-buyer-contact" },
+                      ].map(({ label, val, set, ph, tid }, i, arr) => (
+                        <div key={tid} className={`grid grid-cols-[160px_1fr]${i < arr.length - 1 ? " border-b" : ""}`}>
+                          <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">{label}</div>
+                          <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder={ph} value={val} onChange={(e) => set(e.target.value)} data-testid={tid} /></div>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="lc" className="border rounded-md mb-2">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                    <span className="flex items-center gap-1.5"><Landmark className="w-3.5 h-3.5" /> LC Details</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="grid grid-cols-[160px_1fr] text-xs bg-muted/60 font-semibold border-b">
+                        <div className="p-2 border-r">Field</div><div className="p-2">Value</div>
+                      </div>
+                      <div className="grid grid-cols-[160px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">LC Number</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. LC-2026-00123" value={ciLcNo} onChange={(e) => setCiLcNo(e.target.value)} data-testid="input-ci-lc-no" /></div>
+                      </div>
+                      <div className="grid grid-cols-[160px_1fr]">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">LC Issuing Bank</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. HSBC Bank" value={ciLcBank} onChange={(e) => setCiLcBank(e.target.value)} data-testid="input-ci-lc-bank" /></div>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="shipment" className="border rounded-md mb-2">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                    <span className="flex items-center gap-1.5"><Ship className="w-3.5 h-3.5" /> Shipment Details</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="grid grid-cols-[160px_1fr] text-xs bg-muted/60 font-semibold border-b">
+                        <div className="p-2 border-r">Field</div><div className="p-2">Value</div>
+                      </div>
+                      {[
+                        { label: "Commodity", val: commodity, set: setCommodity, ph: "e.g. Iron Ore", tid: "input-ci-commodity" },
+                        { label: "Quantity (MT)", val: quantity, set: setQuantity, ph: "e.g. 200,000", tid: "input-ci-quantity" },
+                        { label: "Country of Origin", val: origin, set: setOrigin, ph: "e.g. Guinea", tid: "input-ci-origin" },
+                        { label: "Port of Loading", val: loadingPort, set: setLoadingPort, ph: "e.g. Conakry, Guinea", tid: "input-ci-pol" },
+                        { label: "Port of Discharge", val: dischargePort, set: setDischargePort, ph: "e.g. Port Klang, Malaysia", tid: "input-ci-pod" },
+                        { label: "Vessel Name", val: ciVessel, set: setCiVessel, ph: "e.g. MV BULLFROG STAR", tid: "input-ci-vessel" },
+                        { label: "Voyage No.", val: ciVoyage, set: setCiVoyage, ph: "e.g. V001E", tid: "input-ci-voyage" },
+                        { label: "B/L No.", val: ciBlNo, set: setCiBlNo, ph: "e.g. 01", tid: "input-ci-bl-no" },
+                        { label: "B/L Date", val: ciBlDate, set: setCiBlDate, ph: "e.g. 10.05.2026", tid: "input-ci-bl-date" },
+                      ].map(({ label, val, set, ph, tid }, i, arr) => (
+                        <div key={tid} className={`grid grid-cols-[160px_1fr]${i < arr.length - 1 ? " border-b" : ""}`}>
+                          <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">{label}</div>
+                          <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder={ph} value={val} onChange={(e) => set(e.target.value)} data-testid={tid} /></div>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="goods" className="border rounded-md mb-2">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                    <span className="flex items-center gap-1.5"><BadgeDollarSign className="w-3.5 h-3.5" /> Goods & Invoice Value</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="grid grid-cols-[160px_1fr] text-xs bg-muted/60 font-semibold border-b">
+                        <div className="p-2 border-r">Field</div><div className="p-2">Value</div>
+                      </div>
+                      <div className="grid grid-cols-[160px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Currency</div>
+                        <div className="p-1">
+                          <Select value={currency} onValueChange={setCurrency}>
+                            <SelectTrigger className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" data-testid="select-ci-currency"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="USD">USD</SelectItem>
+                              <SelectItem value="EUR">EUR</SelectItem>
+                              <SelectItem value="GBP">GBP</SelectItem>
+                              <SelectItem value="AED">AED</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-[160px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Unit Price (/MT)</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. 50.00" value={price} onChange={(e) => setPrice(e.target.value)} data-testid="input-ci-unit-price" /></div>
+                      </div>
+                      <div className="grid grid-cols-[160px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Total Amount</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. 10,000,000.00" value={ciTotalAmount} onChange={(e) => setCiTotalAmount(e.target.value)} data-testid="input-ci-total-amount" /></div>
+                      </div>
+                      <div className="grid grid-cols-[160px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Tolerance</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="+/- 10%" value={ciTolerance} onChange={(e) => setCiTolerance(e.target.value)} data-testid="input-ci-tolerance" /></div>
+                      </div>
+                      <div className="grid grid-cols-[160px_1fr]">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Payment Terms</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. 100% LC at sight" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} data-testid="input-ci-payment-terms" /></div>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+              </Accordion>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <Button variant="outline" size="sm" onClick={() => previewDoc.mutate(buildPayload())} disabled={!title || previewDoc.isPending} data-testid="button-review-ci">
+                  <Eye className="w-3.5 h-3.5 mr-1.5" />
+                  {previewDoc.isPending ? "Loading Preview..." : "Review CI"}
+                </Button>
+              </div>
+            </div>
+          )}
+          {selectedType && !reviewContent && selectedType.value !== "DEAL_RECAP" && selectedType.value !== "LOI" && selectedType.value !== "NCNDA" && selectedType.value !== "BL" && selectedType.value !== "COO" && selectedType.value !== "COA" && selectedType.value !== "COW" && selectedType.value !== "CI" && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">{selectedType.description}</p>
 

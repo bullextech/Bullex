@@ -1354,6 +1354,304 @@ function buildCowPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
   doc.font(mono).fontSize(7).text("This certificate contains only one page.", x, doc.y);
 }
 
+function isCiContent(content: string): boolean {
+  return content.trimStart().startsWith("COMMERCIAL INVOICE") && content.includes("SELLER (BENEFICIARY)");
+}
+
+interface CiData {
+  invoiceNo: string;
+  date: string;
+  sellerName: string;
+  sellerAddr: string;
+  sellerContact: string;
+  sellerBank: string;
+  sellerSwift: string;
+  buyerName: string;
+  buyerAddr: string;
+  buyerContact: string;
+  lcNo: string;
+  lcBank: string;
+  vessel: string;
+  voyage: string;
+  portOfLoading: string;
+  portOfDischarge: string;
+  origin: string;
+  blNo: string;
+  blDate: string;
+  commodity: string;
+  quantity: string;
+  unitPrice: string;
+  currency: string;
+  totalAmount: string;
+  tolerance: string;
+  paymentTerms: string;
+}
+
+function parseCiContent(content: string): CiData {
+  const lines = content.split("\n");
+
+  const extractColon = (label: string): string => {
+    const line = lines.find(l => l.trimStart().startsWith(label));
+    if (!line) return "_______________";
+    const idx = line.indexOf(":");
+    return idx >= 0 ? line.substring(idx + 1).trim() : "_______________";
+  };
+
+  const findSectionIdx = (header: string): number => lines.findIndex(l => l.trim() === header);
+
+  const sellerIdx = findSectionIdx("SELLER (BENEFICIARY)");
+  const buyerIdx = findSectionIdx("BUYER (APPLICANT)");
+  const lcIdx = findSectionIdx("LETTER OF CREDIT DETAILS");
+  const shipIdx = findSectionIdx("SHIPMENT DETAILS");
+
+  const extractFromRange = (startIdx: number, endIdx: number, label: string): string => {
+    const slice = lines.slice(startIdx + 1, endIdx > 0 ? endIdx : undefined);
+    const line = slice.find(l => l.trimStart().startsWith(label));
+    if (!line) return "_______________";
+    const idx = line.indexOf(":");
+    return idx >= 0 ? line.substring(idx + 1).trim() : "_______________";
+  };
+
+  const nameFromRange = (startIdx: number, endIdx: number): string => {
+    const slice = lines.slice(startIdx + 1, endIdx > 0 ? endIdx : undefined);
+    const nameLine = slice.find(l => l.trim() && !l.includes(":") && !l.match(/^[=─]+$/));
+    return nameLine?.trim() || "_______________";
+  };
+
+  const sellerName = nameFromRange(sellerIdx, buyerIdx);
+  const sellerAddr = extractFromRange(sellerIdx, buyerIdx, "Address");
+  const sellerContact = extractFromRange(sellerIdx, buyerIdx, "Contact");
+  const sellerBank = extractFromRange(sellerIdx, buyerIdx, "Bank");
+  const sellerSwift = extractFromRange(sellerIdx, buyerIdx, "SWIFT");
+
+  const buyerName = nameFromRange(buyerIdx, lcIdx);
+  const buyerAddr = extractFromRange(buyerIdx, lcIdx, "Address");
+  const buyerContact = extractFromRange(buyerIdx, lcIdx, "Contact");
+
+  const lcNo = extractFromRange(lcIdx, shipIdx, "LC Number");
+  const lcBank = extractFromRange(lcIdx, shipIdx, "LC Issuing Bank");
+
+  const vessel = extractColon("Vessel");
+  const voyage = extractColon("Voyage No.");
+  const pol = extractColon("Port of Loading");
+  const pod = extractColon("Port of Discharge");
+  const origin = extractColon("Country of Origin");
+
+  const blRaw = extractColon("B/L No. & Date");
+  const blParts = blRaw.split("&");
+  const blNo = blParts[0].trim() || "01";
+  const blDate = blParts.length > 1 ? blParts[1].replace(/DATED\s*/i, "").trim() : "_______________";
+
+  const goodsHeaderIdx = lines.findIndex(l => l.includes("| Commodity |"));
+  let commodity = "_______________", quantity = "_______________", unitPrice = "_______________", currency = "USD", totalAmount = "_______________";
+  if (goodsHeaderIdx >= 0 && goodsHeaderIdx + 1 < lines.length) {
+    const dataLine = lines[goodsHeaderIdx + 1];
+    const cells = dataLine.split("|").map(c => c.trim()).filter(Boolean);
+    if (cells.length >= 4) {
+      commodity = cells[0] || "_______________";
+      quantity = (cells[1] || "").replace(/\s*MT\s*$/i, "").trim() || "_______________";
+      const upMatch = (cells[2] || "").match(/^([A-Z]+)\s+(.+?)\/MT$/);
+      if (upMatch) { currency = upMatch[1]; unitPrice = upMatch[2]; }
+      const taMatch = (cells[3] || "").match(/^([A-Z]+)\s+(.+)$/);
+      if (taMatch) totalAmount = taMatch[2];
+    }
+  }
+
+  const tolerance = extractColon("Tolerance");
+  const paymentTerms = extractColon("Payment Terms");
+  const invoiceNo = extractColon("Invoice No.");
+  const date = extractColon("Invoice Date");
+
+  return { invoiceNo, date, sellerName, sellerAddr, sellerContact, sellerBank, sellerSwift, buyerName, buyerAddr, buyerContact, lcNo, lcBank, vessel, voyage, portOfLoading: pol, portOfDischarge: pod, origin, blNo, blDate, commodity, quantity, unitPrice, currency, totalAmount, tolerance, paymentTerms };
+}
+
+function buildCiDocx(content: string): (Paragraph | Table)[] {
+  const ci = parseCiContent(content);
+  const ch: (Paragraph | Table)[] = [];
+  const S = { style: BorderStyle.SINGLE as const, size: 4, color: "000000" };
+  const BB = { top: S, bottom: S, left: S, right: S };
+  const NB = { top: { style: BorderStyle.NONE as const, size: 0, color: "FFFFFF" }, bottom: { style: BorderStyle.NONE as const, size: 0, color: "FFFFFF" }, left: { style: BorderStyle.NONE as const, size: 0, color: "FFFFFF" }, right: { style: BorderStyle.NONE as const, size: 0, color: "FFFFFF" } };
+
+  const p = (text: string, opts: { bold?: boolean; size?: number; align?: (typeof AlignmentType)[keyof typeof AlignmentType]; spaceBefore?: number; spaceAfter?: number } = {}) =>
+    new Paragraph({
+      children: [new TextRun({ text, bold: opts.bold || false, size: opts.size || 20, font: "Calibri" })],
+      alignment: opts.align,
+      spacing: { before: opts.spaceBefore || 0, after: opts.spaceAfter || 60 },
+    });
+
+  const cell = (paras: Paragraph[], w: number, shaded = false, borders = BB) => new TableCell({
+    children: paras,
+    borders,
+    width: { size: w, type: WidthType.DXA },
+    verticalAlign: VerticalAlign.TOP,
+    shading: shaded ? { fill: "F5F5F5", type: ShadingType.CLEAR } : undefined,
+  });
+
+  const row2 = (lbl: string, val: string) => new TableRow({
+    children: [
+      cell([new Paragraph({ children: [new TextRun({ text: lbl, bold: true, size: 18, font: "Calibri" })], spacing: { before: 40, after: 40 } })], 3000, true),
+      cell([new Paragraph({ children: [new TextRun({ text: val, size: 18, font: "Calibri" })], spacing: { before: 40, after: 40 } })], 6000),
+    ],
+  });
+
+  ch.push(p("COMMERCIAL INVOICE", { bold: true, size: 32, align: AlignmentType.CENTER, spaceAfter: 80 }));
+  ch.push(new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" } }, spacing: { after: 120 } }));
+
+  ch.push(new Table({
+    width: { size: 9000, type: WidthType.DXA },
+    rows: [
+      row2("Invoice No.", ci.invoiceNo),
+      row2("Invoice Date", ci.date),
+    ],
+  }));
+  ch.push(p("", { spaceAfter: 80 }));
+
+  const halfW = 4500;
+  const partyCell = (title: string, name: string, addr: string, contact: string, bank?: string, swift?: string) => {
+    const paras: Paragraph[] = [
+      new Paragraph({ children: [new TextRun({ text: title, bold: true, size: 18, font: "Calibri" })], spacing: { before: 40, after: 60 } }),
+      new Paragraph({ children: [new TextRun({ text: name, bold: true, size: 20, font: "Calibri" })], spacing: { before: 20, after: 40 } }),
+      new Paragraph({ children: [new TextRun({ text: `Address: ${addr}`, size: 17, font: "Calibri" })], spacing: { before: 20, after: 30 } }),
+      new Paragraph({ children: [new TextRun({ text: `Contact: ${contact}`, size: 17, font: "Calibri" })], spacing: { before: 20, after: 30 } }),
+    ];
+    if (bank) paras.push(new Paragraph({ children: [new TextRun({ text: `Bank: ${bank}`, size: 17, font: "Calibri" })], spacing: { before: 20, after: 30 } }));
+    if (swift) paras.push(new Paragraph({ children: [new TextRun({ text: `SWIFT: ${swift}`, size: 17, font: "Calibri" })], spacing: { before: 20, after: 40 } }));
+    return cell(paras, halfW, false, BB);
+  };
+
+  ch.push(new Table({
+    width: { size: 9000, type: WidthType.DXA },
+    rows: [new TableRow({ children: [partyCell("SELLER (BENEFICIARY)", ci.sellerName, ci.sellerAddr, ci.sellerContact, ci.sellerBank, ci.sellerSwift), partyCell("BUYER (APPLICANT)", ci.buyerName, ci.buyerAddr, ci.buyerContact)] })],
+  }));
+  ch.push(p("", { spaceAfter: 80 }));
+
+  ch.push(p("LETTER OF CREDIT DETAILS", { bold: true, size: 22, spaceAfter: 40 }));
+  ch.push(new Table({
+    width: { size: 9000, type: WidthType.DXA },
+    rows: [row2("LC Number", ci.lcNo), row2("LC Issuing Bank", ci.lcBank)],
+  }));
+  ch.push(p("", { spaceAfter: 80 }));
+
+  ch.push(p("SHIPMENT DETAILS", { bold: true, size: 22, spaceAfter: 40 }));
+  ch.push(new Table({
+    width: { size: 9000, type: WidthType.DXA },
+    rows: [
+      row2("Vessel", ci.vessel),
+      row2("Voyage No.", ci.voyage),
+      row2("Port of Loading", ci.portOfLoading),
+      row2("Port of Discharge", ci.portOfDischarge),
+      row2("Country of Origin", ci.origin),
+      row2("B/L No. & Date", `${ci.blNo} & DATED ${ci.blDate}`),
+    ],
+  }));
+  ch.push(p("", { spaceAfter: 80 }));
+
+  ch.push(p("DESCRIPTION OF GOODS", { bold: true, size: 22, spaceAfter: 40 }));
+  const colW = [2500, 1800, 2000, 2700];
+  const hdrCell = (text: string, w: number) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text, bold: true, size: 18, font: "Calibri" })], spacing: { before: 40, after: 40 } })], borders: BB, width: { size: w, type: WidthType.DXA }, shading: { fill: "E8E8E8", type: ShadingType.CLEAR } });
+  const dataCell = (text: string, w: number) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text, size: 18, font: "Calibri" })], spacing: { before: 40, after: 40 } })], borders: BB, width: { size: w, type: WidthType.DXA } });
+  ch.push(new Table({
+    width: { size: 9000, type: WidthType.DXA },
+    rows: [
+      new TableRow({ children: [hdrCell("Commodity", colW[0]), hdrCell("Quantity (MT)", colW[1]), hdrCell(`Unit Price (${ci.currency}/MT)`, colW[2]), hdrCell(`Total Amount (${ci.currency})`, colW[3])] }),
+      new TableRow({ children: [dataCell(ci.commodity, colW[0]), dataCell(`${ci.quantity} MT`, colW[1]), dataCell(`${ci.currency} ${ci.unitPrice}/MT`, colW[2]), dataCell(`${ci.currency} ${ci.totalAmount}`, colW[3])] }),
+    ],
+  }));
+  ch.push(p("", { spaceAfter: 40 }));
+  ch.push(p(`Tolerance: ${ci.tolerance}`, { spaceAfter: 40 }));
+  ch.push(p(`TOTAL INVOICE VALUE: ${ci.currency} ${ci.totalAmount}`, { bold: true, size: 22, spaceAfter: 40 }));
+  ch.push(p(`Payment Terms: ${ci.paymentTerms}`, { spaceAfter: 200 }));
+
+  ch.push(new Paragraph({ border: { top: { style: BorderStyle.SINGLE, size: 2, color: "AAAAAA" } }, spacing: { before: 200, after: 80 } }));
+  ch.push(p(`FOR AND ON BEHALF OF ${ci.sellerName}`, { bold: true, spaceAfter: 40 }));
+  ch.push(p("Authorised Signatory", { spaceAfter: 160 }));
+  ch.push(p("Name:  _______________", { spaceAfter: 40 }));
+  ch.push(p("Title: _______________", { spaceAfter: 40 }));
+  ch.push(p(`Date:  ${ci.date}`, { spaceAfter: 40 }));
+  ch.push(p("Signature & Stamp: _______________", { spaceAfter: 40 }));
+
+  return ch;
+}
+
+function buildCiPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: number, pageWidth: number) {
+  const ci = parseCiContent(content);
+  const x = leftMargin;
+  const W = pageWidth;
+
+  doc.font("Helvetica-Bold").fontSize(16).fillColor("#000000").text("COMMERCIAL INVOICE", x, doc.y, { width: W, align: "center" });
+  doc.moveDown(0.3);
+  const lineY = doc.y;
+  doc.moveTo(x, lineY).lineTo(x + W, lineY).stroke("#000000");
+  doc.moveDown(0.6);
+
+  drawPdf2ColTable(doc, [["Invoice No.", ci.invoiceNo], ["Invoice Date", ci.date]], x, W);
+  doc.moveDown(0.6);
+
+  const halfW = Math.floor(W / 2) - 5;
+  const rightX = x + halfW + 10;
+  const partyStartY = doc.y;
+
+  const renderPartyBlock = (xPos: number, title: string, name: string, addr: string, contact: string, bank?: string, swift?: string) => {
+    doc.font("Helvetica-Bold").fontSize(8).text(title, xPos, partyStartY, { width: halfW });
+    doc.font("Helvetica-Bold").fontSize(9).text(name, xPos, doc.y, { width: halfW });
+    doc.font("Helvetica").fontSize(8).text(`Address: ${addr}`, xPos, doc.y, { width: halfW });
+    doc.font("Helvetica").fontSize(8).text(`Contact: ${contact}`, xPos, doc.y, { width: halfW });
+    if (bank) doc.font("Helvetica").fontSize(8).text(`Bank: ${bank}`, xPos, doc.y, { width: halfW });
+    if (swift) doc.font("Helvetica").fontSize(8).text(`SWIFT: ${swift}`, xPos, doc.y, { width: halfW });
+  };
+
+  renderPartyBlock(x, "SELLER (BENEFICIARY)", ci.sellerName, ci.sellerAddr, ci.sellerContact, ci.sellerBank, ci.sellerSwift);
+  const sellerEndY = doc.y;
+  doc.y = partyStartY;
+  renderPartyBlock(rightX, "BUYER (APPLICANT)", ci.buyerName, ci.buyerAddr, ci.buyerContact);
+  doc.y = Math.max(sellerEndY, doc.y);
+  doc.x = x;
+  doc.moveDown(0.6);
+
+  doc.font("Helvetica-Bold").fontSize(10).text("LETTER OF CREDIT DETAILS", x, doc.y, { width: W });
+  doc.moveDown(0.3);
+  drawPdf2ColTable(doc, [["LC Number", ci.lcNo], ["LC Issuing Bank", ci.lcBank]], x, W);
+  doc.moveDown(0.6);
+
+  doc.font("Helvetica-Bold").fontSize(10).text("SHIPMENT DETAILS", x, doc.y, { width: W });
+  doc.moveDown(0.3);
+  drawPdf2ColTable(doc, [
+    ["Vessel", ci.vessel],
+    ["Voyage No.", ci.voyage],
+    ["Port of Loading", ci.portOfLoading],
+    ["Port of Discharge", ci.portOfDischarge],
+    ["Country of Origin", ci.origin],
+    ["B/L No. & Date", `${ci.blNo} & DATED ${ci.blDate}`],
+  ], x, W);
+  doc.moveDown(0.6);
+
+  doc.font("Helvetica-Bold").fontSize(10).text("DESCRIPTION OF GOODS", x, doc.y, { width: W });
+  doc.moveDown(0.3);
+  drawPdf4ColTable(doc, [
+    ["Commodity", "Quantity (MT)", `Unit Price (${ci.currency}/MT)`, `Total Amount (${ci.currency})`],
+    [ci.commodity, `${ci.quantity} MT`, `${ci.currency} ${ci.unitPrice}/MT`, `${ci.currency} ${ci.totalAmount}`],
+  ], x, W);
+  doc.moveDown(0.5);
+
+  doc.font("Helvetica").fontSize(9).text(`Tolerance: ${ci.tolerance}`, x, doc.y, { width: W });
+  doc.moveDown(0.3);
+  doc.font("Helvetica-Bold").fontSize(10).text(`TOTAL INVOICE VALUE: ${ci.currency} ${ci.totalAmount}`, x, doc.y, { width: W });
+  doc.moveDown(0.3);
+  doc.font("Helvetica").fontSize(9).text(`Payment Terms: ${ci.paymentTerms}`, x, doc.y, { width: W });
+  doc.moveDown(1);
+
+  const sigLineY = doc.y;
+  doc.moveTo(x, sigLineY).lineTo(x + W, sigLineY).stroke("#AAAAAA");
+  doc.moveDown(0.5);
+  doc.font("Helvetica-Bold").fontSize(9).text(`FOR AND ON BEHALF OF ${ci.sellerName}`, x, doc.y, { width: W });
+  doc.font("Helvetica").fontSize(9).text("Authorised Signatory", x, doc.y, { width: W });
+  doc.moveDown(1.5);
+  doc.font("Helvetica").fontSize(9).text("Name:  _______________", x, doc.y, { width: W });
+  doc.font("Helvetica").fontSize(9).text("Title: _______________", x, doc.y, { width: W });
+  doc.font("Helvetica").fontSize(9).text(`Date:  ${ci.date}`, x, doc.y, { width: W });
+  doc.font("Helvetica").fontSize(9).text("Signature & Stamp: _______________", x, doc.y, { width: W });
+}
+
 interface CooData {
   certNo: string;
   shipper: string;
@@ -2328,6 +2626,8 @@ export async function generateDocx(docId: string, title: string, content: string
     children = buildCoaDocx(content);
   } else if (isCowContent(content)) {
     children = buildCowDocx(content);
+  } else if (isCiContent(content)) {
+    children = buildCiDocx(content);
   } else {
     children = buildGenericDocx(content);
   }
@@ -2462,6 +2762,8 @@ export async function generatePdf(docId: string, title: string, content: string)
       buildCoaPdf(doc, content, leftMargin, pageWidth);
     } else if (isCowContent(content)) {
       buildCowPdf(doc, content, leftMargin, pageWidth);
+    } else if (isCiContent(content)) {
+      buildCiPdf(doc, content, leftMargin, pageWidth);
     } else {
       buildGenericPdf(doc, content, leftMargin, pageWidth);
     }
@@ -2991,6 +3293,8 @@ export async function regenerateWithSignatures(
     docxChildren = buildCooDocx(content);
   } else if (isCoaContent(content)) {
     docxChildren = buildCoaDocx(content);
+  } else if (isCiContent(content)) {
+    docxChildren = buildCiDocx(content);
   } else {
     docxChildren = buildGenericDocx(content);
   }
@@ -3028,6 +3332,8 @@ export async function regenerateWithSignatures(
       buildCoaPdf(pdfDoc, content, leftMargin, pageWidth);
     } else if (isCowContent(content)) {
       buildCowPdf(pdfDoc, content, leftMargin, pageWidth);
+    } else if (isCiContent(content)) {
+      buildCiPdf(pdfDoc, content, leftMargin, pageWidth);
     } else {
       buildGenericPdf(pdfDoc, content, leftMargin, pageWidth);
     }
