@@ -85,6 +85,7 @@ const docTypes = [
   { value: "NCNDA", label: "Non-Circumvention Non-Disclosure", short: "NCNDA", description: "Mutual agreement protecting confidential information and preventing circumvention of business relationships", icon: Lock },
   { value: "BL", label: "Bill of Lading", short: "BL", description: "CONGENBILL Edition 1994 — shipped-on-board bill of lading for charter party trades", icon: Ship },
   { value: "COO", label: "Certificate of Origin", short: "COO", description: "Certified declaration of the country of origin of the shipped goods, linked to the corresponding Bill of Lading", icon: FileCheck },
+  { value: "COA", label: "Certificate of Quality", short: "COA", description: "Independent quality inspection certificate with chemical analysis, moisture content and physical size results, auto-filled from the corresponding LC", icon: FileCheck },
 ];
 
 export default function DocumentGenerator() {
@@ -174,6 +175,16 @@ export default function DocumentGenerator() {
   const [blAgentsName, setBlAgentsName] = useState("");
   const [cooLinkedBlId, setCooLinkedBlId] = useState("");
   const [cooCertNo, setCooCertNo] = useState("");
+  const [coaLinkedLcId, setCoaLinkedLcId] = useState("");
+  const [coaCertNo, setCoaCertNo] = useState("");
+  const [coaVessel, setCoaVessel] = useState("");
+  const [coaBlDate, setCoaBlDate] = useState("");
+  const [coaInspPeriod, setCoaInspPeriod] = useState("");
+  const [coaLoadPeriod, setCoaLoadPeriod] = useState("");
+  const [coaChemSpecs, setCoaChemSpecs] = useState("");
+  const [coaMoisture, setCoaMoisture] = useState("");
+  const [coaPhysicalSizes, setCoaPhysicalSizes] = useState("");
+  const [coaPacking, setCoaPacking] = useState("");
   const [viewDoc, setViewDoc] = useState<Doc | null>(null);
   const [editDoc, setEditDoc] = useState<Doc | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -255,6 +266,26 @@ export default function DocumentGenerator() {
     toast({ title: "Fields auto-filled", description: `Loaded from BL: ${blDoc.title}` });
   };
 
+  const fillCoaFromLc = (lcDoc: Doc) => {
+    const content = lcDoc.content || "";
+    const lines = content.split("\n");
+    const extractAfter = (prefix: string) => {
+      const line = lines.find(l => l.trim().startsWith(prefix));
+      return line ? line.substring(line.indexOf(prefix) + prefix.length).trim() : "";
+    };
+    const commodity = extractAfter("Commodity: ");
+    if (commodity) setCommodity(commodity);
+    const origin = extractAfter("Country of Origin: ");
+    if (origin) setOrigin(origin);
+    const quantity = extractAfter("Quantity: ");
+    if (quantity) setQuantity(quantity);
+    const pol = extractAfter("Port of Loading: ");
+    if (pol) setLoadingPort(pol);
+    const pod = extractAfter("Port of Discharge: ");
+    if (pod) setDischargePort(pod);
+    toast({ title: "Fields auto-filled", description: `Loaded from LC: ${lcDoc.title}` });
+  };
+
   const fillFromKyc = (kyc: KycApplication, role: "buyer" | "seller") => {
     const setName = role === "buyer" ? setBuyerName : setSellerName;
     const setAddress = role === "buyer" ? setBuyerAddress : setSellerAddress;
@@ -283,6 +314,8 @@ export default function DocumentGenerator() {
     setBlFreightAdvance(""); setBlLoadingTimeDays(""); setBlLoadingTimeHours("");
     setBlPlaceOfIssue(""); setBlDateOfIssue(""); setBlCompanyOnBehalf(""); setBlMasterOfVessel(""); setBlAgentsName("");
     setCooLinkedBlId(""); setCooCertNo("");
+    setCoaLinkedLcId(""); setCoaCertNo(""); setCoaVessel(""); setCoaBlDate("");
+    setCoaInspPeriod(""); setCoaLoadPeriod(""); setCoaChemSpecs(""); setCoaMoisture(""); setCoaPhysicalSizes(""); setCoaPacking("");
     setReviewContent(null);
   };
 
@@ -300,18 +333,26 @@ export default function DocumentGenerator() {
       bank: sellerBank, swift: sellerSwift,
     },
     productDetails: {
-      commodity, origin, quantity, qualitySpecs, loadingPort, dischargePort,
-      price, currency, incoterm, laycan, paymentTerms,
-      analysisAgency, analysisAgencyContact, validity, refPerson,
+      commodity, origin, quantity, loadingPort, dischargePort,
+      price, currency, incoterm, paymentTerms,
+      analysisAgency, analysisAgencyContact, refPerson,
       contractConfirmation, docsForPayment, otherTerms, compliance,
       recapValidity, deliveryBasis, loadingWindow, shippingTerms,
-      governingLaw, annexSpecs, qualityPremiums, specialNote,
-      vesselName: blVesselName, notifyParty: blNotifyParty, packing: blPacking,
-      charterPartyDate: blCharterPartyDate, freightAdvance: blFreightAdvance,
+      governingLaw, qualityPremiums,
+      qualitySpecs: selectedType?.value === "COA" ? coaChemSpecs : qualitySpecs,
+      specialNote: selectedType?.value === "COA" ? coaMoisture : specialNote,
+      annexSpecs: selectedType?.value === "COA" ? coaPhysicalSizes : annexSpecs,
+      laycan: selectedType?.value === "COA" ? coaInspPeriod : laycan,
+      validity: selectedType?.value === "COA" ? coaLoadPeriod : validity,
+      vesselName: selectedType?.value === "COA" ? coaVessel : blVesselName,
+      notifyParty: blNotifyParty,
+      packing: selectedType?.value === "COA" ? coaPacking : blPacking,
+      charterPartyDate: selectedType?.value === "COA" ? coaBlDate : blCharterPartyDate,
+      freightAdvance: blFreightAdvance,
       loadingTimeDays: blLoadingTimeDays, loadingTimeHours: blLoadingTimeHours,
       placeOfIssue: blPlaceOfIssue, dateOfIssue: blDateOfIssue,
       companyOnBehalf: blCompanyOnBehalf, masterOfVessel: blMasterOfVessel, agentsName: blAgentsName,
-      loiIssueNumber: selectedType?.value === "COO" ? cooCertNo : loiIssueNumber,
+      loiIssueNumber: selectedType?.value === "COO" ? cooCertNo : selectedType?.value === "COA" ? coaCertNo : loiIssueNumber,
     },
   });
 
@@ -941,7 +982,7 @@ export default function DocumentGenerator() {
       </Card>
 
       <Dialog open={!!selectedType} onOpenChange={(open) => { if (!open) { resetForm(); } }}>
-        <DialogContent className={reviewContent ? "max-w-3xl max-h-[90vh] overflow-y-auto" : (selectedType?.value === "DEAL_RECAP" || selectedType?.value === "LOI" || selectedType?.value === "NCNDA" || selectedType?.value === "BL" || selectedType?.value === "COO") ? "max-w-2xl max-h-[90vh] overflow-y-auto" : "max-w-lg max-h-[85vh] overflow-y-auto"}>
+        <DialogContent className={reviewContent ? "max-w-3xl max-h-[90vh] overflow-y-auto" : (selectedType?.value === "DEAL_RECAP" || selectedType?.value === "LOI" || selectedType?.value === "NCNDA" || selectedType?.value === "BL" || selectedType?.value === "COO" || selectedType?.value === "COA") ? "max-w-2xl max-h-[90vh] overflow-y-auto" : "max-w-lg max-h-[85vh] overflow-y-auto"}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" data-testid="text-generate-dialog-title">
               {selectedType && (() => { const Icon = selectedType.icon; return <Icon className="w-5 h-5 text-primary" />; })()}
@@ -1826,7 +1867,142 @@ export default function DocumentGenerator() {
               </div>
             </div>
           )}
-          {selectedType && !reviewContent && selectedType.value !== "DEAL_RECAP" && selectedType.value !== "LOI" && selectedType.value !== "NCNDA" && selectedType.value !== "BL" && selectedType.value !== "COO" && (
+          {selectedType && !reviewContent && selectedType.value === "COA" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">{selectedType.description}</p>
+              <div className="space-y-2">
+                <Label>Document Title *</Label>
+                <Input placeholder="Enter COA document title" value={title} onChange={(e) => setTitle(e.target.value)} data-testid="input-coa-title" />
+              </div>
+
+              {/* LC Link & Cert No */}
+              <div className="border rounded-md overflow-hidden">
+                <div className="grid grid-cols-[160px_1fr] text-xs bg-muted/60 font-semibold border-b">
+                  <div className="p-2 border-r">Field</div><div className="p-2">Value</div>
+                </div>
+                <div className="grid grid-cols-[160px_1fr] border-b">
+                  <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center gap-1"><Landmark className="w-3 h-3" /> Linked LC</div>
+                  <div className="p-1">
+                    {docs && docs.filter(d => d.docType === "LC").length > 0 ? (
+                      <Select value={coaLinkedLcId} onValueChange={(val) => {
+                        setCoaLinkedLcId(val);
+                        const lcDoc = docs?.find(d => d.id === val);
+                        if (lcDoc) fillCoaFromLc(lcDoc);
+                      }}>
+                        <SelectTrigger className="h-8 text-xs" data-testid="select-coa-lc"><SelectValue placeholder="Select LC to auto-fill fields..." /></SelectTrigger>
+                        <SelectContent>
+                          {docs?.filter(d => d.docType === "LC").map(d => (
+                            <SelectItem key={d.id} value={d.id}>{d.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="text-xs text-muted-foreground p-1">No LC documents found — fill fields manually below</p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-[160px_1fr]">
+                  <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Cert No.</div>
+                  <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder={`COA-${new Date().getFullYear()}-001`} value={coaCertNo} onChange={(e) => setCoaCertNo(e.target.value)} data-testid="input-coa-cert-no" /></div>
+                </div>
+              </div>
+
+              <Accordion type="multiple" defaultValue={["goods","voyage","specs"]} className="w-full">
+                <AccordionItem value="goods" className="border rounded-md mb-2">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                    <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Description of Goods</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="grid grid-cols-[160px_1fr] text-xs bg-muted/60 font-semibold border-b">
+                        <div className="p-2 border-r">Field</div><div className="p-2">Value</div>
+                      </div>
+                      {[
+                        { label: "Commodity Name", val: commodity, set: setCommodity, ph: "e.g. Iron Ore, Bauxite", tid: "input-coa-commodity" },
+                        { label: "Quantity (MT)", val: quantity, set: setQuantity, ph: "e.g. 200,000", tid: "input-coa-quantity" },
+                        { label: "Country of Origin", val: origin, set: setOrigin, ph: "e.g. Guinea", tid: "input-coa-origin" },
+                        { label: "Packing", val: coaPacking, set: setCoaPacking, ph: "e.g. In Bulk", tid: "input-coa-packing" },
+                      ].map(({ label, val, set, ph, tid }, i, arr) => (
+                        <div key={tid} className={`grid grid-cols-[160px_1fr]${i < arr.length - 1 ? " border-b" : ""}`}>
+                          <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">{label}</div>
+                          <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder={ph} value={val} onChange={(e) => set(e.target.value)} data-testid={tid} /></div>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="voyage" className="border rounded-md mb-2">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                    <span className="flex items-center gap-1.5"><Ship className="w-3.5 h-3.5" /> Vessel & Ports</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="grid grid-cols-[160px_1fr] text-xs bg-muted/60 font-semibold border-b">
+                        <div className="p-2 border-r">Field</div><div className="p-2">Value</div>
+                      </div>
+                      {[
+                        { label: "Vessel Name", val: coaVessel, set: setCoaVessel, ph: "e.g. MV BULLFROG STAR", tid: "input-coa-vessel" },
+                        { label: "Port of Loading", val: loadingPort, set: setLoadingPort, ph: "e.g. Conakry, Guinea", tid: "input-coa-pol" },
+                        { label: "Port of Discharge", val: dischargePort, set: setDischargePort, ph: "e.g. Port Klang, Malaysia", tid: "input-coa-pod" },
+                        { label: "B/L Date", val: coaBlDate, set: setCoaBlDate, ph: "e.g. 10.05.2026", tid: "input-coa-bl-date" },
+                        { label: "Inspection Period", val: coaInspPeriod, set: setCoaInspPeriod, ph: "e.g. 01.05.2026 to 10.05.2026", tid: "input-coa-insp-period" },
+                        { label: "Loading Period", val: coaLoadPeriod, set: setCoaLoadPeriod, ph: "e.g. 01.05.2026 to 05.05.2026", tid: "input-coa-load-period" },
+                        { label: "Analysis Agency", val: analysisAgency, set: setAnalysisAgency, ph: "e.g. SGS / Bureau Veritas", tid: "input-coa-agency" },
+                      ].map(({ label, val, set, ph, tid }, i, arr) => (
+                        <div key={tid} className={`grid grid-cols-[160px_1fr]${i < arr.length - 1 ? " border-b" : ""}`}>
+                          <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">{label}</div>
+                          <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder={ph} value={val} onChange={(e) => set(e.target.value)} data-testid={tid} /></div>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="specs" className="border rounded-md mb-2">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider py-2 px-3 hover:no-underline bg-muted/50 rounded-t-md">
+                    <span className="flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> Test Results & Specifications</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3 space-y-3">
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground mb-1 block">Chemical Compositions (one per line, e.g. Fe2O3 : 55.00 PCT)</Label>
+                      <textarea
+                        className="w-full border rounded-md text-xs p-2 font-mono bg-background resize-y min-h-[100px] focus:outline-none focus:ring-1 focus:ring-ring"
+                        placeholder={"Fe2O3    :    55.00   PCT\nAl2O3    :    3.50   PCT\nSiO2    :    8.20   PCT\nTiO2    :    0.08   PCT\nMnO     :    0.06   PCT"}
+                        value={coaChemSpecs}
+                        onChange={(e) => setCoaChemSpecs(e.target.value)}
+                        data-testid="textarea-coa-chem-specs"
+                      />
+                    </div>
+                    <div className="border rounded-md overflow-hidden">
+                      <div className="grid grid-cols-[160px_1fr] border-b">
+                        <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center">Free Moisture (PCT)</div>
+                        <div className="p-1"><Input className="h-8 text-xs border-0 shadow-none focus-visible:ring-0" placeholder="e.g. 8.50" value={coaMoisture} onChange={(e) => setCoaMoisture(e.target.value)} data-testid="input-coa-moisture" /></div>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground mb-1 block">Physical Sizes (one per line, e.g. ABOVE 50MM : 0.50 PCT)</Label>
+                      <textarea
+                        className="w-full border rounded-md text-xs p-2 font-mono bg-background resize-y min-h-[80px] focus:outline-none focus:ring-1 focus:ring-ring"
+                        placeholder={"ABOVE 50MM  :    0.50   PCT\nBELOW 150MICRON  :    3.20   PCT\nABOVE 10.00 MM   :    85.00   PCT"}
+                        value={coaPhysicalSizes}
+                        onChange={(e) => setCoaPhysicalSizes(e.target.value)}
+                        data-testid="textarea-coa-physical-sizes"
+                      />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <Button variant="outline" size="sm" onClick={() => previewDoc.mutate(buildPayload())} disabled={!title || previewDoc.isPending} data-testid="button-review-coa">
+                  <Eye className="w-3.5 h-3.5 mr-1.5" />
+                  {previewDoc.isPending ? "Loading Preview..." : "Review COA"}
+                </Button>
+              </div>
+            </div>
+          )}
+          {selectedType && !reviewContent && selectedType.value !== "DEAL_RECAP" && selectedType.value !== "LOI" && selectedType.value !== "NCNDA" && selectedType.value !== "BL" && selectedType.value !== "COO" && selectedType.value !== "COA" && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">{selectedType.description}</p>
 

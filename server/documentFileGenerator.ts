@@ -848,6 +848,298 @@ function isCooContent(content: string): boolean {
   return content.trimStart().startsWith("CERTIFICATE OF ORIGIN") && content.includes("CERTIFICATION");
 }
 
+function isCoaContent(content: string): boolean {
+  return content.trimStart().startsWith("CERTIFICATE OF QUALITY") && content.includes("SAMPLING PROCEDURE");
+}
+
+interface CoaData {
+  certNo: string;
+  date: string;
+  commodity: string;
+  quantity: string;
+  origin: string;
+  packing: string;
+  vessel: string;
+  portOfLoading: string;
+  portOfDischarge: string;
+  blDate: string;
+  inspFrom: string;
+  inspTo: string;
+  loadStart: string;
+  loadEnd: string;
+  chemSpecs: string;
+  moisture: string;
+  physSizes: string;
+  agency: string;
+}
+
+function parseCoaContent(content: string): CoaData {
+  const lines = content.split("\n");
+
+  const extractColon = (label: string): string => {
+    const line = lines.find(l => l.trimStart().startsWith(label));
+    if (!line) return "_______________";
+    const idx = line.indexOf(":");
+    return idx >= 0 ? line.substring(idx + 1).trim() : "";
+  };
+
+  const certNoLine = lines.find(l => l.startsWith("REF:  Certificate No. "));
+  const certNo = certNoLine ? certNoLine.replace("REF:  Certificate No. ", "").trim() : "";
+
+  const dateLine = lines.find(l => l.startsWith("DATE:  "));
+  const date = dateLine ? dateLine.replace("DATE:  ", "").trim() : "";
+
+  const commodity = extractColon("NAME OF COMMODITY");
+  const quantityRaw = extractColon("QUANTITY");
+  const quantity = quantityRaw.replace(" METRIC TONS", "").trim();
+  const origin = extractColon("COUNTRY OF ORIGIN");
+  const packing = extractColon("PACKING");
+  const vessel = extractColon("NAME OF THE CARRYING VESSEL");
+  const portOfLoading = extractColon("PORT OF LOADING");
+  const portOfDischarge = extractColon("PORT OF DISCHARGE");
+  const blRaw = extractColon("B/L NO. & DATE");
+  const blDate = blRaw.replace(/^01 & DATED\s*/i, "").trim();
+
+  const narrativeLine = lines.find(l => l.includes("during the period"));
+  let inspFrom = "_______________", inspTo = "_______________";
+  if (narrativeLine) {
+    const m = narrativeLine.match(/during the period (.+?) to (.+?) for the/);
+    if (m) { inspFrom = m[1].trim(); inspTo = m[2].trim(); }
+  }
+
+  const loadStartLine = lines.find(l => l.includes("Cargo loading commenced on"));
+  const loadStart = loadStartLine ? loadStartLine.split("Cargo loading commenced on")[1].trim() : "_______________";
+  const loadEndLine = lines.find(l => l.includes("Cargo loading completed on"));
+  const loadEnd = loadEndLine ? loadEndLine.split("Cargo loading completed on")[1].trim() : "_______________";
+
+  const percentIdx = lines.findIndex(l => l.includes("(Percentage by weight)"));
+  const moistureIdx = lines.findIndex(l => l.includes("THE ACTUAL RESULT OF THE TEST FOR FREE MOISTURE"));
+  let chemSpecs = "";
+  if (percentIdx >= 0 && moistureIdx > percentIdx) {
+    chemSpecs = lines.slice(percentIdx + 1, moistureIdx).filter(l => l.trim()).join("\n");
+  }
+
+  const centiLine = lines.find(l => l.includes("CENTIGRADE           :"));
+  let moisture = "_______________";
+  if (centiLine) {
+    const m = centiLine.match(/:\s+(.+?)\s+PCT/);
+    if (m) moisture = m[1].trim();
+  }
+
+  const sizeIdx = lines.findIndex(l => l.trim() === "SIZE :");
+  const reflectsIdx = lines.findIndex(l => l.includes("This Certificate reflects"));
+  let physSizes = "";
+  if (sizeIdx >= 0 && reflectsIdx > sizeIdx) {
+    physSizes = lines.slice(sizeIdx + 1, reflectsIdx).filter(l => l.trim()).join("\n");
+  }
+
+  const forLine = lines.find(l => l.startsWith("FOR ") && !l.includes("future reference"));
+  const agency = forLine ? forLine.replace("FOR ", "").trim() : "_______________";
+
+  return { certNo, date, commodity, quantity, origin, packing, vessel, portOfLoading, portOfDischarge, blDate, inspFrom, inspTo, loadStart, loadEnd, chemSpecs, moisture, physSizes, agency };
+}
+
+function buildCoaDocx(content: string): (Paragraph | Table)[] {
+  const coa = parseCoaContent(content);
+  const ch: (Paragraph | Table)[] = [];
+  const mono = "Courier New";
+  const fs = 18;
+  const p = (text: string, opts: { bold?: boolean; size?: number; align?: (typeof AlignmentType)[keyof typeof AlignmentType]; spaceBefore?: number; spaceAfter?: number; pageBreak?: boolean } = {}) =>
+    new Paragraph({
+      children: [new TextRun({ text, bold: opts.bold || false, size: opts.size || fs, font: mono })],
+      alignment: opts.align,
+      pageBreakBefore: opts.pageBreak,
+      spacing: { before: opts.spaceBefore || 0, after: opts.spaceAfter || 60 },
+    });
+
+  ch.push(p("CERTIFICATE OF QUALITY", { bold: true, size: 26, align: AlignmentType.CENTER, spaceAfter: 80 }));
+  ch.push(p("'TO WHOM IT MAY CONCERN'", { bold: true, size: 22, align: AlignmentType.CENTER, spaceAfter: 160 }));
+
+  ch.push(new Paragraph({ children: [new TextRun({ text: "PAGE 1 OF 2", size: fs, font: mono })], alignment: AlignmentType.RIGHT, spacing: { after: 40 } }));
+  ch.push(p(`REF:  Certificate No. ${coa.certNo}`));
+  ch.push(p(`DATE:  ${coa.date}`, { spaceAfter: 160 }));
+
+  ch.push(p("DESCRIPTION OF GOODS", { bold: true, spaceAfter: 120 }));
+
+  const descRows: [string, string][] = [
+    ["NAME OF COMMODITY", coa.commodity],
+    ["QUANTITY", `${coa.quantity} METRIC TONS`],
+    ["COUNTRY OF ORIGIN", coa.origin],
+    ["PACKING", coa.packing],
+    ["NAME OF THE CARRYING VESSEL", coa.vessel],
+    ["PORT OF LOADING", coa.portOfLoading],
+    ["PORT OF DISCHARGE", coa.portOfDischarge],
+    ["B/L NO. & DATE", `01 & DATED ${coa.blDate}`],
+  ];
+  for (const [label, val] of descRows) {
+    ch.push(new Paragraph({
+      children: [
+        new TextRun({ text: label.padEnd(34), size: fs, font: mono }),
+        new TextRun({ text: ":     ", size: fs, font: mono }),
+        new TextRun({ text: val, bold: true, size: fs, font: mono }),
+      ],
+      spacing: { before: 40, after: 80 },
+    }));
+  }
+
+  ch.push(p("=".repeat(73), { spaceBefore: 120, spaceAfter: 120 }));
+
+  ch.push(p(`In accordance with the instructions received from the shipper, we attended at, ${coa.portOfLoading} during the period ${coa.inspFrom} to ${coa.inspTo} for the purpose of drawing representative samples of the consignment of ${coa.commodity} while the cargo was being loaded on board the vessel ${coa.vessel} at ${coa.portOfLoading}. We certify as under:`, { spaceAfter: 120 }));
+
+  ch.push(new Paragraph({
+    children: [
+      new TextRun({ text: `AT ${coa.portOfLoading}       :     Cargo loading commenced on  ${coa.loadStart}`, size: fs, font: mono }),
+    ],
+    spacing: { before: 60, after: 40 },
+  }));
+  ch.push(new Paragraph({
+    children: [
+      new TextRun({ text: `${"".padEnd(34 + coa.portOfLoading.length)}Cargo loading completed on  ${coa.loadEnd}`, size: fs, font: mono }),
+    ],
+    spacing: { before: 0, after: 160 },
+  }));
+
+  ch.push(p("SAMPLING PROCEDURE", { bold: true, spaceAfter: 100 }));
+  ch.push(p(`Systematic mass based sampling carried out in accordance with BIS 1405 throughout course of loading. Sublotwise gross sample was constituted by collecting requisite number of sample increments while loading the cargo into the vessel at ${coa.portOfLoading}. Individual, Sublotwise gross samples were subject to size analysis and further processed to obtain for moisture determination and chemical analysis.`, { spaceAfter: 120 }));
+  ch.push(p("Sub-lot wise samples drawn as above mixed together to prepare composite sample representing the entire shipment.", { spaceAfter: 400 }));
+
+  // ── PAGE 2 ──
+  ch.push(new Paragraph({ children: [new TextRun({ text: "PAGE 2 OF 2", size: fs, font: mono })], pageBreakBefore: true, alignment: AlignmentType.RIGHT, spacing: { after: 40 } }));
+  ch.push(p(`REF:  Certificate No. ${coa.certNo}`));
+  ch.push(p(`DATE:  ${coa.date}`, { spaceAfter: 160 }));
+
+  ch.push(p(`Composite sample representing the shipment at ${coa.portOfLoading} was divided into 3 parts and sealed with our monogram. After retaining 2 parts for future reference, one part tested in our lab with the following results.`, { spaceAfter: 120 }));
+  ch.push(p("The analysis as per IS 1493 for the specifications computed for the cargo shipped are as under:", { spaceAfter: 160 }));
+
+  ch.push(p("SPECIFICATIONS:", { bold: true, spaceAfter: 40 }));
+  ch.push(p("THE ACTUAL RESULT OF THE TEST FOR CHEMICAL COMPOSITIONS (ON DRY BASIS)", { spaceAfter: 40 }));
+  ch.push(p("        (Percentage by weight)", { spaceAfter: 120 }));
+
+  for (const line of (coa.chemSpecs || "").split("\n")) {
+    if (line.trim()) ch.push(p(line, { spaceAfter: 40 }));
+  }
+
+  ch.push(p("THE ACTUAL RESULT OF THE TEST FOR FREE MOISTURE LOSS AT 105 DEGREES", { spaceBefore: 120, spaceAfter: 40 }));
+  ch.push(p(`CENTIGRADE           :  ${coa.moisture}   PCT`, { spaceAfter: 160 }));
+
+  ch.push(p("THE ACTUAL RESULT OF THE TEST FOR PHYSICAL SIZES  (ON NATURAL BASIS) :", { spaceAfter: 40 }));
+  ch.push(p("SIZE :", { spaceAfter: 60 }));
+  for (const line of (coa.physSizes || "").split("\n")) {
+    if (line.trim()) ch.push(p(line, { spaceAfter: 40 }));
+  }
+
+  ch.push(p("This Certificate reflects our findings at the time and place of inspection only and does not refer to and any other matter.", { spaceBefore: 200, spaceAfter: 200 }));
+  ch.push(p(`FOR ${coa.agency}`, { bold: true, spaceAfter: 400 }));
+  ch.push(p("AUTHORIZED SIGNATORY", { bold: true, spaceAfter: 60 }));
+  ch.push(p("ISSUED AT LOADING PORT", { spaceAfter: 200 }));
+  ch.push(p("This certificate contains only two pages.", { size: 16 }));
+
+  return ch;
+}
+
+function buildCoaPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: number, pageWidth: number) {
+  const coa = parseCoaContent(content);
+  const x = leftMargin;
+  const W = pageWidth;
+  const mono = "Courier";
+  const monoBold = "Courier-Bold";
+
+  doc.font(monoBold).fontSize(14).fillColor("#000000").text("CERTIFICATE OF QUALITY", x, doc.y, { width: W, align: "center" });
+  doc.moveDown(0.3);
+  doc.font(monoBold).fontSize(12).text("'TO WHOM IT MAY CONCERN'", x, doc.y, { width: W, align: "center" });
+  doc.moveDown(0.8);
+
+  doc.font(mono).fontSize(8).text("PAGE 1 OF 2", x, doc.y, { width: W, align: "right" });
+  doc.font(mono).fontSize(8).text(`REF:  Certificate No. ${coa.certNo}`, x, doc.y);
+  doc.font(mono).fontSize(8).text(`DATE:  ${coa.date}`, x, doc.y);
+  doc.moveDown(0.8);
+
+  doc.font(monoBold).fontSize(9).text("DESCRIPTION OF GOODS", x, doc.y);
+  doc.moveDown(0.5);
+
+  const descRows: [string, string][] = [
+    ["NAME OF COMMODITY", coa.commodity],
+    ["QUANTITY", `${coa.quantity} METRIC TONS`],
+    ["COUNTRY OF ORIGIN", coa.origin],
+    ["PACKING", coa.packing],
+    ["NAME OF THE CARRYING VESSEL", coa.vessel],
+    ["PORT OF LOADING", coa.portOfLoading],
+    ["PORT OF DISCHARGE", coa.portOfDischarge],
+    ["B/L NO. & DATE", `01 & DATED ${coa.blDate}`],
+  ];
+  for (const [label, val] of descRows) {
+    const labelPad = label.padEnd(34);
+    doc.font(mono).fontSize(8).text(`${labelPad}:     `, x, doc.y, { continued: true });
+    doc.font(monoBold).fontSize(8).text(val, { continued: false });
+  }
+
+  doc.moveDown(0.5);
+  doc.font(mono).fontSize(7).text("=".repeat(73), x, doc.y);
+  doc.moveDown(0.5);
+
+  doc.font(mono).fontSize(8).text(`In accordance with the instructions received from the shipper, we attended at, ${coa.portOfLoading} during the period ${coa.inspFrom} to ${coa.inspTo} for the purpose of drawing representative samples of the consignment of ${coa.commodity} while the cargo was being loaded on board the vessel ${coa.vessel} at ${coa.portOfLoading}. We certify as under:`, x, doc.y, { width: W });
+  doc.moveDown(0.6);
+
+  doc.font(mono).fontSize(8).text(`AT ${coa.portOfLoading}       :     Cargo loading commenced on  ${coa.loadStart}`, x, doc.y);
+  const indentX = x + doc.widthOfString(`AT ${coa.portOfLoading}       `) + 20;
+  doc.font(mono).fontSize(8).text(`Cargo loading completed on  ${coa.loadEnd}`, Math.min(indentX, x + 200), doc.y);
+  doc.moveDown(0.6);
+
+  doc.font(monoBold).fontSize(8).text("SAMPLING PROCEDURE", x, doc.y);
+  doc.moveDown(0.3);
+  doc.font(mono).fontSize(8).text(`Systematic mass based sampling carried out in accordance with BIS 1405 throughout course of loading. Sublotwise gross sample was constituted by collecting requisite number of sample increments while loading the cargo into the vessel at ${coa.portOfLoading}. Individual, Sublotwise gross samples were subject to size analysis and further processed to obtain for moisture determination and chemical analysis.`, x, doc.y, { width: W });
+  doc.moveDown(0.5);
+  doc.font(mono).fontSize(8).text("Sub-lot wise samples drawn as above mixed together to prepare composite sample representing the entire shipment.", x, doc.y, { width: W });
+
+  // ── PAGE 2 ──
+  doc.addPage();
+  doc.font(mono).fontSize(8).text("PAGE 2 OF 2", x, doc.y, { width: W, align: "right" });
+  doc.font(mono).fontSize(8).text(`REF:  Certificate No. ${coa.certNo}`, x, doc.y);
+  doc.font(mono).fontSize(8).text(`DATE:  ${coa.date}`, x, doc.y);
+  doc.moveDown(0.8);
+
+  doc.font(mono).fontSize(8).text(`Composite sample representing the shipment at ${coa.portOfLoading} was divided into 3 parts and sealed with our monogram. After retaining 2 parts for future reference, one part tested in our lab with the following results.`, x, doc.y, { width: W });
+  doc.moveDown(0.5);
+  doc.font(mono).fontSize(8).text("The analysis as per IS 1493 for the specifications computed for the cargo shipped are as under:", x, doc.y, { width: W });
+  doc.moveDown(0.8);
+
+  doc.font(monoBold).fontSize(8).text("SPECIFICATIONS:", x, doc.y);
+  doc.font(mono).fontSize(8).text("THE ACTUAL RESULT OF THE TEST FOR CHEMICAL COMPOSITIONS (ON DRY BASIS)", x, doc.y);
+  doc.font(mono).fontSize(8).text("        (Percentage by weight)", x, doc.y);
+  doc.moveDown(0.5);
+
+  for (const line of (coa.chemSpecs || "").split("\n")) {
+    if (line.trim()) {
+      pdfCheckPage(doc, 20);
+      doc.font(mono).fontSize(8).text(line, x, doc.y);
+    }
+  }
+
+  doc.moveDown(0.6);
+  doc.font(mono).fontSize(8).text("THE ACTUAL RESULT OF THE TEST FOR FREE MOISTURE LOSS AT 105 DEGREES", x, doc.y);
+  doc.font(mono).fontSize(8).text(`CENTIGRADE           :  ${coa.moisture}   PCT`, x, doc.y);
+  doc.moveDown(0.6);
+
+  doc.font(mono).fontSize(8).text("THE ACTUAL RESULT OF THE TEST FOR PHYSICAL SIZES  (ON NATURAL BASIS) :", x, doc.y);
+  doc.font(mono).fontSize(8).text("SIZE :", x, doc.y);
+  for (const line of (coa.physSizes || "").split("\n")) {
+    if (line.trim()) {
+      pdfCheckPage(doc, 20);
+      doc.font(mono).fontSize(8).text(line, x, doc.y);
+    }
+  }
+
+  doc.moveDown(0.8);
+  doc.font(mono).fontSize(8).text("This Certificate reflects our findings at the time and place of inspection only and does not refer to and any other matter.", x, doc.y, { width: W });
+  doc.moveDown(0.8);
+  doc.font(monoBold).fontSize(9).text(`FOR ${coa.agency}`, x, doc.y);
+  doc.moveDown(2.5);
+  doc.font(monoBold).fontSize(8).text("AUTHORIZED SIGNATORY", x, doc.y);
+  doc.font(mono).fontSize(8).text("ISSUED AT LOADING PORT", x, doc.y);
+  doc.moveDown(0.8);
+  doc.font(mono).fontSize(7).text("This certificate contains only two pages.", x, doc.y);
+}
+
 interface CooData {
   certNo: string;
   shipper: string;
@@ -1818,6 +2110,8 @@ export async function generateDocx(docId: string, title: string, content: string
     children = buildBlDocx(content);
   } else if (isCooContent(content)) {
     children = buildCooDocx(content);
+  } else if (isCoaContent(content)) {
+    children = buildCoaDocx(content);
   } else {
     children = buildGenericDocx(content);
   }
@@ -1948,6 +2242,8 @@ export async function generatePdf(docId: string, title: string, content: string)
       buildBlPdf(doc, content, leftMargin, pageWidth);
     } else if (isCooContent(content)) {
       buildCooPdf(doc, content, leftMargin, pageWidth);
+    } else if (isCoaContent(content)) {
+      buildCoaPdf(doc, content, leftMargin, pageWidth);
     } else {
       buildGenericPdf(doc, content, leftMargin, pageWidth);
     }
@@ -2475,6 +2771,8 @@ export async function regenerateWithSignatures(
     docxChildren = buildBlDocx(content);
   } else if (isCooContent(content)) {
     docxChildren = buildCooDocx(content);
+  } else if (isCoaContent(content)) {
+    docxChildren = buildCoaDocx(content);
   } else {
     docxChildren = buildGenericDocx(content);
   }
@@ -2508,6 +2806,8 @@ export async function regenerateWithSignatures(
       buildBlPdf(pdfDoc, content, leftMargin, pageWidth);
     } else if (isCooContent(content)) {
       buildCooPdf(pdfDoc, content, leftMargin, pageWidth);
+    } else if (isCoaContent(content)) {
+      buildCoaPdf(pdfDoc, content, leftMargin, pageWidth);
     } else {
       buildGenericPdf(pdfDoc, content, leftMargin, pageWidth);
     }

@@ -1217,6 +1217,99 @@ ${"=".repeat(60)}
 `;
   },
 
+  COA: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const commodity = v(product?.commodity, trade?.commodity);
+    const quantity = v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined);
+    const origin = v(product?.origin, trade?.origin);
+    const vessel = v(product?.vesselName);
+    const loadingPort = v(product?.loadingPort, trade?.origin);
+    const dischargePort = v(product?.dischargePort, trade?.destination);
+    const packing = v(product?.packing);
+    const blDate = v(product?.charterPartyDate);
+    const certNo = product?.loiIssueNumber || `COA-${new Date().getFullYear()}-001`;
+    const inspPeriod = product?.laycan || "";
+    const [inspFrom, inspTo] = inspPeriod.includes(" to ") ? inspPeriod.split(" to ") : [inspPeriod, inspPeriod];
+    const loadPeriod = product?.validity || "";
+    const [loadStart, loadEnd] = loadPeriod.includes(" to ") ? loadPeriod.split(" to ") : [loadPeriod, loadPeriod];
+    const chemSpecs = product?.qualitySpecs || "_______________    :    _______________   PCT";
+    const moisture = product?.specialNote || "_______________";
+    const physSizes = product?.annexSpecs || "ABOVE ___MM  :    _______________   PCT\nBELOW ___MICRON  :    _______________   PCT";
+    const agency = v(product?.analysisAgency, "_______________");
+    const dateStr = today();
+    return `CERTIFICATE OF QUALITY
+'TO WHOM IT MAY CONCERN'
+PAGE 1 OF 2
+
+REF:  Certificate No. ${certNo}
+DATE:  ${dateStr}
+
+DESCRIPTION OF GOODS
+
+NAME OF COMMODITY                 :     ${commodity}
+
+QUANTITY                          :     ${quantity} METRIC TONS
+
+COUNTRY OF ORIGIN                 :     ${origin}
+
+PACKING                           :     ${packing}
+
+NAME OF THE CARRYING VESSEL       :     ${vessel}
+
+PORT OF LOADING                   :     ${loadingPort}
+
+PORT OF DISCHARGE                 :     ${dischargePort}
+
+B/L NO. & DATE                    :     01 & DATED ${blDate}
+
+${"=".repeat(73)}
+
+In accordance with the instructions received from the shipper, we attended at, ${loadingPort} during the period ${inspFrom} to ${inspTo} for the purpose of drawing representative samples of the consignment of ${commodity} while the cargo was being loaded on board the vessel ${vessel} at ${loadingPort}. We certify as under:
+
+AT ${loadingPort}       :     Cargo loading commenced on  ${loadStart}
+                              Cargo loading completed on  ${loadEnd}
+
+SAMPLING PROCEDURE
+
+Systematic mass based sampling carried out in accordance with BIS 1405 throughout course of loading. Sublotwise gross sample was constituted by collecting requisite number of sample increments while loading the cargo into the vessel at ${loadingPort}. Individual, Sublotwise gross samples were subject to size analysis and further processed to obtain for moisture determination and chemical analysis.
+
+Sub-lot wise samples drawn as above mixed together to prepare composite sample representing the entire shipment.
+
+PAGE_BREAK
+
+PAGE 2 OF 2
+
+REF:  Certificate No. ${certNo}
+DATE:  ${dateStr}
+
+Composite sample representing the shipment at ${loadingPort} was divided into 3 parts and sealed with our monogram. After retaining 2 parts for future reference, one part tested in our lab with the following results.
+
+The analysis as per IS 1493 for the specifications computed for the cargo shipped are as under:
+
+SPECIFICATIONS:
+THE ACTUAL RESULT OF THE TEST FOR CHEMICAL COMPOSITIONS (ON DRY BASIS)
+        (Percentage by weight)
+
+${chemSpecs}
+
+THE ACTUAL RESULT OF THE TEST FOR FREE MOISTURE LOSS AT 105 DEGREES CENTIGRADE           :  ${moisture}   PCT
+
+THE ACTUAL RESULT OF THE TEST FOR PHYSICAL SIZES  (ON NATURAL BASIS) :
+SIZE :
+${physSizes}
+
+This Certificate reflects our findings at the time and place of inspection only and does not refer to and any other matter.
+
+FOR ${agency}
+
+
+
+
+AUTHORIZED SIGNATORY
+ISSUED AT LOADING PORT
+
+This certificate contains only two pages.`;
+  },
+
   COO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
     const shipper = v(seller?.name, trade?.sellerName);
     const consignee = (buyer?.name && buyer.name !== "_______________") ? buyer.name : "TO ORDER";
