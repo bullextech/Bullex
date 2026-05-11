@@ -2621,8 +2621,6 @@ export async function generateDocx(docId: string, title: string, content: string
     children = buildCoaDocx(content);
   } else if (isCowContent(content)) {
     children = buildCowDocx(content);
-  } else if (isCiContent(content)) {
-    children = buildCiDocx(content);
   } else {
     children = buildGenericDocx(content);
   }
@@ -2757,8 +2755,6 @@ export async function generatePdf(docId: string, title: string, content: string)
       buildCoaPdf(doc, content, leftMargin, pageWidth);
     } else if (isCowContent(content)) {
       buildCowPdf(doc, content, leftMargin, pageWidth);
-    } else if (isCiContent(content)) {
-      buildCiPdf(doc, content, leftMargin, pageWidth);
     } else {
       buildGenericPdf(doc, content, leftMargin, pageWidth);
     }
@@ -3288,8 +3284,6 @@ export async function regenerateWithSignatures(
     docxChildren = buildCooDocx(content);
   } else if (isCoaContent(content)) {
     docxChildren = buildCoaDocx(content);
-  } else if (isCiContent(content)) {
-    docxChildren = buildCiDocx(content);
   } else {
     docxChildren = buildGenericDocx(content);
   }
@@ -3327,8 +3321,6 @@ export async function regenerateWithSignatures(
       buildCoaPdf(pdfDoc, content, leftMargin, pageWidth);
     } else if (isCowContent(content)) {
       buildCowPdf(pdfDoc, content, leftMargin, pageWidth);
-    } else if (isCiContent(content)) {
-      buildCiPdf(pdfDoc, content, leftMargin, pageWidth);
     } else {
       buildGenericPdf(pdfDoc, content, leftMargin, pageWidth);
     }
