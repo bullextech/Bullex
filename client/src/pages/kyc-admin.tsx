@@ -47,6 +47,8 @@ import {
   UserCheck,
   UserX,
   UserCog,
+  ClipboardList,
+  Package,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -525,6 +527,105 @@ export default function KycAdmin() {
             </CardContent>
           </Card>
         </div>
+
+        {(() => {
+          const allEnq = enquiries || [];
+          const enqActive = allEnq.filter((e) => e.status === "active").length;
+          const enqAccepted = allEnq.filter((e) => e.status === "accepted").length;
+          const enqClosed = allEnq.filter((e) => e.status === "closed").length;
+          const enqRejected = allEnq.filter((e) => e.status === "rejected").length;
+          const recentEnq = [...allEnq]
+            .sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime())
+            .slice(0, 6);
+          const enqStatusClass = (s: string) =>
+            s === "accepted"
+              ? "bg-emerald-600/10 border-emerald-600/20 text-emerald-700"
+              : s === "rejected"
+              ? "bg-red-600/10 border-red-600/20 text-red-700"
+              : s === "closed"
+              ? "bg-slate-500/10 border-slate-500/20 text-slate-700 dark:text-slate-300"
+              : "bg-blue-600/10 border-blue-600/20 text-blue-700";
+          const EnqIcon = (s: string) =>
+            s === "accepted" ? CheckCircle2 : s === "rejected" ? XCircle : s === "closed" ? AlertCircle : Clock;
+          return (
+            <Card className="mb-8" data-testid="card-enquiries-summary">
+              <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-primary" />
+                  Trade Enquiries Status
+                </CardTitle>
+                <Link href="/trade-enquiries">
+                  <Button variant="ghost" size="sm" className="text-xs" data-testid="link-all-enquiries">
+                    View All <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  </Button>
+                </Link>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
+                  <div className="rounded-md bg-primary/5 border border-primary/20 p-3 text-center" data-testid="enq-summary-total">
+                    <div className="text-2xl font-bold text-primary">{allEnq.length}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-primary mt-0.5">Total</div>
+                  </div>
+                  <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 text-center" data-testid="enq-summary-active">
+                    <div className="text-2xl font-bold text-blue-600">{enqActive}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-blue-700 dark:text-blue-400 mt-0.5">Active</div>
+                  </div>
+                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-center" data-testid="enq-summary-accepted">
+                    <div className="text-2xl font-bold text-emerald-600">{enqAccepted}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mt-0.5">Accepted</div>
+                  </div>
+                  <div className="rounded-md bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 p-3 text-center" data-testid="enq-summary-closed">
+                    <div className="text-2xl font-bold text-slate-600 dark:text-slate-300">{enqClosed}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-700 dark:text-slate-400 mt-0.5">Closed</div>
+                  </div>
+                  <div className="rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 text-center" data-testid="enq-summary-rejected">
+                    <div className="text-2xl font-bold text-red-600">{enqRejected}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 mt-0.5">Rejected</div>
+                  </div>
+                </div>
+                <div className="space-y-0">
+                  {recentEnq.length > 0 ? recentEnq.map((eq) => {
+                    const Icon = EnqIcon(eq.status);
+                    const created = new Date(eq.createdAt as any).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+                    return (
+                      <Link key={eq.id} href="/trade-enquiries">
+                        <a className="flex items-center justify-between gap-3 py-2.5 border-b last:border-b-0 hover-elevate active-elevate-2 px-2 -mx-2 rounded" data-testid={`enq-summary-row-${eq.id}`}>
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-7 h-7 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <Package className="w-3.5 h-3.5 text-primary" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                <span className="font-mono text-xs text-muted-foreground mr-1.5">{eq.enquiryRef}</span>
+                                {eq.product}
+                                {eq.side ? <span className="text-[10px] uppercase ml-1.5 text-muted-foreground">({eq.side})</span> : null}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground truncate">
+                                {eq.quantity ? `${eq.quantity} ${eq.unit || ""}` : "—"}
+                                {eq.loadingPort ? ` · ${eq.loadingPort}` : ""}
+                                {eq.incoterms ? ` · ${eq.incoterms}` : ""}
+                                {` · ${created}`}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className={`rounded-none text-[10px] font-bold shrink-0 ${enqStatusClass(eq.status)}`}>
+                            <Icon className="w-2.5 h-2.5 mr-1" />
+                            {eq.status.charAt(0).toUpperCase() + eq.status.slice(1)}
+                          </Badge>
+                        </a>
+                      </Link>
+                    );
+                  }) : (
+                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                      <ClipboardList className="w-8 h-8 mb-2 opacity-20" />
+                      <p className="text-sm">No trade enquiries yet</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {(() => {
           const pendingChangeReqs = changeRequests?.filter((cr) => cr.status === "pending") || [];
