@@ -130,6 +130,7 @@ export default function KycRegister() {
   const { toast } = useToast();
   const [form, setForm] = useState({ ...emptyForm });
   const [uploadingType, setUploadingType] = useState<string | null>(null);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadedDocs, setUploadedDocs] = useState<Record<string, { name: string; size: number }[]>>({});
   const [uploadedDocIds, setUploadedDocIds] = useState<string[]>([]);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -163,7 +164,10 @@ export default function KycRegister() {
 
   const handleFileSelect = (documentType: string, file: File) => {
     setUploadingType(documentType);
-    uploadDoc.mutate({ file, documentType });
+    setUploadingCount((n) => n + 1);
+    uploadDoc.mutate({ file, documentType }, {
+      onSettled: () => setUploadingCount((n) => Math.max(0, n - 1)),
+    });
   };
 
   const submitKyc = useMutation({
@@ -194,6 +198,14 @@ export default function KycRegister() {
       toast({
         title: "Missing Required Fields",
         description: "Please complete all mandatory fields marked with * before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (uploadingCount > 0) {
+      toast({
+        title: "Uploads In Progress",
+        description: "Please wait for all document uploads to finish before submitting.",
         variant: "destructive",
       });
       return;
@@ -1022,11 +1034,11 @@ export default function KycRegister() {
                     </Button>
                     <Button
                       type="submit"
-                      disabled={submitKyc.isPending}
+                      disabled={submitKyc.isPending || uploadingCount > 0}
                       data-testid="button-reg-submit-kyc"
                     >
                       <UserCheck className="w-4 h-4 mr-2" />
-                      {submitKyc.isPending ? "Submitting..." : "Submit KYC Application"}
+                      {submitKyc.isPending ? "Submitting..." : uploadingCount > 0 ? `Uploading ${uploadingCount}…` : "Submit KYC Application"}
                     </Button>
                   </div>
                 )}
@@ -1114,9 +1126,9 @@ export default function KycRegister() {
                       <Button variant="outline" onClick={() => setShowPreview(false)} data-testid="button-reg-preview-close">
                         Back to Edit
                       </Button>
-                      <Button onClick={() => { setShowPreview(false); handleSubmit({ preventDefault: () => {} } as React.FormEvent); }} disabled={submitKyc.isPending} data-testid="button-reg-preview-submit">
+                      <Button onClick={() => { setShowPreview(false); handleSubmit({ preventDefault: () => {} } as React.FormEvent); }} disabled={submitKyc.isPending || uploadingCount > 0} data-testid="button-reg-preview-submit">
                         <UserCheck className="w-4 h-4 mr-2" />
-                        {submitKyc.isPending ? "Submitting..." : "Submit KYC Application"}
+                        {submitKyc.isPending ? "Submitting..." : uploadingCount > 0 ? `Uploading ${uploadingCount}…` : "Submit KYC Application"}
                       </Button>
                     </div>
                   </div>

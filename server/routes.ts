@@ -2045,7 +2045,15 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/kyc-documents/upload", kycUpload.single("file"), async (req, res) => {
+  app.post("/api/kyc-documents/upload", (req, res, next) => {
+    kycUpload.single("file")(req, res, (err: any) => {
+      if (err) {
+        if (handleMulterError(err, res)) return;
+        return res.status(400).json({ message: err.message || "File upload error" });
+      }
+      next();
+    });
+  }, async (req, res) => {
     try {
       const file = req.file;
       if (!file) {
