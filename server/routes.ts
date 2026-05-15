@@ -1707,6 +1707,18 @@ export async function registerRoutes(
           return res.status(400).json({ message: `Documents can only be created for accepted enquiries (current status: ${ownedEnq.status})` });
         }
         submittedByTeamMemberId = tmId;
+      } else if (enquiryRef) {
+        // Admin creating a doc against a team-member's enquiry — auto-attribute to the enquiry's owner
+        // so that team member can see it in their list.
+        try {
+          const allEnquiries = await storage.getTradeEnquiries();
+          const matched = allEnquiries.find(e => e.enquiryRef === enquiryRef);
+          if (matched?.submittedByTeamMemberId) {
+            submittedByTeamMemberId = matched.submittedByTeamMemberId;
+          }
+        } catch (e) {
+          console.error("[docs] Failed to resolve enquiry owner for attribution:", e);
+        }
       }
 
       const content = generateDocumentContent(parsed.data.docType, trade, buyerDetails, sellerDetails, { ...productDetails, loiIssueNumber: issueNumber, dealRecapNumber: dealRecapNumber || undefined });
