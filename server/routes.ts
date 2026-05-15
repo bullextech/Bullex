@@ -1013,10 +1013,7 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Approved applications cannot be modified" });
       }
 
-      if (status === "approved") {
-        if (!clientUsername || !clientPassword) {
-          return res.status(400).json({ message: "Client username and password are required when approving" });
-        }
+      if (status === "approved" && clientUsername) {
         const existingUser = await storage.getKycByClientUsername(clientUsername);
         if (existingUser && existingUser.id !== id) {
           return res.status(400).json({ message: "This username is already in use by another client" });
@@ -1027,7 +1024,9 @@ export async function registerRoutes(
 
       let finalResult = updated;
       if (status === "approved") {
-        await storage.updateKycClientCredentials(id, clientUsername, clientPassword);
+        if (clientUsername && clientPassword) {
+          await storage.updateKycClientCredentials(id, clientUsername, clientPassword);
+        }
 
         try {
           finalResult = await storage.mintKycBlock(id, generateKycHash, mineBlock, GENESIS_HASH);
