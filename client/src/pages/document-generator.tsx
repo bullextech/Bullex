@@ -69,7 +69,7 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import SignaturePad from "@/components/signature-pad";
-import type { Document as Doc, KycApplication, Trade } from "@shared/schema";
+import type { Document as Doc, KycApplication, Trade, TradeEnquiry } from "@shared/schema";
 
 const docTypes = [
   { value: "LOI", label: "Purchase Letter of Intent", short: "LOI", description: "Buyer's formal expression of intent to purchase a commodity with full trade terms", icon: ScrollText },
@@ -225,6 +225,17 @@ export default function DocumentGenerator() {
     enabled: !!urlTradeRef,
   });
 
+  const { data: allEnquiries } = useQuery<TradeEnquiry[]>({
+    queryKey: ["/api/trade-enquiries"],
+    enabled: !!urlEnquiryRef,
+  });
+
+  const linkedEnquiry = urlEnquiryRef && allEnquiries
+    ? allEnquiries.find((e) => e.enquiryRef === urlEnquiryRef)
+    : undefined;
+
+  const [enquiryPrefilledFor, setEnquiryPrefilledFor] = useState<string | null>(null);
+
   useEffect(() => {
     if (urlTradeRef && allTrades && !tradePrefilled) {
       const trade = allTrades.find((t) => t.tradeRef === urlTradeRef);
@@ -242,6 +253,44 @@ export default function DocumentGenerator() {
       }
     }
   }, [urlTradeRef, allTrades, tradePrefilled]);
+
+  // Prefill from linked trade enquiry when a template is opened.
+  useEffect(() => {
+    if (!selectedType || !linkedEnquiry) return;
+    const key = `${linkedEnquiry.id}::${selectedType.value}`;
+    if (enquiryPrefilledFor === key) return;
+    const e = linkedEnquiry;
+    const setIfEmpty = (current: string, val: string | null | undefined, setter: (v: string) => void) => {
+      if (!current && val) setter(val);
+    };
+    setIfEmpty(commodity, e.product, setCommodity);
+    setIfEmpty(origin, e.origin, setOrigin);
+    setIfEmpty(quantity, e.quantity ? `${e.quantity} ${e.unit || "MT"}`.trim() : undefined, setQuantity);
+    setIfEmpty(qualitySpecs, e.specifications, setQualitySpecs);
+    setIfEmpty(loadingPort, e.loadingPort, setLoadingPort);
+    setIfEmpty(dischargePort, e.dischargePort, setDischargePort);
+    setIfEmpty(price, e.price, setPrice);
+    if (!currency || currency === "USD") { if (e.currency) setCurrency(e.currency); }
+    setIfEmpty(incoterm, e.incoterms, setIncoterm);
+    setIfEmpty(paymentTerms, e.paymentTerms, setPaymentTerms);
+    setIfEmpty(validity, e.validity, setValidity);
+    setIfEmpty(refPerson, e.refPerson, setRefPerson);
+    setIfEmpty(contractConfirmation, e.contractConfirmation, setContractConfirmation);
+    setIfEmpty(docsForPayment, e.docsForPayment, setDocsForPayment);
+    setIfEmpty(otherTerms, e.otherTerms, setOtherTerms);
+    setIfEmpty(compliance, e.compliance, setCompliance);
+    setIfEmpty(buyerName, e.buyerName, setBuyerName);
+    setIfEmpty(buyerAddress, e.buyerAddress, setBuyerAddress);
+    setIfEmpty(buyerContact, e.buyerContact, setBuyerContact);
+    setIfEmpty(sellerName, e.sellerName || e.producer, setSellerName);
+    setIfEmpty(sellerAddress, e.sellerAddress, setSellerAddress);
+    setIfEmpty(sellerContact, e.sellerContact, setSellerContact);
+    if (!title) {
+      setTitle(`${selectedType.label} — ${e.enquiryRef}`);
+    }
+    setEnquiryPrefilledFor(key);
+    toast({ title: "Enquiry loaded", description: `Pre-filled from enquiry ${e.enquiryRef}` });
+  }, [selectedType, linkedEnquiry, enquiryPrefilledFor]);
 
   const { data: docs, isLoading: docsLoading } = useQuery<Doc[]>({
     queryKey: ["/api/documents"],
