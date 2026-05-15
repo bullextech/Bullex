@@ -88,7 +88,7 @@ function Router() {
       <Route path="/registrations">{() => <ModuleRoute component={RegistrationsAdmin} moduleId="registrations" />}</Route>
       <Route path="/kyc-admin">{() => <ModuleRoute component={KycAdmin} moduleId="kyc-admin" />}</Route>
       <Route path="/trade-enquiries">{() => <ModuleRoute component={TradeEnquiries} moduleId="enquiries" />}</Route>
-      <Route path="/documents">{() => <ModuleRoute component={DocumentGenerator} moduleId="documents" />}</Route>
+      <Route path="/documents">{() => <ProtectedRoute component={DocumentGenerator} />}</Route>
       <Route path="/trading">{() => <ModuleRoute component={Trading} moduleId="trading" />}</Route>
       <Route path="/vault">{() => <ModuleRoute component={Vault} moduleId="vault" />}</Route>
       <Route path="/blockchain">{() => <ModuleRoute component={Blockchain} moduleId="blockchain" />}</Route>
