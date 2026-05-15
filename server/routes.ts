@@ -1275,6 +1275,17 @@ export async function registerRoutes(
     return tm?.id ?? null;
   }
 
+  async function getDocSubmittedByLabel(submittedByTeamMemberId: string | null | undefined): Promise<string | undefined> {
+    if (!submittedByTeamMemberId) return undefined;
+    try {
+      const tm = await storage.getTeamMemberById(submittedByTeamMemberId);
+      if (!tm) return `Team Member ID: ${submittedByTeamMemberId}`;
+      return `${tm.name} (Team ID: ${tm.id})`;
+    } catch {
+      return `Team Member ID: ${submittedByTeamMemberId}`;
+    }
+  }
+
   app.get("/api/team/me/kyc", requireAuth, async (req: Request, res: Response) => {
     try {
       const tmId = await getSessionTeamMemberId(req);
@@ -1715,10 +1726,11 @@ export async function registerRoutes(
 
       try {
         const isLoi = parsed.data.docType === "LOI";
-        const docxPath = await generateDocx(result.id, result.title, content);
+        const submittedByLabel = await getDocSubmittedByLabel(submittedByTeamMemberId);
+        const docxPath = await generateDocx(result.id, result.title, content, submittedByLabel);
         let pdfPath: string | undefined;
         if (!isLoi) {
-          pdfPath = await generatePdf(result.id, result.title, content);
+          pdfPath = await generatePdf(result.id, result.title, content, submittedByLabel);
         }
         const updated = await storage.updateDocument(result.id, { docxPath, ...(pdfPath ? { pdfPath } : {}) });
 
@@ -1802,6 +1814,7 @@ export async function registerRoutes(
       const hasSigDocx = doc.docType === "NCNDA" ? (doc.sellerSignature || doc.buyerSignature) : doc.buyerSignature;
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
       res.setHeader("Pragma", "no-cache");
+      const submittedByLabel = await getDocSubmittedByLabel(doc.submittedByTeamMemberId);
       if (hasSigDocx) {
         const result = await regenerateWithSignatures(
           doc.id, doc.title, doc.content,
@@ -1810,6 +1823,7 @@ export async function registerRoutes(
           doc.buyerSignedAt ? new Date(doc.buyerSignedAt) : undefined,
           doc.sellerSignedAt ? new Date(doc.sellerSignedAt) : undefined,
           doc.docType,
+          submittedByLabel,
         );
         const filePath = getDocFilePath(result.docxPath);
         if (!filePath) return res.status(500).json({ message: "Failed to generate DOCX file" });
@@ -1817,7 +1831,7 @@ export async function registerRoutes(
         res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
         return res.sendFile(filePath);
       }
-      const docxPath = await generateDocx(doc.id, doc.title, doc.content);
+      const docxPath = await generateDocx(doc.id, doc.title, doc.content, submittedByLabel);
       await storage.updateDocument(doc.id, { docxPath });
       const filePath = getDocFilePath(docxPath);
       if (!filePath) return res.status(500).json({ message: "Failed to generate DOCX file" });
@@ -1837,6 +1851,7 @@ export async function registerRoutes(
       const hasSigPdf = doc.docType === "NCNDA" ? (doc.sellerSignature || doc.buyerSignature) : doc.buyerSignature;
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
       res.setHeader("Pragma", "no-cache");
+      const submittedByLabelPdf = await getDocSubmittedByLabel(doc.submittedByTeamMemberId);
       if (hasSigPdf) {
         const result = await regenerateWithSignatures(
           doc.id, doc.title, doc.content,
@@ -1845,6 +1860,7 @@ export async function registerRoutes(
           doc.buyerSignedAt ? new Date(doc.buyerSignedAt) : undefined,
           doc.sellerSignedAt ? new Date(doc.sellerSignedAt) : undefined,
           doc.docType,
+          submittedByLabelPdf,
         );
         const filePath = getDocFilePath(result.pdfPath);
         if (!filePath) return res.status(500).json({ message: "Failed to generate PDF file" });
@@ -1852,7 +1868,7 @@ export async function registerRoutes(
         res.setHeader("Content-Type", "application/pdf");
         return res.sendFile(filePath);
       }
-      const pdfPath = await generatePdf(doc.id, doc.title, doc.content);
+      const pdfPath = await generatePdf(doc.id, doc.title, doc.content, submittedByLabelPdf);
       await storage.updateDocument(doc.id, { pdfPath });
       const filePath = getDocFilePath(pdfPath);
       if (!filePath) return res.status(500).json({ message: "Failed to generate PDF file" });
@@ -1872,6 +1888,7 @@ export async function registerRoutes(
       const hasSigConvert = doc.docType === "NCNDA" ? (doc.sellerSignature || doc.buyerSignature) : doc.buyerSignature;
       if (!hasSigConvert) return res.status(400).json({ message: "Document must be signed before converting to PDF" });
 
+      const submittedByLabelConv = await getDocSubmittedByLabel(doc.submittedByTeamMemberId);
       const result = await regenerateWithSignatures(
         doc.id, doc.title, doc.content,
         doc.buyerSignature || undefined, doc.sellerSignature || undefined,
@@ -1879,6 +1896,7 @@ export async function registerRoutes(
         doc.buyerSignedAt ? new Date(doc.buyerSignedAt) : undefined,
         doc.sellerSignedAt ? new Date(doc.sellerSignedAt) : undefined,
         doc.docType,
+        submittedByLabelConv,
       );
 
       const updated = await storage.updateDocument(doc.id, { pdfPath: result.pdfPath, status: "final" });
@@ -1953,6 +1971,7 @@ export async function registerRoutes(
       if (updated.content) {
         try {
           const { regenerateWithSignatures } = await import("./documentFileGenerator");
+          const submittedByLabelSign = await getDocSubmittedByLabel(updated.submittedByTeamMemberId);
           await regenerateWithSignatures(
             updated.id,
             updated.title,
@@ -1964,6 +1983,7 @@ export async function registerRoutes(
             updated.buyerSignedAt ? new Date(updated.buyerSignedAt) : undefined,
             updated.sellerSignedAt ? new Date(updated.sellerSignedAt) : undefined,
             updated.docType,
+            submittedByLabelSign,
           );
         } catch (regenErr: any) {
           console.error("Failed to regenerate files with signature:", regenErr.message);
@@ -1999,6 +2019,7 @@ export async function registerRoutes(
       if (updated.content) {
         try {
           const { regenerateWithSignatures } = await import("./documentFileGenerator");
+          const submittedByLabelUnsign = await getDocSubmittedByLabel(updated.submittedByTeamMemberId);
           await regenerateWithSignatures(
             updated.id,
             updated.title,
@@ -2010,6 +2031,7 @@ export async function registerRoutes(
             updated.buyerSignedAt ? new Date(updated.buyerSignedAt) : undefined,
             updated.sellerSignedAt ? new Date(updated.sellerSignedAt) : undefined,
             updated.docType,
+            submittedByLabelUnsign,
           );
         } catch (regenErr: any) {
           console.error("Failed to regenerate files after removing signature:", regenErr.message);
@@ -2064,6 +2086,7 @@ export async function registerRoutes(
         const sendWithAttachment = async () => {
           try {
             const { regenerateWithSignatures } = await import("./documentFileGenerator");
+            const submittedByLabelSend = await getDocSubmittedByLabel(doc.submittedByTeamMemberId);
             const fresh = await regenerateWithSignatures(
               doc.id, doc.title, doc.content!,
               doc.buyerSignature || undefined, doc.sellerSignature || undefined,
@@ -2071,6 +2094,7 @@ export async function registerRoutes(
               doc.buyerSignedAt ? new Date(doc.buyerSignedAt) : undefined,
               doc.sellerSignedAt ? new Date(doc.sellerSignedAt) : undefined,
               doc.docType,
+              submittedByLabelSend,
             );
             await storage.updateDocument(doc.id, { pdfPath: fresh.pdfPath, docxPath: fresh.docxPath });
             await sendDocumentEmail(recipientEmail, isNcnda ? "Party B" : "Recipient", doc.docType, doc.title, recipientRole, fresh.pdfPath, ccEmail || undefined);
@@ -2206,13 +2230,15 @@ export async function registerRoutes(
         content: content || `Document created from ${parentDoc.docType}: ${parentDoc.title}`,
         buyerEmail: parentDoc.buyerEmail,
         sellerEmail: parentDoc.sellerEmail,
+        submittedByTeamMemberId: parentDoc.submittedByTeamMemberId || null,
       });
 
       try {
-        const docxPath = await generateDocx(result.id, result.title, result.content || "");
+        const submittedByLabelNext = await getDocSubmittedByLabel(result.submittedByTeamMemberId);
+        const docxPath = await generateDocx(result.id, result.title, result.content || "", submittedByLabelNext);
         let pdfPath: string | undefined;
         if (nextDocType !== "LOI") {
-          pdfPath = await generatePdf(result.id, result.title, result.content || "");
+          pdfPath = await generatePdf(result.id, result.title, result.content || "", submittedByLabelNext);
         }
         const updated = await storage.updateDocument(result.id, { docxPath, ...(pdfPath ? { pdfPath } : {}) });
         res.json(updated);
