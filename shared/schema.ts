@@ -139,6 +139,8 @@ export const documents = pgTable("documents", {
   sellerSignedAt: timestamp("seller_signed_at"),
   buyerSignedName: text("buyer_signed_name"),
   sellerSignedName: text("seller_signed_name"),
+  buyerSignedIp: text("buyer_signed_ip"),
+  sellerSignedIp: text("seller_signed_ip"),
   issueNumber: text("issue_number"),
   dealRecapNumber: text("deal_recap_number"),
   sentTo: text("sent_to"),

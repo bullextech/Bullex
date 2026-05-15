@@ -3072,6 +3072,13 @@ function base64ToBuffer(dataUri: string): Buffer {
   return Buffer.from(base64, "base64");
 }
 
+function fmtSignedDateTime(d?: Date): string | null {
+  if (!d) return null;
+  const date = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "UTC" });
+  return `${date} ${time} UTC`;
+}
+
 function addSignatureBlockPdf(
   doc: PDFKit.PDFDocument,
   leftMargin: number,
@@ -3083,6 +3090,8 @@ function addSignatureBlockPdf(
   buyerSignedAt?: Date,
   sellerSignedAt?: Date,
   docType?: string,
+  buyerSignedIp?: string,
+  sellerSignedIp?: string,
 ) {
   if (doc.y > 580) doc.addPage();
   doc.moveDown(1);
@@ -3124,25 +3133,27 @@ function addSignatureBlockPdf(
 
     if (sellerName) {
       doc.text(`Name: ${sellerName}`, leftMargin, nameY, { width: halfW });
-      if (sellerSignedAt) {
-        doc.text(`Date: ${sellerSignedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`, leftMargin, nameY + 12, { width: halfW });
-      }
+      const sellerDt = fmtSignedDateTime(sellerSignedAt);
+      if (sellerDt) doc.text(`Signed: ${sellerDt}`, leftMargin, nameY + 12, { width: halfW });
+      if (sellerSignedIp) doc.text(`IP: ${sellerSignedIp}`, leftMargin, nameY + 24, { width: halfW });
     } else {
       doc.text("Name: _______________", leftMargin, nameY, { width: halfW });
-      doc.text("Date: _______________", leftMargin, nameY + 12, { width: halfW });
+      doc.text("Signed: _______________", leftMargin, nameY + 12, { width: halfW });
+      doc.text("IP: _______________", leftMargin, nameY + 24, { width: halfW });
     }
 
     if (buyerName) {
       doc.text(`Name: ${buyerName}`, rightX, nameY, { width: halfW });
-      if (buyerSignedAt) {
-        doc.text(`Date: ${buyerSignedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`, rightX, nameY + 12, { width: halfW });
-      }
+      const buyerDt = fmtSignedDateTime(buyerSignedAt);
+      if (buyerDt) doc.text(`Signed: ${buyerDt}`, rightX, nameY + 12, { width: halfW });
+      if (buyerSignedIp) doc.text(`IP: ${buyerSignedIp}`, rightX, nameY + 24, { width: halfW });
     } else {
       doc.text("Name: _______________", rightX, nameY, { width: halfW });
-      doc.text("Date: _______________", rightX, nameY + 12, { width: halfW });
+      doc.text("Signed: _______________", rightX, nameY + 12, { width: halfW });
+      doc.text("IP: _______________", rightX, nameY + 24, { width: halfW });
     }
 
-    doc.y = nameY + 30;
+    doc.y = nameY + 42;
   } else {
     const sigStartY = doc.y;
     doc.font("Helvetica-Bold").fontSize(9).text("FOR & ON BEHALF OF BUYER / ISSUER", leftMargin, sigStartY, { width: pageWidth });
@@ -3160,15 +3171,16 @@ function addSignatureBlockPdf(
 
     if (buyerName) {
       doc.text(`Name: ${buyerName}`, leftMargin, nameY, { width: pageWidth });
-      if (buyerSignedAt) {
-        doc.text(`Date: ${buyerSignedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`, leftMargin, nameY + 12, { width: pageWidth });
-      }
+      const buyerDt = fmtSignedDateTime(buyerSignedAt);
+      if (buyerDt) doc.text(`Signed: ${buyerDt}`, leftMargin, nameY + 12, { width: pageWidth });
+      if (buyerSignedIp) doc.text(`IP: ${buyerSignedIp}`, leftMargin, nameY + 24, { width: pageWidth });
     } else {
       doc.text("Name: _______________", leftMargin, nameY, { width: pageWidth });
-      doc.text("Date: _______________", leftMargin, nameY + 12, { width: pageWidth });
+      doc.text("Signed: _______________", leftMargin, nameY + 12, { width: pageWidth });
+      doc.text("IP: _______________", leftMargin, nameY + 24, { width: pageWidth });
     }
 
-    doc.y = nameY + 30;
+    doc.y = nameY + 42;
   }
 }
 
@@ -3201,6 +3213,8 @@ function buildSignatureDocxParagraphs(
   buyerSignedAt?: Date,
   sellerSignedAt?: Date,
   docType?: string,
+  buyerSignedIp?: string,
+  sellerSignedIp?: string,
 ): (Paragraph | Table)[] {
   const items: (Paragraph | Table)[] = [];
 
@@ -3230,7 +3244,8 @@ function buildSignatureDocxParagraphs(
       } catch (e) {}
     }
     leftChildren.push(new Paragraph({ children: [new TextRun({ text: `Name: ${sellerName || "_______________"}`, size: 18, font: "Calibri" })], spacing: { after: 40 } }));
-    leftChildren.push(new Paragraph({ children: [new TextRun({ text: sellerSignedAt ? `Date: ${sellerSignedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}` : "Date: _______________", size: 18, font: "Calibri" })] }));
+    leftChildren.push(new Paragraph({ children: [new TextRun({ text: `Signed: ${fmtSignedDateTime(sellerSignedAt) || "_______________"}`, size: 18, font: "Calibri" })], spacing: { after: 40 } }));
+    leftChildren.push(new Paragraph({ children: [new TextRun({ text: `IP: ${sellerSignedIp || "_______________"}`, size: 18, font: "Calibri" })] }));
 
     const rightChildren: (Paragraph | Table)[] = [
       new Paragraph({ children: [new TextRun({ text: "PARTY B (RECEIVING PARTY)", bold: true, size: 18, font: "Calibri" })], spacing: { after: 80 } }),
@@ -3241,7 +3256,8 @@ function buildSignatureDocxParagraphs(
       } catch (e) {}
     }
     rightChildren.push(new Paragraph({ children: [new TextRun({ text: `Name: ${buyerName || "_______________"}`, size: 18, font: "Calibri" })], spacing: { after: 40 } }));
-    rightChildren.push(new Paragraph({ children: [new TextRun({ text: buyerSignedAt ? `Date: ${buyerSignedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}` : "Date: _______________", size: 18, font: "Calibri" })] }));
+    rightChildren.push(new Paragraph({ children: [new TextRun({ text: `Signed: ${fmtSignedDateTime(buyerSignedAt) || "_______________"}`, size: 18, font: "Calibri" })], spacing: { after: 40 } }));
+    rightChildren.push(new Paragraph({ children: [new TextRun({ text: `IP: ${buyerSignedIp || "_______________"}`, size: 18, font: "Calibri" })] }));
 
     items.push(new Table({
       rows: [new TableRow({ children: [makeCell(leftChildren), makeCell(rightChildren)] })],
@@ -3265,7 +3281,11 @@ function buildSignatureDocxParagraphs(
       spacing: { after: 40 },
     }));
     items.push(new Paragraph({
-      children: [new TextRun({ text: buyerSignedAt ? `Date: ${buyerSignedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}` : "Date: _______________", size: 18, font: "Calibri" })]
+      children: [new TextRun({ text: `Signed: ${fmtSignedDateTime(buyerSignedAt) || "_______________"}`, size: 18, font: "Calibri" })],
+      spacing: { after: 40 },
+    }));
+    items.push(new Paragraph({
+      children: [new TextRun({ text: `IP: ${buyerSignedIp || "_______________"}`, size: 18, font: "Calibri" })]
     }));
   }
 
@@ -3284,6 +3304,8 @@ export async function regenerateWithSignatures(
   sellerSignedAt?: Date,
   docType?: string,
   submittedBy?: string,
+  buyerSignedIp?: string,
+  sellerSignedIp?: string,
 ): Promise<{ docxPath: string; pdfPath: string }> {
   let docxChildren: (Paragraph | Table)[];
   if (isDealRecapContent(content)) {
@@ -3303,7 +3325,7 @@ export async function regenerateWithSignatures(
   }
 
   if (buyerSig || sellerSig) {
-    docxChildren.push(...buildSignatureDocxParagraphs(buyerSig, sellerSig, buyerName, sellerName, buyerSignedAt, sellerSignedAt, docType));
+    docxChildren.push(...buildSignatureDocxParagraphs(buyerSig, sellerSig, buyerName, sellerName, buyerSignedAt, sellerSignedAt, docType, buyerSignedIp, sellerSignedIp));
   }
 
   docxChildren.push(...buildFooterParagraphs(submittedBy));
@@ -3340,7 +3362,7 @@ export async function regenerateWithSignatures(
     }
 
     if (buyerSig || sellerSig) {
-      addSignatureBlockPdf(pdfDoc, leftMargin, pageWidth, buyerSig, sellerSig, buyerName, sellerName, buyerSignedAt, sellerSignedAt, docType);
+      addSignatureBlockPdf(pdfDoc, leftMargin, pageWidth, buyerSig, sellerSig, buyerName, sellerName, buyerSignedAt, sellerSignedAt, docType, buyerSignedIp, sellerSignedIp);
     }
 
     addPdfFooter(pdfDoc, leftMargin, pageWidth, submittedBy);

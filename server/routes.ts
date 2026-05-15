@@ -1840,6 +1840,8 @@ export async function registerRoutes(
           doc.sellerSignedAt ? new Date(doc.sellerSignedAt) : undefined,
           doc.docType,
           submittedByLabel,
+          doc.buyerSignedIp || undefined,
+          doc.sellerSignedIp || undefined,
         );
         const filePath = getDocFilePath(result.docxPath);
         if (!filePath) return res.status(500).json({ message: "Failed to generate DOCX file" });
@@ -1877,6 +1879,8 @@ export async function registerRoutes(
           doc.sellerSignedAt ? new Date(doc.sellerSignedAt) : undefined,
           doc.docType,
           submittedByLabelPdf,
+          doc.buyerSignedIp || undefined,
+          doc.sellerSignedIp || undefined,
         );
         const filePath = getDocFilePath(result.pdfPath);
         if (!filePath) return res.status(500).json({ message: "Failed to generate PDF file" });
@@ -1913,6 +1917,8 @@ export async function registerRoutes(
         doc.sellerSignedAt ? new Date(doc.sellerSignedAt) : undefined,
         doc.docType,
         submittedByLabelConv,
+        doc.buyerSignedIp || undefined,
+        doc.sellerSignedIp || undefined,
       );
 
       const updated = await storage.updateDocument(doc.id, { pdfPath: result.pdfPath, status: "final" });
@@ -1972,15 +1978,19 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Signer name is required" });
       }
       const now = new Date();
+      const fwd = (req.headers["x-forwarded-for"] as string | undefined) || "";
+      const clientIp = (fwd.split(",")[0] || "").trim() || req.ip || (req.socket?.remoteAddress ?? "") || "unknown";
       const updateData: Record<string, any> = {};
       if (party === "buyer") {
         updateData.buyerSignature = signature;
         updateData.buyerSignedAt = now;
         updateData.buyerSignedName = name.trim();
+        updateData.buyerSignedIp = clientIp;
       } else {
         updateData.sellerSignature = signature;
         updateData.sellerSignedAt = now;
         updateData.sellerSignedName = name.trim();
+        updateData.sellerSignedIp = clientIp;
       }
       const updated = await storage.updateDocument(req.params.id, updateData);
 
@@ -2000,6 +2010,8 @@ export async function registerRoutes(
             updated.sellerSignedAt ? new Date(updated.sellerSignedAt) : undefined,
             updated.docType,
             submittedByLabelSign,
+            updated.buyerSignedIp || undefined,
+            updated.sellerSignedIp || undefined,
           );
         } catch (regenErr: any) {
           console.error("Failed to regenerate files with signature:", regenErr.message);
@@ -2025,10 +2037,12 @@ export async function registerRoutes(
         updateData.buyerSignature = null;
         updateData.buyerSignedAt = null;
         updateData.buyerSignedName = null;
+        updateData.buyerSignedIp = null;
       } else {
         updateData.sellerSignature = null;
         updateData.sellerSignedAt = null;
         updateData.sellerSignedName = null;
+        updateData.sellerSignedIp = null;
       }
       const updated = await storage.updateDocument(req.params.id, updateData);
 
@@ -2048,6 +2062,8 @@ export async function registerRoutes(
             updated.sellerSignedAt ? new Date(updated.sellerSignedAt) : undefined,
             updated.docType,
             submittedByLabelUnsign,
+            updated.buyerSignedIp || undefined,
+            updated.sellerSignedIp || undefined,
           );
         } catch (regenErr: any) {
           console.error("Failed to regenerate files after removing signature:", regenErr.message);
@@ -2111,6 +2127,8 @@ export async function registerRoutes(
               doc.sellerSignedAt ? new Date(doc.sellerSignedAt) : undefined,
               doc.docType,
               submittedByLabelSend,
+              doc.buyerSignedIp || undefined,
+              doc.sellerSignedIp || undefined,
             );
             await storage.updateDocument(doc.id, { pdfPath: fresh.pdfPath, docxPath: fresh.docxPath });
             await sendDocumentEmail(recipientEmail, isNcnda ? "Party B" : "Recipient", doc.docType, doc.title, recipientRole, fresh.pdfPath, ccEmail || undefined);
