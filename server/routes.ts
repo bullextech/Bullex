@@ -1623,10 +1623,14 @@ export async function registerRoutes(
 
   app.get("/api/documents", requireAuth, async (req, res) => {
     try {
+      console.log(`[GET /api/documents] role=${req.session?.role} username=${req.session?.username}`);
       if (req.session?.role === "team") {
         const tmId = await getSessionTeamMemberId(req);
+        console.log(`[GET /api/documents] team tmId=${tmId}`);
         if (!tmId) return res.json([]);
-        return res.json(await storage.getDocumentsByTeamMemberId(tmId));
+        const docs = await storage.getDocumentsByTeamMemberId(tmId);
+        console.log(`[GET /api/documents] returning ${docs.length} docs for team member ${tmId}`);
+        return res.json(docs);
       }
       const result = await storage.getDocuments();
       res.json(result);
