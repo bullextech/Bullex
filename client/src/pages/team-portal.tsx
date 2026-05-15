@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Briefcase, FileText, ShieldCheck, Plus, Send, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink, FilePlus, Mail } from "lucide-react";
+import { Briefcase, FileText, ShieldCheck, Plus, Send, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink, FilePlus, Mail, FileSignature } from "lucide-react";
 import type { KycApplication, TradeEnquiry, EnquiryChangeRequest, KycChangeRequest, Document } from "@shared/schema";
 
 const KYC_AMENDABLE_FIELDS: { key: string; label: string }[] = [
@@ -50,6 +50,7 @@ const ENQUIRY_AMENDABLE_FIELDS: { key: string; label: string }[] = [
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; icon: any; label: string }> = {
     pending: { variant: "secondary", icon: Clock, label: "Pending" },
+    pending_review: { variant: "secondary", icon: Clock, label: "Awaiting Admin Approval" },
     approved: { variant: "default", icon: CheckCircle2, label: "Approved" },
     accepted: { variant: "default", icon: CheckCircle2, label: "Accepted" },
     rejected: { variant: "destructive", icon: XCircle, label: "Rejected" },
@@ -58,6 +59,9 @@ function StatusBadge({ status }: { status: string }) {
     under_review: { variant: "secondary", icon: Clock, label: "Under Review" },
     quoted: { variant: "default", icon: CheckCircle2, label: "Quoted" },
     closed: { variant: "outline", icon: CheckCircle2, label: "Closed" },
+    draft: { variant: "default", icon: FileSignature, label: "Approved — Ready to Sign" },
+    sent: { variant: "default", icon: Send, label: "Sent" },
+    final: { variant: "default", icon: CheckCircle2, label: "Finalised" },
   };
   const cfg = map[status] || { variant: "outline" as const, icon: AlertCircle, label: status };
   const Icon = cfg.icon;
