@@ -1138,11 +1138,17 @@ export async function registerRoutes(
     "website", "faxNumber",
   ]);
 
-  app.post("/api/kyc/:id/change-request", async (req, res) => {
+  app.post("/api/kyc/:id/change-request", requireAuth, async (req, res) => {
     try {
       const kyc = await storage.getKycApplicationById(req.params.id);
       if (!kyc) return res.status(404).json({ message: "KYC application not found" });
       if (kyc.status !== "approved") return res.status(400).json({ message: "Change requests can only be submitted for approved applications" });
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        if (!tmId || kyc.submittedByTeamMemberId !== tmId) {
+          return res.status(403).json({ message: "You can only amend KYC applications you submitted" });
+        }
+      }
       const { changedFields, reason } = req.body;
       if (!changedFields || typeof changedFields !== "object" || Object.keys(changedFields).length === 0) {
         return res.status(400).json({ message: "changedFields must be a non-empty object" });
@@ -1167,7 +1173,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/kyc-change-requests/:id/status", requireAuth, async (req, res) => {
+  app.patch("/api/kyc-change-requests/:id/status", requireAdminAuth, async (req, res) => {
     try {
       const { status, adminNotes } = req.body;
       if (!status || !["approved", "rejected"].includes(status)) {
@@ -1262,6 +1268,160 @@ export async function registerRoutes(
     }
   });
 
+  // ─── TEAM MEMBER SELF-VIEW ───
+  async function getSessionTeamMemberId(req: Request): Promise<string | null> {
+    if (!req.session?.authenticated || req.session.role !== "team" || !req.session.username) return null;
+    const tm = await storage.getTeamMemberByUsername(req.session.username);
+    return tm?.id ?? null;
+  }
+
+  app.get("/api/team/me/kyc", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tmId = await getSessionTeamMemberId(req);
+      if (!tmId) return res.status(403).json({ message: "Team-member only" });
+      const list = await storage.getKycApplicationsByTeamMemberId(tmId);
+      res.json(list);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/team/me/enquiries", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tmId = await getSessionTeamMemberId(req);
+      if (!tmId) return res.status(403).json({ message: "Team-member only" });
+      const list = await storage.getTradeEnquiriesByTeamMemberId(tmId);
+      res.json(list);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ─── ENQUIRY CHANGE REQUESTS ───
+  const ALLOWED_ENQUIRY_CHANGE_FIELDS = new Set([
+    "product", "specifications", "producer", "quantity", "unit",
+    "loadingPort", "dischargePort", "incoterms", "validity", "additionalInfo",
+    "origin", "deliveryPeriod", "price", "currency", "paymentTerms",
+    "buyerName", "sellerName", "createdBy", "email",
+  ]);
+
+  app.get("/api/enquiry-change-requests", requireAuth, async (req, res) => {
+    try {
+      const all = await storage.getEnquiryChangeRequests();
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        if (!tmId) return res.json([]);
+        const myEnq = await storage.getTradeEnquiriesByTeamMemberId(tmId);
+        const myIds = new Set(myEnq.map(e => e.id));
+        return res.json(all.filter(cr => myIds.has(cr.enquiryId)));
+      }
+      res.json(all);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trade-enquiries/:id/change-requests", requireAuth, async (req, res) => {
+    try {
+      const enquiry = await storage.getTradeEnquiryById(req.params.id);
+      if (!enquiry) return res.status(404).json({ message: "Enquiry not found" });
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        if (!tmId || enquiry.submittedByTeamMemberId !== tmId) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
+      res.json(await storage.getEnquiryChangeRequestsByEnquiryId(req.params.id));
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trade-enquiries/:id/change-request", requireAuth, async (req, res) => {
+    try {
+      const enquiry = await storage.getTradeEnquiryById(req.params.id);
+      if (!enquiry) return res.status(404).json({ message: "Enquiry not found" });
+      // Team members may only request changes on their own enquiries; admins on any.
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        if (!tmId || enquiry.submittedByTeamMemberId !== tmId) {
+          return res.status(403).json({ message: "You can only amend your own enquiries" });
+        }
+      }
+      const lockedStatuses = ["accepted", "closed", "quoted", "under_review"];
+      if (!lockedStatuses.includes(enquiry.status)) {
+        return res.status(400).json({ message: "Amendments only allowed on accepted/closed/quoted/under-review enquiries. Edit directly while still active." });
+      }
+      const { changedFields, reason } = req.body;
+      if (!changedFields || typeof changedFields !== "object" || Object.keys(changedFields).length === 0) {
+        return res.status(400).json({ message: "changedFields must be a non-empty object" });
+      }
+      const sanitized: Record<string, string> = {};
+      for (const [key, val] of Object.entries(changedFields)) {
+        if (ALLOWED_ENQUIRY_CHANGE_FIELDS.has(key) && typeof val === "string") sanitized[key] = val;
+      }
+      if (Object.keys(sanitized).length === 0) return res.status(400).json({ message: "No valid fields to change" });
+      const created = await storage.createEnquiryChangeRequest({
+        enquiryId: req.params.id,
+        changedFields: sanitized,
+        reason: reason || null,
+      });
+      res.status(201).json(created);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/enquiry-change-requests/:id/status", requireAdminAuth, async (req, res) => {
+    try {
+      const { status, adminNotes } = req.body;
+      if (!status || !["approved", "rejected"].includes(status)) {
+        return res.status(400).json({ message: "Status must be approved or rejected" });
+      }
+      if (status === "approved") {
+        const updated = await storage.approveAndApplyEnquiryChangeRequest(req.params.id, adminNotes);
+        try {
+          const latestBlock = await storage.getLatestBlock();
+          const previousHash = latestBlock?.hash || GENESIS_HASH;
+          const blockNumber = (latestBlock?.blockNumber || 0) + 1;
+          const timestamp = new Date().toISOString();
+          const changeReqs = await storage.getEnquiryChangeRequestsByEnquiryId(updated.id);
+          const changeReq = changeReqs.find((cr) => cr.id === req.params.id);
+          const changedFields = (changeReq?.changedFields || {}) as Record<string, any>;
+          const amendmentHash = generateKycAmendmentHash(
+            updated.enquiryRef,
+            updated.product,
+            changedFields,
+            timestamp,
+          );
+          const { hash: blockHash, nonce } = mineBlock(blockNumber, previousHash, timestamp, amendmentHash);
+          const fieldNames = Object.keys(changedFields).map((k) => k.replace(/([A-Z])/g, " $1").trim()).join(", ");
+          await storage.createBlock({
+            blockNumber,
+            hash: blockHash,
+            previousHash,
+            nonce,
+            tradeCount: 1,
+            verified: true,
+            timestamp: new Date(timestamp),
+            dataType: "enquiry_amendment",
+            dataId: updated.id,
+            dataSummary: `${updated.enquiryRef} | Amendment: ${fieldNames}`,
+          });
+          console.log(`[blockchain] Enquiry amendment block minted for ${updated.enquiryRef}, block #${blockNumber}`);
+        } catch (err: any) {
+          console.error("[blockchain] Enquiry amendment minting failed:", err.message);
+        }
+        res.json({ status: "approved", enquiry: updated });
+      } else {
+        const updated = await storage.updateEnquiryChangeRequestStatus(req.params.id, status, adminNotes);
+        res.json(updated);
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/kyc/send-onboarding-link", async (req, res) => {
     try {
       const { email } = req.body;
@@ -1285,7 +1445,14 @@ export async function registerRoutes(
       if (!parsed.success) {
         return res.status(400).json({ message: parsed.error.message });
       }
-      const result = await storage.createKycApplication(parsed.data);
+      const data: any = { ...parsed.data };
+      // Always strip caller-supplied attribution; only the server may set it.
+      delete data.submittedByTeamMemberId;
+      if (req.session?.authenticated && req.session.role === "team" && req.session.username) {
+        const tm = await storage.getTeamMemberByUsername(req.session.username);
+        if (tm) data.submittedByTeamMemberId = tm.id;
+      }
+      const result = await storage.createKycApplication(data);
 
       const signatoryEmail = parsed.data.signatoryEmail;
       const submittedAt = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -2230,8 +2397,13 @@ export async function registerRoutes(
   });
 
   // ─── TRADE ENQUIRIES ───
-  app.get("/api/trade-enquiries", requireAuth, async (_req: Request, res: Response) => {
+  app.get("/api/trade-enquiries", requireAuth, async (req: Request, res: Response) => {
     try {
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        if (!tmId) return res.json([]);
+        return res.json(await storage.getTradeEnquiriesByTeamMemberId(tmId));
+      }
       const enquiries = await storage.getTradeEnquiries();
       res.json(enquiries);
     } catch (error: any) {
@@ -2243,6 +2415,12 @@ export async function registerRoutes(
     try {
       const enquiry = await storage.getTradeEnquiryById(req.params.id);
       if (!enquiry) return res.status(404).json({ message: "Enquiry not found" });
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        if (!tmId || enquiry.submittedByTeamMemberId !== tmId) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
       res.json(enquiry);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -2257,6 +2435,12 @@ export async function registerRoutes(
       }
       const str = (v: any) => (typeof v === "string" && v.trim()) ? v.trim() : null;
       const side = b.side === "sell" ? "sell" : "buy";
+      // Server-controlled attribution only — ignore any caller-supplied submittedByTeamMemberId.
+      let submittedByTeamMemberId: string | null = null;
+      if (req.session?.authenticated && req.session.role === "team" && req.session.username) {
+        const tm = await storage.getTeamMemberByUsername(req.session.username);
+        if (tm) submittedByTeamMemberId = tm.id;
+      }
       const enquiry = await storage.createTradeEnquiry({
         product: b.product.trim(),
         side,
@@ -2270,6 +2454,7 @@ export async function registerRoutes(
         additionalInfo: str(b.additionalInfo),
         createdBy: str(b.createdBy),
         email: str(b.email),
+        submittedByTeamMemberId,
       });
       sendEnquiryCreatedNotification(enquiry).catch(() => {});
       res.json(enquiry);
@@ -2278,7 +2463,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/trade-enquiries/:id/status", requireAuth, async (req: Request, res: Response) => {
+  app.patch("/api/trade-enquiries/:id/status", requireAdminAuth, async (req: Request, res: Response) => {
     try {
       const { status } = req.body;
       const valid = ["active", "closed", "accepted", "rejected"];

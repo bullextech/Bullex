@@ -75,6 +75,7 @@ export const kycApplications = pgTable("kyc_applications", {
   previousHash: text("previous_hash"),
   blockNumber: integer("block_number"),
   nonce: integer("nonce"),
+  submittedByTeamMemberId: varchar("submitted_by_team_member_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -240,7 +241,29 @@ export const tradeEnquiries = pgTable("trade_enquiries", {
   compliance: text("compliance"),
   performanceBond: text("performance_bond"),
   linkedTradeRef: text("linked_trade_ref"),
+  submittedByTeamMemberId: varchar("submitted_by_team_member_id"),
 });
+
+export const enquiryChangeRequests = pgTable("enquiry_change_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  enquiryId: varchar("enquiry_id").notNull(),
+  changedFields: jsonb("changed_fields").notNull(),
+  reason: text("reason"),
+  status: text("status").notNull().default("pending"),
+  adminNotes: text("admin_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+});
+
+export const insertEnquiryChangeRequestSchema = createInsertSchema(enquiryChangeRequests).omit({
+  id: true,
+  status: true,
+  adminNotes: true,
+  createdAt: true,
+  reviewedAt: true,
+});
+export type EnquiryChangeRequest = typeof enquiryChangeRequests.$inferSelect;
+export type InsertEnquiryChangeRequest = z.infer<typeof insertEnquiryChangeRequestSchema>;
 
 export const tradeEnquiryDocuments = pgTable("trade_enquiry_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

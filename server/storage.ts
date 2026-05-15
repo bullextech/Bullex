@@ -32,6 +32,9 @@ import {
   type InsertTradeEnquiry,
   type TradeEnquiryDocument,
   type InsertTradeEnquiryDocument,
+  enquiryChangeRequests,
+  type EnquiryChangeRequest,
+  type InsertEnquiryChangeRequest,
   registrations,
   type Registration,
   type InsertRegistration,
@@ -122,6 +125,13 @@ export interface IStorage {
   createTradeEnquiry(enquiry: InsertTradeEnquiry): Promise<TradeEnquiry>;
   updateTradeEnquiryStatus(id: string, status: string, linkedTradeRef?: string): Promise<TradeEnquiry>;
   deleteTradeEnquiry(id: string): Promise<void>;
+  getKycApplicationsByTeamMemberId(teamMemberId: string): Promise<KycApplication[]>;
+  getTradeEnquiriesByTeamMemberId(teamMemberId: string): Promise<TradeEnquiry[]>;
+  getEnquiryChangeRequests(): Promise<EnquiryChangeRequest[]>;
+  getEnquiryChangeRequestsByEnquiryId(enquiryId: string): Promise<EnquiryChangeRequest[]>;
+  createEnquiryChangeRequest(req: InsertEnquiryChangeRequest): Promise<EnquiryChangeRequest>;
+  updateEnquiryChangeRequestStatus(id: string, status: string, adminNotes?: string): Promise<EnquiryChangeRequest>;
+  approveAndApplyEnquiryChangeRequest(id: string, adminNotes?: string): Promise<TradeEnquiry>;
 
   updateTradeEnquiryClientResponse(id: string, response: string, respondedBy: string): Promise<TradeEnquiry>;
 
@@ -537,6 +547,61 @@ export class DatabaseStorage implements IStorage {
 
   async getTradeEnquiries(): Promise<TradeEnquiry[]> {
     return db.select().from(tradeEnquiries).orderBy(desc(tradeEnquiries.createdAt));
+  }
+
+  async getKycApplicationsByTeamMemberId(teamMemberId: string): Promise<KycApplication[]> {
+    return db.select().from(kycApplications).where(eq(kycApplications.submittedByTeamMemberId, teamMemberId)).orderBy(desc(kycApplications.createdAt));
+  }
+
+  async getTradeEnquiriesByTeamMemberId(teamMemberId: string): Promise<TradeEnquiry[]> {
+    return db.select().from(tradeEnquiries).where(eq(tradeEnquiries.submittedByTeamMemberId, teamMemberId)).orderBy(desc(tradeEnquiries.createdAt));
+  }
+
+  async getEnquiryChangeRequests(): Promise<EnquiryChangeRequest[]> {
+    return db.select().from(enquiryChangeRequests).orderBy(desc(enquiryChangeRequests.createdAt));
+  }
+
+  async getEnquiryChangeRequestsByEnquiryId(enquiryId: string): Promise<EnquiryChangeRequest[]> {
+    return db.select().from(enquiryChangeRequests).where(eq(enquiryChangeRequests.enquiryId, enquiryId)).orderBy(desc(enquiryChangeRequests.createdAt));
+  }
+
+  async createEnquiryChangeRequest(req: InsertEnquiryChangeRequest): Promise<EnquiryChangeRequest> {
+    const [created] = await db.insert(enquiryChangeRequests).values(req).returning();
+    return created;
+  }
+
+  async updateEnquiryChangeRequestStatus(id: string, status: string, adminNotes?: string): Promise<EnquiryChangeRequest> {
+    const [updated] = await db.update(enquiryChangeRequests).set({
+      status,
+      adminNotes: adminNotes || null,
+      reviewedAt: new Date(),
+    }).where(eq(enquiryChangeRequests.id, id)).returning();
+    return updated;
+  }
+
+  async approveAndApplyEnquiryChangeRequest(id: string, adminNotes?: string): Promise<TradeEnquiry> {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const txDb = drizzle(client);
+      const [changeReq] = await txDb.select().from(enquiryChangeRequests).where(eq(enquiryChangeRequests.id, id));
+      if (!changeReq) throw new Error("Change request not found");
+      if (changeReq.status !== "pending") throw new Error("Change request is no longer pending");
+      const fields = changeReq.changedFields as Record<string, any>;
+      const [updated] = await txDb.update(tradeEnquiries).set(fields).where(eq(tradeEnquiries.id, changeReq.enquiryId)).returning();
+      await txDb.update(enquiryChangeRequests).set({
+        status: "approved",
+        adminNotes: adminNotes || null,
+        reviewedAt: new Date(),
+      }).where(eq(enquiryChangeRequests.id, id));
+      await client.query("COMMIT");
+      return updated;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async getTradeEnquiryById(id: string): Promise<TradeEnquiry | undefined> {

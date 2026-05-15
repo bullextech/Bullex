@@ -11,6 +11,7 @@ import {
   Users,
   Cloud,
   ClipboardList,
+  Briefcase,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -39,7 +40,9 @@ export function AdminSidebar() {
     ? PLATFORM_MODULES
     : PLATFORM_MODULES.filter(m => (allowedModules ?? []).includes(m.id));
 
+  const teamPortalItem = { id: "team-portal", title: "My Portal", url: "/team-portal", icon: Briefcase };
   const allItems = [
+    ...(role === "team" ? [teamPortalItem] : []),
     ...visibleModules,
     ...(role === "admin" ? adminOnlyItems : []),
   ];
