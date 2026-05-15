@@ -64,6 +64,14 @@ function emailWrapper(body: string): string {
           This is an automated message from Bullex Commodity Trading Platform. Please do not reply to this email.
         </p>
       </div>
+      <div style="background: #990000; padding: 20px 16px; text-align: center; border-radius: 0 0 8px 8px; margin-top: 12px;">
+        <p style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; line-height: 1.3;">
+          Bullfrog Group Proprietary Platform
+        </p>
+        <p style="color: #ffd1d1; margin: 6px 0 0; font-size: 12px; letter-spacing: 0.5px;">
+          Bullex is a proprietary platform of Bullfrog Group.
+        </p>
+      </div>
     </div>
   `;
 }
