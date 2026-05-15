@@ -1610,8 +1610,13 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/documents", requireAuth, async (_req, res) => {
+  app.get("/api/documents", requireAuth, async (req, res) => {
     try {
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        if (!tmId) return res.json([]);
+        return res.json(await storage.getDocumentsByTeamMemberId(tmId));
+      }
       const result = await storage.getDocuments();
       res.json(result);
     } catch (error) {
@@ -1674,6 +1679,25 @@ export async function registerRoutes(
 
       const enquiryRef = req.body.enquiryRef || null;
 
+      // Team-member gating: must own the linked enquiry, and the enquiry must be admin-accepted.
+      let submittedByTeamMemberId: string | null = null;
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        if (!tmId) return res.status(403).json({ message: "Team member not found" });
+        if (!enquiryRef) {
+          return res.status(400).json({ message: "Team members must link the document to one of their accepted enquiries (enquiryRef required)" });
+        }
+        const allEnq = await storage.getTradeEnquiriesByTeamMemberId(tmId);
+        const ownedEnq = allEnq.find(e => e.enquiryRef === enquiryRef);
+        if (!ownedEnq) {
+          return res.status(403).json({ message: "You can only create documents for enquiries you submitted" });
+        }
+        if (ownedEnq.status !== "accepted") {
+          return res.status(400).json({ message: `Documents can only be created for accepted enquiries (current status: ${ownedEnq.status})` });
+        }
+        submittedByTeamMemberId = tmId;
+      }
+
       const content = generateDocumentContent(parsed.data.docType, trade, buyerDetails, sellerDetails, { ...productDetails, loiIssueNumber: issueNumber, dealRecapNumber: dealRecapNumber || undefined });
       const adminChecks = buildAdminChecks(parsed.data.docType);
       const result = await storage.createDocument({
@@ -1684,6 +1708,7 @@ export async function registerRoutes(
         issueNumber,
         dealRecapNumber,
         enquiryRef,
+        submittedByTeamMemberId,
         buyerEmail: buyerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || null,
         sellerEmail: sellerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || null,
       });
@@ -1702,16 +1727,9 @@ export async function registerRoutes(
         const buyerName = buyerDetails?.name || "Buyer";
         const sellerName = sellerDetails?.name || "Seller";
 
-        if (pdfPath) {
-          if (buyerEmail) {
-            sendDocumentEmail(buyerEmail, buyerName, parsed.data.docType, result.title, "Buyer", pdfPath)
-              .catch(err => console.error("[docs] Failed to email buyer:", err));
-          }
-          if (sellerEmail) {
-            sendDocumentEmail(sellerEmail, sellerName, parsed.data.docType, result.title, "Seller", pdfPath)
-              .catch(err => console.error("[docs] Failed to email seller:", err));
-          }
-        }
+        // Do NOT auto-email buyer/seller on creation — documents must pass admin review first.
+        // Sending happens explicitly via POST /api/documents/:id/send after approval + signature.
+        void pdfPath; void buyerEmail; void sellerEmail; void buyerName; void sellerName;
 
         res.json(updated);
       } catch (fileErr) {
@@ -1725,6 +1743,15 @@ export async function registerRoutes(
 
   app.get("/api/documents/:id", requireAuth, async (req, res) => {
     try {
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        const doc = await storage.getDocumentById(req.params.id);
+        if (!doc) return res.status(404).json({ message: "Document not found" });
+        if (!tmId || doc.submittedByTeamMemberId !== tmId) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+        return res.json(doc);
+      }
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
       res.json(doc);
@@ -1740,12 +1767,23 @@ export async function registerRoutes(
       if (["sent", "accepted"].includes(doc.status)) {
         return res.status(400).json({ message: `Cannot edit document in '${doc.status}' state` });
       }
+      // Team members may only edit their own docs and may NOT mutate status (admin-review controls workflow).
+      const isTeam = req.session?.role === "team";
+      if (isTeam) {
+        const tmId = await getSessionTeamMemberId(req);
+        if (!tmId || doc.submittedByTeamMemberId !== tmId) {
+          return res.status(403).json({ message: "You can only edit documents you created" });
+        }
+        if (doc.status === "pending_review") {
+          return res.status(400).json({ message: "Document is awaiting admin approval and cannot be edited" });
+        }
+      }
       const allowedStatuses = ["draft", "review", "final"];
       const { title, content, status } = req.body;
       const updateData: Record<string, any> = {};
       if (typeof title === "string" && title.trim()) updateData.title = title.trim();
       if (typeof content === "string") updateData.content = content;
-      if (typeof status === "string" && allowedStatuses.includes(status)) updateData.status = status;
+      if (!isTeam && typeof status === "string" && allowedStatuses.includes(status)) updateData.status = status;
       if (Object.keys(updateData).length === 0) {
         return res.status(400).json({ message: "No valid fields to update" });
       }
@@ -1862,7 +1900,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/documents/:id/admin-review", requireAuth, async (req: Request, res: Response) => {
+  app.patch("/api/documents/:id/admin-review", requireAdminAuth, async (req: Request, res: Response) => {
     try {
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
@@ -1989,8 +2027,17 @@ export async function registerRoutes(
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
 
-      if (!["draft", "final", "rejected"].includes(doc.status)) {
-        return res.status(400).json({ message: `Cannot send document in '${doc.status}' state. Must be draft, final, or rejected.` });
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        if (!tmId || doc.submittedByTeamMemberId !== tmId) {
+          return res.status(403).json({ message: "You can only send documents you created" });
+        }
+      }
+
+      const isTeamCaller = req.session?.role === "team";
+      const allowedSendStatuses = isTeamCaller ? ["draft", "final"] : ["draft", "final", "rejected"];
+      if (!allowedSendStatuses.includes(doc.status)) {
+        return res.status(400).json({ message: `Cannot send document in '${doc.status}' state. Must be admin-approved before sending.` });
       }
 
       const isNcnda = doc.docType === "NCNDA";

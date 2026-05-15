@@ -15,8 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Briefcase, FileText, ShieldCheck, Plus, Send, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink } from "lucide-react";
-import type { KycApplication, TradeEnquiry, EnquiryChangeRequest, KycChangeRequest } from "@shared/schema";
+import { Briefcase, FileText, ShieldCheck, Plus, Send, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink, FilePlus, Mail } from "lucide-react";
+import type { KycApplication, TradeEnquiry, EnquiryChangeRequest, KycChangeRequest, Document } from "@shared/schema";
 
 const KYC_AMENDABLE_FIELDS: { key: string; label: string }[] = [
   { key: "companyName", label: "Company Name" },
@@ -256,6 +256,25 @@ export default function TeamPortal() {
   const enquiryQuery = useQuery<TradeEnquiry[]>({ queryKey: ["/api/team/me/enquiries"] });
   const allKycChangeReqs = useQuery<KycChangeRequest[]>({ queryKey: ["/api/kyc-change-requests"] });
   const allEnquiryChangeReqs = useQuery<EnquiryChangeRequest[]>({ queryKey: ["/api/enquiry-change-requests"] });
+  const documentsQuery = useQuery<Document[]>({ queryKey: ["/api/documents"] });
+  const { toast } = useToast();
+  const [sendDialogDoc, setSendDialogDoc] = useState<Document | null>(null);
+  const [sendRecipient, setSendRecipient] = useState("");
+  const [sendCc, setSendCc] = useState("");
+  const sendDocMutation = useMutation({
+    mutationFn: async ({ id, recipientEmail, ccEmail }: { id: string; recipientEmail: string; ccEmail?: string }) => {
+      const res = await apiRequest("POST", `/api/documents/${id}/send`, { recipientEmail, ccEmail: ccEmail || undefined });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      toast({ title: "Document sent", description: "The recipient has been notified by email." });
+      setSendDialogDoc(null);
+      setSendRecipient("");
+      setSendCc("");
+    },
+    onError: (err: any) => toast({ title: "Failed to send", description: err.message, variant: "destructive" }),
+  });
 
   const requestKycAmendment = useMutation({
     mutationFn: async ({ id, changedFields, reason }: { id: string; changedFields: Record<string, string>; reason: string }) => {
@@ -327,6 +346,7 @@ export default function TeamPortal() {
         <TabsList>
           <TabsTrigger value="kyc" data-testid="tab-kyc">My KYC</TabsTrigger>
           <TabsTrigger value="enquiries" data-testid="tab-enquiries">My Enquiries</TabsTrigger>
+          <TabsTrigger value="documents" data-testid="tab-documents">My Documents</TabsTrigger>
         </TabsList>
 
         <TabsContent value="kyc" className="space-y-4">
@@ -457,7 +477,14 @@ export default function TeamPortal() {
                           ))}
                         </div>
                       )}
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-2 flex-wrap">
+                        {eq.status === "accepted" && (
+                          <Link href={`/documents?enquiryRef=${encodeURIComponent(eq.enquiryRef)}`}>
+                            <Button variant="default" size="sm" data-testid={`button-create-doc-${eq.id}`}>
+                              <FilePlus className="w-4 h-4 mr-1" /> Generate Documents
+                            </Button>
+                          </Link>
+                        )}
                         <AmendmentDialog
                           title={`Request Amendment — ${eq.enquiryRef}`}
                           fields={ENQUIRY_AMENDABLE_FIELDS}
@@ -481,7 +508,163 @@ export default function TeamPortal() {
             </div>
           )}
         </TabsContent>
+
+        <TabsContent value="documents" className="space-y-4">
+          {documentsQuery.isLoading ? <Skeleton className="h-32" /> : (documentsQuery.data ?? []).length === 0 ? (
+            <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">
+              You haven't created any documents yet. Documents can be created from your <span className="font-semibold">accepted</span> enquiries.
+            </CardContent></Card>
+          ) : (
+            <div className="space-y-3">
+              {(documentsQuery.data ?? []).map((doc) => {
+                const approved = ["draft", "final"].includes(doc.status);
+                const sent = doc.status === "sent";
+                const rejected = doc.status === "rejected";
+                const pendingReview = doc.status === "pending_review";
+                const isNcnda = doc.docType === "NCNDA";
+                const hasSig = isNcnda ? (doc.sellerSignature || doc.buyerSignature) : doc.buyerSignature;
+                const canSend = approved && hasSig;
+                return (
+                  <Card key={doc.id} data-testid={`card-doc-${doc.id}`}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <CardTitle className="text-base flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="text-[10px]">{doc.docType}</Badge>
+                            <span className="truncate" data-testid={`text-doc-title-${doc.id}`}>{doc.title}</span>
+                          </CardTitle>
+                          <CardDescription className="text-xs mt-1">
+                            {doc.enquiryRef && <>Enquiry: <span className="font-mono">{doc.enquiryRef}</span> • </>}
+                            Created {new Date(doc.createdAt).toLocaleString()}
+                          </CardDescription>
+                        </div>
+                        <StatusBadge status={doc.status} />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {pendingReview && (
+                        <Alert>
+                          <Clock className="w-4 h-4" />
+                          <AlertTitle className="text-sm">Awaiting admin approval</AlertTitle>
+                          <AlertDescription className="text-xs">An admin must review and approve this document before you can send it to the buyer or seller.</AlertDescription>
+                        </Alert>
+                      )}
+                      {rejected && doc.adminReviewNotes && (
+                        <Alert variant="destructive">
+                          <XCircle className="w-4 h-4" />
+                          <AlertTitle className="text-sm">Rejected by admin</AlertTitle>
+                          <AlertDescription className="text-xs">{doc.adminReviewNotes}</AlertDescription>
+                        </Alert>
+                      )}
+                      {approved && !hasSig && (
+                        <Alert>
+                          <AlertCircle className="w-4 h-4" />
+                          <AlertTitle className="text-sm">Approved — signature required</AlertTitle>
+                          <AlertDescription className="text-xs">Open the document in the generator to apply your signature, then come back to send.</AlertDescription>
+                        </Alert>
+                      )}
+                      {sent && (
+                        <div className="text-xs p-2 rounded bg-muted/40">
+                          <span className="font-medium">Sent to:</span> {doc.sentTo}
+                          {doc.recipientResponse && <Badge variant="outline" className="ml-2 text-[10px]">{doc.recipientResponse}</Badge>}
+                        </div>
+                      )}
+                      <div className="flex justify-end gap-2 flex-wrap">
+                        {doc.pdfPath && (
+                          <a href={`/api/documents/${doc.id}/download/pdf`} target="_blank" rel="noreferrer">
+                            <Button variant="outline" size="sm" data-testid={`button-download-pdf-${doc.id}`}>PDF</Button>
+                          </a>
+                        )}
+                        {doc.docxPath && (
+                          <a href={`/api/documents/${doc.id}/download/docx`} target="_blank" rel="noreferrer">
+                            <Button variant="outline" size="sm" data-testid={`button-download-docx-${doc.id}`}>DOCX</Button>
+                          </a>
+                        )}
+                        <Link href={`/documents?docId=${doc.id}`}>
+                          <Button variant="outline" size="sm" data-testid={`button-open-doc-${doc.id}`}>
+                            <ExternalLink className="w-3.5 h-3.5 mr-1" /> Open
+                          </Button>
+                        </Link>
+                        <Button
+                          size="sm"
+                          disabled={!canSend}
+                          onClick={() => {
+                            setSendDialogDoc(doc);
+                            setSendRecipient(doc.buyerEmail || doc.sellerEmail || "");
+                            setSendCc("");
+                          }}
+                          data-testid={`button-send-doc-${doc.id}`}
+                        >
+                          <Mail className="w-4 h-4 mr-1" />
+                          {sent ? "Re-send" : canSend ? "Send to Buyer/Seller" : "Awaiting Approval"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
+
+      <Dialog open={!!sendDialogDoc} onOpenChange={(o) => !o && setSendDialogDoc(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Document by Email</DialogTitle>
+            <DialogDescription>
+              Send <span className="font-mono">{sendDialogDoc?.docType}</span> — {sendDialogDoc?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid gap-1">
+              <Label className="text-xs">Recipient Email *</Label>
+              <Input
+                type="email"
+                value={sendRecipient}
+                onChange={(e) => setSendRecipient(e.target.value)}
+                placeholder="buyer@example.com"
+                data-testid="input-send-recipient"
+              />
+              {(sendDialogDoc?.buyerEmail || sendDialogDoc?.sellerEmail) && (
+                <div className="flex gap-2 mt-1 flex-wrap">
+                  {sendDialogDoc?.buyerEmail && (
+                    <Button type="button" variant="outline" size="sm" className="h-6 text-[11px]" onClick={() => setSendRecipient(sendDialogDoc.buyerEmail!)}>
+                      Buyer: {sendDialogDoc.buyerEmail}
+                    </Button>
+                  )}
+                  {sendDialogDoc?.sellerEmail && (
+                    <Button type="button" variant="outline" size="sm" className="h-6 text-[11px]" onClick={() => setSendRecipient(sendDialogDoc.sellerEmail!)}>
+                      Seller: {sendDialogDoc.sellerEmail}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">CC (optional)</Label>
+              <Input
+                type="email"
+                value={sendCc}
+                onChange={(e) => setSendCc(e.target.value)}
+                placeholder="cc@example.com"
+                data-testid="input-send-cc"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSendDialogDoc(null)}>Cancel</Button>
+            <Button
+              disabled={!sendRecipient || sendDocMutation.isPending}
+              onClick={() => sendDialogDoc && sendDocMutation.mutate({ id: sendDialogDoc.id, recipientEmail: sendRecipient, ccEmail: sendCc })}
+              data-testid="button-confirm-send"
+            >
+              <Send className="w-4 h-4 mr-1" />
+              {sendDocMutation.isPending ? "Sending…" : "Send Email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
