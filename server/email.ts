@@ -60,6 +60,9 @@ function emailWrapper(body: string): string {
       <div style="border: 1px solid #e2e8f0; border-top: none; padding: 32px; border-radius: 0 0 8px 8px;">
         ${body}
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+        <p style="color: #1a1a2e; font-size: 16px; font-weight: 900; margin: 0 0 12px; line-height: 1.4; text-align: center;">
+          Bullex is a proprietary platform of Bullfrog Group.
+        </p>
         <p style="color: #94a3b8; font-size: 12px; margin: 0;">
           This is an automated message from Bullex Commodity Trading Platform. Please do not reply to this email.
         </p>
