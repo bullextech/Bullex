@@ -3375,3 +3375,202 @@ export async function regenerateWithSignatures(
   return { docxPath, pdfPath };
 }
 
+
+// ─────────────────────────────────────────────────────────────────────
+// KYC APPLICATION PDF
+// ─────────────────────────────────────────────────────────────────────
+
+interface KycPdfSection {
+  title: string;
+  rows: [string, string][];
+}
+
+function buildKycSections(kyc: any): KycPdfSection[] {
+  const v = (x: any) => (x === null || x === undefined || x === "" ? "—" : String(x));
+  return [
+    {
+      title: "1. Company Identification",
+      rows: [
+        ["Company Name", v(kyc.companyName)],
+        ["Registered Address", v(kyc.registeredAddress)],
+        ["Primary Business Address", v(kyc.primaryBusinessAddress)],
+        ["Date of Incorporation", v(kyc.dateOfIncorporation)],
+        ["Country of Incorporation", v(kyc.countryOfIncorporation)],
+        ["Country of Operation", v(kyc.countryOfOperation)],
+        ["Registration Number", v(kyc.registrationNumber)],
+        ["Tax ID Number", v(kyc.taxIdNumber)],
+        ["Business Type", v(kyc.businessType)],
+        ["Website", v(kyc.website)],
+      ],
+    },
+    {
+      title: "2. Business Profile",
+      rows: [
+        ["Core Business", v(kyc.coreBusinessDescription)],
+        ["Ultimate Beneficial Owners", v(kyc.ultimateBeneficialOwners)],
+        ["Shareholders", v(kyc.shareholders)],
+        ["Management Structure", v(kyc.managementStructure)],
+        ["Subsidiaries", v(kyc.subsidiaries)],
+        ["Listing Information", v(kyc.listingInfo)],
+      ],
+    },
+    {
+      title: "3. Financial Information",
+      rows: [
+        ["Share Capital", v(kyc.shareCapital)],
+        ["Capital Range", v(kyc.capitalRange)],
+        ["Reporting Currency", v(kyc.financialCurrency)],
+        ["Sales Revenue", v(kyc.salesRevenue)],
+        ["Net Income", v(kyc.netIncome)],
+        ["Total Equity", v(kyc.totalEquity)],
+        ["Total Balance Sheet", v(kyc.totalBalanceSheet)],
+        ["Last Reporting Period", v(kyc.lastReportingPeriod)],
+        ["External Auditors", v(kyc.externalAuditors)],
+      ],
+    },
+    {
+      title: "4. Banking Details",
+      rows: [
+        ["Bank Name", v(kyc.bankName)],
+        ["Bank Branch", v(kyc.bankBranch)],
+        ["Bank Address", v(kyc.bankAddress)],
+        ["Account Name", v(kyc.accountName)],
+        ["Account Number", v(kyc.accountNumber)],
+        ["SWIFT Code", v(kyc.swiftCode)],
+        ["Account Currency", v(kyc.bankAccountCurrency)],
+        ["Bank Officer Name", v(kyc.bankOfficerName)],
+        ["Bank Officer Email", v(kyc.bankOfficerEmail)],
+      ],
+    },
+    {
+      title: "5. Workforce",
+      rows: [
+        ["Employees (Company)", v(kyc.employeesCompany)],
+        ["Employees (Group)", v(kyc.employeesGroup)],
+        ["Previous Bullfrog Employee", v(kyc.previousBullfrogEmployee)],
+      ],
+    },
+    {
+      title: "6. AML & Compliance",
+      rows: [
+        ["Subject to AML Regulation", v(kyc.amlSubject)],
+        ["AML Conformity Program", v(kyc.amlConformityProgram)],
+        ["AML Regulator", v(kyc.amlRegulator)],
+        ["AML Law / Reference", v(kyc.amlLawName)],
+        ["Reasons for Documents", v(kyc.documentReasons)],
+      ],
+    },
+    {
+      title: "7. Primary Contact",
+      rows: [
+        ["Contact Name", v(kyc.contactName)],
+        ["Contact Title", v(kyc.contactTitle)],
+        ["Contact Phone", v(kyc.contactPhone)],
+        ["Contact Email", v(kyc.contactEmail)],
+        ["Fax Number", v(kyc.faxNumber)],
+      ],
+    },
+    {
+      title: "8. Authorised Signatory",
+      rows: [
+        ["Signatory Name", v(kyc.signatoryName)],
+        ["Signatory Title", v(kyc.signatoryTitle)],
+        ["Signatory Company", v(kyc.signatoryCompany)],
+        ["Signatory Email", v(kyc.signatoryEmail)],
+        ["Place & Date", v(kyc.signatoryPlaceDate)],
+      ],
+    },
+    {
+      title: "9. Submission Metadata",
+      rows: [
+        ["Filled By (Name)", v(kyc.filledByName)],
+        ["Filled By (Email)", v(kyc.filledByEmail)],
+        ["Status", v(kyc.status).toUpperCase()],
+        ["Category", v(kyc.category)],
+        ["Products", v(kyc.products)],
+        ["Submitted At", kyc.createdAt ? new Date(kyc.createdAt).toLocaleString("en-GB", { timeZone: "UTC" }) + " UTC" : "—"],
+        ["Application ID", v(kyc.id)],
+      ],
+    },
+    ...(kyc.blockchainHash
+      ? [{
+          title: "10. Blockchain Verification",
+          rows: [
+            ["Block Number", v(kyc.blockNumber)],
+            ["Nonce", v(kyc.nonce)],
+            ["Block Hash", v(kyc.blockchainHash)],
+            ["Previous Hash", v(kyc.previousHash)],
+          ] as [string, string][],
+        }]
+      : []),
+  ];
+}
+
+export async function generateKycApplicationPdf(
+  kyc: any,
+  kycDocs: { documentType: string; originalName: string }[] | undefined,
+  submittedBy?: string,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const fileName = `kyc_${kyc.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.pdf`;
+    const filePath = path.join(docsDir, fileName);
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const stream = fs.createWriteStream(filePath);
+    doc.pipe(stream);
+
+    const pageWidth = 495;
+    const leftMargin = 50;
+
+    // Header
+    doc.font("Helvetica-Bold").fontSize(18).fillColor("#990000")
+      .text("BULLEX TRADING PLATFORM", leftMargin, 50, { width: pageWidth, align: "center" });
+    doc.font("Helvetica").fontSize(9).fillColor("#666666")
+      .text("A proprietary platform of Bullfrog Group", leftMargin, doc.y + 2, { width: pageWidth, align: "center" });
+    doc.moveDown(0.8);
+    doc.font("Helvetica-Bold").fontSize(14).fillColor("#000000")
+      .text("KYC APPLICATION FORM", leftMargin, doc.y, { width: pageWidth, align: "center" });
+    doc.moveDown(0.3);
+    doc.font("Helvetica").fontSize(9).fillColor("#444444")
+      .text(`${kyc.companyName || "—"}  •  Application #${kyc.id?.slice(0, 8) || "—"}`, leftMargin, doc.y, { width: pageWidth, align: "center" });
+    doc.moveDown(0.2);
+    doc.font("Helvetica").fontSize(8).fillColor("#888888")
+      .text(`Generated: ${new Date().toLocaleString("en-GB", { timeZone: "UTC" })} UTC`, leftMargin, doc.y, { width: pageWidth, align: "center" });
+    doc.moveDown(0.5);
+    doc.moveTo(leftMargin, doc.y).lineTo(leftMargin + pageWidth, doc.y).lineWidth(1.5).stroke("#990000");
+    doc.moveDown(0.8);
+
+    // Sections
+    const sections = buildKycSections(kyc);
+    for (const section of sections) {
+      pdfCheckPage(doc, 80);
+      doc.font("Helvetica-Bold").fontSize(11).fillColor("#990000")
+        .text(section.title, leftMargin, doc.y, { width: pageWidth });
+      doc.moveDown(0.3);
+      drawPdf2ColTable(doc, section.rows, leftMargin, pageWidth);
+      doc.moveDown(0.6);
+    }
+
+    // Uploaded documents
+    if (kycDocs && kycDocs.length > 0) {
+      pdfCheckPage(doc, 80);
+      doc.font("Helvetica-Bold").fontSize(11).fillColor("#990000")
+        .text("Supporting Documents on File", leftMargin, doc.y, { width: pageWidth });
+      doc.moveDown(0.3);
+      const rows: [string, string][] = [["Document Type", "File Name"], ...kycDocs.map((d) => [d.documentType, d.originalName] as [string, string])];
+      drawPdf2ColTable(doc, rows, leftMargin, pageWidth);
+      doc.moveDown(0.6);
+    }
+
+    // Bullfrog tagline (bold)
+    doc.moveDown(0.6);
+    pdfCheckPage(doc, 60);
+    doc.font("Helvetica-Bold").fontSize(11).fillColor("#990000")
+      .text("Bullex is a proprietary platform of Bullfrog Group.", leftMargin, doc.y, { width: pageWidth, align: "center" });
+    doc.moveDown(0.3);
+
+    addPdfFooter(doc, leftMargin, pageWidth, submittedBy);
+    doc.end();
+    stream.on("finish", () => resolve(filePath));
+    stream.on("error", reject);
+  });
+}

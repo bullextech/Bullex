@@ -13,6 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import {
   Shield,
   Search,
@@ -91,7 +93,24 @@ export default function KycAdmin() {
   const [clientUsernames, setClientUsernames] = useState<Record<string, string>>({});
   const [clientPasswords, setClientPasswords] = useState<Record<string, string>>({});
   const [productInput, setProductInput] = useState<Record<string, string>>({});
+  const [sendKycPdfApp, setSendKycPdfApp] = useState<KycApplication | null>(null);
+  const [sendKycPdfTo, setSendKycPdfTo] = useState("");
+  const [sendKycPdfName, setSendKycPdfName] = useState("");
+  const [sendKycPdfCc, setSendKycPdfCc] = useState("");
+  const [sendKycPdfMsg, setSendKycPdfMsg] = useState("");
   const { toast } = useToast();
+
+  const sendKycPdfMutation = useMutation({
+    mutationFn: async ({ id, recipientEmail, recipientName, ccEmail, message }: { id: string; recipientEmail: string; recipientName?: string; ccEmail?: string; message?: string }) => {
+      const res = await apiRequest("POST", `/api/kyc/${id}/send-pdf`, { recipientEmail, recipientName, ccEmail: ccEmail || undefined, message: message || undefined });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "KYC PDF sent", description: `Sent to ${data?.sentTo || "recipient"}.` });
+      setSendKycPdfApp(null);
+    },
+    onError: (e: any) => toast({ title: "Failed to send", description: e.message, variant: "destructive" }),
+  });
 
   const { data: applications, isLoading: kycLoading } = useQuery<KycApplication[]>({
     queryKey: ["/api/kyc"],
@@ -889,6 +908,32 @@ export default function KycAdmin() {
 
                   {isExpanded && (
                     <div className="border-t border-border bg-muted/10" data-testid={`kyc-detail-${app.id}`}>
+                      <div className="px-5 pt-4 pb-2 flex flex-wrap gap-2 justify-end border-b border-border/40">
+                        <a
+                          href={`/api/kyc/${app.id}/pdf`}
+                          target="_blank"
+                          rel="noreferrer"
+                          data-testid={`link-download-kyc-pdf-${app.id}`}
+                        >
+                          <Button size="sm" variant="outline" className="rounded-none h-9 text-xs font-bold uppercase tracking-wider">
+                            <Download className="w-3.5 h-3.5 mr-1.5" /> Download KYC PDF
+                          </Button>
+                        </a>
+                        <Button
+                          size="sm"
+                          className="rounded-none h-9 text-xs font-bold uppercase tracking-wider bg-primary hover:bg-primary/90 text-primary-foreground"
+                          onClick={() => {
+                            setSendKycPdfApp(app);
+                            setSendKycPdfTo(app.contactEmail || app.signatoryEmail || "");
+                            setSendKycPdfName(app.contactName || app.signatoryName || "");
+                            setSendKycPdfCc("");
+                            setSendKycPdfMsg("");
+                          }}
+                          data-testid={`button-send-kyc-pdf-${app.id}`}
+                        >
+                          <Send className="w-3.5 h-3.5 mr-1.5" /> Send PDF to Client
+                        </Button>
+                      </div>
                       <div className="px-5 py-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div>
                           <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
@@ -1290,6 +1335,46 @@ export default function KycAdmin() {
         </div>
 
       </div>
+
+      <Dialog open={!!sendKycPdfApp} onOpenChange={(o) => !o && setSendKycPdfApp(null)}>
+        <DialogContent className="max-w-lg" data-testid="dialog-send-kyc-pdf">
+          <DialogHeader>
+            <DialogTitle>Send KYC Application PDF</DialogTitle>
+            <DialogDescription>
+              Email the full KYC application PDF for <span className="font-semibold">{sendKycPdfApp?.companyName}</span> to a recipient.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid gap-1">
+              <Label className="text-xs">Recipient Email *</Label>
+              <Input value={sendKycPdfTo} onChange={(e) => setSendKycPdfTo(e.target.value)} placeholder="client@example.com" data-testid="input-send-kyc-pdf-to" />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Recipient Name</Label>
+              <Input value={sendKycPdfName} onChange={(e) => setSendKycPdfName(e.target.value)} placeholder="Mr. John Doe" data-testid="input-send-kyc-pdf-name" />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">CC (optional)</Label>
+              <Input value={sendKycPdfCc} onChange={(e) => setSendKycPdfCc(e.target.value)} placeholder="cc@example.com" data-testid="input-send-kyc-pdf-cc" />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Message (optional)</Label>
+              <Textarea value={sendKycPdfMsg} onChange={(e) => setSendKycPdfMsg(e.target.value)} rows={3} placeholder="Add a short note for the recipient…" data-testid="input-send-kyc-pdf-msg" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSendKycPdfApp(null)} data-testid="button-send-kyc-pdf-cancel">Cancel</Button>
+            <Button
+              disabled={sendKycPdfMutation.isPending || !sendKycPdfTo.trim() || !sendKycPdfApp}
+              onClick={() => sendKycPdfApp && sendKycPdfMutation.mutate({ id: sendKycPdfApp.id, recipientEmail: sendKycPdfTo.trim(), recipientName: sendKycPdfName.trim(), ccEmail: sendKycPdfCc.trim(), message: sendKycPdfMsg.trim() })}
+              data-testid="button-send-kyc-pdf-confirm"
+            >
+              <Send className="w-4 h-4 mr-1.5" />
+              {sendKycPdfMutation.isPending ? "Sending…" : "Send PDF"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

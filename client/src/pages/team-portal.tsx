@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Briefcase, FileText, ShieldCheck, Plus, Send, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink, FilePlus, Mail, FileSignature } from "lucide-react";
+import { Briefcase, FileText, ShieldCheck, Plus, Send, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink, FilePlus, Mail, FileSignature, Download } from "lucide-react";
 import type { KycApplication, TradeEnquiry, EnquiryChangeRequest, KycChangeRequest, Document } from "@shared/schema";
 
 const KYC_AMENDABLE_FIELDS: { key: string; label: string }[] = [
@@ -265,6 +265,23 @@ export default function TeamPortal() {
   const [sendDialogDoc, setSendDialogDoc] = useState<Document | null>(null);
   const [sendRecipient, setSendRecipient] = useState("");
   const [sendCc, setSendCc] = useState("");
+  const [sendKycPdfApp, setSendKycPdfApp] = useState<KycApplication | null>(null);
+  const [sendKycPdfTo, setSendKycPdfTo] = useState("");
+  const [sendKycPdfName, setSendKycPdfName] = useState("");
+  const [sendKycPdfCc, setSendKycPdfCc] = useState("");
+  const [sendKycPdfMsg, setSendKycPdfMsg] = useState("");
+  const sendKycPdfMutation = useMutation({
+    mutationFn: async ({ id, recipientEmail, recipientName, ccEmail, message }: { id: string; recipientEmail: string; recipientName?: string; ccEmail?: string; message?: string }) => {
+      const res = await apiRequest("POST", `/api/kyc/${id}/send-pdf`, { recipientEmail, recipientName, ccEmail: ccEmail || undefined, message: message || undefined });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "KYC PDF sent", description: `Sent to ${data?.sentTo || "recipient"}.` });
+      setSendKycPdfApp(null);
+      setSendKycPdfTo(""); setSendKycPdfName(""); setSendKycPdfCc(""); setSendKycPdfMsg("");
+    },
+    onError: (err: any) => toast({ title: "Failed to send", description: err.message, variant: "destructive" }),
+  });
   const sendDocMutation = useMutation({
     mutationFn: async ({ id, recipientEmail, ccEmail }: { id: string; recipientEmail: string; ccEmail?: string }) => {
       const res = await apiRequest("POST", `/api/documents/${id}/send`, { recipientEmail, ccEmail: ccEmail || undefined });
@@ -406,7 +423,26 @@ export default function TeamPortal() {
                           ))}
                         </div>
                       )}
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-2 flex-wrap">
+                        <a href={`/api/kyc/${kyc.id}/pdf`} target="_blank" rel="noreferrer" data-testid={`link-download-kyc-pdf-${kyc.id}`}>
+                          <Button variant="outline" size="sm">
+                            <Download className="w-3.5 h-3.5 mr-1" /> Download PDF
+                          </Button>
+                        </a>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => {
+                            setSendKycPdfApp(kyc);
+                            setSendKycPdfTo(kyc.contactEmail || kyc.signatoryEmail || "");
+                            setSendKycPdfName(kyc.contactName || kyc.signatoryName || "");
+                            setSendKycPdfCc("");
+                            setSendKycPdfMsg("");
+                          }}
+                          data-testid={`button-send-kyc-pdf-${kyc.id}`}
+                        >
+                          <Mail className="w-3.5 h-3.5 mr-1" /> Send PDF to Client
+                        </Button>
                         <AmendmentDialog
                           title={`Request Amendment — ${kyc.companyName}`}
                           fields={KYC_AMENDABLE_FIELDS}
@@ -665,6 +701,46 @@ export default function TeamPortal() {
             >
               <Send className="w-4 h-4 mr-1" />
               {sendDocMutation.isPending ? "Sending…" : "Send Email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!sendKycPdfApp} onOpenChange={(o) => !o && setSendKycPdfApp(null)}>
+        <DialogContent className="max-w-lg" data-testid="dialog-send-kyc-pdf">
+          <DialogHeader>
+            <DialogTitle>Send KYC Application PDF</DialogTitle>
+            <DialogDescription>
+              Email the KYC PDF for <span className="font-semibold">{sendKycPdfApp?.companyName}</span> to a recipient.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid gap-1">
+              <Label className="text-xs">Recipient Email *</Label>
+              <Input value={sendKycPdfTo} onChange={(e) => setSendKycPdfTo(e.target.value)} placeholder="client@example.com" data-testid="input-send-kyc-pdf-to" />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Recipient Name</Label>
+              <Input value={sendKycPdfName} onChange={(e) => setSendKycPdfName(e.target.value)} placeholder="Mr. John Doe" data-testid="input-send-kyc-pdf-name" />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">CC (optional)</Label>
+              <Input value={sendKycPdfCc} onChange={(e) => setSendKycPdfCc(e.target.value)} placeholder="cc@example.com" data-testid="input-send-kyc-pdf-cc" />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Message (optional)</Label>
+              <Textarea value={sendKycPdfMsg} onChange={(e) => setSendKycPdfMsg(e.target.value)} rows={3} placeholder="Add a short note for the recipient…" data-testid="input-send-kyc-pdf-msg" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSendKycPdfApp(null)} data-testid="button-send-kyc-pdf-cancel">Cancel</Button>
+            <Button
+              disabled={sendKycPdfMutation.isPending || !sendKycPdfTo.trim() || !sendKycPdfApp}
+              onClick={() => sendKycPdfApp && sendKycPdfMutation.mutate({ id: sendKycPdfApp.id, recipientEmail: sendKycPdfTo.trim(), recipientName: sendKycPdfName.trim(), ccEmail: sendKycPdfCc.trim(), message: sendKycPdfMsg.trim() })}
+              data-testid="button-send-kyc-pdf-confirm"
+            >
+              <Send className="w-4 h-4 mr-1.5" />
+              {sendKycPdfMutation.isPending ? "Sending…" : "Send PDF"}
             </Button>
           </DialogFooter>
         </DialogContent>

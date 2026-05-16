@@ -12,7 +12,7 @@ import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateE
 import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
 import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification, sendJobApplicationToHR, sendJobApplicationAcknowledgement, sendTeamKycAdminNotification, sendTeamKycConfirmation } from "./email";
-import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures } from "./documentFileGenerator";
+import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures, generateKycApplicationPdf } from "./documentFileGenerator";
 
 const ADMIN_CHECKLISTS: Record<string, string[]> = {
   LOI: [
@@ -1305,6 +1305,71 @@ export async function registerRoutes(
       res.json(list);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ─── KYC APPLICATION PDF: download + send-to-client ───
+  async function ensureKycAccess(req: Request, kyc: any): Promise<{ ok: boolean; message?: string; submittedBy?: string }> {
+    if (!req.session?.authenticated) return { ok: false, message: "Not authenticated" };
+    if (req.session.role === "admin") {
+      const sb = await getDocSubmittedByLabel(kyc.submittedByTeamMemberId);
+      return { ok: true, submittedBy: sb };
+    }
+    if (req.session.role === "team") {
+      const tmId = await getSessionTeamMemberId(req);
+      if (!tmId || kyc.submittedByTeamMemberId !== tmId) return { ok: false, message: "Not authorised for this KYC" };
+      const sb = await getDocSubmittedByLabel(tmId);
+      return { ok: true, submittedBy: sb };
+    }
+    return { ok: false, message: "Forbidden" };
+  }
+
+  app.get("/api/kyc/:id/pdf", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const kyc = await storage.getKycApplicationById(req.params.id);
+      if (!kyc) return res.status(404).json({ message: "KYC application not found" });
+      const access = await ensureKycAccess(req, kyc);
+      if (!access.ok) return res.status(403).json({ message: access.message });
+      const docs = await storage.getKycDocumentsByApplicationId(kyc.id).catch(() => []);
+      const pdfPath = await generateKycApplicationPdf(kyc, docs.map(d => ({ documentType: d.documentType, originalName: d.originalName })), access.submittedBy);
+      const safeName = (kyc.companyName || "Bullex").replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_");
+      res.download(pdfPath, `KYC_Application_${safeName}.pdf`);
+    } catch (error: any) {
+      console.error("[kyc-pdf] failed:", error);
+      res.status(500).json({ message: error.message || "Failed to generate KYC PDF" });
+    }
+  });
+
+  app.post("/api/kyc/:id/send-pdf", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { recipientEmail, recipientName, ccEmail, message } = req.body || {};
+      if (!recipientEmail || typeof recipientEmail !== "string" || !/^\S+@\S+\.\S+$/.test(recipientEmail)) {
+        return res.status(400).json({ message: "Valid recipientEmail is required" });
+      }
+      const kyc = await storage.getKycApplicationById(req.params.id);
+      if (!kyc) return res.status(404).json({ message: "KYC application not found" });
+      const access = await ensureKycAccess(req, kyc);
+      if (!access.ok) return res.status(403).json({ message: access.message });
+
+      const docs = await storage.getKycDocumentsByApplicationId(kyc.id).catch(() => []);
+      const pdfPath = await generateKycApplicationPdf(kyc, docs.map(d => ({ documentType: d.documentType, originalName: d.originalName })), access.submittedBy);
+
+      const { sendKycApplicationPdfEmail } = await import("./email");
+      const senderName = req.session?.role === "team" ? (access.submittedBy?.split(" (")[0] || "Bullex Team") : "Bullex Admin";
+      const ok = await sendKycApplicationPdfEmail(
+        recipientEmail,
+        recipientName || "Sir/Madam",
+        kyc.companyName,
+        pdfPath,
+        senderName,
+        typeof message === "string" ? message : undefined,
+        ccEmail && /^\S+@\S+\.\S+$/.test(ccEmail) ? ccEmail : undefined,
+      );
+      if (!ok) return res.status(500).json({ message: "Failed to send KYC PDF email" });
+      res.json({ success: true, sentTo: recipientEmail });
+    } catch (error: any) {
+      console.error("[kyc-pdf-send] failed:", error);
+      res.status(500).json({ message: error.message || "Failed to send KYC PDF" });
     }
   });
 

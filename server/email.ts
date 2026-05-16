@@ -1000,3 +1000,42 @@ export async function sendTeamKycConfirmation(
   `;
   return sendEmail(to, "Bullex — Your Team KYC Application Has Been Received", emailWrapper(body));
 }
+
+export async function sendKycApplicationPdfEmail(
+  to: string,
+  recipientName: string,
+  companyName: string,
+  pdfFilePath: string,
+  senderName?: string,
+  message?: string,
+  ccEmail?: string,
+): Promise<boolean> {
+  let pdfBase64 = "";
+  try {
+    const pdfBuffer = fs.readFileSync(pdfFilePath);
+    pdfBase64 = pdfBuffer.toString("base64");
+  } catch (err) {
+    console.error("[email] Failed to read KYC PDF for attachment:", err);
+    return false;
+  }
+
+  const safeName = companyName.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_");
+  const filename = `KYC_Application_${safeName || "Bullex"}.pdf`;
+
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">KYC Application — ${companyName}</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${recipientName || "Sir/Madam"},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      Please find attached the KYC application form for <strong>${companyName}</strong>, issued via the Bullex Trading Platform${senderName ? ` by ${senderName}` : ""}.
+    </p>
+    ${message ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin:18px 0;color:#334155;font-size:14px;line-height:1.55;"><strong style="color:#1e293b;">Message:</strong><br/>${message.replace(/\n/g, "<br/>")}</div>` : ""}
+    <p style="color: #475569; line-height: 1.6;">
+      If you have any questions, please contact our team at
+      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
+    </p>
+  `;
+
+  const attachments: EmailAttachment[] = [{ filename, content: pdfBase64 }];
+  const ccList = ccEmail ? [ccEmail] : undefined;
+  return sendEmail(to, `KYC Application — ${companyName}`, emailWrapper(body), attachments, ccList);
+}
