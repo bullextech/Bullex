@@ -1085,3 +1085,31 @@ export async function sendBlankKycApplicationPdfEmail(
   const ccList = ccEmail ? [ccEmail] : undefined;
   return sendEmail(to, "Bullex KYC Application Form", emailWrapper(body), attachments, ccList);
 }
+
+export async function sendEnquiryOnboardingInviteEmail(to: string, enquiryUrl: string, senderName?: string): Promise<boolean> {
+  const safeUrl = enquiryUrl;
+  const safeSender = senderName ? escapeHtml(senderName) : "";
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Trade Enquiry Invitation</h2>
+    <p style="color: #475569; line-height: 1.6;">
+      You have been invited${safeSender ? ` by <strong>${safeSender}</strong>` : ""} to submit a trade enquiry through the <strong>Bullex Commodity Trading Platform</strong>.
+    </p>
+    <p style="color: #475569; line-height: 1.6;">
+      Click the button below to share your commodity requirements (product, quantity, loading port, Incoterms, validity, etc.). Our trade desk will revert with a quotation.
+    </p>
+    <div style="text-align: center; margin: 32px 0;">
+      <a href="${safeUrl}" style="display: inline-block; background: #990000; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 700; font-size: 15px; letter-spacing: 0.05em;">
+        SUBMIT TRADE ENQUIRY
+      </a>
+    </div>
+    <p style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
+      Or copy and paste this link into your browser:<br/>
+      <a href="${safeUrl}" style="color: #2563eb; word-break: break-all;">${safeUrl}</a>
+    </p>
+    <p style="color: #475569; line-height: 1.6;">
+      For any questions, please contact our trade desk at
+      <a href="mailto:trade@bullex.tech" style="color: #2563eb;">trade@bullex.tech</a>.
+    </p>
+  `;
+  return sendEmail(to, "Bullex – Trade Enquiry Invitation", emailWrapper(body));
+}

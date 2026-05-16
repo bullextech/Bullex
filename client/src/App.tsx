@@ -26,6 +26,7 @@ import KycAdmin from "@/pages/kyc-admin";
 import Investor from "@/pages/investor";
 import Platform from "@/pages/platform";
 import KycRegister from "@/pages/kyc-register";
+import EnquiryRegister from "@/pages/enquiry-register";
 import ClientPortal from "@/pages/client-portal";
 import TradeEnquiries from "@/pages/trade-enquiries";
 import Login from "@/pages/login";
@@ -131,6 +132,7 @@ function AppShell() {
 
 function App() {
   const [isKycRegister] = useRoute("/kyc-register");
+  const [isEnquiryRegister] = useRoute("/enquiry-register");
   const [isClientPortal] = useRoute("/client-portal");
   const [isKyc] = useRoute("/kyc");
   const [isTeamKyc] = useRoute("/team-kyc");
@@ -144,6 +146,8 @@ function App() {
             <AuthProvider>
               {isKycRegister ? (
                 <KycRegister />
+              ) : isEnquiryRegister ? (
+                <EnquiryRegister />
               ) : isClientPortal ? (
                 <ClientPortal />
               ) : isKyc ? (

@@ -16,6 +16,7 @@ import {
   Search, Plus, FileText, Download, Trash2, Upload, Eye, X,
   Scale, Clock, Info, User, Mail, Send, ClipboardList, FileSignature,
   MapPin, Package, ChevronDown, ChevronUp, ArrowRight, CheckCircle2,
+  Copy, Link2, ExternalLink,
 } from "lucide-react";
 import type { TradeEnquiry, TradeEnquiryDocument } from "@shared/schema";
 
@@ -199,6 +200,28 @@ export default function TradeEnquiries() {
   const f = (field: keyof EnquiryForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(prev => ({ ...prev, [field]: e.target.value }));
 
+  const enquiryUrl = typeof window !== "undefined" ? `${window.location.origin}/enquiry-register` : "/enquiry-register";
+  const [enquiryLinkCopied, setEnquiryLinkCopied] = useState(false);
+  const [enquiryLinkEmail, setEnquiryLinkEmail] = useState("");
+  const copyEnquiryLink = async () => {
+    try {
+      await navigator.clipboard.writeText(enquiryUrl);
+      setEnquiryLinkCopied(true);
+      setTimeout(() => setEnquiryLinkCopied(false), 2000);
+      toast({ title: "Link Copied", description: "Online enquiry link copied to clipboard." });
+    } catch {
+      toast({ title: "Copy Failed", description: "Unable to copy.", variant: "destructive" });
+    }
+  };
+  const sendEnquiryLinkMutation = useMutation({
+    mutationFn: async (email: string) => (await apiRequest("POST", "/api/enquiry/send-onboarding-link", { email })).json(),
+    onSuccess: () => {
+      toast({ title: "Invitation Sent", description: `Online enquiry link sent to ${enquiryLinkEmail.trim()}.` });
+      setEnquiryLinkEmail("");
+    },
+    onError: (e: any) => toast({ title: "Send Failed", description: e?.message || "Failed to send.", variant: "destructive" }),
+  });
+
   return (
     <div className="h-full overflow-y-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -211,6 +234,44 @@ export default function TradeEnquiries() {
           New Enquiry
         </Button>
       </div>
+
+      <Card className="border-primary/20 bg-primary/5" data-testid="card-online-enquiry-link">
+        <CardContent className="p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Link2 className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Online Enquiry Link</p>
+              <p className="text-xs text-muted-foreground">Share with clients to submit a trade enquiry online</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex flex-1 items-center gap-2 bg-background border border-border rounded-md px-3 py-2 min-w-0">
+              <ExternalLink className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+              <span className="text-xs text-muted-foreground truncate font-mono" data-testid="text-online-enquiry-link">{enquiryUrl}</span>
+            </div>
+            <Button size="sm" variant={enquiryLinkCopied ? "secondary" : "outline"} onClick={copyEnquiryLink} className="flex-shrink-0" data-testid="button-copy-online-enquiry-link">
+              <Copy className="w-3.5 h-3.5 mr-1.5" />
+              {enquiryLinkCopied ? "Copied!" : "Copy Link"}
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="client@company.com"
+              value={enquiryLinkEmail}
+              onChange={(e) => setEnquiryLinkEmail(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && enquiryLinkEmail.trim()) sendEnquiryLinkMutation.mutate(enquiryLinkEmail.trim()); }}
+              className="h-9 text-xs flex-1"
+              data-testid="input-online-enquiry-email"
+            />
+            <Button size="sm" onClick={() => enquiryLinkEmail.trim() && sendEnquiryLinkMutation.mutate(enquiryLinkEmail.trim())} disabled={sendEnquiryLinkMutation.isPending || !enquiryLinkEmail.trim()} className="flex-shrink-0" data-testid="button-send-online-enquiry-link">
+              <Send className="w-3.5 h-3.5 mr-1.5" />
+              {sendEnquiryLinkMutation.isPending ? "Sending…" : "Send Invite"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {showForm && (
         <Card className="border-primary/30">

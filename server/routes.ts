@@ -1544,6 +1544,67 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/enquiry/send-onboarding-link", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body || {};
+      if (!email || typeof email !== "string" || !/^\S+@\S+\.\S+$/.test(email)) {
+        return res.status(400).json({ message: "Valid email is required." });
+      }
+      const enquiryUrl = `${req.protocol}://${req.get("host")}/enquiry-register`;
+      let senderName: string | undefined;
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        const sb = await getDocSubmittedByLabel(tmId || undefined);
+        senderName = sb?.split(" (")[0];
+      } else if (req.session?.role === "admin") {
+        senderName = "Bullex Admin";
+      }
+      const { sendEnquiryOnboardingInviteEmail } = await import("./email");
+      const sent = await sendEnquiryOnboardingInviteEmail(email, enquiryUrl, senderName);
+      if (!sent) return res.status(500).json({ message: "Failed to send invitation email." });
+      res.json({ success: true, message: `Invitation sent to ${email}` });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Internal server error." });
+    }
+  });
+
+  app.post("/api/public/trade-enquiries", async (req: Request, res: Response) => {
+    try {
+      const b = req.body || {};
+      if (!b.product || typeof b.product !== "string" || !b.product.trim()) {
+        return res.status(400).json({ message: "Product is required" });
+      }
+      if (!b.email || typeof b.email !== "string" || !/^\S+@\S+\.\S+$/.test(b.email)) {
+        return res.status(400).json({ message: "Valid email is required" });
+      }
+      if (!b.createdBy || typeof b.createdBy !== "string" || !b.createdBy.trim()) {
+        return res.status(400).json({ message: "Your name / company is required" });
+      }
+      const str = (v: any, max = 1000) => (typeof v === "string" && v.trim()) ? v.trim().slice(0, max) : null;
+      const side = b.side === "sell" ? "sell" : "buy";
+      const enquiry = await storage.createTradeEnquiry({
+        product: b.product.trim().slice(0, 200),
+        side,
+        specifications: str(b.specifications, 2000),
+        producer: str(b.producer, 200),
+        quantity: str(b.quantity, 100),
+        unit: str(b.unit, 20) || "MT",
+        loadingPort: str(b.loadingPort, 200),
+        incoterms: str(b.incoterms, 50),
+        validity: str(b.validity, 200),
+        additionalInfo: str(b.additionalInfo, 2000),
+        createdBy: b.createdBy.trim().slice(0, 200),
+        email: b.email.trim(),
+        submittedByTeamMemberId: null,
+      });
+      sendEnquiryCreatedNotification(enquiry).catch(() => {});
+      res.json({ success: true, enquiryRef: enquiry.enquiryRef });
+    } catch (error: any) {
+      console.error("[public-enquiry] failed:", error);
+      res.status(500).json({ message: error.message || "Failed to submit enquiry" });
+    }
+  });
+
   app.post("/api/kyc/send-onboarding-link", async (req, res) => {
     try {
       const { email } = req.body;
