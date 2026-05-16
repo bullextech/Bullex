@@ -51,7 +51,11 @@ import {
   UserCog,
   ClipboardList,
   Package,
+  CalendarDays,
+  Loader2,
+  Trash2,
 } from "lucide-react";
+import type { DailyReport, TeamTask } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
@@ -388,6 +392,11 @@ export default function KycAdmin() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
+        <DailyReportsBar />
+        <WorkAllocationSummary />
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1447,5 +1456,224 @@ export default function KycAdmin() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function DailyReportsBar() {
+  const today = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(today);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const { toast } = useToast();
+  const reportsQuery = useQuery<DailyReport[]>({ queryKey: ["/api/daily-reports", { date }], queryFn: () => fetch(`/api/daily-reports?date=${date}`).then(r => r.json()) });
+  const teamQuery = useQuery<TeamMember[]>({ queryKey: ["/api/team/members"] });
+  const reports = reportsQuery.data ?? [];
+  const team = teamQuery.data ?? [];
+
+  const reportByMemberId = new Map<string, DailyReport>();
+  reports.forEach(r => { if (!reportByMemberId.has(r.teamMemberId)) reportByMemberId.set(r.teamMemberId, r); });
+
+  const submittedCount = team.filter(tm => reportByMemberId.has(tm.id)).length;
+
+  const deleteReport = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/daily-reports/${id}`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/daily-reports"] }); toast({ title: "Report deleted" }); },
+  });
+
+  return (
+    <Card data-testid="card-daily-reports-bar">
+      <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <ClipboardList className="w-5 h-5 text-primary" />
+          <CardTitle className="text-base">Daily Reports</CardTitle>
+          <Badge variant="outline" className="text-[10px]" data-testid="badge-reports-count">
+            {submittedCount} / {team.length} submitted
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-8 w-40 text-xs" data-testid="input-report-date-filter" />
+          {date !== today && <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setDate(today)} data-testid="button-reset-date">Today</Button>}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {teamQuery.isLoading || reportsQuery.isLoading ? (
+          <div className="h-20 flex items-center justify-center"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+        ) : team.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-4">No team members yet.</p>
+        ) : (
+          <div className="flex gap-2 overflow-x-auto pb-2" data-testid="bar-reports">
+            {team.map(tm => {
+              const r = reportByMemberId.get(tm.id);
+              const submitted = !!r;
+              const isOpen = expanded === tm.id;
+              return (
+                <div key={tm.id} className={`flex-shrink-0 w-56 border rounded-md p-3 cursor-pointer transition-colors ${submitted ? "border-green-200 bg-green-50/50 dark:bg-green-950/20 dark:border-green-900" : "border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/50"}`}
+                  onClick={() => setExpanded(isOpen ? null : tm.id)}
+                  data-testid={`tile-report-${tm.id}`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${submitted ? "bg-green-500" : "bg-amber-500"}`} />
+                      <span className="text-xs font-semibold truncate">{tm.name}</span>
+                    </div>
+                    {submitted && r?.hoursWorked && <Badge variant="outline" className="text-[10px] h-4">{r.hoursWorked}h</Badge>}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mb-1">{tm.position || tm.department || "Team Member"}</p>
+                  {submitted && r ? (
+                    <p className="text-[11px] line-clamp-2 text-foreground/80" data-testid={`text-summary-${tm.id}`}>{r.summary}</p>
+                  ) : (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 italic">No report submitted</p>
+                  )}
+                  {isOpen && submitted && r && (
+                    <div className="mt-2 pt-2 border-t space-y-1 text-[10px]" onClick={(e) => e.stopPropagation()}>
+                      <p className="whitespace-pre-wrap"><span className="font-semibold">Summary:</span> {r.summary}</p>
+                      {r.tasksCompleted && <p className="whitespace-pre-wrap"><span className="font-semibold">Tasks:</span> {r.tasksCompleted}</p>}
+                      {r.blockers && <p className="whitespace-pre-wrap text-amber-700 dark:text-amber-400"><span className="font-semibold">Blockers:</span> {r.blockers}</p>}
+                      {r.nextSteps && <p className="whitespace-pre-wrap"><span className="font-semibold">Next:</span> {r.nextSteps}</p>}
+                      <Button size="sm" variant="ghost" className="h-6 text-[10px] text-red-600 mt-1" onClick={() => deleteReport.mutate(r.id)} data-testid={`button-delete-report-${tm.id}`}>
+                        <Trash2 className="w-3 h-3 mr-1" />Delete
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+const TASK_STATUSES = [
+  { v: "todo", l: "To Do", c: "text-gray-600" },
+  { v: "in_progress", l: "In Progress", c: "text-blue-600" },
+  { v: "review", l: "Review", c: "text-amber-600" },
+  { v: "done", l: "Done", c: "text-green-600" },
+];
+
+function WorkAllocationSummary() {
+  const { toast } = useToast();
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: "", description: "", priority: "medium", assignee: "", dueDate: "" });
+  const tasksQuery = useQuery<TeamTask[]>({ queryKey: ["/api/tasks"] });
+  const teamQuery = useQuery<TeamMember[]>({ queryKey: ["/api/team/members"] });
+  const tasks = tasksQuery.data ?? [];
+  const team = teamQuery.data ?? [];
+
+  const counts = TASK_STATUSES.map(s => ({ ...s, n: tasks.filter(t => t.status === s.v).length }));
+  const byAssignee = new Map<string, TeamTask[]>();
+  tasks.forEach(t => {
+    const k = t.assignee || "Unassigned";
+    if (!byAssignee.has(k)) byAssignee.set(k, []);
+    byAssignee.get(k)!.push(t);
+  });
+
+  const createTask = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/tasks", { ...form, createdBy: "Admin", status: "todo" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      setForm({ title: "", description: "", priority: "medium", assignee: "", dueDate: "" });
+      setShowForm(false);
+      toast({ title: "Task Allocated", description: "Work has been assigned." });
+    },
+    onError: (e: any) => toast({ title: "Failed", description: e?.message || "Try again.", variant: "destructive" }),
+  });
+
+  return (
+    <Card data-testid="card-work-allocation">
+      <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Briefcase className="w-5 h-5 text-primary" />
+          <CardTitle className="text-base">Work Allocation</CardTitle>
+          <Badge variant="outline" className="text-[10px]">{tasks.length} total</Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link href="/tasks"><Button size="sm" variant="outline" className="h-8 text-xs" data-testid="button-open-task-board">Open Board <ArrowRight className="w-3 h-3 ml-1" /></Button></Link>
+          <Button size="sm" className="h-8 text-xs" onClick={() => setShowForm(!showForm)} data-testid="button-allocate-work">
+            <Plus className="w-3 h-3 mr-1" />Allocate
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-4 gap-2">
+          {counts.map(s => (
+            <div key={s.v} className="border rounded-md p-2 text-center" data-testid={`stat-task-${s.v}`}>
+              <div className={`text-lg font-bold ${s.c}`}>{s.n}</div>
+              <div className="text-[10px] text-muted-foreground uppercase">{s.l}</div>
+            </div>
+          ))}
+        </div>
+
+        {showForm && (
+          <div className="border border-primary/30 rounded-md p-3 space-y-2 bg-primary/5">
+            <div className="grid sm:grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Title *</Label>
+                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="h-8 text-xs mt-1" data-testid="input-task-title" />
+              </div>
+              <div>
+                <Label className="text-xs">Assignee</Label>
+                <Select value={form.assignee} onValueChange={(v) => setForm({ ...form, assignee: v })}>
+                  <SelectTrigger className="h-8 text-xs mt-1" data-testid="select-task-assignee"><SelectValue placeholder="Select team member" /></SelectTrigger>
+                  <SelectContent>{team.map(tm => <SelectItem key={tm.id} value={tm.username}>{tm.name} ({tm.username})</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Priority</Label>
+                <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
+                  <SelectTrigger className="h-8 text-xs mt-1" data-testid="select-task-priority"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Due Date</Label>
+                <Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className="h-8 text-xs mt-1" data-testid="input-task-due-date" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Description</Label>
+              <Textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="text-xs mt-1" data-testid="input-task-description" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setShowForm(false)} data-testid="button-cancel-task">Cancel</Button>
+              <Button size="sm" onClick={() => createTask.mutate()} disabled={!form.title.trim() || createTask.isPending} data-testid="button-save-task">
+                {createTask.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Send className="w-3 h-3 mr-1" />}
+                Allocate Task
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {tasks.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">By Assignee</p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {Array.from(byAssignee.entries()).map(([assignee, ts]) => {
+                const open = ts.filter(t => t.status !== "done").length;
+                return (
+                  <div key={assignee} className="border rounded-md p-2.5 text-xs" data-testid={`assignee-${assignee}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold truncate">{assignee}</span>
+                      <Badge variant="outline" className="text-[10px]">{open} open</Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {TASK_STATUSES.map(s => {
+                        const n = ts.filter(t => t.status === s.v).length;
+                        if (!n) return null;
+                        return <span key={s.v} className={`text-[10px] ${s.c}`}>{n} {s.l}</span>;
+                      }).filter(Boolean).reduce((acc: any[], el, i) => i === 0 ? [el] : [...acc, <span key={`sep-${i}`} className="text-[10px] text-muted-foreground">·</span>, el], [])}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

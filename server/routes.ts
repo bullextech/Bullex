@@ -3073,6 +3073,72 @@ export async function registerRoutes(
     }
   });
 
+  // ── Daily Reports ────────────────────────────────────────────────────────────
+  app.get("/api/daily-reports", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { date, teamMemberId } = req.query as { date?: string; teamMemberId?: string };
+      const filters: { date?: string; teamMemberId?: string } = {};
+      if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) filters.date = date;
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        if (!tmId) return res.status(403).json({ message: "Team-member only" });
+        filters.teamMemberId = tmId;
+      } else if (teamMemberId) {
+        filters.teamMemberId = teamMemberId;
+      }
+      const reports = await storage.getDailyReports(filters);
+      res.json(reports);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.post("/api/daily-reports", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = req.body || {};
+      if (!b.summary || typeof b.summary !== "string" || !b.summary.trim()) {
+        return res.status(400).json({ message: "Summary is required" });
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      const reportDate = (typeof b.reportDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.reportDate)) ? b.reportDate : today;
+      let teamMemberId: string;
+      let teamMemberName: string;
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        if (!tmId) return res.status(403).json({ message: "Team member not found" });
+        const tm = await storage.getTeamMemberById(tmId);
+        teamMemberId = tmId;
+        teamMemberName = tm?.name || req.session.username || "Team Member";
+      } else {
+        teamMemberId = "admin";
+        teamMemberName = "Admin";
+      }
+      const str = (v: any, max = 2000) => (typeof v === "string" && v.trim()) ? v.trim().slice(0, max) : null;
+      const created = await storage.createDailyReport({
+        teamMemberId,
+        teamMemberName,
+        reportDate,
+        hoursWorked: str(b.hoursWorked, 20),
+        summary: b.summary.trim().slice(0, 4000),
+        tasksCompleted: str(b.tasksCompleted, 4000),
+        blockers: str(b.blockers, 2000),
+        nextSteps: str(b.nextSteps, 2000),
+      });
+      res.json(created);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.delete("/api/daily-reports/:id", requireAdminAuth, async (req: Request, res: Response) => {
+    try {
+      await storage.deleteDailyReport(req.params.id);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   // ── OneDrive Database Backup ─────────────────────────────────────────────────
   app.post("/api/backup/run", requireAdminAuth, async (_req, res) => {
     try {

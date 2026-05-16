@@ -507,6 +507,23 @@ export const insertTaskUpdateSchema = createInsertSchema(taskUpdates).omit({ id:
 export type InsertTaskUpdate = z.infer<typeof insertTaskUpdateSchema>;
 export type TaskUpdate = typeof taskUpdates.$inferSelect;
 
+export const dailyReports = pgTable("daily_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teamMemberId: varchar("team_member_id").notNull(),
+  teamMemberName: text("team_member_name").notNull(),
+  reportDate: text("report_date").notNull(),
+  hoursWorked: text("hours_worked"),
+  summary: text("summary").notNull(),
+  tasksCompleted: text("tasks_completed"),
+  blockers: text("blockers"),
+  nextSteps: text("next_steps"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertDailyReportSchema = createInsertSchema(dailyReports).omit({ id: true, createdAt: true });
+export type InsertDailyReport = z.infer<typeof insertDailyReportSchema>;
+export type DailyReport = typeof dailyReports.$inferSelect;
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 // TeamKycApplication types already defined above

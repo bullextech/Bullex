@@ -54,6 +54,9 @@ import {
   type TeamTask,
   type InsertTeamTask,
   taskUpdates,
+  dailyReports,
+  type DailyReport,
+  type InsertDailyReport,
   type TaskUpdate,
   type InsertTaskUpdate,
 } from "@shared/schema";
@@ -175,6 +178,9 @@ export interface IStorage {
   deleteTeamTask(id: string): Promise<void>;
   getTaskUpdates(taskId: string): Promise<TaskUpdate[]>;
   createTaskUpdate(update: InsertTaskUpdate): Promise<TaskUpdate>;
+  getDailyReports(filters?: { date?: string; teamMemberId?: string }): Promise<DailyReport[]>;
+  createDailyReport(report: InsertDailyReport): Promise<DailyReport>;
+  deleteDailyReport(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -823,6 +829,25 @@ export class DatabaseStorage implements IStorage {
   async createTaskUpdate(update: InsertTaskUpdate): Promise<TaskUpdate> {
     const [created] = await db.insert(taskUpdates).values(update).returning();
     return created;
+  }
+
+  async getDailyReports(filters?: { date?: string; teamMemberId?: string }): Promise<DailyReport[]> {
+    const conds: any[] = [];
+    if (filters?.date) conds.push(eq(dailyReports.reportDate, filters.date));
+    if (filters?.teamMemberId) conds.push(eq(dailyReports.teamMemberId, filters.teamMemberId));
+    const q = conds.length
+      ? db.select().from(dailyReports).where(conds.length === 1 ? conds[0] : and(...conds))
+      : db.select().from(dailyReports);
+    return q.orderBy(desc(dailyReports.createdAt));
+  }
+
+  async createDailyReport(report: InsertDailyReport): Promise<DailyReport> {
+    const [created] = await db.insert(dailyReports).values(report).returning();
+    return created;
+  }
+
+  async deleteDailyReport(id: string): Promise<void> {
+    await db.delete(dailyReports).where(eq(dailyReports.id, id));
   }
 }
 

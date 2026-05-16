@@ -15,7 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Briefcase, FileText, ShieldCheck, Plus, Send, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink, FilePlus, Mail, FileSignature, Download, Copy, Link2 } from "lucide-react";
+import { Briefcase, FileText, ShieldCheck, Plus, Send, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink, FilePlus, Mail, FileSignature, Download, Copy, Link2, ClipboardList, CalendarDays, Loader2 } from "lucide-react";
+import type { DailyReport, TeamTask } from "@shared/schema";
 import type { KycApplication, TradeEnquiry, EnquiryChangeRequest, KycChangeRequest, Document } from "@shared/schema";
 
 const KYC_AMENDABLE_FIELDS: { key: string; label: string }[] = [
@@ -431,6 +432,8 @@ export default function TeamPortal() {
           <TabsTrigger value="kyc" data-testid="tab-kyc">My KYC</TabsTrigger>
           <TabsTrigger value="enquiries" data-testid="tab-enquiries">My Enquiries</TabsTrigger>
           <TabsTrigger value="documents" data-testid="tab-documents">My Documents</TabsTrigger>
+          <TabsTrigger value="tasks" data-testid="tab-tasks">My Work</TabsTrigger>
+          <TabsTrigger value="reports" data-testid="tab-reports">Daily Report</TabsTrigger>
         </TabsList>
 
         <TabsContent value="kyc" className="space-y-4">
@@ -706,6 +709,14 @@ export default function TeamPortal() {
           )}
         </TabsContent>
 
+        <TabsContent value="tasks" className="space-y-4">
+          <MyTasksPanel username={username || ""} />
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-4">
+          <DailyReportPanel />
+        </TabsContent>
+
         <TabsContent value="documents" className="space-y-4">
           {documentsQuery.isLoading ? <Skeleton className="h-32" /> : (documentsQuery.data ?? []).length === 0 ? (
             <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">
@@ -941,5 +952,145 @@ export default function TeamPortal() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function MyTasksPanel({ username }: { username: string }) {
+  const { toast } = useToast();
+  const tasksQuery = useQuery<TeamTask[]>({ queryKey: ["/api/tasks"] });
+  const myTasks = (tasksQuery.data ?? []).filter(t => t.assignee === username);
+  const updateStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => apiRequest("PATCH", `/api/tasks/${id}`, { status }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }); toast({ title: "Status updated" }); },
+  });
+  const STATUS_OPTS = [
+    { v: "todo", l: "To Do", c: "bg-gray-100 text-gray-700" },
+    { v: "in_progress", l: "In Progress", c: "bg-blue-100 text-blue-700" },
+    { v: "review", l: "Review", c: "bg-amber-100 text-amber-700" },
+    { v: "done", l: "Done", c: "bg-green-100 text-green-700" },
+  ];
+  if (tasksQuery.isLoading) return <Skeleton className="h-32" />;
+  if (myTasks.length === 0) return <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">No work allocated to you yet.</CardContent></Card>;
+  return (
+    <div className="space-y-3">
+      {myTasks.map(task => (
+        <Card key={task.id} data-testid={`card-task-${task.id}`}>
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-sm" data-testid={`text-task-title-${task.id}`}>{task.title}</h4>
+                {task.description && <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{task.description}</p>}
+              </div>
+              <Badge variant="outline" className="text-[10px]">{task.priority}</Badge>
+            </div>
+            <div className="flex items-center justify-between gap-2 mt-3">
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                {task.dueDate && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{task.dueDate}</span>}
+                {task.createdBy && <span>by {task.createdBy}</span>}
+              </div>
+              <div className="flex items-center gap-1">
+                {STATUS_OPTS.map(s => (
+                  <Button key={s.v} size="sm" variant={task.status === s.v ? "default" : "outline"} className="h-7 text-[10px] px-2"
+                    onClick={() => updateStatus.mutate({ id: task.id, status: s.v })}
+                    disabled={updateStatus.isPending}
+                    data-testid={`button-set-${s.v}-${task.id}`}>
+                    {s.l}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function DailyReportPanel() {
+  const { toast } = useToast();
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState({ reportDate: today, hoursWorked: "", summary: "", tasksCompleted: "", blockers: "", nextSteps: "" });
+  const reportsQuery = useQuery<DailyReport[]>({ queryKey: ["/api/daily-reports"] });
+  const submit = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/daily-reports", form),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/daily-reports"] });
+      setForm({ reportDate: today, hoursWorked: "", summary: "", tasksCompleted: "", blockers: "", nextSteps: "" });
+      toast({ title: "Daily Report Submitted", description: "Your report has been recorded." });
+    },
+    onError: (e: any) => toast({ title: "Submission Failed", description: e?.message || "Try again.", variant: "destructive" }),
+  });
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><ClipboardList className="w-4 h-4 text-primary" />Submit Today's Report</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Date</Label>
+              <Input type="date" value={form.reportDate} onChange={(e) => setForm({ ...form, reportDate: e.target.value })} className="h-9 mt-1" data-testid="input-report-date" />
+            </div>
+            <div>
+              <Label className="text-xs">Hours Worked</Label>
+              <Input placeholder="e.g. 8" value={form.hoursWorked} onChange={(e) => setForm({ ...form, hoursWorked: e.target.value })} className="h-9 mt-1" data-testid="input-hours-worked" />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Summary *</Label>
+            <Textarea placeholder="What did you work on today?" rows={3} value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} className="mt-1" data-testid="input-summary" />
+          </div>
+          <div>
+            <Label className="text-xs">Tasks Completed</Label>
+            <Textarea placeholder="Specific deliverables / tickets / clients handled" rows={2} value={form.tasksCompleted} onChange={(e) => setForm({ ...form, tasksCompleted: e.target.value })} className="mt-1" data-testid="input-tasks-completed" />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Blockers</Label>
+              <Textarea placeholder="Anything blocking you?" rows={2} value={form.blockers} onChange={(e) => setForm({ ...form, blockers: e.target.value })} className="mt-1" data-testid="input-blockers" />
+            </div>
+            <div>
+              <Label className="text-xs">Next Steps</Label>
+              <Textarea placeholder="Plan for tomorrow" rows={2} value={form.nextSteps} onChange={(e) => setForm({ ...form, nextSteps: e.target.value })} className="mt-1" data-testid="input-next-steps" />
+            </div>
+          </div>
+          <Button onClick={() => submit.mutate()} disabled={!form.summary.trim() || submit.isPending} className="w-full" data-testid="button-submit-report">
+            {submit.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+            {submit.isPending ? "Submitting…" : "Submit Daily Report"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><CalendarDays className="w-4 h-4 text-primary" />My Recent Reports</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {reportsQuery.isLoading ? <Skeleton className="h-20" /> : (reportsQuery.data ?? []).length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-6">No reports submitted yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {(reportsQuery.data ?? []).slice(0, 10).map(r => (
+                <div key={r.id} className="border rounded-md p-3 text-xs" data-testid={`report-${r.id}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="w-3 h-3 text-muted-foreground" />
+                      <span className="font-semibold">{r.reportDate}</span>
+                      {r.hoursWorked && <Badge variant="outline" className="text-[10px]">{r.hoursWorked}h</Badge>}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">{new Date(r.createdAt).toLocaleTimeString()}</span>
+                  </div>
+                  <p className="whitespace-pre-wrap" data-testid={`report-summary-${r.id}`}>{r.summary}</p>
+                  {r.tasksCompleted && <p className="mt-1 text-muted-foreground"><span className="font-semibold">Tasks:</span> {r.tasksCompleted}</p>}
+                  {r.blockers && <p className="mt-1 text-amber-700 dark:text-amber-400"><span className="font-semibold">Blockers:</span> {r.blockers}</p>}
+                  {r.nextSteps && <p className="mt-1 text-muted-foreground"><span className="font-semibold">Next:</span> {r.nextSteps}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 }
