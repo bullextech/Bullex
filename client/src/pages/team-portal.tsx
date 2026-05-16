@@ -282,6 +282,22 @@ export default function TeamPortal() {
     },
     onError: (err: any) => toast({ title: "Failed to send", description: err.message, variant: "destructive" }),
   });
+  const [blankFormDialogOpen, setBlankFormDialogOpen] = useState(false);
+  const [blankFormTo, setBlankFormTo] = useState("");
+  const [blankFormName, setBlankFormName] = useState("");
+  const [blankFormCc, setBlankFormCc] = useState("");
+  const [blankFormMsg, setBlankFormMsg] = useState("");
+  const sendBlankKycFormMutation = useMutation({
+    mutationFn: async (vars: { recipientEmail: string; recipientName: string; ccEmail: string; message: string }) => {
+      const res = await apiRequest("POST", "/api/kyc-form/send-blank-pdf", vars);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Blank Form Sent", description: `Bullex KYC form emailed to ${blankFormTo.trim()}.` });
+      setBlankFormDialogOpen(false); setBlankFormTo(""); setBlankFormName(""); setBlankFormCc(""); setBlankFormMsg("");
+    },
+    onError: (e: any) => toast({ title: "Send Failed", description: e?.message || "Failed to send blank form.", variant: "destructive" }),
+  });
   const sendDocMutation = useMutation({
     mutationFn: async ({ id, recipientEmail, ccEmail }: { id: string; recipientEmail: string; ccEmail?: string }) => {
       const res = await apiRequest("POST", `/api/documents/${id}/send`, { recipientEmail, ccEmail: ccEmail || undefined });
@@ -371,7 +387,15 @@ export default function TeamPortal() {
         </TabsList>
 
         <TabsContent value="kyc" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2 flex-wrap">
+            <a href="/api/kyc-form/blank-pdf" target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" data-testid="button-download-blank-kyc">
+                <Download className="w-4 h-4 mr-1" />Download Blank Form
+              </Button>
+            </a>
+            <Button variant="secondary" onClick={() => setBlankFormDialogOpen(true)} data-testid="button-email-blank-kyc">
+              <Send className="w-4 h-4 mr-1" />Email Blank Form
+            </Button>
             <Link href="/kyc">
               <Button data-testid="button-new-kyc"><Plus className="w-4 h-4 mr-1" />Submit New KYC</Button>
             </Link>
@@ -701,6 +725,44 @@ export default function TeamPortal() {
             >
               <Send className="w-4 h-4 mr-1" />
               {sendDocMutation.isPending ? "Sending…" : "Send Email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={blankFormDialogOpen} onOpenChange={setBlankFormDialogOpen}>
+        <DialogContent className="max-w-lg" data-testid="dialog-email-blank-kyc">
+          <DialogHeader>
+            <DialogTitle>Email Blank KYC Application Form</DialogTitle>
+            <DialogDescription>Send a printable Bullex KYC form to a client to complete offline.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid gap-1">
+              <Label className="text-xs">Recipient Email *</Label>
+              <Input value={blankFormTo} onChange={(e) => setBlankFormTo(e.target.value)} placeholder="client@example.com" data-testid="input-blank-kyc-to" />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Recipient Name</Label>
+              <Input value={blankFormName} onChange={(e) => setBlankFormName(e.target.value)} placeholder="Mr. John Doe" data-testid="input-blank-kyc-name" />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">CC (optional)</Label>
+              <Input value={blankFormCc} onChange={(e) => setBlankFormCc(e.target.value)} placeholder="cc@example.com" data-testid="input-blank-kyc-cc" />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Message (optional)</Label>
+              <Textarea value={blankFormMsg} onChange={(e) => setBlankFormMsg(e.target.value)} rows={3} placeholder="Add a short note for the recipient…" data-testid="input-blank-kyc-msg" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setBlankFormDialogOpen(false)} data-testid="button-blank-kyc-cancel">Cancel</Button>
+            <Button
+              disabled={sendBlankKycFormMutation.isPending || !blankFormTo.trim()}
+              onClick={() => sendBlankKycFormMutation.mutate({ recipientEmail: blankFormTo.trim(), recipientName: blankFormName.trim(), ccEmail: blankFormCc.trim(), message: blankFormMsg.trim() })}
+              data-testid="button-blank-kyc-confirm"
+            >
+              <Send className="w-4 h-4 mr-1.5" />
+              {sendBlankKycFormMutation.isPending ? "Sending…" : "Send Form"}
             </Button>
           </DialogFooter>
         </DialogContent>

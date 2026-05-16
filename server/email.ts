@@ -1022,13 +1022,17 @@ export async function sendKycApplicationPdfEmail(
   const safeName = companyName.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_");
   const filename = `KYC_Application_${safeName || "Bullex"}.pdf`;
 
+  const safeCompany = escapeHtml(companyName);
+  const safeRecipient = escapeHtml(recipientName || "Sir/Madam");
+  const safeSender = senderName ? escapeHtml(senderName) : "";
+  const safeMessage = message ? escapeHtml(message).replace(/\n/g, "<br/>") : "";
   const body = `
-    <h2 style="color: #1e293b; margin: 0 0 16px;">KYC Application — ${companyName}</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${recipientName || "Sir/Madam"},</p>
+    <h2 style="color: #1e293b; margin: 0 0 16px;">KYC Application — ${safeCompany}</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${safeRecipient},</p>
     <p style="color: #475569; line-height: 1.6;">
-      Please find attached the KYC application form for <strong>${companyName}</strong>, issued via the Bullex Trading Platform${senderName ? ` by ${senderName}` : ""}.
+      Please find attached the KYC application form for <strong>${safeCompany}</strong>, issued via the Bullex Trading Platform${safeSender ? ` by ${safeSender}` : ""}.
     </p>
-    ${message ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin:18px 0;color:#334155;font-size:14px;line-height:1.55;"><strong style="color:#1e293b;">Message:</strong><br/>${message.replace(/\n/g, "<br/>")}</div>` : ""}
+    ${safeMessage ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin:18px 0;color:#334155;font-size:14px;line-height:1.55;"><strong style="color:#1e293b;">Message:</strong><br/>${safeMessage}</div>` : ""}
     <p style="color: #475569; line-height: 1.6;">
       If you have any questions, please contact our team at
       <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
@@ -1038,4 +1042,46 @@ export async function sendKycApplicationPdfEmail(
   const attachments: EmailAttachment[] = [{ filename, content: pdfBase64 }];
   const ccList = ccEmail ? [ccEmail] : undefined;
   return sendEmail(to, `KYC Application — ${companyName}`, emailWrapper(body), attachments, ccList);
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+export async function sendBlankKycApplicationPdfEmail(
+  to: string,
+  recipientName: string,
+  pdfFilePath: string,
+  senderName?: string,
+  message?: string,
+  ccEmail?: string,
+): Promise<boolean> {
+  let pdfBase64 = "";
+  try {
+    const pdfBuffer = fs.readFileSync(pdfFilePath);
+    pdfBase64 = pdfBuffer.toString("base64");
+  } catch (err) {
+    console.error("[email] Failed to read blank KYC PDF for attachment:", err);
+    return false;
+  }
+
+  const filename = `Bullex_KYC_Application_Form.pdf`;
+  const safeName = escapeHtml(recipientName || "Sir/Madam");
+  const safeSender = senderName ? escapeHtml(senderName) : "";
+  const safeMessage = message ? escapeHtml(message).replace(/\n/g, "<br/>") : "";
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Bullex KYC Application Form</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${safeName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      Please find attached the <strong>Bullex KYC Application Form</strong>${safeSender ? `, sent by ${safeSender}` : ""}. Kindly complete every section in block capitals and return the signed form, along with the requested supporting documents, to <a href="mailto:team@bullex.tech" style="color:#2563eb;">team@bullex.tech</a>.
+    </p>
+    ${safeMessage ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin:18px 0;color:#334155;font-size:14px;line-height:1.55;"><strong style="color:#1e293b;">Message:</strong><br/>${safeMessage}</div>` : ""}
+    <p style="color: #475569; line-height: 1.6;">
+      Once received, our onboarding team will review your application and revert with the next steps. If preferred, you may complete the application online via our portal.
+    </p>
+  `;
+
+  const attachments: EmailAttachment[] = [{ filename, content: pdfBase64 }];
+  const ccList = ccEmail ? [ccEmail] : undefined;
+  return sendEmail(to, "Bullex KYC Application Form", emailWrapper(body), attachments, ccList);
 }

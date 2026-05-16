@@ -3574,3 +3574,140 @@ export async function generateKycApplicationPdf(
     stream.on("error", reject);
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// BLANK KYC APPLICATION FORM PDF (printable / fill-by-hand)
+// ─────────────────────────────────────────────────────────────────────
+
+const BLANK_KYC_SECTIONS: { title: string; rows: { label: string; lines?: number }[] }[] = [
+  { title: "1. Company Identification", rows: [
+    { label: "Company Name" }, { label: "Registered Address", lines: 2 },
+    { label: "Primary Business Address", lines: 2 }, { label: "Date of Incorporation" },
+    { label: "Country of Incorporation" }, { label: "Country of Operation" },
+    { label: "Registration Number" }, { label: "Tax ID Number" },
+    { label: "Business Type" }, { label: "Website" },
+  ]},
+  { title: "2. Business Profile", rows: [
+    { label: "Core Business Description", lines: 3 },
+    { label: "Ultimate Beneficial Owners", lines: 2 },
+    { label: "Shareholders", lines: 2 }, { label: "Management Structure", lines: 2 },
+    { label: "Subsidiaries", lines: 2 }, { label: "Listing Information" },
+  ]},
+  { title: "3. Financial Information", rows: [
+    { label: "Share Capital" }, { label: "Capital Range" },
+    { label: "Reporting Currency" }, { label: "Sales Revenue" },
+    { label: "Net Income" }, { label: "Total Equity" },
+    { label: "Total Balance Sheet" }, { label: "Last Reporting Period" },
+    { label: "External Auditors" },
+  ]},
+  { title: "4. Banking Details", rows: [
+    { label: "Bank Name" }, { label: "Bank Branch" },
+    { label: "Bank Address", lines: 2 }, { label: "Account Name" },
+    { label: "Account Number" }, { label: "SWIFT Code" },
+    { label: "Account Currency" }, { label: "Bank Officer Name" },
+    { label: "Bank Officer Email" },
+  ]},
+  { title: "5. Workforce", rows: [
+    { label: "Employees (Company)" }, { label: "Employees (Group)" },
+    { label: "Previous Bullfrog Employee (Yes / No)" },
+  ]},
+  { title: "6. AML & Compliance", rows: [
+    { label: "Subject to AML Regulation (Yes / No)" }, { label: "AML Conformity Program" },
+    { label: "AML Regulator" }, { label: "AML Law / Reference" },
+    { label: "Reasons for Documents", lines: 2 },
+  ]},
+  { title: "7. Primary Contact", rows: [
+    { label: "Contact Name" }, { label: "Contact Title" },
+    { label: "Contact Phone" }, { label: "Contact Email" }, { label: "Fax Number" },
+  ]},
+  { title: "8. Authorised Signatory", rows: [
+    { label: "Signatory Name" }, { label: "Signatory Title" },
+    { label: "Signatory Company" }, { label: "Signatory Email" },
+    { label: "Place & Date" },
+    { label: "Signature", lines: 2 },
+  ]},
+];
+
+function drawPdfBlankFormTable(doc: PDFKit.PDFDocument, rows: { label: string; lines?: number }[], left: number, totalWidth: number) {
+  const col1W = Math.floor(totalWidth * 0.35);
+  const col2W = totalWidth - col1W;
+  const padding = 5;
+  const lineHeight = 14;
+
+  for (const row of rows) {
+    const lineCount = Math.max(1, row.lines ?? 1);
+    const rowH = lineCount * lineHeight + padding * 2 + 4;
+
+    pdfCheckPage(doc, rowH + 6);
+    const y = doc.y;
+
+    doc.lineWidth(0.6);
+    doc.rect(left, y, col1W, rowH).stroke("#999999");
+    doc.rect(left + col1W, y, col2W, rowH).stroke("#999999");
+
+    doc.fillColor("#000000").font("Helvetica-Bold").fontSize(9)
+      .text(row.label, left + padding, y + padding, { width: col1W - padding * 2 });
+
+    // dotted lines for handwriting
+    doc.lineWidth(0.4).dash(1, { space: 2 }).strokeColor("#BBBBBB");
+    for (let i = 0; i < lineCount; i++) {
+      const lineY = y + padding + (i + 1) * lineHeight - 2;
+      doc.moveTo(left + col1W + padding, lineY).lineTo(left + col1W + col2W - padding, lineY).stroke();
+    }
+    doc.undash().strokeColor("#999999").lineWidth(0.6);
+
+    doc.x = left;
+    doc.y = y + rowH;
+  }
+}
+
+export async function generateBlankKycApplicationPdf(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const fileName = `kyc_blank_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.pdf`;
+    const filePath = path.join(docsDir, fileName);
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const stream = fs.createWriteStream(filePath);
+    doc.pipe(stream);
+
+    const pageWidth = 495;
+    const leftMargin = 50;
+
+    // Header
+    doc.font("Helvetica-Bold").fontSize(18).fillColor("#990000")
+      .text("BULLEX TRADING PLATFORM", leftMargin, 50, { width: pageWidth, align: "center" });
+    doc.font("Helvetica").fontSize(9).fillColor("#666666")
+      .text("A proprietary platform of Bullfrog Group", leftMargin, doc.y + 2, { width: pageWidth, align: "center" });
+    doc.moveDown(0.8);
+    doc.font("Helvetica-Bold").fontSize(14).fillColor("#000000")
+      .text("KYC APPLICATION FORM", leftMargin, doc.y, { width: pageWidth, align: "center" });
+    doc.moveDown(0.2);
+    doc.font("Helvetica-Oblique").fontSize(9).fillColor("#444444")
+      .text("To be completed and returned to the Bullex onboarding team.", leftMargin, doc.y, { width: pageWidth, align: "center" });
+    doc.moveDown(0.5);
+    doc.moveTo(leftMargin, doc.y).lineTo(leftMargin + pageWidth, doc.y).lineWidth(1.5).stroke("#990000");
+    doc.moveDown(0.6);
+    doc.font("Helvetica").fontSize(9).fillColor("#333333")
+      .text("Please complete every section in BLOCK CAPITALS. Mark non-applicable fields with N/A. Attach supporting documents (incorporation certificate, financial statements, AML policy, etc.) when returning this form to team@bullex.tech.", leftMargin, doc.y, { width: pageWidth, align: "left" });
+    doc.moveDown(0.6);
+
+    for (const section of BLANK_KYC_SECTIONS) {
+      pdfCheckPage(doc, 80);
+      doc.font("Helvetica-Bold").fontSize(11).fillColor("#990000")
+        .text(section.title, leftMargin, doc.y, { width: pageWidth });
+      doc.moveDown(0.3);
+      drawPdfBlankFormTable(doc, section.rows, leftMargin, pageWidth);
+      doc.moveDown(0.6);
+    }
+
+    doc.moveDown(0.5);
+    pdfCheckPage(doc, 60);
+    doc.font("Helvetica-Bold").fontSize(11).fillColor("#990000")
+      .text("Bullex is a proprietary platform of Bullfrog Group.", leftMargin, doc.y, { width: pageWidth, align: "center" });
+    doc.moveDown(0.3);
+
+    addPdfFooter(doc, leftMargin, pageWidth);
+    doc.end();
+    stream.on("finish", () => resolve(filePath));
+    stream.on("error", reject);
+  });
+}

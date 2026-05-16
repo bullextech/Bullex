@@ -12,7 +12,7 @@ import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateE
 import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
 import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification, sendJobApplicationToHR, sendJobApplicationAcknowledgement, sendTeamKycAdminNotification, sendTeamKycConfirmation } from "./email";
-import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures, generateKycApplicationPdf } from "./documentFileGenerator";
+import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures, generateKycApplicationPdf, generateBlankKycApplicationPdf } from "./documentFileGenerator";
 
 const ADMIN_CHECKLISTS: Record<string, string[]> = {
   LOI: [
@@ -1337,6 +1337,52 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("[kyc-pdf] failed:", error);
       res.status(500).json({ message: error.message || "Failed to generate KYC PDF" });
+    }
+  });
+
+  app.get("/api/kyc-form/blank-pdf", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const pdfPath = await generateBlankKycApplicationPdf();
+      res.download(pdfPath, "Bullex_KYC_Application_Form.pdf");
+    } catch (error: any) {
+      console.error("[blank-kyc-pdf] failed:", error);
+      res.status(500).json({ message: error.message || "Failed to generate blank KYC form" });
+    }
+  });
+
+  app.post("/api/kyc-form/send-blank-pdf", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { recipientEmail, recipientName, ccEmail, message } = req.body || {};
+      if (!recipientEmail || typeof recipientEmail !== "string" || !/^\S+@\S+\.\S+$/.test(recipientEmail)) {
+        return res.status(400).json({ message: "Valid recipientEmail is required" });
+      }
+      if (recipientName && (typeof recipientName !== "string" || recipientName.length > 200)) return res.status(400).json({ message: "recipientName too long" });
+      if (message && (typeof message !== "string" || message.length > 2000)) return res.status(400).json({ message: "message too long" });
+      if (ccEmail && (typeof ccEmail !== "string" || !/^\S+@\S+\.\S+$/.test(ccEmail))) return res.status(400).json({ message: "Invalid ccEmail" });
+
+      const pdfPath = await generateBlankKycApplicationPdf();
+      const { sendBlankKycApplicationPdfEmail } = await import("./email");
+
+      let senderName = "Bullex Admin";
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        const sb = await getDocSubmittedByLabel(tmId || undefined);
+        senderName = sb?.split(" (")[0] || "Bullex Team";
+      }
+
+      const ok = await sendBlankKycApplicationPdfEmail(
+        recipientEmail,
+        recipientName || "Sir/Madam",
+        pdfPath,
+        senderName,
+        typeof message === "string" ? message : undefined,
+        ccEmail || undefined,
+      );
+      if (!ok) return res.status(500).json({ message: "Failed to send blank KYC form email" });
+      res.json({ success: true, sentTo: recipientEmail });
+    } catch (error: any) {
+      console.error("[blank-kyc-pdf-send] failed:", error);
+      res.status(500).json({ message: error.message || "Failed to send blank KYC form" });
     }
   });
 

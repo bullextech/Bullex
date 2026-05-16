@@ -166,6 +166,22 @@ export default function KycAdmin() {
   const [kycLinkSending, setKycLinkSending] = useState(false);
   const [kycLinkCopied, setKycLinkCopied] = useState(false);
 
+  const [blankFormDialogOpen, setBlankFormDialogOpen] = useState(false);
+  const [blankFormTo, setBlankFormTo] = useState("");
+  const [blankFormName, setBlankFormName] = useState("");
+  const [blankFormCc, setBlankFormCc] = useState("");
+  const [blankFormMsg, setBlankFormMsg] = useState("");
+  const sendBlankKycFormMutation = useMutation({
+    mutationFn: async (vars: { recipientEmail: string; recipientName: string; ccEmail: string; message: string }) => {
+      return apiRequest("POST", "/api/kyc-form/send-blank-pdf", vars);
+    },
+    onSuccess: () => {
+      toast({ title: "Blank Form Sent", description: `Bullex KYC form emailed to ${blankFormTo.trim()}.` });
+      setBlankFormDialogOpen(false); setBlankFormTo(""); setBlankFormName(""); setBlankFormCc(""); setBlankFormMsg("");
+    },
+    onError: (e: any) => toast({ title: "Send Failed", description: e?.message || "Failed to send blank form.", variant: "destructive" }),
+  });
+
   const kycOnboardingUrl = `${window.location.origin}/kyc`;
 
   const copyKycLink = async () => {
@@ -352,6 +368,23 @@ export default function KycAdmin() {
                 <Send className="w-3.5 h-3.5 mr-1.5" />
                 {kycLinkSending ? "Sending…" : "Send Invite"}
               </Button>
+            </div>
+            <div className="mt-3 pt-3 border-t border-border/60 flex items-center justify-between gap-2 flex-wrap">
+              <div className="text-xs text-muted-foreground">
+                Prefer offline? Send a printable KYC application form for the client to fill in by hand.
+              </div>
+              <div className="flex items-center gap-2">
+                <a href="/api/kyc-form/blank-pdf" target="_blank" rel="noopener noreferrer">
+                  <Button size="sm" variant="outline" data-testid="button-download-blank-kyc">
+                    <Download className="w-3.5 h-3.5 mr-1.5" />
+                    Download Blank Form
+                  </Button>
+                </a>
+                <Button size="sm" variant="secondary" onClick={() => setBlankFormDialogOpen(true)} data-testid="button-email-blank-kyc">
+                  <Send className="w-3.5 h-3.5 mr-1.5" />
+                  Email Blank Form
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1335,6 +1368,44 @@ export default function KycAdmin() {
         </div>
 
       </div>
+
+      <Dialog open={blankFormDialogOpen} onOpenChange={setBlankFormDialogOpen}>
+        <DialogContent className="max-w-lg" data-testid="dialog-email-blank-kyc">
+          <DialogHeader>
+            <DialogTitle>Email Blank KYC Application Form</DialogTitle>
+            <DialogDescription>Send a printable Bullex KYC form to a client to complete offline.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid gap-1">
+              <Label className="text-xs">Recipient Email *</Label>
+              <Input value={blankFormTo} onChange={(e) => setBlankFormTo(e.target.value)} placeholder="client@example.com" data-testid="input-blank-kyc-to" />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Recipient Name</Label>
+              <Input value={blankFormName} onChange={(e) => setBlankFormName(e.target.value)} placeholder="Mr. John Doe" data-testid="input-blank-kyc-name" />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">CC (optional)</Label>
+              <Input value={blankFormCc} onChange={(e) => setBlankFormCc(e.target.value)} placeholder="cc@example.com" data-testid="input-blank-kyc-cc" />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Message (optional)</Label>
+              <Textarea value={blankFormMsg} onChange={(e) => setBlankFormMsg(e.target.value)} rows={3} placeholder="Add a short note for the recipient…" data-testid="input-blank-kyc-msg" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setBlankFormDialogOpen(false)} data-testid="button-blank-kyc-cancel">Cancel</Button>
+            <Button
+              disabled={sendBlankKycFormMutation.isPending || !blankFormTo.trim()}
+              onClick={() => sendBlankKycFormMutation.mutate({ recipientEmail: blankFormTo.trim(), recipientName: blankFormName.trim(), ccEmail: blankFormCc.trim(), message: blankFormMsg.trim() })}
+              data-testid="button-blank-kyc-confirm"
+            >
+              <Send className="w-4 h-4 mr-1.5" />
+              {sendBlankKycFormMutation.isPending ? "Sending…" : "Send Form"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!sendKycPdfApp} onOpenChange={(o) => !o && setSendKycPdfApp(null)}>
         <DialogContent className="max-w-lg" data-testid="dialog-send-kyc-pdf">
