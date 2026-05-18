@@ -1478,10 +1478,10 @@ function DailyReportsBar() {
   const [date, setDate] = useState(today);
   const [expanded, setExpanded] = useState<string | null>(null);
   const { toast } = useToast();
-  const reportsQuery = useQuery<DailyReport[]>({ queryKey: ["/api/daily-reports", { date }], queryFn: () => fetch(`/api/daily-reports?date=${date}`).then(r => r.json()) });
+  const reportsQuery = useQuery<DailyReport[]>({ queryKey: ["/api/daily-reports", { date }], queryFn: () => fetch(`/api/daily-reports?date=${date}`, { credentials: "include" }).then(r => r.ok ? r.json() : []).catch(() => []) });
   const teamQuery = useQuery<TeamMember[]>({ queryKey: ["/api/team/members"] });
-  const reports = reportsQuery.data ?? [];
-  const team = teamQuery.data ?? [];
+  const reports = Array.isArray(reportsQuery.data) ? reportsQuery.data : [];
+  const team = Array.isArray(teamQuery.data) ? teamQuery.data : [];
 
   const reportByMemberId = new Map<string, DailyReport>();
   reports.forEach(r => { if (!reportByMemberId.has(r.teamMemberId)) reportByMemberId.set(r.teamMemberId, r); });
