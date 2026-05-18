@@ -1,4 +1,4 @@
-import { Switch, Route, useRoute } from "wouter";
+import { Switch, Route, useRoute, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -81,10 +81,17 @@ function KycStandaloneShell() {
   );
 }
 
+function HomeOrTeamPortal() {
+  const { authenticated, role, loading } = useAuth();
+  if (loading) return <div className="p-6 space-y-6"><Skeleton className="h-8 w-72" /><Skeleton className="h-[400px]" /></div>;
+  if (authenticated && role === "team") return <Redirect to="/team-portal" />;
+  return <Home />;
+}
+
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/">{() => <HomeOrTeamPortal />}</Route>
       <Route path="/dashboard">{() => <ModuleRoute component={Dashboard} moduleId="dashboard" />}</Route>
       <Route path="/registrations">{() => <ModuleRoute component={RegistrationsAdmin} moduleId="registrations" />}</Route>
       <Route path="/kyc-admin">{() => <ModuleRoute component={KycAdmin} moduleId="kyc-admin" />}</Route>
