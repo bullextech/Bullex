@@ -964,10 +964,10 @@ function MyTasksPanel({ username }: { username: string }) {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }); toast({ title: "Status updated" }); },
   });
   const STATUS_OPTS = [
-    { v: "todo", l: "To Do", c: "bg-gray-100 text-gray-700" },
-    { v: "in_progress", l: "In Progress", c: "bg-blue-100 text-blue-700" },
-    { v: "review", l: "Review", c: "bg-amber-100 text-amber-700" },
-    { v: "done", l: "Done", c: "bg-green-100 text-green-700" },
+    { v: "todo", l: "To Do" },
+    { v: "in_progress", l: "In Progress" },
+    { v: "review", l: "Review" },
+    { v: "done", l: "Done" },
   ];
   if (tasksQuery.isLoading) return <Skeleton className="h-32" />;
   if (myTasks.length === 0) return <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">No work allocated to you yet.</CardContent></Card>;
@@ -983,7 +983,7 @@ function MyTasksPanel({ username }: { username: string }) {
               </div>
               <Badge variant="outline" className="text-[10px]">{task.priority}</Badge>
             </div>
-            <div className="flex items-center justify-between gap-2 mt-3">
+            <div className="flex items-center justify-between gap-2 mt-3 mb-3">
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                 {task.dueDate && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{task.dueDate}</span>}
                 {task.createdBy && <span>by {task.createdBy}</span>}
@@ -999,9 +999,60 @@ function MyTasksPanel({ username }: { username: string }) {
                 ))}
               </div>
             </div>
+            <TaskUpdatesPanel taskId={task.id} author={username} />
           </CardContent>
         </Card>
       ))}
+    </div>
+  );
+}
+
+function TaskUpdatesPanel({ taskId, author }: { taskId: string; author: string }) {
+  const { toast } = useToast();
+  const [text, setText] = useState("");
+  const updatesQuery = useQuery<any[]>({
+    queryKey: ["/api/tasks", taskId, "updates"],
+    queryFn: () => fetch(`/api/tasks/${taskId}/updates`, { credentials: "include" }).then(r => r.json()),
+  });
+  const postUpdate = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/tasks/${taskId}/updates`, { text, author }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId, "updates"] });
+      setText("");
+      toast({ title: "Progress update posted" });
+    },
+    onError: (e: any) => toast({ title: "Failed", description: e?.message || "Try again.", variant: "destructive" }),
+  });
+  const updates = updatesQuery.data ?? [];
+  return (
+    <div className="border-t pt-3 mt-2 space-y-2">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Progress / Explanation</p>
+      {updates.length > 0 && (
+        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+          {updates.map((u: any) => (
+            <div key={u.id} className="bg-muted/40 rounded px-2.5 py-1.5 text-xs" data-testid={`update-${u.id}`}>
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="font-semibold text-[11px]">{u.author}</span>
+                <span className="text-[9px] text-muted-foreground">{new Date(u.createdAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+              </div>
+              <p className="whitespace-pre-wrap text-foreground/85">{u.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Textarea
+          rows={2}
+          placeholder="Add a progress note or explanation…"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="text-xs flex-1"
+          data-testid={`input-update-${taskId}`}
+        />
+        <Button size="sm" onClick={() => postUpdate.mutate()} disabled={!text.trim() || postUpdate.isPending} data-testid={`button-post-update-${taskId}`}>
+          {postUpdate.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+        </Button>
+      </div>
     </div>
   );
 }

@@ -1661,30 +1661,98 @@ function WorkAllocationSummary() {
 
         {tasks.length > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">By Assignee</p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {Array.from(byAssignee.entries()).map(([assignee, ts]) => {
-                const open = ts.filter(t => t.status !== "done").length;
-                return (
-                  <div key={assignee} className="border rounded-md p-2.5 text-xs" data-testid={`assignee-${assignee}`}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold truncate">{assignee}</span>
-                      <Badge variant="outline" className="text-[10px]">{open} open</Badge>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {TASK_STATUSES.map(s => {
-                        const n = ts.filter(t => t.status === s.v).length;
-                        if (!n) return null;
-                        return <span key={s.v} className={`text-[10px] ${s.c}`}>{n} {s.l}</span>;
-                      }).filter(Boolean).reduce((acc: any[], el, i) => i === 0 ? [el] : [...acc, <span key={`sep-${i}`} className="text-[10px] text-muted-foreground">·</span>, el], [])}
-                    </div>
-                  </div>
-                );
-              })}
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">All Tasks — click to view progress</p>
+            <div className="space-y-2">
+              {tasks.map(task => (
+                <AdminTaskRow key={task.id} task={task} />
+              ))}
             </div>
           </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function AdminTaskRow({ task }: { task: TeamTask }) {
+  const [expanded, setExpanded] = useState(false);
+  const { toast } = useToast();
+  const updatesQuery = useQuery<any[]>({
+    queryKey: ["/api/tasks", task.id, "updates"],
+    queryFn: () => fetch(`/api/tasks/${task.id}/updates`, { credentials: "include" }).then(r => r.json()),
+    enabled: expanded,
+  });
+  const [text, setText] = useState("");
+  const postUpdate = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/tasks/${task.id}/updates`, { text, author: "Admin" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", task.id, "updates"] });
+      setText("");
+      toast({ title: "Comment posted" });
+    },
+  });
+  const statusMeta = TASK_STATUSES.find(s => s.v === task.status) || TASK_STATUSES[0];
+  const updates = updatesQuery.data ?? [];
+  return (
+    <div className="border rounded-md text-xs" data-testid={`admin-task-${task.id}`}>
+      <button
+        type="button"
+        className="w-full p-2.5 flex items-center justify-between gap-2 hover:bg-muted/40 text-left"
+        onClick={() => setExpanded(!expanded)}
+        data-testid={`button-toggle-task-${task.id}`}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="font-semibold truncate">{task.title}</span>
+            <Badge variant="outline" className="text-[10px]">{task.priority}</Badge>
+            <span className={`text-[10px] font-semibold ${statusMeta.c}`}>{statusMeta.l}</span>
+          </div>
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+            <span>{task.assignee || "Unassigned"}</span>
+            {task.dueDate && <span>· Due {task.dueDate}</span>}
+            {updates.length > 0 && <span>· {updates.length} update{updates.length !== 1 ? "s" : ""}</span>}
+          </div>
+        </div>
+        {expanded ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+      </button>
+      {expanded && (
+        <div className="border-t bg-muted/20 p-3 space-y-2">
+          {task.description && <p className="text-[11px] whitespace-pre-wrap text-foreground/80">{task.description}</p>}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Progress Updates</p>
+            {updatesQuery.isLoading ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : updates.length === 0 ? (
+              <p className="text-[11px] italic text-muted-foreground">No updates yet from the team member.</p>
+            ) : (
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {updates.map((u: any) => (
+                  <div key={u.id} className="bg-background rounded border px-2.5 py-1.5" data-testid={`admin-update-${u.id}`}>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="font-semibold text-[11px]">{u.author}</span>
+                      <span className="text-[9px] text-muted-foreground">{new Date(u.createdAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <p className="whitespace-pre-wrap text-[11px] text-foreground/85">{u.text}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Textarea
+              rows={2}
+              placeholder="Add an admin comment or feedback…"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              className="text-xs flex-1"
+              data-testid={`admin-input-update-${task.id}`}
+            />
+            <Button size="sm" onClick={() => postUpdate.mutate()} disabled={!text.trim() || postUpdate.isPending} data-testid={`admin-button-post-${task.id}`}>
+              {postUpdate.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
