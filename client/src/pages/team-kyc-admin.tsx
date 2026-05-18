@@ -10,8 +10,10 @@ import {
   CheckCircle2, XCircle, User, Briefcase, GraduationCap,
   Phone, Heart, Landmark, ChevronDown, ChevronUp, Loader2,
   Link2, Copy, Check, PenTool, Shield, FileText, Download,
-  Camera, ImageIcon,
+  Camera, ImageIcon, Mail, Send,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import Login from "@/pages/login";
@@ -88,6 +90,20 @@ export default function TeamKycAdmin() {
   const [passwords, setPasswords] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [linkCopied, setLinkCopied] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ name: "", email: "", position: "", department: "", message: "" });
+
+  const inviteMutation = useMutation({
+    mutationFn: (body: typeof inviteForm) => apiRequest("POST", "/api/team-kyc/invite", body),
+    onSuccess: () => {
+      toast({ title: "Invitation Sent", description: `Team KYC link emailed to ${inviteForm.email}.` });
+      setEmailDialogOpen(false);
+      setInviteForm({ name: "", email: "", position: "", department: "", message: "" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to send", description: err?.message || "Could not send the invitation email.", variant: "destructive" });
+    },
+  });
 
   const formLink = typeof window !== "undefined"
     ? `${window.location.origin}/team-kyc`
@@ -194,6 +210,15 @@ export default function TeamKycAdmin() {
                 </Button>
                 <Button
                   size="sm"
+                  variant="outline"
+                  onClick={() => setEmailDialogOpen(true)}
+                  className="flex-shrink-0 gap-1.5"
+                  data-testid="btn-email-team-kyc-link"
+                >
+                  <Mail className="w-3.5 h-3.5" /> Email Link
+                </Button>
+                <Button
+                  size="sm"
                   variant="default"
                   onClick={() => window.open(formLink, "_blank")}
                   className="flex-shrink-0 gap-1.5"
@@ -209,6 +234,92 @@ export default function TeamKycAdmin() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Email Invite Dialog */}
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-team-kyc-invite">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Mail className="w-4 h-4 text-primary" /> Email Team KYC Link</DialogTitle>
+            <DialogDescription>Send the Team KYC form link directly to a candidate or team member.</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!inviteForm.email) {
+                toast({ title: "Email required", description: "Please enter the recipient's email address.", variant: "destructive" });
+                return;
+              }
+              inviteMutation.mutate(inviteForm);
+            }}
+            className="space-y-3"
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-email" className="text-xs">Recipient Email <span className="text-destructive">*</span></Label>
+              <Input
+                id="invite-email"
+                type="email"
+                required
+                value={inviteForm.email}
+                onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                placeholder="candidate@example.com"
+                data-testid="input-invite-email"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-name" className="text-xs">Candidate Name</Label>
+              <Input
+                id="invite-name"
+                value={inviteForm.name}
+                onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
+                placeholder="Full name (optional)"
+                data-testid="input-invite-name"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="invite-position" className="text-xs">Position</Label>
+                <Input
+                  id="invite-position"
+                  value={inviteForm.position}
+                  onChange={(e) => setInviteForm({ ...inviteForm, position: e.target.value })}
+                  placeholder="e.g. Trade Analyst"
+                  data-testid="input-invite-position"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="invite-department" className="text-xs">Department</Label>
+                <Input
+                  id="invite-department"
+                  value={inviteForm.department}
+                  onChange={(e) => setInviteForm({ ...inviteForm, department: e.target.value })}
+                  placeholder="e.g. Operations"
+                  data-testid="input-invite-department"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-message" className="text-xs">Personal Message</Label>
+              <Textarea
+                id="invite-message"
+                rows={3}
+                value={inviteForm.message}
+                onChange={(e) => setInviteForm({ ...inviteForm, message: e.target.value })}
+                placeholder="Optional note to include in the email"
+                data-testid="input-invite-message"
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => setEmailDialogOpen(false)} data-testid="btn-invite-cancel">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={inviteMutation.isPending} className="gap-1.5" data-testid="btn-invite-send">
+                {inviteMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Applications list */}
       {isLoading ? (
