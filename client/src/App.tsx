@@ -35,6 +35,7 @@ import RegistrationsAdmin from "@/pages/registrations-admin";
 import HumanResources from "@/pages/human-resources";
 import TeamMembers from "@/pages/team-members";
 import TeamKYC from "@/pages/team-kyc";
+import TeamKycAdmin from "@/pages/team-kyc-admin";
 import DatabaseBackup from "@/pages/database-backup";
 import TaskBoard from "@/pages/task-board";
 import TeamPortal from "@/pages/team-portal";
@@ -95,6 +96,7 @@ function Router() {
       <Route path="/dashboard">{() => <ModuleRoute component={Dashboard} moduleId="dashboard" />}</Route>
       <Route path="/registrations">{() => <ModuleRoute component={RegistrationsAdmin} moduleId="registrations" />}</Route>
       <Route path="/kyc-admin">{() => <ModuleRoute component={KycAdmin} moduleId="kyc-admin" />}</Route>
+      <Route path="/team-kyc-admin">{() => <ModuleRoute component={TeamKycAdmin} moduleId="team-kyc-admin" />}</Route>
       <Route path="/trade-enquiries">{() => <ModuleRoute component={TradeEnquiries} moduleId="enquiries" />}</Route>
       <Route path="/documents">{() => <ProtectedRoute component={DocumentGenerator} />}</Route>
       <Route path="/trading">{() => <ModuleRoute component={Trading} moduleId="trading" />}</Route>

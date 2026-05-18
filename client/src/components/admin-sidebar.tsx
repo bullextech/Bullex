@@ -19,6 +19,7 @@ export const PLATFORM_MODULES = [
   { id: "dashboard",      title: "Dashboard",      url: "/dashboard",       icon: LayoutDashboard, description: "Platform overview, metrics & summary" },
   { id: "registrations",  title: "Registrations",  url: "/registrations",   icon: UserPlus,        description: "Client registration applications" },
   { id: "kyc-admin",      title: "KYC Admin",      url: "/kyc-admin",       icon: ShieldCheck,     description: "Client KYC reviews & approvals" },
+  { id: "team-kyc-admin", title: "Team KYC",       url: "/team-kyc-admin",  icon: UserPlus,        description: "Team member KYC submissions & approvals" },
   { id: "enquiries",      title: "Enquiries",      url: "/trade-enquiries", icon: SearchCheck,     description: "Trade enquiry management" },
   { id: "trading",        title: "Trading",        url: "/trading",         icon: Link2,           description: "Trade order management" },
   { id: "documents",      title: "Documents",      url: "/documents",       icon: FileText,        description: "Document generation & management" },
