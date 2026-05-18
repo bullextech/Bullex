@@ -8,7 +8,7 @@ import {
   CheckCircle2, Circle, RefreshCw, AlertCircle, ChevronDown, ChevronUp,
   Plus, MessageSquare, User, Calendar, Send, Shield, Trash2, X, Loader2,
 } from "lucide-react";
-import type { TeamTask, TaskUpdate } from "@shared/schema";
+import type { TeamTask, TaskUpdate, TeamMember } from "@shared/schema";
 
 type Priority = "urgent" | "high" | "medium" | "low";
 type Status = "todo" | "in_progress" | "review" | "done";
@@ -207,6 +207,8 @@ function TaskRow({ task, username, onDelete }: { task: TeamTask; username: strin
 function NewTaskForm({ onClose, username }: { onClose: () => void; username: string }) {
   const [form, setForm] = useState({ title: "", description: "", priority: "medium", assignee: "", dueDate: "" });
   const { toast } = useToast();
+  const teamQuery = useQuery<TeamMember[]>({ queryKey: ["/api/team/members"] });
+  const teamMembers = teamQuery.data ?? [];
 
   const create = useMutation({
     mutationFn: () => apiRequest("POST", "/api/tasks", { ...form, createdBy: username }),
@@ -255,13 +257,19 @@ function NewTaskForm({ onClose, username }: { onClose: () => void; username: str
           <option value="medium">Medium</option>
           <option value="low">Low</option>
         </select>
-        <input
-          data-testid="input-task-assignee"
+        <select
+          data-testid="select-task-assignee"
           value={form.assignee}
           onChange={e => set("assignee", e.target.value)}
-          placeholder="Assignee"
           className="text-sm border border-border rounded px-3 py-2 bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
-        />
+        >
+          <option value="">Assign to team member…</option>
+          {teamMembers.map(tm => (
+            <option key={tm.id} value={tm.username}>
+              {tm.name} ({tm.username}){tm.position ? ` — ${tm.position}` : ""}
+            </option>
+          ))}
+        </select>
         <input
           data-testid="input-task-due-date"
           type="date"
