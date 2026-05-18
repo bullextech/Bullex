@@ -271,7 +271,7 @@ export async function registerRoutes(
     res.status(401).json({ message: "Invalid username or password" });
   });
 
-  app.get("/api/team/members", requireAdminAuth, async (req, res) => {
+  app.get("/api/team/members", requireAuth, async (req, res) => {
     const members = await storage.getAllTeamMembers();
     res.json(members.map(m => ({ ...m, password: undefined })));
   });
