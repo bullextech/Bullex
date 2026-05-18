@@ -78,6 +78,7 @@ export interface IStorage {
   createKycApplication(kyc: InsertKyc): Promise<KycApplication>;
   updateKycStatus(id: string, status: string, reviewNotes?: string, category?: string, products?: string): Promise<KycApplication>;
   updateKycClientCredentials(id: string, clientUsername: string, clientPassword: string): Promise<KycApplication>;
+  updateKycAmlScreening(id: string, data: { amlStatus: string; amlMatches?: any; amlCheckedBy?: string; amlNotes?: string }): Promise<KycApplication>;
 
   getTrades(): Promise<Trade[]>;
   getTradeById(id: string): Promise<Trade | undefined>;
@@ -220,6 +221,15 @@ export class DatabaseStorage implements IStorage {
 
   async updateKycClientCredentials(id: string, clientUsername: string, clientPassword: string): Promise<KycApplication> {
     const [updated] = await db.update(kycApplications).set({ clientUsername, clientPassword }).where(eq(kycApplications.id, id)).returning();
+    return updated;
+  }
+
+  async updateKycAmlScreening(id: string, data: { amlStatus: string; amlMatches?: any; amlCheckedBy?: string; amlNotes?: string }): Promise<KycApplication> {
+    const updates: any = { amlStatus: data.amlStatus, amlCheckedAt: new Date() };
+    if (data.amlMatches !== undefined) updates.amlMatches = data.amlMatches;
+    if (data.amlCheckedBy !== undefined) updates.amlCheckedBy = data.amlCheckedBy;
+    if (data.amlNotes !== undefined) updates.amlNotes = data.amlNotes;
+    const [updated] = await db.update(kycApplications).set(updates).where(eq(kycApplications.id, id)).returning();
     return updated;
   }
 

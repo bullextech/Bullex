@@ -1326,11 +1326,14 @@ export default function KycAdmin() {
                                   </div>
                                 )}
 
+                                <AmlScreeningPanel app={app} />
+
                                 <div className="flex gap-2">
                                   <Button
                                     size="sm"
-                                    className="flex-1 rounded-none h-10 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider"
-                                    disabled={updateStatus.isPending}
+                                    className="flex-1 rounded-none h-10 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider disabled:bg-muted disabled:text-muted-foreground"
+                                    disabled={updateStatus.isPending || !["clear", "manual_clear"].includes((app as any).amlStatus || "not_run")}
+                                    title={!["clear", "manual_clear"].includes((app as any).amlStatus || "not_run") ? "Complete AML / World-Check screening first" : ""}
                                     onClick={() => {
                                       updateStatus.mutate({ id: app.id, status: "approved", notes: reviewNotes[app.id], category: categories[app.id] || app.category || undefined, products: products[app.id] !== undefined ? products[app.id] : (app.products || undefined), clientUsername: clientUsernames[app.id] || undefined, clientPassword: clientPasswords[app.id] || undefined });
                                     }}
@@ -1753,6 +1756,188 @@ function AdminTaskRow({ task }: { task: TeamTask }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function AmlScreeningPanel({ app }: { app: any }) {
+  const { toast } = useToast();
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideNotes, setOverrideNotes] = useState("");
+  const [overrideDecision, setOverrideDecision] = useState<"manual_clear" | "blocked">("manual_clear");
+  const status: string = app.amlStatus || "not_run";
+  const matches: any[] = Array.isArray(app.amlMatches) ? app.amlMatches : [];
+  const positives = matches.filter(m => m.match === true || (m.score != null && m.score >= 0.7));
+
+  const runCheck = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/kyc/${app.id}/aml-check`, {}),
+    onSuccess: async (res) => {
+      const data = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc"] });
+      toast({
+        title: data.amlStatus === "clear" ? "Screening Clear" : "Screening Flagged",
+        description: `${data.matchCount} total result${data.matchCount === 1 ? "" : "s"}, ${data.positiveCount} potential match${data.positiveCount === 1 ? "" : "es"}.`,
+        variant: data.amlStatus === "clear" ? "default" : "destructive",
+      });
+    },
+    onError: (err: any) => toast({ title: "Screening failed", description: err.message, variant: "destructive" }),
+  });
+
+  const override = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/kyc/${app.id}/aml-override`, { decision: overrideDecision, notes: overrideNotes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc"] });
+      setOverrideOpen(false); setOverrideNotes("");
+      toast({ title: "AML decision saved" });
+    },
+    onError: (err: any) => toast({ title: "Override failed", description: err.message, variant: "destructive" }),
+  });
+
+  const badge = (() => {
+    switch (status) {
+      case "clear": return { c: "bg-emerald-100 text-emerald-700 border-emerald-300", l: "Clear" };
+      case "manual_clear": return { c: "bg-blue-100 text-blue-700 border-blue-300", l: "Cleared (Manual)" };
+      case "flagged": return { c: "bg-amber-100 text-amber-800 border-amber-300", l: "Flagged — Review" };
+      case "blocked": return { c: "bg-red-100 text-red-700 border-red-300", l: "Blocked" };
+      default: return { c: "bg-gray-100 text-gray-600 border-gray-300", l: "Not Screened" };
+    }
+  })();
+
+  return (
+    <div className="border-2 border-primary/30 bg-primary/5 rounded-none p-4 space-y-3" data-testid={`aml-panel-${app.id}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Shield className="w-4 h-4 text-primary" />
+          <span className="text-xs font-bold uppercase tracking-wider text-primary">AML / World-Check Screening</span>
+        </div>
+        <Badge className={`rounded-none text-[10px] font-bold uppercase border ${badge.c}`} data-testid={`aml-status-${app.id}`}>{badge.l}</Badge>
+      </div>
+
+      <p className="text-[11px] text-muted-foreground leading-relaxed">
+        Screens company &amp; signatory names against the OpenSanctions consolidated dataset (UN, EU, OFAC, UK HMT, World-Check public lists, PEPs).
+        Approval is locked until this check is cleared.
+      </p>
+
+      {app.amlCheckedAt && (
+        <div className="text-[10px] text-muted-foreground flex items-center gap-2 flex-wrap">
+          <span>Last run: {new Date(app.amlCheckedAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+          {app.amlCheckedBy && <span>· by {app.amlCheckedBy}</span>}
+          <span>· {matches.length} result{matches.length === 1 ? "" : "s"}</span>
+          {positives.length > 0 && <span className="text-red-600 font-semibold">· {positives.length} potential match{positives.length === 1 ? "" : "es"}</span>}
+        </div>
+      )}
+
+      {app.amlNotes && (
+        <div className="text-[11px] bg-background border border-border rounded-none p-2">
+          <span className="font-semibold">Override note: </span>{app.amlNotes}
+        </div>
+      )}
+
+      {matches.length > 0 && (
+        <div className="max-h-72 overflow-y-auto space-y-1.5">
+          {matches.map((m, i) => {
+            const isPositive = m.match === true || (m.score != null && m.score >= 0.7);
+            return (
+              <div key={i} className={`text-[11px] border rounded-none p-2 ${isPositive ? "bg-red-50 border-red-200" : "bg-background border-border"}`} data-testid={`aml-match-${app.id}-${i}`}>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    {isPositive ? <AlertTriangle className="w-3 h-3 text-red-600" /> : <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                    <span className="font-semibold">{m.matchedName}</span>
+                    <span className="text-muted-foreground">({m.schema})</span>
+                  </div>
+                  {m.score != null && (
+                    <Badge variant="outline" className={`rounded-none text-[9px] ${isPositive ? "border-red-300 text-red-700" : ""}`}>
+                      {(m.score * 100).toFixed(0)}% match
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-[10px] text-muted-foreground space-y-0.5">
+                  <div>Query: {m.queryLabel} — "{m.queryName}"</div>
+                  {m.datasets?.length > 0 && <div>Lists: {m.datasets.slice(0, 6).join(", ")}{m.datasets.length > 6 ? "…" : ""}</div>}
+                  {m.topics?.length > 0 && <div>Topics: {m.topics.join(", ")}</div>}
+                  {m.countries?.length > 0 && <div>Countries: {m.countries.join(", ")}</div>}
+                  {m.sourceUrl && (
+                    <a href={m.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                      View entity <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          className="rounded-none h-8 text-[11px] font-semibold"
+          onClick={() => runCheck.mutate()}
+          disabled={runCheck.isPending}
+          data-testid={`button-aml-run-${app.id}`}
+        >
+          {runCheck.isPending ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : <Search className="w-3 h-3 mr-1.5" />}
+          {status === "not_run" ? "Run Screening" : "Re-run Screening"}
+        </Button>
+        {status !== "not_run" && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-none h-8 text-[11px] font-semibold"
+            onClick={() => setOverrideOpen(true)}
+            data-testid={`button-aml-override-${app.id}`}
+          >
+            <UserCheck className="w-3 h-3 mr-1.5" />
+            Manual Decision
+          </Button>
+        )}
+      </div>
+
+      <Dialog open={overrideOpen} onOpenChange={setOverrideOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>AML Manual Decision</DialogTitle>
+            <DialogDescription>Record your manual review decision for audit purposes. Required when overriding flagged matches.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wider">Decision</Label>
+              <Select value={overrideDecision} onValueChange={(v: any) => setOverrideDecision(v)}>
+                <SelectTrigger className="rounded-none mt-1" data-testid="select-aml-decision">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual_clear">Clear — false positive / acceptable risk</SelectItem>
+                  <SelectItem value="blocked">Block — confirmed adverse match</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wider">Justification (audit trail, min 5 chars)</Label>
+              <Textarea
+                className="rounded-none mt-1 min-h-[100px]"
+                placeholder="e.g. Reviewed match — entity is in different jurisdiction (US v. UK), confirmed false positive via passport check."
+                value={overrideNotes}
+                onChange={e => setOverrideNotes(e.target.value)}
+                data-testid="textarea-aml-notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="rounded-none" onClick={() => setOverrideOpen(false)}>Cancel</Button>
+            <Button
+              className="rounded-none"
+              disabled={override.isPending || overrideNotes.trim().length < 5}
+              onClick={() => override.mutate()}
+              data-testid="button-aml-save-decision"
+            >
+              {override.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : null}
+              Save Decision
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

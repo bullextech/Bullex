@@ -76,6 +76,11 @@ export const kycApplications = pgTable("kyc_applications", {
   blockNumber: integer("block_number"),
   nonce: integer("nonce"),
   submittedByTeamMemberId: varchar("submitted_by_team_member_id"),
+  amlStatus: text("aml_status").notNull().default("not_run"),
+  amlMatches: jsonb("aml_matches"),
+  amlCheckedAt: timestamp("aml_checked_at"),
+  amlCheckedBy: text("aml_checked_by"),
+  amlNotes: text("aml_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

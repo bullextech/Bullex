@@ -995,6 +995,102 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/kyc/:id/aml-check", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const kyc = await storage.getKycApplicationById(id);
+      if (!kyc) return res.status(404).json({ message: "KYC application not found" });
+
+      const queries: { label: string; name: string; schema: string }[] = [];
+      if (kyc.companyName) queries.push({ label: "Company", name: kyc.companyName, schema: "Company" });
+      if (kyc.signatoryName) queries.push({ label: "Authorized Signatory", name: kyc.signatoryName, schema: "Person" });
+      if (kyc.contactName && kyc.contactName !== kyc.signatoryName) {
+        queries.push({ label: "Primary Contact", name: kyc.contactName, schema: "Person" });
+      }
+
+      const allMatches: any[] = [];
+      for (const q of queries) {
+        try {
+          const url = `https://api.opensanctions.org/match/default`;
+          const body = { queries: { q1: { schema: q.schema, properties: { name: [q.name] } } } };
+          const resp = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!resp.ok) {
+            // Fallback to free search endpoint
+            const searchUrl = `https://api.opensanctions.org/search/default?q=${encodeURIComponent(q.name)}&limit=5`;
+            const sresp = await fetch(searchUrl);
+            if (sresp.ok) {
+              const sdata: any = await sresp.json();
+              for (const r of sdata.results || []) {
+                allMatches.push({
+                  queryLabel: q.label, queryName: q.name,
+                  matchedName: r.caption, schema: r.schema,
+                  score: r.score ?? null, datasets: r.datasets || [],
+                  topics: r.properties?.topics || [], countries: r.properties?.country || [],
+                  sourceUrl: `https://www.opensanctions.org/entities/${r.id}/`,
+                });
+              }
+            }
+            continue;
+          }
+          const data: any = await resp.json();
+          const results = data?.responses?.q1?.results || [];
+          for (const r of results) {
+            allMatches.push({
+              queryLabel: q.label, queryName: q.name,
+              matchedName: r.caption, schema: r.schema,
+              score: r.score ?? null, match: r.match ?? false, datasets: r.datasets || [],
+              topics: r.properties?.topics || [], countries: r.properties?.country || [],
+              sourceUrl: `https://www.opensanctions.org/entities/${r.id}/`,
+            });
+          }
+        } catch (err: any) {
+          console.error(`[aml] screening failed for "${q.name}":`, err.message);
+        }
+      }
+
+      const positives = allMatches.filter(m => m.match === true || (m.score != null && m.score >= 0.7));
+      const amlStatus = positives.length > 0 ? "flagged" : "clear";
+      const checkedBy = req.session.username || "admin";
+      const updated = await storage.updateKycAmlScreening(id, {
+        amlStatus,
+        amlMatches: allMatches,
+        amlCheckedBy: checkedBy,
+      });
+      res.json({ amlStatus, matchCount: allMatches.length, positiveCount: positives.length, kyc: sanitizeKyc(updated) });
+    } catch (error: any) {
+      console.error("[aml] screening error:", error);
+      res.status(500).json({ message: error.message || "AML screening failed" });
+    }
+  });
+
+  app.post("/api/kyc/:id/aml-override", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { notes, decision } = req.body;
+      if (!["manual_clear", "blocked"].includes(decision)) {
+        return res.status(400).json({ message: "Decision must be 'manual_clear' or 'blocked'" });
+      }
+      if (!notes || typeof notes !== "string" || notes.trim().length < 5) {
+        return res.status(400).json({ message: "Override notes (min 5 chars) are required for audit trail" });
+      }
+      const kyc = await storage.getKycApplicationById(id);
+      if (!kyc) return res.status(404).json({ message: "KYC application not found" });
+      const checkedBy = req.session.username || "admin";
+      const updated = await storage.updateKycAmlScreening(id, {
+        amlStatus: decision,
+        amlCheckedBy: checkedBy,
+        amlNotes: notes,
+      });
+      res.json(sanitizeKyc(updated));
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "AML override failed" });
+    }
+  });
+
   app.patch("/api/kyc/:id/status", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
@@ -1011,6 +1107,9 @@ export async function registerRoutes(
       }
       if (kyc.status === "approved") {
         return res.status(403).json({ message: "Approved applications cannot be modified" });
+      }
+      if (status === "approved" && !["clear", "manual_clear"].includes(kyc.amlStatus || "not_run")) {
+        return res.status(400).json({ message: "AML / World-Check screening must be completed (clear or manual override) before approval." });
       }
 
       if (status === "approved" && clientUsername) {
