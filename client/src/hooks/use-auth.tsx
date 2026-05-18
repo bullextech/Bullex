@@ -58,6 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole(data.role);
         setAllowedModules(data.role === "team" ? (data.allowedModules ?? []) : null);
         queryClient.clear();
+        if (data.role === "team" && typeof window !== "undefined" && window.location.pathname !== "/team-portal") {
+          window.location.assign("/team-portal");
+        }
         return { success: true };
       }
       return { success: false, error: data.message || "Login failed" };
