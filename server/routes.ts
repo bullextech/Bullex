@@ -7,7 +7,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
-import { insertTradeSchema, insertKycSchema, insertDocumentSchema, type Trade } from "@shared/schema";
+import { insertTradeSchema, insertKycSchema, insertDocumentSchema, insertPotentialClientSchema, type Trade } from "@shared/schema";
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent } from "./documentTemplates";
 import { seedDatabase } from "./seed";
@@ -1401,6 +1401,67 @@ export async function registerRoutes(
       const tmId = await getSessionTeamMemberId(req);
       if (!tmId) return res.status(403).json({ message: "Team-member only" });
       const list = await storage.getTradeEnquiriesByTeamMemberId(tmId);
+      res.json(list);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ─── POTENTIAL CLIENTS (team-member CRM) ───
+  app.get("/api/team/me/potential-clients", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tmId = await getSessionTeamMemberId(req);
+      if (!tmId) return res.status(403).json({ message: "Team-member only" });
+      const list = await storage.getPotentialClientsByTeamMemberId(tmId);
+      res.json(list);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/team/me/potential-clients", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tmId = await getSessionTeamMemberId(req);
+      if (!tmId) return res.status(403).json({ message: "Team-member only" });
+      const data = insertPotentialClientSchema.parse(req.body);
+      const created = await storage.createPotentialClient(tmId, data);
+      res.json(created);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/team/me/potential-clients/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tmId = await getSessionTeamMemberId(req);
+      if (!tmId) return res.status(403).json({ message: "Team-member only" });
+      const existing = await storage.getPotentialClientById(req.params.id);
+      if (!existing || existing.teamMemberId !== tmId) return res.status(404).json({ message: "Not found" });
+      const data = insertPotentialClientSchema.partial().parse(req.body);
+      const updated = await storage.updatePotentialClient(req.params.id, data);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/team/me/potential-clients/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tmId = await getSessionTeamMemberId(req);
+      if (!tmId) return res.status(403).json({ message: "Team-member only" });
+      const existing = await storage.getPotentialClientById(req.params.id);
+      if (!existing || existing.teamMemberId !== tmId) return res.status(404).json({ message: "Not found" });
+      await storage.deletePotentialClient(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin: see all potential clients across team
+  app.get("/api/potential-clients", requireAdminAuth, async (_req: Request, res: Response) => {
+    try {
+      const list = await storage.getPotentialClients();
       res.json(list);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

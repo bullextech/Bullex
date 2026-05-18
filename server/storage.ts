@@ -59,6 +59,9 @@ import {
   type InsertDailyReport,
   type TaskUpdate,
   type InsertTaskUpdate,
+  potentialClients,
+  type PotentialClient,
+  type InsertPotentialClient,
 } from "@shared/schema";
 
 export const pool = new pg.Pool({
@@ -182,6 +185,13 @@ export interface IStorage {
   getDailyReports(filters?: { date?: string; teamMemberId?: string }): Promise<DailyReport[]>;
   createDailyReport(report: InsertDailyReport): Promise<DailyReport>;
   deleteDailyReport(id: string): Promise<void>;
+
+  getPotentialClients(): Promise<PotentialClient[]>;
+  getPotentialClientsByTeamMemberId(teamMemberId: string): Promise<PotentialClient[]>;
+  getPotentialClientById(id: string): Promise<PotentialClient | undefined>;
+  createPotentialClient(teamMemberId: string, data: InsertPotentialClient): Promise<PotentialClient>;
+  updatePotentialClient(id: string, data: Partial<InsertPotentialClient>): Promise<PotentialClient>;
+  deletePotentialClient(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -858,6 +868,33 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDailyReport(id: string): Promise<void> {
     await db.delete(dailyReports).where(eq(dailyReports.id, id));
+  }
+
+  async getPotentialClients(): Promise<PotentialClient[]> {
+    return db.select().from(potentialClients).orderBy(desc(potentialClients.createdAt));
+  }
+
+  async getPotentialClientsByTeamMemberId(teamMemberId: string): Promise<PotentialClient[]> {
+    return db.select().from(potentialClients).where(eq(potentialClients.teamMemberId, teamMemberId)).orderBy(desc(potentialClients.createdAt));
+  }
+
+  async getPotentialClientById(id: string): Promise<PotentialClient | undefined> {
+    const [row] = await db.select().from(potentialClients).where(eq(potentialClients.id, id));
+    return row;
+  }
+
+  async createPotentialClient(teamMemberId: string, data: InsertPotentialClient): Promise<PotentialClient> {
+    const [row] = await db.insert(potentialClients).values({ ...data, teamMemberId }).returning();
+    return row;
+  }
+
+  async updatePotentialClient(id: string, data: Partial<InsertPotentialClient>): Promise<PotentialClient> {
+    const [row] = await db.update(potentialClients).set({ ...data, updatedAt: new Date() }).where(eq(potentialClients.id, id)).returning();
+    return row;
+  }
+
+  async deletePotentialClient(id: string): Promise<void> {
+    await db.delete(potentialClients).where(eq(potentialClients.id, id));
   }
 }
 

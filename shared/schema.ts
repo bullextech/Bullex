@@ -529,6 +529,35 @@ export const insertDailyReportSchema = createInsertSchema(dailyReports).omit({ i
 export type InsertDailyReport = z.infer<typeof insertDailyReportSchema>;
 export type DailyReport = typeof dailyReports.$inferSelect;
 
+export const potentialClients = pgTable("potential_clients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teamMemberId: varchar("team_member_id").notNull(),
+  companyName: text("company_name").notNull(),
+  contactPerson: text("contact_person"),
+  email: text("email"),
+  phone: text("phone"),
+  website: text("website"),
+  address: text("address"),
+  city: text("city"),
+  country: text("country"),
+  products: text("products").array(),
+  status: text("status").notNull().default("lead"),
+  source: text("source"),
+  notes: text("notes"),
+  lastContactedAt: text("last_contacted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPotentialClientSchema = createInsertSchema(potentialClients).omit({
+  id: true,
+  teamMemberId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPotentialClient = z.infer<typeof insertPotentialClientSchema>;
+export type PotentialClient = typeof potentialClients.$inferSelect;
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 // TeamKycApplication types already defined above

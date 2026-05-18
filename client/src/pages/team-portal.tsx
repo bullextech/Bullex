@@ -15,9 +15,268 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Briefcase, FileText, ShieldCheck, Plus, Send, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink, FilePlus, Mail, FileSignature, Download, Copy, Link2, ClipboardList, CalendarDays, Loader2 } from "lucide-react";
+import { Briefcase, FileText, ShieldCheck, Plus, Send, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink, FilePlus, Mail, FileSignature, Download, Copy, Link2, ClipboardList, CalendarDays, Loader2, Building2, Pencil, Trash2, MapPin, Phone, Globe } from "lucide-react";
 import type { DailyReport, TeamTask } from "@shared/schema";
-import type { KycApplication, TradeEnquiry, EnquiryChangeRequest, KycChangeRequest, Document } from "@shared/schema";
+import type { KycApplication, TradeEnquiry, EnquiryChangeRequest, KycChangeRequest, Document, PotentialClient } from "@shared/schema";
+
+const POTENTIAL_CLIENT_STATUSES = [
+  { value: "lead", label: "Lead" },
+  { value: "contacted", label: "Contacted" },
+  { value: "qualified", label: "Qualified" },
+  { value: "negotiating", label: "Negotiating" },
+  { value: "converted", label: "Converted" },
+  { value: "dropped", label: "Dropped" },
+];
+
+const PRODUCT_OPTIONS = [
+  "Iron Ore", "Bauxite", "Manganese Ore",
+  "Copper Cathode", "Copper Concentrate", "Aluminium Ingots",
+  "Gasoil 10ppm", "Gasoil 50ppm", "LHC", "HSFO", "HSGO",
+  "Petcoke – Anode Grade", "Petcoke – Fuel Grade",
+  "NPK",
+];
+
+function PotentialClientsPanel() {
+  const { toast } = useToast();
+  const emptyForm = {
+    companyName: "", contactPerson: "", email: "", phone: "", website: "",
+    address: "", city: "", country: "", products: [] as string[],
+    status: "lead", source: "", notes: "", lastContactedAt: "",
+  };
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+
+  const clientsQuery = useQuery<PotentialClient[]>({ queryKey: ["/api/team/me/potential-clients"] });
+
+  const saveMutation = useMutation({
+    mutationFn: async (body: typeof emptyForm) => {
+      const payload = { ...body, products: body.products.length ? body.products : null, lastContactedAt: body.lastContactedAt || null };
+      if (editingId) return apiRequest("PATCH", `/api/team/me/potential-clients/${editingId}`, payload);
+      return apiRequest("POST", "/api/team/me/potential-clients", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/team/me/potential-clients"] });
+      toast({ title: editingId ? "Client updated" : "Client added" });
+      setDialogOpen(false);
+      setEditingId(null);
+      setForm(emptyForm);
+    },
+    onError: (err: any) => toast({ title: "Save failed", description: err?.message || "Could not save client", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/team/me/potential-clients/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/team/me/potential-clients"] });
+      toast({ title: "Client removed" });
+    },
+  });
+
+  const openNew = () => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); };
+  const openEdit = (c: PotentialClient) => {
+    setEditingId(c.id);
+    setForm({
+      companyName: c.companyName, contactPerson: c.contactPerson || "", email: c.email || "",
+      phone: c.phone || "", website: c.website || "", address: c.address || "",
+      city: c.city || "", country: c.country || "", products: c.products || [],
+      status: c.status, source: c.source || "", notes: c.notes || "",
+      lastContactedAt: c.lastContactedAt || "",
+    });
+    setDialogOpen(true);
+  };
+
+  const toggleProduct = (p: string) => {
+    setForm((f) => ({ ...f, products: f.products.includes(p) ? f.products.filter((x) => x !== p) : [...f.products, p] }));
+  };
+
+  const statusBadgeClass = (s: string) => {
+    switch (s) {
+      case "converted": return "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300";
+      case "qualified":
+      case "negotiating": return "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300";
+      case "contacted": return "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300";
+      case "dropped": return "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300";
+      default: return "bg-muted text-muted-foreground";
+    }
+  };
+
+  const clients = clientsQuery.data ?? [];
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-primary/20 bg-primary/5">
+        <CardContent className="p-5 flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Building2 className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Potential Clients</p>
+              <p className="text-xs text-muted-foreground">Keep a live list of prospects you are working with — company, products of interest, contacts, and status.</p>
+            </div>
+          </div>
+          <Button onClick={openNew} className="gap-1.5 flex-shrink-0" data-testid="btn-add-potential-client">
+            <Plus className="w-4 h-4" /> Add Client
+          </Button>
+        </CardContent>
+      </Card>
+
+      {clientsQuery.isLoading ? (
+        <Skeleton className="h-40" />
+      ) : clients.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Building2 className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+            <p className="text-sm font-semibold">No potential clients yet</p>
+            <p className="text-xs text-muted-foreground mt-1">Click "Add Client" to record your first prospect.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-3">
+          {clients.map((c) => (
+            <Card key={c.id} data-testid={`card-potential-client-${c.id}`} className="hover-elevate">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                      <h4 className="text-sm font-bold truncate" data-testid={`text-client-company-${c.id}`}>{c.companyName}</h4>
+                      <Badge variant="outline" className={`text-[10px] uppercase ${statusBadgeClass(c.status)}`}>{c.status}</Badge>
+                      {c.source && <span className="text-[10px] text-muted-foreground">via {c.source}</span>}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      {c.contactPerson && <div className="flex items-center gap-1.5"><Briefcase className="w-3 h-3" />{c.contactPerson}</div>}
+                      {c.email && <div className="flex items-center gap-1.5"><Mail className="w-3 h-3" /><a href={`mailto:${c.email}`} className="hover:text-primary truncate">{c.email}</a></div>}
+                      {c.phone && <div className="flex items-center gap-1.5"><Phone className="w-3 h-3" />{c.phone}</div>}
+                      {c.website && <div className="flex items-center gap-1.5"><Globe className="w-3 h-3" /><a href={c.website.startsWith("http") ? c.website : `https://${c.website}`} target="_blank" rel="noreferrer" className="hover:text-primary truncate">{c.website}</a></div>}
+                      {(c.address || c.city || c.country) && (
+                        <div className="flex items-center gap-1.5 sm:col-span-2"><MapPin className="w-3 h-3 flex-shrink-0" /><span className="truncate">{[c.address, c.city, c.country].filter(Boolean).join(", ")}</span></div>
+                      )}
+                      {c.lastContactedAt && <div className="flex items-center gap-1.5"><CalendarDays className="w-3 h-3" />Last contact: {c.lastContactedAt}</div>}
+                    </div>
+                    {c.products && c.products.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {c.products.map((p) => <Badge key={p} variant="secondary" className="text-[10px]">{p}</Badge>)}
+                      </div>
+                    )}
+                    {c.notes && <p className="text-xs text-muted-foreground mt-2 whitespace-pre-wrap">{c.notes}</p>}
+                  </div>
+                  <div className="flex flex-col gap-1.5 flex-shrink-0">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(c)} data-testid={`btn-edit-client-${c.id}`}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => { if (confirm(`Remove ${c.companyName}?`)) deleteMutation.mutate(c.id); }} data-testid={`btn-delete-client-${c.id}`}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setForm(emptyForm); } }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-potential-client">
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Edit Potential Client" : "Add Potential Client"}</DialogTitle>
+            <DialogDescription>Record company details, products of interest, and contact information.</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!form.companyName.trim()) {
+                toast({ title: "Company name required", variant: "destructive" });
+                return;
+              }
+              saveMutation.mutate(form);
+            }}
+            className="space-y-4"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="pc-company" className="text-xs">Company Name <span className="text-destructive">*</span></Label>
+                <Input id="pc-company" value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} required data-testid="input-client-company" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pc-contact" className="text-xs">Contact Person</Label>
+                <Input id="pc-contact" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} data-testid="input-client-contact" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pc-email" className="text-xs">Email</Label>
+                <Input id="pc-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} data-testid="input-client-email" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pc-phone" className="text-xs">Phone</Label>
+                <Input id="pc-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="input-client-phone" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pc-website" className="text-xs">Website</Label>
+                <Input id="pc-website" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} placeholder="https://..." data-testid="input-client-website" />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="pc-address" className="text-xs">Address</Label>
+                <Input id="pc-address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} data-testid="input-client-address" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pc-city" className="text-xs">City</Label>
+                <Input id="pc-city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} data-testid="input-client-city" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pc-country" className="text-xs">Country</Label>
+                <Input id="pc-country" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} data-testid="input-client-country" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pc-status" className="text-xs">Status</Label>
+                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                  <SelectTrigger id="pc-status" data-testid="select-client-status"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {POTENTIAL_CLIENT_STATUSES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pc-source" className="text-xs">Source</Label>
+                <Input id="pc-source" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder="Referral, Event, Cold call..." data-testid="input-client-source" />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="pc-last" className="text-xs">Last Contacted</Label>
+                <Input id="pc-last" type="date" value={form.lastContactedAt} onChange={(e) => setForm({ ...form, lastContactedAt: e.target.value })} data-testid="input-client-last-contacted" />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Products of Interest</Label>
+              <div className="flex flex-wrap gap-1.5 p-2 border border-border rounded-md max-h-32 overflow-y-auto">
+                {PRODUCT_OPTIONS.map((p) => {
+                  const on = form.products.includes(p);
+                  return (
+                    <Badge key={p} variant={on ? "default" : "outline"} className="cursor-pointer text-[10px]" onClick={() => toggleProduct(p)} data-testid={`badge-product-${p}`}>
+                      {on && <CheckCircle2 className="w-3 h-3 mr-1" />}{p}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="pc-notes" className="text-xs">Notes</Label>
+              <Textarea id="pc-notes" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Conversation notes, next steps, pricing..." data-testid="input-client-notes" />
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={saveMutation.isPending} className="gap-1.5" data-testid="btn-save-client">
+                {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                {editingId ? "Save Changes" : "Add Client"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 const KYC_AMENDABLE_FIELDS: { key: string; label: string }[] = [
   { key: "companyName", label: "Company Name" },
@@ -432,6 +691,7 @@ export default function TeamPortal() {
           <TabsTrigger value="kyc" data-testid="tab-kyc">My KYC</TabsTrigger>
           <TabsTrigger value="enquiries" data-testid="tab-enquiries">My Enquiries</TabsTrigger>
           <TabsTrigger value="documents" data-testid="tab-documents">My Documents</TabsTrigger>
+          <TabsTrigger value="clients" data-testid="tab-clients">Potential Clients</TabsTrigger>
           <TabsTrigger value="tasks" data-testid="tab-tasks">My Work</TabsTrigger>
           <TabsTrigger value="reports" data-testid="tab-reports">Daily Report</TabsTrigger>
         </TabsList>
@@ -707,6 +967,10 @@ export default function TeamPortal() {
               })}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="clients" className="space-y-4">
+          <PotentialClientsPanel />
         </TabsContent>
 
         <TabsContent value="tasks" className="space-y-4">
