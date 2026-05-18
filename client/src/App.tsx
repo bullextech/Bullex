@@ -96,7 +96,7 @@ function Router() {
       <Route path="/dashboard">{() => <ModuleRoute component={Dashboard} moduleId="dashboard" />}</Route>
       <Route path="/registrations">{() => <ModuleRoute component={RegistrationsAdmin} moduleId="registrations" />}</Route>
       <Route path="/kyc-admin">{() => <ModuleRoute component={KycAdmin} moduleId="kyc-admin" />}</Route>
-      <Route path="/team-kyc-admin">{() => <ModuleRoute component={TeamKycAdmin} moduleId="team-kyc-admin" />}</Route>
+      <Route path="/team-kyc-admin">{() => <ProtectedRoute component={TeamKycAdmin} />}</Route>
       <Route path="/trade-enquiries">{() => <ModuleRoute component={TradeEnquiries} moduleId="enquiries" />}</Route>
       <Route path="/documents">{() => <ProtectedRoute component={DocumentGenerator} />}</Route>
       <Route path="/trading">{() => <ModuleRoute component={Trading} moduleId="trading" />}</Route>
