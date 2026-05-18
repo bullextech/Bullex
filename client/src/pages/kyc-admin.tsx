@@ -1188,26 +1188,37 @@ export default function KycAdmin() {
                               <div className="space-y-3">
                                 <div className="space-y-1.5">
                                   <label className="text-xs font-bold uppercase tracking-wider text-primary">Category</label>
-                                  <Select
-                                    value={categories[app.id] || app.category || ""}
-                                    onValueChange={(val) => setCategories({ ...categories, [app.id]: val })}
-                                  >
-                                    <SelectTrigger className="rounded-none h-10 border-border text-sm" data-testid={`select-category-${app.id}`}>
-                                      <SelectValue placeholder="Assign a category..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="Producer">Producer</SelectItem>
-                                      <SelectItem value="Buyer">Buyer</SelectItem>
-                                      <SelectItem value="Seller">Seller</SelectItem>
-                                      <SelectItem value="Analysis Agency">Analysis Agency</SelectItem>
-                                      <SelectItem value="Port Agent">Port Agent</SelectItem>
-                                      <SelectItem value="Shipping Agent">Shipping Agent</SelectItem>
-                                      <SelectItem value="Chartering Broker">Chartering Broker</SelectItem>
-                                      <SelectItem value="Ship Owner">Ship Owner</SelectItem>
-                                      <SelectItem value="Custom Clearing Agent">Custom Clearing Agent</SelectItem>
-                                      <SelectItem value="Stevedoring Agent">Stevedoring Agent</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                  {(() => {
+                                    const KNOWN = ["Producer","Buyer","Seller","Analysis Agency","Port Agent","Shipping Agent","Chartering Broker","Ship Owner","Custom Clearing Agent","Stevedoring Agent"];
+                                    const raw = categories[app.id] !== undefined ? categories[app.id] : (app.category || "");
+                                    const isOther = raw && !KNOWN.includes(raw);
+                                    const dropdownVal = isOther ? "Others" : raw;
+                                    return (
+                                      <>
+                                        <Select
+                                          value={dropdownVal}
+                                          onValueChange={(val) => setCategories({ ...categories, [app.id]: val === "Others" ? "Others: " : val })}
+                                        >
+                                          <SelectTrigger className="rounded-none h-10 border-border text-sm" data-testid={`select-category-${app.id}`}>
+                                            <SelectValue placeholder="Assign a category..." />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {KNOWN.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                            <SelectItem value="Others">Others (specify)</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                        {(dropdownVal === "Others") && (
+                                          <Input
+                                            className="rounded-none h-10 border-border text-sm mt-2"
+                                            placeholder="Please specify category..."
+                                            value={raw.startsWith("Others: ") ? raw.slice(8) : (raw === "Others" ? "" : raw)}
+                                            onChange={(e) => setCategories({ ...categories, [app.id]: "Others: " + e.target.value })}
+                                            data-testid={`input-category-other-${app.id}`}
+                                          />
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                                 </div>
 
                                 <div className="space-y-1.5">

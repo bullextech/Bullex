@@ -390,23 +390,34 @@ export default function KycRegister() {
                   <div className="mt-6 space-y-6">
                     <div className="space-y-2">
                       <Label className={labelClass}>Type of Business</Label>
-                      <Select value={form.businessType} onValueChange={(v) => update("businessType", v)}>
-                        <SelectTrigger className={inputClass} data-testid="select-reg-business-type">
-                          <SelectValue placeholder="Select type..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Producer">Producer</SelectItem>
-                          <SelectItem value="Buyer">Buyer</SelectItem>
-                          <SelectItem value="Seller">Seller</SelectItem>
-                          <SelectItem value="Analysis Agency">Analysis Agency</SelectItem>
-                          <SelectItem value="Port Agent">Port Agent</SelectItem>
-                          <SelectItem value="Shipping Agent">Shipping Agent</SelectItem>
-                          <SelectItem value="Chartering Broker">Chartering Broker</SelectItem>
-                          <SelectItem value="Ship Owner">Ship Owner</SelectItem>
-                          <SelectItem value="Custom Clearing Agent">Custom Clearing Agent</SelectItem>
-                          <SelectItem value="Stevedoring Agent">Stevedoring Agent</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      {(() => {
+                        const KNOWN = ["Producer","Buyer","Seller","Analysis Agency","Port Agent","Shipping Agent","Chartering Broker","Ship Owner","Custom Clearing Agent","Stevedoring Agent"];
+                        const raw = form.businessType || "";
+                        const isOther = raw && !KNOWN.includes(raw);
+                        const dropdownVal = isOther ? "Others" : raw;
+                        return (
+                          <>
+                            <Select value={dropdownVal} onValueChange={(v) => update("businessType", v === "Others" ? "Others: " : v)}>
+                              <SelectTrigger className={inputClass} data-testid="select-reg-business-type">
+                                <SelectValue placeholder="Select type..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {KNOWN.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                <SelectItem value="Others">Others (specify)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {dropdownVal === "Others" && (
+                              <Input
+                                className={`${inputClass} mt-2`}
+                                placeholder="Please specify your business type..."
+                                value={raw.startsWith("Others: ") ? raw.slice(8) : (raw === "Others" ? "" : raw)}
+                                onChange={(e) => update("businessType", "Others: " + e.target.value)}
+                                data-testid="input-reg-business-type-other"
+                              />
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                     <div className="space-y-2">
                       <Label className={labelClass}>Description of Core Business Activity</Label>
