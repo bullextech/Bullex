@@ -1092,6 +1092,63 @@ export default function TeamMembersPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+              {pendingCount > 0 && (
+                <div className="mb-3 border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 rounded-md overflow-hidden" data-testid="section-pending-team-kyc">
+                  <button
+                    type="button"
+                    onClick={() => setView("kyc")}
+                    className="w-full px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 transition-colors flex items-center justify-between text-left"
+                    data-testid="btn-pending-section-header"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                        Pending Applications
+                      </p>
+                      <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">({pendingCount})</span>
+                    </div>
+                    <ChevronRight className="w-3 h-3 text-amber-700 dark:text-amber-400" />
+                  </button>
+                  <div className="divide-y divide-amber-500/20">
+                    {kycApps.filter(a => a.status === "pending").slice(0, 5).map(app => (
+                      <button
+                        key={app.id}
+                        type="button"
+                        onClick={() => { setView("kyc"); setKycFilter("pending"); setSelectedKycId(app.id); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-amber-500/10 transition-colors"
+                        data-testid={`row-pending-kyc-${app.id}`}
+                      >
+                        <div className="w-7 h-7 rounded-full overflow-hidden bg-amber-500/20 flex items-center justify-center flex-shrink-0 border border-amber-500/30">
+                          {app.photoStoredName ? (
+                            <img src={`/api/team-kyc/${app.id}/photo`} alt={app.fullName} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400">
+                              {app.fullName.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold truncate">{app.fullName}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{app.positionApplied || app.department || app.email}</p>
+                        </div>
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 text-white flex-shrink-0">
+                          Review
+                        </span>
+                      </button>
+                    ))}
+                    {pendingCount > 5 && (
+                      <button
+                        type="button"
+                        onClick={() => { setView("kyc"); setKycFilter("pending"); }}
+                        className="w-full px-3 py-2 text-[10px] text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 transition-colors font-semibold"
+                        data-testid="btn-pending-view-all"
+                      >
+                        + {pendingCount - 5} more pending — View all
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
               {membersLoading ? (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground p-4"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading...</div>
               ) : members.length === 0 ? (
