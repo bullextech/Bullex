@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -177,16 +177,30 @@ export default function TradeEnquiries() {
     },
   });
 
-  const filtered = enquiries.filter((e) => {
-    const matchesSearch =
-      !searchTerm ||
-      e.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.enquiryRef.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (e.sellerName || e.producer || "").toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || (statusFilter === "active" ? isActive(e.status) && e.status !== "accepted" : e.status === statusFilter);
-    const matchesSide = sideFilter === "all" || e.side === sideFilter;
-    return matchesSearch && matchesStatus && matchesSide;
-  });
+  const searchStr = useSearch();
+  const focusEnquiryId = new URLSearchParams(searchStr).get("enquiryId");
+
+  useEffect(() => {
+    if (focusEnquiryId && enquiries.length > 0) {
+      const target = enquiries.find((e) => e.id === focusEnquiryId);
+      if (target) setViewEnquiry(target);
+    }
+  }, [focusEnquiryId, enquiries]);
+
+  const clearFocus = () => navigate("/trade-enquiries", { replace: true });
+
+  const filtered = focusEnquiryId
+    ? enquiries.filter((e) => e.id === focusEnquiryId)
+    : enquiries.filter((e) => {
+        const matchesSearch =
+          !searchTerm ||
+          e.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          e.enquiryRef.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (e.sellerName || e.producer || "").toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = statusFilter === "all" || (statusFilter === "active" ? isActive(e.status) && e.status !== "accepted" : e.status === statusFilter);
+        const matchesSide = sideFilter === "all" || e.side === sideFilter;
+        return matchesSearch && matchesStatus && matchesSide;
+      });
 
   const handleSubmit = () => {
     if (!form.product.trim()) {
@@ -583,6 +597,17 @@ export default function TradeEnquiries() {
           {filtered.length} enquir{filtered.length === 1 ? "y" : "ies"}
         </div>
       </div>
+
+      {focusEnquiryId && (
+        <div className="flex items-center justify-between gap-3 border border-primary/30 bg-primary/5 px-3 py-2 rounded-md" data-testid="banner-enquiry-focus">
+          <p className="text-xs text-foreground">
+            Showing a single enquiry opened from the team submissions view.
+          </p>
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={clearFocus} data-testid="button-clear-enquiry-focus">
+            Show all enquiries
+          </Button>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-3">

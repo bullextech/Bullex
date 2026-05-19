@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -263,14 +264,25 @@ export default function KycAdmin() {
     );
   }
 
-  const filtered = applications
-    ?.filter((a) => statusFilter === "all" || a.status === statusFilter)
-    .filter((a) =>
-      a.companyName.toLowerCase().includes(search.toLowerCase()) ||
-      a.contactName.toLowerCase().includes(search.toLowerCase()) ||
-      a.contactEmail.toLowerCase().includes(search.toLowerCase()) ||
-      a.countryOfIncorporation.toLowerCase().includes(search.toLowerCase())
-    ) || [];
+  const kycSearchStr = useSearch();
+  const focusKycId = new URLSearchParams(kycSearchStr).get("kycId");
+  const [, kycNavigate] = useLocation();
+  const clearKycFocus = () => kycNavigate("/kyc-admin", { replace: true });
+
+  useEffect(() => {
+    if (focusKycId) setExpandedId(focusKycId);
+  }, [focusKycId]);
+
+  const filtered = focusKycId
+    ? (applications?.filter((a) => a.id === focusKycId) || [])
+    : (applications
+        ?.filter((a) => statusFilter === "all" || a.status === statusFilter)
+        .filter((a) =>
+          a.companyName.toLowerCase().includes(search.toLowerCase()) ||
+          a.contactName.toLowerCase().includes(search.toLowerCase()) ||
+          a.contactEmail.toLowerCase().includes(search.toLowerCase()) ||
+          a.countryOfIncorporation.toLowerCase().includes(search.toLowerCase())
+        ) || []);
 
   const pendingCount = applications?.filter((a) => a.status === "pending").length || 0;
   const approvedCount = applications?.filter((a) => a.status === "approved").length || 0;
@@ -863,6 +875,17 @@ export default function KycAdmin() {
             </Card>
           );
         })()}
+
+        {focusKycId && (
+          <div className="flex items-center justify-between gap-3 border border-primary/30 bg-primary/5 px-3 py-2 rounded-md mb-4" data-testid="banner-kyc-focus">
+            <p className="text-xs text-foreground">
+              Showing a single KYC application opened from the team submissions view.
+            </p>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={clearKycFocus} data-testid="button-clear-kyc-focus">
+              Show all applications
+            </Button>
+          </div>
+        )}
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
