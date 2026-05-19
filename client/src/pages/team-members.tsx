@@ -20,6 +20,13 @@ import {
 } from "lucide-react";
 import { PLATFORM_MODULES } from "@/components/admin-sidebar";
 import { useAuth } from "@/hooks/use-auth";
+import type { KycApplication, TradeEnquiry, PotentialClient } from "@shared/schema";
+
+type MemberSubmissions = {
+  kycs: (KycApplication & { participantId?: string | null })[];
+  enquiries: TradeEnquiry[];
+  potentialClients: PotentialClient[];
+};
 import { useToast } from "@/hooks/use-toast";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -93,6 +100,7 @@ const MEMBER_TABS = [
   { key: "bank", label: "Bank", icon: Landmark },
   { key: "access", label: "Access", icon: ShieldCheck },
   { key: "documents", label: "Documents", icon: FileText },
+  { key: "submissions", label: "Submissions", icon: ClipboardList },
 ];
 
 const KYC_TABS = [
@@ -836,6 +844,17 @@ export default function TeamMembersPage() {
 
   const selected = members.find(m => m.id === selectedId) ?? null;
 
+  const { data: submissions, isLoading: submissionsLoading, isError: submissionsError, error: submissionsErrorObj, refetch: refetchSubmissions } = useQuery<MemberSubmissions>({
+    queryKey: ["/api/team/members", selectedId, "submissions"],
+    queryFn: async () => {
+      if (!selectedId) return { kycs: [], enquiries: [], potentialClients: [] };
+      const r = await fetch(`/api/team/members/${selectedId}/submissions`, { credentials: "include" });
+      if (!r.ok) throw new Error(`Failed to load submissions (${r.status})`);
+      return r.json() as Promise<MemberSubmissions>;
+    },
+    enabled: !!selectedId,
+  });
+
   const { data: selectedDocs = [] } = useQuery<TeamDoc[]>({
     queryKey: ["/api/team/members", selectedId, "documents"],
     queryFn: async () => {
@@ -1578,7 +1597,117 @@ export default function TeamMembersPage() {
                       </div>
                     )}
 
-                    {tab !== "documents" && (
+                    {tab === "submissions" && (
+                      <div className="space-y-5" data-testid="panel-submissions">
+                        <p className="text-xs text-muted-foreground">All work submitted by <span className="font-semibold text-foreground">{selected?.name}</span> across the platform.</p>
+
+                        {submissionsLoading ? (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground" data-testid="status-submissions-loading"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…</div>
+                        ) : submissionsError ? (
+                          <div className="border border-destructive/30 bg-destructive/5 rounded-none p-4 space-y-2" data-testid="status-submissions-error">
+                            <div className="flex items-center gap-2 text-destructive">
+                              <AlertCircle className="w-4 h-4" />
+                              <p className="text-xs font-bold uppercase tracking-wider">Could not load submissions</p>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">{(submissionsErrorObj as Error)?.message || "Unknown error"}</p>
+                            <Button size="sm" variant="outline" className="rounded-none text-xs h-8" onClick={() => refetchSubmissions()} data-testid="btn-retry-submissions">
+                              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Retry
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="border border-border rounded-none">
+                              <div className="px-3 py-2 bg-muted/30 border-b border-border flex items-center justify-between">
+                                <p className="text-[10px] font-bold uppercase tracking-wider">Client KYC Applications</p>
+                                <Badge variant="outline" className="text-[10px]">{submissions?.kycs?.length ?? 0}</Badge>
+                              </div>
+                              {(submissions?.kycs ?? []).length === 0 ? (
+                                <div className="p-4 text-xs text-muted-foreground text-center">No KYCs submitted by this member.</div>
+                              ) : (
+                                <div className="divide-y divide-border">
+                                  {submissions!.kycs.map((k) => (
+                                    <div key={k.id} className="p-3 flex items-center justify-between gap-3" data-testid={`row-submission-kyc-${k.id}`}>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="text-xs font-semibold truncate">{k.companyName}</span>
+                                          {k.participantId && <Badge variant="outline" className="font-mono text-[9px]">{k.participantId}</Badge>}
+                                          <Badge variant={k.status === "approved" ? "default" : k.status === "rejected" ? "destructive" : "secondary"} className="text-[9px] capitalize">{k.status}</Badge>
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground">Reg #{k.registrationNumber} · {k.countryOfIncorporation} · {new Date(k.createdAt).toLocaleDateString()}</p>
+                                      </div>
+                                      <Button size="sm" variant="outline" className="h-7 text-[10px] rounded-none flex-shrink-0" onClick={() => setLocation(`/kyc-admin?kycId=${k.id}`)} data-testid={`btn-view-kyc-${k.id}`}>
+                                        <ExternalLink className="w-3 h-3 mr-1" /> Open
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="border border-border rounded-none">
+                              <div className="px-3 py-2 bg-muted/30 border-b border-border flex items-center justify-between">
+                                <p className="text-[10px] font-bold uppercase tracking-wider">Trade Enquiries</p>
+                                <Badge variant="outline" className="text-[10px]">{submissions?.enquiries?.length ?? 0}</Badge>
+                              </div>
+                              {(submissions?.enquiries ?? []).length === 0 ? (
+                                <div className="p-4 text-xs text-muted-foreground text-center">No enquiries submitted by this member.</div>
+                              ) : (
+                                <div className="divide-y divide-border">
+                                  {submissions!.enquiries.map((e) => (
+                                    <div key={e.id} className="p-3 flex items-center justify-between gap-3" data-testid={`row-submission-enquiry-${e.id}`}>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="text-xs font-mono font-semibold">{e.enquiryRef}</span>
+                                          {e.side && <Badge variant="outline" className="text-[9px] uppercase">{e.side}</Badge>}
+                                          <Badge variant={e.status === "accepted" || e.status === "quoted" ? "default" : e.status === "closed" ? "outline" : "secondary"} className="text-[9px] capitalize">{e.status?.replace("_", " ")}</Badge>
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground">{e.product} · {e.quantity || "—"} {e.unit || ""} · {new Date(e.createdAt).toLocaleDateString()}</p>
+                                      </div>
+                                      <Button size="sm" variant="outline" className="h-7 text-[10px] rounded-none flex-shrink-0" onClick={() => setLocation(`/trade-enquiries?enquiryId=${e.id}`)} data-testid={`btn-view-enquiry-${e.id}`}>
+                                        <ExternalLink className="w-3 h-3 mr-1" /> Open
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="border border-border rounded-none">
+                              <div className="px-3 py-2 bg-muted/30 border-b border-border flex items-center justify-between">
+                                <p className="text-[10px] font-bold uppercase tracking-wider">Potential Clients</p>
+                                <Badge variant="outline" className="text-[10px]">{submissions?.potentialClients?.length ?? 0}</Badge>
+                              </div>
+                              {(submissions?.potentialClients ?? []).length === 0 ? (
+                                <div className="p-4 text-xs text-muted-foreground text-center">No prospects tracked by this member.</div>
+                              ) : (
+                                <div className="divide-y divide-border">
+                                  {submissions!.potentialClients.map((c) => (
+                                    <div key={c.id} className="p-3 flex items-center justify-between gap-3" data-testid={`row-submission-prospect-${c.id}`}>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="text-xs font-semibold truncate">{c.companyName}</span>
+                                          <Badge variant="outline" className="text-[9px] capitalize">{c.status}</Badge>
+                                          {c.source && <span className="text-[9px] text-muted-foreground">via {c.source}</span>}
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground">{[c.contactPerson, c.email, c.phone].filter(Boolean).join(" · ") || "No contact details"}</p>
+                                        {c.products && c.products.length > 0 && (
+                                          <div className="flex flex-wrap gap-1 mt-1">
+                                            {c.products.slice(0, 4).map((p) => <Badge key={p} variant="secondary" className="text-[9px]">{p}</Badge>)}
+                                            {c.products.length > 4 && <span className="text-[9px] text-muted-foreground">+{c.products.length - 4} more</span>}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {tab !== "documents" && tab !== "submissions" && (
                       <div className="pt-2">
                         <Button onClick={handleSave} disabled={updateMutation.isPending} className="rounded-none text-xs font-bold uppercase tracking-wider h-9" data-testid="button-save-section">
                           {updateMutation.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Saving...</> : <><Save className="w-3.5 h-3.5 mr-1.5" />Save Changes</>}

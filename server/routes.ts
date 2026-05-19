@@ -397,6 +397,19 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/team/members/:id/submissions", requireAdminAuth, async (req, res) => {
+    try {
+      const [kycs, enquiries, potentialClients] = await Promise.all([
+        storage.getKycApplicationsByTeamMemberId(req.params.id),
+        storage.getTradeEnquiriesByTeamMemberId(req.params.id),
+        storage.getPotentialClientsByTeamMemberId(req.params.id),
+      ]);
+      res.json({ kycs, enquiries, potentialClients });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.delete("/api/team/members/:id", requireAdminAuth, async (req, res) => {
     try {
       const member = await storage.getTeamMemberById(req.params.id);
