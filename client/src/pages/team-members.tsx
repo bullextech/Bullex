@@ -1075,9 +1075,20 @@ export default function TeamMembersPage() {
                   <p className="text-[10px] text-muted-foreground">Team members &amp; KYC applications</p>
                 </div>
               </div>
-              <Button size="sm" className="rounded-none text-xs font-bold uppercase tracking-wider h-8" onClick={openAdd} data-testid="button-add-team-member">
-                <Plus className="w-3.5 h-3.5 mr-1" /> Add
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-none text-xs font-bold uppercase tracking-wider h-8"
+                  onClick={() => { setShowInvite(true); setInviteLink(null); }}
+                  data-testid="button-invite-team-member"
+                >
+                  <Mail className="w-3.5 h-3.5 mr-1" /> Invite
+                </Button>
+                <Button size="sm" className="rounded-none text-xs font-bold uppercase tracking-wider h-8" onClick={openAdd} data-testid="button-add-team-member">
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Add
+                </Button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
