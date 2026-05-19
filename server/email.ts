@@ -1055,7 +1055,7 @@ export async function sendTeamMemberWelcomeEmail(
       about access, training or your first steps on the platform.
     </p>
 
-    <p style="color: #475569; margin: 24px 0 0;">Warm welcome and best wishes,<br /><strong>Bullfrog Group · Bullex Trading Platform</strong></p>
+    <p style="color: #475569; margin: 24px 0 0;">Warm welcome and best wishes,<br /><strong>Vaman Kumar</strong><br />CEO, Bullfrog Group</p>
   `;
   return sendEmail(to, `Welcome to Bullfrog Group — ${fullName}`, emailWrapper(body));
 }
