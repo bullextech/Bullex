@@ -1064,6 +1064,36 @@ export async function sendTeamMemberWelcomeEmail(
   return sendEmail(to, `Welcome to Bullfrog Group — ${fullName}`, emailWrapper(body));
 }
 
+export async function sendTeamMemberPasswordChangedEmail(
+  to: string,
+  fullName: string,
+  username: string,
+  newPassword: string,
+): Promise<boolean> {
+  const safeName = escapeHtml(fullName || "Team Member");
+  const safeUser = escapeHtml(username);
+  const safePass = escapeHtml(newPassword);
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Your Bullex Password Has Been Updated</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${safeName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      This is a confirmation that your Bullex Trading Platform login password was changed by a Bullfrog Group administrator.
+      Please use the new credentials below for your next sign in.
+    </p>
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:20px 0;">
+      <p style="color:#1e293b;margin:0 0 6px;font-size:13px;"><strong>Username:</strong> <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${safeUser}</span></p>
+      <p style="color:#1e293b;margin:0;font-size:13px;"><strong>New password:</strong> <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${safePass}</span></p>
+    </div>
+    <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:14px;margin:18px 0;color:#92400e;font-size:13px;line-height:1.55;">
+      <strong>Security notice:</strong> If you did not request this change, please contact
+      <a href="mailto:team@bullex.tech" style="color:#92400e;">team@bullex.tech</a> immediately.
+      For your safety, we recommend updating this password to one only you know after your next sign in.
+    </div>
+    <p style="color:#475569;margin:24px 0 0;">Regards,<br/><strong>Bullfrog Group — Bullex Team</strong></p>
+  `;
+  return sendEmail(to, "Bullex — Your Password Has Been Updated", emailWrapper(body));
+}
+
 export async function sendKycApplicationPdfEmail(
   to: string,
   recipientName: string,

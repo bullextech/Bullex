@@ -907,9 +907,24 @@ export default function TeamMembersPage() {
       if (!r.ok) { const j = await r.json(); throw new Error(j.message); }
       return r.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/team/members"] });
-      toast({ title: "Profile Saved", description: "Team member data updated." });
+      if (data?.passwordChanged) {
+        if (data.passwordEmailSent) {
+          toast({
+            title: "Password Updated",
+            description: `New password emailed to ${data.email || "the team member"}.`,
+          });
+        } else {
+          toast({
+            title: "Password Updated — Email Failed",
+            description: data.passwordEmailError || "Password changed, but the notification email could not be sent.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({ title: "Profile Saved", description: "Team member data updated." });
+      }
     },
     onError: (err: any) => toast({ title: "Save Failed", description: err.message, variant: "destructive" }),
   });

@@ -11,7 +11,7 @@ import { insertTradeSchema, insertKycSchema, insertDocumentSchema, insertPotenti
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent, type PartyDetails } from "./documentTemplates";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification, sendJobApplicationToHR, sendJobApplicationAcknowledgement, sendTeamKycAdminNotification, sendTeamKycConfirmation, sendTeamMemberWelcomeEmail } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification, sendJobApplicationToHR, sendJobApplicationAcknowledgement, sendTeamKycAdminNotification, sendTeamKycConfirmation, sendTeamMemberWelcomeEmail, sendTeamMemberPasswordChangedEmail } from "./email";
 import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures, generateKycApplicationPdf, generateBlankKycApplicationPdf } from "./documentFileGenerator";
 
 const ADMIN_CHECKLISTS: Record<string, string[]> = {
@@ -296,9 +296,36 @@ export async function registerRoutes(
     try {
       const { password, ...data } = req.body;
       const updateData: any = { ...data };
+      const existing = await storage.getTeamMemberById(req.params.id);
+      const passwordChanged = !!(password && existing && password !== existing.password);
       if (password) updateData.password = password;
       const member = await storage.updateTeamMember(req.params.id, updateData);
-      res.json({ ...member, password: undefined });
+
+      let passwordEmailSent: boolean | undefined;
+      let passwordEmailError: string | undefined;
+      if (passwordChanged && member) {
+        const recipient = member.email || existing?.email || null;
+        if (recipient) {
+          try {
+            passwordEmailSent = await sendTeamMemberPasswordChangedEmail(
+              recipient,
+              member.name || existing?.name || "Team Member",
+              member.username || existing?.username || "",
+              password,
+            );
+            if (!passwordEmailSent) passwordEmailError = "Email provider returned a failure (check server logs).";
+          } catch (e: any) {
+            passwordEmailSent = false;
+            passwordEmailError = e?.message || "Unknown email error";
+            console.error("[team-member-password-email] error:", e);
+          }
+        } else {
+          passwordEmailSent = false;
+          passwordEmailError = "Team member has no email address on file.";
+        }
+      }
+
+      res.json({ ...member, password: undefined, passwordChanged, passwordEmailSent, passwordEmailError });
     } catch (err: any) {
       if (err.message?.includes("unique")) {
         return res.status(409).json({ message: "Username already exists" });
