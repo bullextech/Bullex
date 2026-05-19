@@ -1641,8 +1641,17 @@ export default function TeamMembersPage() {
                                         </div>
                                         <p className="text-[10px] text-muted-foreground">Reg #{k.registrationNumber} · {k.countryOfIncorporation} · {new Date(k.createdAt).toLocaleDateString()}</p>
                                       </div>
-                                      <Button size="sm" variant="outline" className="h-7 text-[10px] rounded-none flex-shrink-0" onClick={() => setLocation(`/kyc-admin?kycId=${k.id}`)} data-testid={`btn-view-kyc-${k.id}`}>
-                                        <ExternalLink className="w-3 h-3 mr-1" /> Open
+                                      <Button asChild size="sm" variant="outline" className="h-7 text-[10px] rounded-none flex-shrink-0" data-testid={`btn-view-kyc-${k.id}`}>
+                                        <a
+                                          href={`/kyc-admin?kycId=${k.id}`}
+                                          onClick={(ev) => {
+                                            if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button !== 0) return;
+                                            ev.preventDefault();
+                                            setLocation(`/kyc-admin?kycId=${k.id}`);
+                                          }}
+                                        >
+                                          <ExternalLink className="w-3 h-3 mr-1" /> Open
+                                        </a>
                                       </Button>
                                     </div>
                                   ))}
@@ -1669,8 +1678,17 @@ export default function TeamMembersPage() {
                                         </div>
                                         <p className="text-[10px] text-muted-foreground">{e.product} · {e.quantity || "—"} {e.unit || ""} · {new Date(e.createdAt).toLocaleDateString()}</p>
                                       </div>
-                                      <Button size="sm" variant="outline" className="h-7 text-[10px] rounded-none flex-shrink-0" onClick={() => setLocation(`/trade-enquiries?enquiryId=${e.id}`)} data-testid={`btn-view-enquiry-${e.id}`}>
-                                        <ExternalLink className="w-3 h-3 mr-1" /> Open
+                                      <Button asChild size="sm" variant="outline" className="h-7 text-[10px] rounded-none flex-shrink-0" data-testid={`btn-view-enquiry-${e.id}`}>
+                                        <a
+                                          href={`/trade-enquiries?enquiryId=${e.id}`}
+                                          onClick={(ev) => {
+                                            if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button !== 0) return;
+                                            ev.preventDefault();
+                                            setLocation(`/trade-enquiries?enquiryId=${e.id}`);
+                                          }}
+                                        >
+                                          <ExternalLink className="w-3 h-3 mr-1" /> Open
+                                        </a>
                                       </Button>
                                     </div>
                                   ))}
