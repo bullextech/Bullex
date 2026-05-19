@@ -250,6 +250,15 @@ export default function KycAdmin() {
     },
   });
 
+  const kycSearchStr = useSearch();
+  const focusKycId = new URLSearchParams(kycSearchStr).get("kycId");
+  const [, kycNavigate] = useLocation();
+  const clearKycFocus = () => kycNavigate("/kyc-admin", { replace: true });
+
+  useEffect(() => {
+    if (focusKycId) setExpandedId(focusKycId);
+  }, [focusKycId]);
+
   if (isLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -263,15 +272,6 @@ export default function KycAdmin() {
       </div>
     );
   }
-
-  const kycSearchStr = useSearch();
-  const focusKycId = new URLSearchParams(kycSearchStr).get("kycId");
-  const [, kycNavigate] = useLocation();
-  const clearKycFocus = () => kycNavigate("/kyc-admin", { replace: true });
-
-  useEffect(() => {
-    if (focusKycId) setExpandedId(focusKycId);
-  }, [focusKycId]);
 
   const filtered = focusKycId
     ? (applications?.filter((a) => a.id === focusKycId) || [])
