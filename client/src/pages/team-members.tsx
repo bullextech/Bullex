@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import {
-  Users, Trash2, Plus, Loader2, X, Upload, Download, FileText,
+  Users, Trash2, Plus, Loader2, X, Download, FileText,
   User, Phone, Briefcase, GraduationCap, Heart, Landmark, Lock,
-  ChevronRight, Camera, Edit2, Save, FilePlus, UserCheck,
+  ChevronRight, Camera, FilePlus, UserCheck,
   CheckCircle2, XCircle, PenTool, ImageIcon, AlertCircle, ClipboardList,
   Mail, Send, Copy, ExternalLink, ShieldCheck, RefreshCw, KeyRound,
 } from "lucide-react";
@@ -793,6 +793,334 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
   );
 }
 
+// ── Locked Member View (read-only one-scroll profile) ───────────────────────
+function ReadField({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-xs text-foreground border-b border-border/60 pb-1.5 min-h-[1.5rem] break-words" data-testid={`locked-field-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
+        {value && String(value).trim() !== "" ? value : <span className="text-muted-foreground/60">—</span>}
+      </p>
+    </div>
+  );
+}
+
+function LockedSection({ icon: Icon, title, children }: { icon: any; title: string; children: React.ReactNode }) {
+  return (
+    <section className="border border-border bg-background rounded-none" data-testid={`locked-section-${title.toLowerCase().replace(/\s+/g, "-")}`}>
+      <header className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-muted/30">
+        <Icon className="w-3.5 h-3.5 text-primary" />
+        <h3 className="text-[11px] font-bold uppercase tracking-wider">{title}</h3>
+        <Lock className="w-3 h-3 text-muted-foreground ml-auto" />
+      </header>
+      <div className="p-4">{children}</div>
+    </section>
+  );
+}
+
+function LockedMemberView({
+  member, profileModules, docs, submissions, submissionsLoading, submissionsError,
+  submissionsErrorObj, refetchSubmissions, onSendReset, sendingReset, onNavigate,
+}: {
+  member: TeamMember;
+  profileModules: string[];
+  docs: TeamDoc[];
+  submissions: MemberSubmissions | undefined;
+  submissionsLoading: boolean;
+  submissionsError: boolean;
+  submissionsErrorObj: Error | null;
+  refetchSubmissions: () => void;
+  onSendReset: () => void;
+  sendingReset: boolean;
+  onNavigate: (to: string) => void;
+}) {
+  return (
+    <div className="max-w-4xl mx-auto space-y-5 pb-10" data-testid="locked-member-view">
+      <div className="border border-primary/30 bg-primary/5 px-4 py-2.5 flex items-center gap-2.5 rounded-none">
+        <Lock className="w-4 h-4 text-primary flex-shrink-0" />
+        <div className="flex-1">
+          <p className="text-xs font-bold">Profile Locked</p>
+          <p className="text-[11px] text-muted-foreground">This team member has been approved. All profile data is read-only and cannot be amended. Use the secure reset link below to let the member update their own password.</p>
+        </div>
+      </div>
+
+      <LockedSection icon={Lock} title="Login & Account">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-3">
+          <ReadField label="Full Name" value={member.name} />
+          <ReadField label="Username" value={member.username} />
+          <ReadField label="Email" value={member.email} />
+          <ReadField label="Department" value={member.department} />
+        </div>
+        <div className="mt-4 border border-border bg-muted/30 rounded-md p-3 space-y-2.5">
+          <div className="flex items-start gap-2.5">
+            <KeyRound className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-xs font-bold">Password Reset Link</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Emails a secure one-time link (valid for 2 hours) so the team member can set their own password. No plaintext password is sent.</p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="rounded-none text-xs font-bold uppercase tracking-wider h-8"
+            disabled={!member.email || sendingReset}
+            onClick={onSendReset}
+            data-testid="btn-send-reset-link"
+          >
+            {sendingReset
+              ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Sending...</>
+              : <><Mail className="w-3.5 h-3.5 mr-1.5" /> Email Reset Link{member.email ? ` to ${member.email}` : ""}</>}
+          </Button>
+          {!member.email && <p className="text-[10px] text-destructive">No email on file — reset link cannot be sent.</p>}
+        </div>
+      </LockedSection>
+
+      <LockedSection icon={User} title="Personal">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-3">
+          <ReadField label="Full Legal Name" value={member.name} />
+          <ReadField label="Date of Birth" value={member.dateOfBirth} />
+          <ReadField label="Gender" value={member.gender} />
+          <ReadField label="Nationality" value={member.nationality} />
+          <ReadField label="Passport / National ID" value={member.passportNumber} />
+          <ReadField label="Marital Status" value={member.maritalStatus} />
+        </div>
+      </LockedSection>
+
+      <LockedSection icon={Phone} title="Contact">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-3">
+          <ReadField label="Email" value={member.email} />
+          <ReadField label="Phone" value={member.phone} />
+          <div className="col-span-2"><ReadField label="Home Address" value={member.homeAddress} /></div>
+          <ReadField label="City" value={member.city} />
+          <ReadField label="Country" value={member.country} />
+        </div>
+      </LockedSection>
+
+      <LockedSection icon={Briefcase} title="Employment">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-3">
+          <ReadField label="Position / Role" value={member.position} />
+          <ReadField label="Department" value={member.department} />
+          <ReadField label="Employment Type" value={member.employmentType} />
+          <ReadField label="Start Date" value={member.startDate} />
+          <div className="col-span-2"><ReadField label="Additional Notes" value={member.additionalNotes} /></div>
+        </div>
+      </LockedSection>
+
+      <LockedSection icon={GraduationCap} title="Education & Experience">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-3">
+          <ReadField label="Highest Qualification" value={member.highestQualification} />
+          <ReadField label="Graduation Year" value={member.graduationYear} />
+          <div className="col-span-2"><ReadField label="Institution / University" value={member.institution} /></div>
+          <ReadField label="Previous Employer" value={member.previousEmployer} />
+          <ReadField label="Previous Role" value={member.previousRole} />
+          <ReadField label="Years of Experience" value={member.yearsExperience} />
+        </div>
+      </LockedSection>
+
+      <LockedSection icon={Heart} title="Emergency Contact">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-3">
+          <div className="col-span-2"><ReadField label="Contact Name" value={member.emergencyName} /></div>
+          <ReadField label="Relationship" value={member.emergencyRelationship} />
+          <ReadField label="Phone" value={member.emergencyPhone} />
+        </div>
+      </LockedSection>
+
+      <LockedSection icon={Landmark} title="Bank / Payroll">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-3">
+          <div className="col-span-2"><ReadField label="Bank Name" value={member.bankName} /></div>
+          <ReadField label="Branch" value={member.bankBranch} />
+          <ReadField label="SWIFT / BIC" value={member.payrollSwift} />
+          <ReadField label="Account Name" value={member.payrollAccountName} />
+          <ReadField label="Account Number / IBAN" value={member.payrollAccountNumber} />
+        </div>
+      </LockedSection>
+
+      <LockedSection icon={ShieldCheck} title="Platform Access">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[11px] text-muted-foreground">Modules this member can access when signed in to Bullex.</p>
+          <span className={`text-[10px] font-bold px-2 py-1 rounded ${profileModules.length > 0 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}>
+            {profileModules.length}/{PLATFORM_MODULES.length} modules
+          </span>
+        </div>
+        <div className="grid grid-cols-1 gap-1.5">
+          {PLATFORM_MODULES.map(mod => {
+            const Icon = mod.icon;
+            const active = profileModules.includes(mod.id);
+            return (
+              <div
+                key={mod.id}
+                className={`flex items-center gap-3 px-3 py-2 rounded-md border ${active ? "bg-primary/8 border-primary/30 dark:bg-primary/10" : "bg-muted/30 border-border opacity-60"}`}
+                data-testid={`locked-module-${mod.id}`}
+              >
+                <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border-2 ${active ? "bg-primary border-primary" : "border-muted-foreground/30 bg-background"}`}>
+                  {active && <CheckCircle2 className="w-3 h-3 text-primary-foreground" />}
+                </div>
+                <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-semibold ${active ? "text-foreground" : "text-muted-foreground"}`}>{mod.title}</p>
+                  <p className="text-[10px] text-muted-foreground">{mod.description}</p>
+                </div>
+                <span className={`text-[10px] font-bold ${active ? "text-primary" : "text-muted-foreground/40"}`}>
+                  {active ? "Allowed" : "Blocked"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </LockedSection>
+
+      <LockedSection icon={FileText} title="Documents">
+        {docs.length === 0 ? (
+          <div className="text-center py-6">
+            <FilePlus className="w-6 h-6 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-xs text-muted-foreground">No documents on file.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {docs.map(doc => {
+              const dt = DOC_TYPES.find(d => d.value === doc.docType);
+              return (
+                <div key={doc.id} className="flex items-center gap-3 p-2.5 border border-border rounded-none bg-muted/10" data-testid={`locked-doc-${doc.id}`}>
+                  <FileText className="w-4 h-4 text-primary flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold truncate">{doc.originalName}</p>
+                    <p className="text-[10px] text-muted-foreground">{dt?.label || doc.docType} · {fmtSize(doc.size)}</p>
+                  </div>
+                  <a
+                    href={`/api/team/documents/${doc.id}/download`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                    title="Download"
+                    data-testid={`btn-download-doc-${doc.id}`}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </LockedSection>
+
+      <LockedSection icon={ClipboardList} title="Submissions">
+        {submissionsLoading ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…</div>
+        ) : submissionsError ? (
+          <div className="border border-destructive/30 bg-destructive/5 rounded-none p-3 space-y-2">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="w-4 h-4" />
+              <p className="text-xs font-bold uppercase tracking-wider">Could not load submissions</p>
+            </div>
+            <p className="text-[11px] text-muted-foreground">{submissionsErrorObj?.message || "Unknown error"}</p>
+            <Button size="sm" variant="outline" className="rounded-none text-xs h-8" onClick={() => refetchSubmissions()}>
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Retry
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="border border-border rounded-none">
+              <div className="px-3 py-2 bg-muted/30 border-b border-border flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wider">Client KYC Applications</p>
+                <Badge variant="outline" className="text-[10px]">{submissions?.kycs?.length ?? 0}</Badge>
+              </div>
+              {(submissions?.kycs ?? []).length === 0 ? (
+                <div className="p-3 text-xs text-muted-foreground text-center">No KYCs submitted.</div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {submissions!.kycs.map(k => (
+                    <div key={k.id} className="p-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-semibold truncate">{k.companyName}</span>
+                          {k.participantId && <Badge variant="outline" className="font-mono text-[9px]">{k.participantId}</Badge>}
+                          <Badge variant={k.status === "approved" ? "default" : k.status === "rejected" ? "destructive" : "secondary"} className="text-[9px] capitalize">{k.status}</Badge>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">Reg #{k.registrationNumber} · {k.countryOfIncorporation} · {new Date(k.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      <Button asChild size="sm" variant="outline" className="h-7 text-[10px] rounded-none flex-shrink-0">
+                        <a
+                          href={`/kyc-admin?kycId=${k.id}`}
+                          onClick={(ev) => { if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button !== 0) return; ev.preventDefault(); onNavigate(`/kyc-admin?kycId=${k.id}`); }}
+                        >
+                          <ExternalLink className="w-3 h-3 mr-1" /> Open
+                        </a>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border border-border rounded-none">
+              <div className="px-3 py-2 bg-muted/30 border-b border-border flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wider">Trade Enquiries</p>
+                <Badge variant="outline" className="text-[10px]">{submissions?.enquiries?.length ?? 0}</Badge>
+              </div>
+              {(submissions?.enquiries ?? []).length === 0 ? (
+                <div className="p-3 text-xs text-muted-foreground text-center">No enquiries submitted.</div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {submissions!.enquiries.map(e => (
+                    <div key={e.id} className="p-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-mono font-semibold">{e.enquiryRef}</span>
+                          {e.side && <Badge variant="outline" className="text-[9px] uppercase">{e.side}</Badge>}
+                          <Badge variant={e.status === "accepted" || e.status === "quoted" ? "default" : e.status === "closed" ? "outline" : "secondary"} className="text-[9px] capitalize">{e.status?.replace("_", " ")}</Badge>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">{e.product} · {e.quantity || "—"} {e.unit || ""} · {new Date(e.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      <Button asChild size="sm" variant="outline" className="h-7 text-[10px] rounded-none flex-shrink-0">
+                        <a
+                          href={`/trade-enquiries?enquiryId=${e.id}`}
+                          onClick={(ev) => { if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button !== 0) return; ev.preventDefault(); onNavigate(`/trade-enquiries?enquiryId=${e.id}`); }}
+                        >
+                          <ExternalLink className="w-3 h-3 mr-1" /> Open
+                        </a>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border border-border rounded-none">
+              <div className="px-3 py-2 bg-muted/30 border-b border-border flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wider">Potential Clients</p>
+                <Badge variant="outline" className="text-[10px]">{submissions?.potentialClients?.length ?? 0}</Badge>
+              </div>
+              {(submissions?.potentialClients ?? []).length === 0 ? (
+                <div className="p-3 text-xs text-muted-foreground text-center">No prospects tracked.</div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {submissions!.potentialClients.map(c => (
+                    <div key={c.id} className="p-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-semibold truncate">{c.companyName}</span>
+                        <Badge variant="outline" className="text-[9px] capitalize">{c.status}</Badge>
+                        {c.source && <span className="text-[9px] text-muted-foreground">via {c.source}</span>}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">{[c.contactPerson, c.email, c.phone].filter(Boolean).join(" · ") || "No contact details"}</p>
+                      {c.products && c.products.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {c.products.slice(0, 4).map(p => <Badge key={p} variant="secondary" className="text-[9px]">{p}</Badge>)}
+                          {c.products.length > 4 && <span className="text-[9px] text-muted-foreground">+{c.products.length - 4} more</span>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </LockedSection>
+    </div>
+  );
+}
+
 // ── Main Page ────────────────────────────────────────────────────────────────
 export default function TeamMembersPage() {
   const { role } = useAuth();
@@ -809,14 +1137,6 @@ export default function TeamMembersPage() {
   const [form, setForm] = useState({ ...emptyForm });
   const [formError, setFormError] = useState("");
   const [profileModules, setProfileModules] = useState<string[]>([]);
-
-  const toggleProfileModule = (id: string) =>
-    setProfileModules(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const docInputRef = useRef<HTMLInputElement>(null);
-  const [docType, setDocType] = useState("cv");
-  const [docUploading, setDocUploading] = useState(false);
-  const [photoUploading, setPhotoUploading] = useState(false);
 
   // KYC state
   const [selectedKycId, setSelectedKycId] = useState<string | null>(null);
@@ -901,19 +1221,6 @@ export default function TeamMembersPage() {
     onError: (err: any) => setFormError(err.message || "Failed to create member"),
   });
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, body }: { id: string; body: object }) => {
-      const r = await fetch(`/api/team/members/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), credentials: "include" });
-      if (!r.ok) { const j = await r.json(); throw new Error(j.message); }
-      return r.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/team/members"] });
-      toast({ title: "Profile Saved", description: "Team member data updated." });
-    },
-    onError: (err: any) => toast({ title: "Save Failed", description: err.message, variant: "destructive" }),
-  });
-
   const sendResetMutation = useMutation({
     mutationFn: async (id: string) => {
       const r = await fetch(`/api/team/members/${id}/send-reset-link`, { method: "POST", credentials: "include" });
@@ -945,14 +1252,6 @@ export default function TeamMembersPage() {
       setPanel("none"); setSelectedId(null);
       toast({ title: "Member Removed" });
     },
-  });
-
-  const deleteDocMutation = useMutation({
-    mutationFn: async (docId: string) => {
-      const r = await fetch(`/api/team/documents/${docId}`, { method: "DELETE", credentials: "include" });
-      if (!r.ok) throw new Error("Delete failed");
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/team/members", selectedId, "documents"] }),
   });
 
   if (role !== "admin") {
@@ -997,54 +1296,6 @@ export default function TeamMembersPage() {
       setFormError("Name, username and password are required."); return;
     }
     createMutation.mutate(Object.fromEntries(Object.entries(form).filter(([, v]) => v !== "")));
-  };
-
-  const handleSave = () => {
-    if (!selectedId) return;
-    const body: any = Object.fromEntries(Object.entries(form).filter(([k, v]) => v !== "" || k === "password"));
-    if (!body.password) delete body.password;
-    updateMutation.mutate({ id: selectedId, body });
-  };
-
-  const handleSaveModules = () => {
-    if (!selectedId) return;
-    updateMutation.mutate({ id: selectedId, body: { allowedModules: profileModules } });
-  };
-
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !selectedId) return;
-    setPhotoUploading(true);
-    const fd = new FormData(); fd.append("photo", file);
-    try {
-      const r = await fetch(`/api/team/members/${selectedId}/photo`, { method: "POST", body: fd, credentials: "include" });
-      if (!r.ok) { const j = await r.json(); throw new Error(j.message); }
-      queryClient.invalidateQueries({ queryKey: ["/api/team/members"] });
-      toast({ title: "Photo Updated" });
-    } catch (err: any) {
-      toast({ title: "Photo Upload Failed", description: err.message, variant: "destructive" });
-    } finally {
-      setPhotoUploading(false);
-      if (photoInputRef.current) photoInputRef.current.value = "";
-    }
-  };
-
-  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !selectedId) return;
-    setDocUploading(true);
-    const fd = new FormData(); fd.append("file", file); fd.append("docType", docType);
-    try {
-      const r = await fetch(`/api/team/members/${selectedId}/documents`, { method: "POST", body: fd, credentials: "include" });
-      if (!r.ok) { const j = await r.json(); throw new Error(j.message); }
-      queryClient.invalidateQueries({ queryKey: ["/api/team/members", selectedId, "documents"] });
-      toast({ title: "Document Uploaded" });
-    } catch (err: any) {
-      toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
-    } finally {
-      setDocUploading(false);
-      if (docInputRef.current) docInputRef.current.value = "";
-    }
   };
 
   const closePanel = () => { setPanel("none"); setSelectedId(null); };
@@ -1203,16 +1454,12 @@ export default function TeamMembersPage() {
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="relative flex-shrink-0">
                       <MemberAvatar member={selected} size="md" />
-                      <button
-                        onClick={() => photoInputRef.current?.click()}
-                        disabled={photoUploading}
-                        className="absolute -bottom-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center shadow-md hover:bg-primary/80 transition-colors"
-                        title="Upload photo"
-                        data-testid="button-upload-photo"
+                      <div
+                        className="absolute -bottom-1 -right-1 w-5 h-5 bg-muted border border-border rounded-full flex items-center justify-center shadow-sm"
+                        title="Profile photo is locked"
                       >
-                        {photoUploading ? <Loader2 className="w-2.5 h-2.5 text-white animate-spin" /> : <Camera className="w-2.5 h-2.5 text-white" />}
-                      </button>
-                      <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                        <Lock className="w-2.5 h-2.5 text-muted-foreground" />
+                      </div>
                     </div>
                     <div className="min-w-0">
                       <h2 className="text-sm font-bold truncate">{selected.name}</h2>
@@ -1225,9 +1472,9 @@ export default function TeamMembersPage() {
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {panel === "edit" && (
                     <>
-                      <Button size="sm" className="rounded-none text-xs font-bold h-8 uppercase tracking-wider" onClick={handleSave} disabled={updateMutation.isPending} data-testid="button-save-member">
-                        {updateMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Save className="w-3.5 h-3.5 mr-1" />Save</>}
-                      </Button>
+                      <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-wider border-green-600 text-green-700 dark:text-green-400 gap-1">
+                        <Lock className="w-2.5 h-2.5" /> Locked Profile
+                      </Badge>
                       <Button size="sm" variant="destructive" className="rounded-none text-xs h-8" onClick={() => { if (confirm(`Remove ${selected?.name}?`)) deleteMutation.mutate(selectedId!); }} data-testid={`button-delete-member-${selectedId}`}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
@@ -1239,23 +1486,24 @@ export default function TeamMembersPage() {
                 </div>
               </div>
 
-              {/* Tabs */}
-              <div className="border-b border-border flex overflow-x-auto flex-shrink-0 bg-muted/20">
-                {MEMBER_TABS.map(t => {
-                  const Icon = t.icon;
-                  return (
-                    <button
-                      key={t.key}
-                      onClick={() => setTab(t.key)}
-                      className={`flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b-2 flex-shrink-0 transition-colors ${tab === t.key ? "border-primary text-primary bg-background" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-                      data-testid={`tab-member-${t.key}`}
-                    >
-                      <Icon className="w-3 h-3" />
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Tabs (only when creating a new member) */}
+              {panel === "add" && (
+                <div className="border-b border-border flex overflow-x-auto flex-shrink-0 bg-muted/20">
+                  {MEMBER_TABS.filter(t => t.key === "credentials").map(t => {
+                    const Icon = t.icon;
+                    return (
+                      <div
+                        key={t.key}
+                        className="flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b-2 border-primary text-primary bg-background flex-shrink-0"
+                        data-testid={`tab-member-${t.key}`}
+                      >
+                        <Icon className="w-3 h-3" />
+                        {t.label}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Form content */}
               <div className="flex-1 overflow-y-auto p-6">
@@ -1304,555 +1552,21 @@ export default function TeamMembersPage() {
                       </div>
                     )}
                   </form>
-                ) : (
-                  <div className="max-w-2xl space-y-5">
-                    {tab === "credentials" && (
-                      <div className="space-y-4">
-                        <p className="text-xs text-muted-foreground">Update username and contact email. Passwords can only be changed by the team member via a secure one-time reset link below.</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className={lbl}>Full Name *</Label>
-                            <Input className={inp} value={form.name} onChange={e => up("name", e.target.value)} data-testid="input-edit-name" />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className={lbl}>Department</Label>
-                            <Select value={form.department} onValueChange={v => up("department", v)}>
-                              <SelectTrigger className={inp}><SelectValue placeholder="Select..." /></SelectTrigger>
-                              <SelectContent>
-                                {["Trading","Operations","Finance","Compliance","Legal","Logistics","IT","HR","Management","Other"].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className={lbl}>Username *</Label>
-                            <Input className={inp} value={form.username} onChange={e => up("username", e.target.value)} data-testid="input-edit-username" />
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Email</Label>
-                          <Input type="email" className={inp} value={form.email} onChange={e => up("email", e.target.value)} data-testid="input-edit-email" />
-                        </div>
-
-                        <div className="border border-border bg-muted/30 rounded-md p-4 space-y-2.5">
-                          <div className="flex items-start gap-2.5">
-                            <KeyRound className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                            <div className="flex-1">
-                              <p className="text-xs font-bold">Password Reset Link</p>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
-                                Recommended. Emails a secure one-time link (valid for 2 hours) so the team member can set their own password — no plaintext password is sent.
-                              </p>
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="rounded-none text-xs font-bold uppercase tracking-wider h-8"
-                            disabled={!selected?.email || sendResetMutation.isPending}
-                            onClick={() => selectedId && sendResetMutation.mutate(selectedId)}
-                            data-testid="btn-send-reset-link"
-                          >
-                            {sendResetMutation.isPending
-                              ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Sending...</>
-                              : <><Mail className="w-3.5 h-3.5 mr-1.5" /> Email Reset Link{selected?.email ? ` to ${selected.email}` : ""}</>}
-                          </Button>
-                          {!selected?.email && (
-                            <p className="text-[10px] text-destructive">Add an email address above before sending a reset link.</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {tab === "personal" && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5 col-span-2">
-                          <Label className={lbl}>Full Legal Name</Label>
-                          <Input className={inp} value={form.name} onChange={e => up("name", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Date of Birth</Label>
-                          <Input className={inp} placeholder="DD/MM/YYYY" value={form.dateOfBirth} onChange={e => up("dateOfBirth", e.target.value)} data-testid="input-edit-dob" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Gender</Label>
-                          <Select value={form.gender} onValueChange={v => up("gender", v)}>
-                            <SelectTrigger className={inp}><SelectValue placeholder="Select..." /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Male">Male</SelectItem>
-                              <SelectItem value="Female">Female</SelectItem>
-                              <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Nationality</Label>
-                          <Input className={inp} placeholder="e.g. Guinean" value={form.nationality} onChange={e => up("nationality", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Passport / National ID No.</Label>
-                          <Input className={inp} placeholder="Document number" value={form.passportNumber} onChange={e => up("passportNumber", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Marital Status</Label>
-                          <Select value={form.maritalStatus} onValueChange={v => up("maritalStatus", v)}>
-                            <SelectTrigger className={inp}><SelectValue placeholder="Select..." /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Single">Single</SelectItem>
-                              <SelectItem value="Married">Married</SelectItem>
-                              <SelectItem value="Divorced">Divorced</SelectItem>
-                              <SelectItem value="Widowed">Widowed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    )}
-
-                    {tab === "contact" && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Email</Label>
-                          <Input type="email" className={inp} value={form.email} onChange={e => up("email", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Phone Number</Label>
-                          <Input className={inp} placeholder="+XXX XX XXX XXXX" value={form.phone} onChange={e => up("phone", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5 col-span-2">
-                          <Label className={lbl}>Home Address</Label>
-                          <Textarea className={ta} placeholder="Full home address" value={form.homeAddress} onChange={e => up("homeAddress", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>City</Label>
-                          <Input className={inp} value={form.city} onChange={e => up("city", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Country</Label>
-                          <Input className={inp} value={form.country} onChange={e => up("country", e.target.value)} />
-                        </div>
-                      </div>
-                    )}
-
-                    {tab === "employment" && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Position / Role</Label>
-                          <Input className={inp} placeholder="e.g. Trade Analyst" value={form.position} onChange={e => up("position", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Department</Label>
-                          <Select value={form.department} onValueChange={v => up("department", v)}>
-                            <SelectTrigger className={inp}><SelectValue placeholder="Select..." /></SelectTrigger>
-                            <SelectContent>
-                              {["Trading","Operations","Finance","Compliance","Legal","Logistics","IT","HR","Management","Other"].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Employment Type</Label>
-                          <Select value={form.employmentType} onValueChange={v => up("employmentType", v)}>
-                            <SelectTrigger className={inp}><SelectValue placeholder="Select..." /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Full-Time">Full-Time</SelectItem>
-                              <SelectItem value="Part-Time">Part-Time</SelectItem>
-                              <SelectItem value="Contract">Contract</SelectItem>
-                              <SelectItem value="Consultant">Consultant</SelectItem>
-                              <SelectItem value="Intern">Intern</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Start Date</Label>
-                          <Input className={inp} placeholder="DD/MM/YYYY" value={form.startDate} onChange={e => up("startDate", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5 col-span-2">
-                          <Label className={lbl}>Additional Notes</Label>
-                          <Textarea className={ta} value={form.additionalNotes} onChange={e => up("additionalNotes", e.target.value)} />
-                        </div>
-                      </div>
-                    )}
-
-                    {tab === "education" && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Highest Qualification</Label>
-                          <Select value={form.highestQualification} onValueChange={v => up("highestQualification", v)}>
-                            <SelectTrigger className={inp}><SelectValue placeholder="Select..." /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="High School">High School</SelectItem>
-                              <SelectItem value="Diploma">Diploma</SelectItem>
-                              <SelectItem value="Bachelor's Degree">Bachelor's Degree</SelectItem>
-                              <SelectItem value="Master's Degree">Master's Degree</SelectItem>
-                              <SelectItem value="PhD / Doctorate">PhD / Doctorate</SelectItem>
-                              <SelectItem value="Professional Certification">Professional Certification</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Graduation Year</Label>
-                          <Input className={inp} placeholder="e.g. 2018" value={form.graduationYear} onChange={e => up("graduationYear", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5 col-span-2">
-                          <Label className={lbl}>Institution / University</Label>
-                          <Input className={inp} value={form.institution} onChange={e => up("institution", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Previous Employer</Label>
-                          <Input className={inp} value={form.previousEmployer} onChange={e => up("previousEmployer", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Previous Role / Title</Label>
-                          <Input className={inp} value={form.previousRole} onChange={e => up("previousRole", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Total Years of Experience</Label>
-                          <Input className={inp} placeholder="e.g. 5" value={form.yearsExperience} onChange={e => up("yearsExperience", e.target.value)} />
-                        </div>
-                      </div>
-                    )}
-
-                    {tab === "emergency" && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5 col-span-2">
-                          <Label className={lbl}>Emergency Contact Name</Label>
-                          <Input className={inp} placeholder="Full name" value={form.emergencyName} onChange={e => up("emergencyName", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Relationship</Label>
-                          <Input className={inp} placeholder="e.g. Spouse, Parent" value={form.emergencyRelationship} onChange={e => up("emergencyRelationship", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Phone Number</Label>
-                          <Input className={inp} placeholder="+XXX XX XXX XXXX" value={form.emergencyPhone} onChange={e => up("emergencyPhone", e.target.value)} />
-                        </div>
-                      </div>
-                    )}
-
-                    {tab === "bank" && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <p className="col-span-2 text-xs text-muted-foreground">Used for salary / payroll payments.</p>
-                        <div className="space-y-1.5 col-span-2">
-                          <Label className={lbl}>Bank Name</Label>
-                          <Input className={inp} value={form.bankName} onChange={e => up("bankName", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Branch</Label>
-                          <Input className={inp} value={form.bankBranch} onChange={e => up("bankBranch", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>SWIFT / BIC Code</Label>
-                          <Input className={inp} value={form.payrollSwift} onChange={e => up("payrollSwift", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Account Name</Label>
-                          <Input className={inp} value={form.payrollAccountName} onChange={e => up("payrollAccountName", e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={lbl}>Account Number / IBAN</Label>
-                          <Input className={inp} value={form.payrollAccountNumber} onChange={e => up("payrollAccountNumber", e.target.value)} />
-                        </div>
-                      </div>
-                    )}
-
-                    {tab === "access" && (
-                      <div className="space-y-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-bold">Platform Access Permissions</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Control which modules <strong>{selected?.name}</strong> can access when logged in to Bullex.
-                              Changes take effect on their next login.
-                            </p>
-                          </div>
-                          <span className={`text-[10px] font-bold px-2 py-1 rounded flex-shrink-0 ${profileModules.length > 0 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}>
-                            {profileModules.length}/{PLATFORM_MODULES.length} modules
-                          </span>
-                        </div>
-
-                        {/* Quick presets */}
-                        <div className="flex flex-wrap gap-1.5 pb-1">
-                          <span className="text-[10px] text-muted-foreground self-center">Quick presets:</span>
-                          {[
-                            { label: "Full Access", modules: ALL_MODULE_IDS },
-                            { label: "Part-Time", modules: ["dashboard", "documents", "vault"] },
-                            { label: "Contractor", modules: ["dashboard", "enquiries", "trading", "documents"] },
-                            { label: "Intern", modules: ["dashboard"] },
-                          ].map(p => (
-                            <button
-                              key={p.label}
-                              onClick={() => setProfileModules(p.modules)}
-                              data-testid={`btn-profile-preset-${p.label.toLowerCase().replace(/\s+/g, "-")}`}
-                              className="px-2 py-0.5 text-[10px] font-bold bg-muted hover:bg-primary hover:text-primary-foreground rounded transition-colors border border-border"
-                            >
-                              {p.label}
-                            </button>
-                          ))}
-                          <button
-                            onClick={() => setProfileModules([])}
-                            className="px-2 py-0.5 text-[10px] font-bold text-muted-foreground hover:text-destructive rounded transition-colors"
-                          >
-                            Clear all
-                          </button>
-                        </div>
-
-                        {/* Module toggles */}
-                        <div className="grid grid-cols-1 gap-1.5">
-                          {PLATFORM_MODULES.map(mod => {
-                            const Icon = mod.icon;
-                            const active = profileModules.includes(mod.id);
-                            return (
-                              <button
-                                key={mod.id}
-                                onClick={() => toggleProfileModule(mod.id)}
-                                data-testid={`btn-profile-module-${mod.id}`}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-md border text-left transition-all ${
-                                  active
-                                    ? "bg-primary/8 border-primary/30 dark:bg-primary/10"
-                                    : "bg-background border-border hover:border-muted-foreground/40"
-                                }`}
-                              >
-                                <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
-                                  active ? "bg-primary border-primary" : "border-muted-foreground/30 bg-background"
-                                }`}>
-                                  {active && <CheckCircle2 className="w-3.5 h-3.5 text-primary-foreground" />}
-                                </div>
-                                <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`} />
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs font-semibold ${active ? "text-foreground" : "text-muted-foreground"}`}>{mod.title}</p>
-                                  <p className="text-[10px] text-muted-foreground">{mod.description}</p>
-                                </div>
-                                <span className={`text-[10px] font-bold flex-shrink-0 ${active ? "text-primary" : "text-muted-foreground/40"}`}>
-                                  {active ? "Allowed" : "Blocked"}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        <div className="pt-1">
-                          <Button
-                            onClick={handleSaveModules}
-                            disabled={updateMutation.isPending}
-                            className="rounded-none text-xs font-bold uppercase tracking-wider h-9"
-                            data-testid="button-save-access"
-                          >
-                            {updateMutation.isPending
-                              ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Saving...</>
-                              : <><ShieldCheck className="w-3.5 h-3.5 mr-1.5" />Save Access Permissions</>}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {tab === "documents" && (
-                      <div className="space-y-5">
-                        <div className="border border-dashed border-border rounded-none p-4 space-y-3">
-                          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Upload Document</p>
-                          <div className="flex items-center gap-2">
-                            <Select value={docType} onValueChange={setDocType}>
-                              <SelectTrigger className="rounded-none h-9 text-xs w-52 bg-background border-border">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {DOC_TYPES.map(dt => <SelectItem key={dt.value} value={dt.value}>{dt.label}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="rounded-none text-xs h-9"
-                              onClick={() => docInputRef.current?.click()}
-                              disabled={docUploading}
-                              data-testid="button-upload-doc"
-                            >
-                              {docUploading ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Uploading...</> : <><Upload className="w-3.5 h-3.5 mr-1.5" />Choose File</>}
-                            </Button>
-                            <input ref={docInputRef} type="file" className="hidden" onChange={handleDocUpload} />
-                          </div>
-                        </div>
-                        {selectedDocs.length === 0 ? (
-                          <div className="text-center py-10 border border-border rounded-none">
-                            <FilePlus className="w-7 h-7 text-muted-foreground/30 mx-auto mb-2" />
-                            <p className="text-xs text-muted-foreground">No documents yet</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {selectedDocs.map(doc => {
-                              const dt = DOC_TYPES.find(d => d.value === doc.docType);
-                              return (
-                                <div key={doc.id} className="flex items-center gap-3 p-2.5 border border-border rounded-none bg-muted/10" data-testid={`doc-row-${doc.id}`}>
-                                  <FileText className="w-4 h-4 text-primary flex-shrink-0" />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-semibold truncate">{doc.originalName}</p>
-                                    <p className="text-[10px] text-muted-foreground">{dt?.label || doc.docType} · {fmtSize(doc.size)}</p>
-                                  </div>
-                                  <div className="flex items-center gap-2 flex-shrink-0">
-                                    <a
-                                      href={`/api/team/documents/${doc.id}/download`}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-muted-foreground hover:text-primary transition-colors"
-                                      title="Download"
-                                      data-testid={`btn-download-doc-${doc.id}`}
-                                    >
-                                      <Download className="w-3.5 h-3.5" />
-                                    </a>
-                                    <button
-                                      onClick={() => deleteDocMutation.mutate(doc.id)}
-                                      disabled={deleteDocMutation.isPending}
-                                      className="text-muted-foreground hover:text-destructive transition-colors"
-                                      title="Delete"
-                                      data-testid={`btn-delete-doc-${doc.id}`}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {tab === "submissions" && (
-                      <div className="space-y-5" data-testid="panel-submissions">
-                        <p className="text-xs text-muted-foreground">All work submitted by <span className="font-semibold text-foreground">{selected?.name}</span> across the platform.</p>
-
-                        {submissionsLoading ? (
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground" data-testid="status-submissions-loading"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…</div>
-                        ) : submissionsError ? (
-                          <div className="border border-destructive/30 bg-destructive/5 rounded-none p-4 space-y-2" data-testid="status-submissions-error">
-                            <div className="flex items-center gap-2 text-destructive">
-                              <AlertCircle className="w-4 h-4" />
-                              <p className="text-xs font-bold uppercase tracking-wider">Could not load submissions</p>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">{(submissionsErrorObj as Error)?.message || "Unknown error"}</p>
-                            <Button size="sm" variant="outline" className="rounded-none text-xs h-8" onClick={() => refetchSubmissions()} data-testid="btn-retry-submissions">
-                              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Retry
-                            </Button>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="border border-border rounded-none">
-                              <div className="px-3 py-2 bg-muted/30 border-b border-border flex items-center justify-between">
-                                <p className="text-[10px] font-bold uppercase tracking-wider">Client KYC Applications</p>
-                                <Badge variant="outline" className="text-[10px]">{submissions?.kycs?.length ?? 0}</Badge>
-                              </div>
-                              {(submissions?.kycs ?? []).length === 0 ? (
-                                <div className="p-4 text-xs text-muted-foreground text-center">No KYCs submitted by this member.</div>
-                              ) : (
-                                <div className="divide-y divide-border">
-                                  {submissions!.kycs.map((k) => (
-                                    <div key={k.id} className="p-3 flex items-center justify-between gap-3" data-testid={`row-submission-kyc-${k.id}`}>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                          <span className="text-xs font-semibold truncate">{k.companyName}</span>
-                                          {k.participantId && <Badge variant="outline" className="font-mono text-[9px]">{k.participantId}</Badge>}
-                                          <Badge variant={k.status === "approved" ? "default" : k.status === "rejected" ? "destructive" : "secondary"} className="text-[9px] capitalize">{k.status}</Badge>
-                                        </div>
-                                        <p className="text-[10px] text-muted-foreground">Reg #{k.registrationNumber} · {k.countryOfIncorporation} · {new Date(k.createdAt).toLocaleDateString()}</p>
-                                      </div>
-                                      <Button asChild size="sm" variant="outline" className="h-7 text-[10px] rounded-none flex-shrink-0" data-testid={`btn-view-kyc-${k.id}`}>
-                                        <a
-                                          href={`/kyc-admin?kycId=${k.id}`}
-                                          onClick={(ev) => {
-                                            if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button !== 0) return;
-                                            ev.preventDefault();
-                                            setLocation(`/kyc-admin?kycId=${k.id}`);
-                                          }}
-                                        >
-                                          <ExternalLink className="w-3 h-3 mr-1" /> Open
-                                        </a>
-                                      </Button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="border border-border rounded-none">
-                              <div className="px-3 py-2 bg-muted/30 border-b border-border flex items-center justify-between">
-                                <p className="text-[10px] font-bold uppercase tracking-wider">Trade Enquiries</p>
-                                <Badge variant="outline" className="text-[10px]">{submissions?.enquiries?.length ?? 0}</Badge>
-                              </div>
-                              {(submissions?.enquiries ?? []).length === 0 ? (
-                                <div className="p-4 text-xs text-muted-foreground text-center">No enquiries submitted by this member.</div>
-                              ) : (
-                                <div className="divide-y divide-border">
-                                  {submissions!.enquiries.map((e) => (
-                                    <div key={e.id} className="p-3 flex items-center justify-between gap-3" data-testid={`row-submission-enquiry-${e.id}`}>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                          <span className="text-xs font-mono font-semibold">{e.enquiryRef}</span>
-                                          {e.side && <Badge variant="outline" className="text-[9px] uppercase">{e.side}</Badge>}
-                                          <Badge variant={e.status === "accepted" || e.status === "quoted" ? "default" : e.status === "closed" ? "outline" : "secondary"} className="text-[9px] capitalize">{e.status?.replace("_", " ")}</Badge>
-                                        </div>
-                                        <p className="text-[10px] text-muted-foreground">{e.product} · {e.quantity || "—"} {e.unit || ""} · {new Date(e.createdAt).toLocaleDateString()}</p>
-                                      </div>
-                                      <Button asChild size="sm" variant="outline" className="h-7 text-[10px] rounded-none flex-shrink-0" data-testid={`btn-view-enquiry-${e.id}`}>
-                                        <a
-                                          href={`/trade-enquiries?enquiryId=${e.id}`}
-                                          onClick={(ev) => {
-                                            if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button !== 0) return;
-                                            ev.preventDefault();
-                                            setLocation(`/trade-enquiries?enquiryId=${e.id}`);
-                                          }}
-                                        >
-                                          <ExternalLink className="w-3 h-3 mr-1" /> Open
-                                        </a>
-                                      </Button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="border border-border rounded-none">
-                              <div className="px-3 py-2 bg-muted/30 border-b border-border flex items-center justify-between">
-                                <p className="text-[10px] font-bold uppercase tracking-wider">Potential Clients</p>
-                                <Badge variant="outline" className="text-[10px]">{submissions?.potentialClients?.length ?? 0}</Badge>
-                              </div>
-                              {(submissions?.potentialClients ?? []).length === 0 ? (
-                                <div className="p-4 text-xs text-muted-foreground text-center">No prospects tracked by this member.</div>
-                              ) : (
-                                <div className="divide-y divide-border">
-                                  {submissions!.potentialClients.map((c) => (
-                                    <div key={c.id} className="p-3 flex items-center justify-between gap-3" data-testid={`row-submission-prospect-${c.id}`}>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                          <span className="text-xs font-semibold truncate">{c.companyName}</span>
-                                          <Badge variant="outline" className="text-[9px] capitalize">{c.status}</Badge>
-                                          {c.source && <span className="text-[9px] text-muted-foreground">via {c.source}</span>}
-                                        </div>
-                                        <p className="text-[10px] text-muted-foreground">{[c.contactPerson, c.email, c.phone].filter(Boolean).join(" · ") || "No contact details"}</p>
-                                        {c.products && c.products.length > 0 && (
-                                          <div className="flex flex-wrap gap-1 mt-1">
-                                            {c.products.slice(0, 4).map((p) => <Badge key={p} variant="secondary" className="text-[9px]">{p}</Badge>)}
-                                            {c.products.length > 4 && <span className="text-[9px] text-muted-foreground">+{c.products.length - 4} more</span>}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-
-                    {tab !== "documents" && tab !== "submissions" && (
-                      <div className="pt-2">
-                        <Button onClick={handleSave} disabled={updateMutation.isPending} className="rounded-none text-xs font-bold uppercase tracking-wider h-9" data-testid="button-save-section">
-                          {updateMutation.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Saving...</> : <><Save className="w-3.5 h-3.5 mr-1.5" />Save Changes</>}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                ) : selected ? (
+                  <LockedMemberView
+                    member={selected}
+                    profileModules={profileModules}
+                    docs={selectedDocs}
+                    submissions={submissions}
+                    submissionsLoading={submissionsLoading}
+                    submissionsError={submissionsError}
+                    submissionsErrorObj={submissionsErrorObj as Error | null}
+                    refetchSubmissions={refetchSubmissions}
+                    onSendReset={() => selectedId && sendResetMutation.mutate(selectedId)}
+                    sendingReset={sendResetMutation.isPending}
+                    onNavigate={setLocation}
+                  />
+                ) : null}
               </div>
             </div>
           )}
