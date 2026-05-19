@@ -91,6 +91,7 @@ const KYC_DOC_LABELS: Record<string, string> = {
 };
 
 const MEMBER_TABS = [
+  { key: "submissions", label: "Submissions", icon: ClipboardList },
   { key: "credentials", label: "Login", icon: Lock },
   { key: "personal", label: "Personal", icon: User },
   { key: "contact", label: "Contact", icon: Phone },
@@ -100,7 +101,6 @@ const MEMBER_TABS = [
   { key: "bank", label: "Bank", icon: Landmark },
   { key: "access", label: "Access", icon: ShieldCheck },
   { key: "documents", label: "Documents", icon: FileText },
-  { key: "submissions", label: "Submissions", icon: ClipboardList },
 ];
 
 const KYC_TABS = [
