@@ -38,6 +38,7 @@ import TeamKYC from "@/pages/team-kyc";
 import DatabaseBackup from "@/pages/database-backup";
 import TaskBoard from "@/pages/task-board";
 import TeamPortal from "@/pages/team-portal";
+import TeamReset from "@/pages/team-reset";
 
 // Always requires login; admins get full access, team members get all modules unrestricted by this gate
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
@@ -146,6 +147,7 @@ function App() {
   const [isKyc] = useRoute("/kyc");
   const [isTeamKyc] = useRoute("/team-kyc");
   const [isRegister] = useRoute("/register");
+  const [isTeamReset] = useRoute("/team-reset/:token");
 
   return (
     <ThemeProvider>
@@ -165,6 +167,8 @@ function App() {
                 <TeamKYC />
               ) : isRegister ? (
                 <Register />
+              ) : isTeamReset ? (
+                <TeamReset />
               ) : (
                 <AppShell />
               )}

@@ -455,6 +455,17 @@ export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id:
 export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type TeamMember = typeof teamMembers.$inferSelect;
 
+export const teamPasswordResetTokens = pgTable("team_password_reset_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type TeamPasswordResetToken = typeof teamPasswordResetTokens.$inferSelect;
+
 export const teamMemberDocuments = pgTable("team_member_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   memberId: varchar("member_id").notNull(),

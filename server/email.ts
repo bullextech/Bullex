@@ -1064,6 +1064,42 @@ export async function sendTeamMemberWelcomeEmail(
   return sendEmail(to, `Welcome to Bullfrog Group — ${fullName}`, emailWrapper(body));
 }
 
+export async function sendTeamMemberPasswordResetLinkEmail(
+  to: string,
+  fullName: string,
+  username: string,
+  resetUrl: string,
+  expiryHours: number,
+): Promise<boolean> {
+  const safeName = escapeHtml(fullName || "Team Member");
+  const safeUser = escapeHtml(username);
+  const safeUrl = escapeHtml(resetUrl);
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Reset Your Bullex Password</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${safeName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      A Bullfrog Group administrator has initiated a password reset for your Bullex Trading Platform account
+      (username: <strong>${safeUser}</strong>). Click the secure link below to set a new password of your choice.
+      The link will expire in <strong>${expiryHours} hour${expiryHours === 1 ? "" : "s"}</strong> and can only be used once.
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${safeUrl}" style="display:inline-block;padding:12px 28px;background:#990000;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;letter-spacing:0.05em;text-transform:uppercase;border-radius:4px;">
+        Set New Password
+      </a>
+    </div>
+    <p style="color: #64748b; line-height: 1.6; font-size: 12px;">
+      If the button doesn't work, copy and paste this URL into your browser:<br/>
+      <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;color:#334155;">${safeUrl}</span>
+    </p>
+    <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:14px;margin:18px 0;color:#92400e;font-size:13px;line-height:1.55;">
+      <strong>Security notice:</strong> If you did not expect this reset, you may ignore this email — the link will expire automatically.
+      For any concerns, contact <a href="mailto:team@bullex.tech" style="color:#92400e;">team@bullex.tech</a>.
+    </div>
+    <p style="color:#475569;margin:24px 0 0;">Regards,<br/><strong>Bullfrog Group — Bullex Team</strong></p>
+  `;
+  return sendEmail(to, "Bullex — Reset Your Password", emailWrapper(body));
+}
+
 export async function sendTeamMemberPasswordChangedEmail(
   to: string,
   fullName: string,

@@ -11,7 +11,7 @@ import { insertTradeSchema, insertKycSchema, insertDocumentSchema, insertPotenti
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent, type PartyDetails } from "./documentTemplates";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification, sendJobApplicationToHR, sendJobApplicationAcknowledgement, sendTeamKycAdminNotification, sendTeamKycConfirmation, sendTeamMemberWelcomeEmail, sendTeamMemberPasswordChangedEmail } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification, sendJobApplicationToHR, sendJobApplicationAcknowledgement, sendTeamKycAdminNotification, sendTeamKycConfirmation, sendTeamMemberWelcomeEmail, sendTeamMemberPasswordChangedEmail, sendTeamMemberPasswordResetLinkEmail } from "./email";
 import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures, generateKycApplicationPdf, generateBlankKycApplicationPdf } from "./documentFileGenerator";
 
 const ADMIN_CHECKLISTS: Record<string, string[]> = {
@@ -295,42 +295,90 @@ export async function registerRoutes(
   app.patch("/api/team/members/:id", requireAdminAuth, async (req, res) => {
     try {
       const { password, ...data } = req.body;
-      const updateData: any = { ...data };
-      const existing = await storage.getTeamMemberById(req.params.id);
-      const passwordChanged = !!(password && existing && password !== existing.password);
-      if (password) updateData.password = password;
-      const member = await storage.updateTeamMember(req.params.id, updateData);
-
-      let passwordEmailSent: boolean | undefined;
-      let passwordEmailError: string | undefined;
-      if (passwordChanged && member) {
-        const recipient = member.email || existing?.email || null;
-        if (recipient) {
-          try {
-            passwordEmailSent = await sendTeamMemberPasswordChangedEmail(
-              recipient,
-              member.name || existing?.name || "Team Member",
-              member.username || existing?.username || "",
-              password,
-            );
-            if (!passwordEmailSent) passwordEmailError = "Email provider returned a failure (check server logs).";
-          } catch (e: any) {
-            passwordEmailSent = false;
-            passwordEmailError = e?.message || "Unknown email error";
-            console.error("[team-member-password-email] error:", e);
-          }
-        } else {
-          passwordEmailSent = false;
-          passwordEmailError = "Team member has no email address on file.";
-        }
+      if (password !== undefined && password !== null && password !== "") {
+        return res.status(400).json({
+          message: "Admin password changes are disabled. Use the 'Email Reset Link' button so the team member can set their own password.",
+        });
       }
-
-      res.json({ ...member, password: undefined, passwordChanged, passwordEmailSent, passwordEmailError });
+      const member = await storage.updateTeamMember(req.params.id, data);
+      res.json({ ...member, password: undefined });
     } catch (err: any) {
       if (err.message?.includes("unique")) {
         return res.status(409).json({ message: "Username already exists" });
       }
       res.status(500).json({ message: "Failed to update team member" });
+    }
+  });
+
+  // Generate & email a one-time password reset link for a team member (admin only)
+  app.post("/api/team/members/:id/send-reset-link", requireAdminAuth, async (req, res) => {
+    try {
+      const member = await storage.getTeamMemberById(req.params.id);
+      if (!member) return res.status(404).json({ message: "Team member not found" });
+      const recipient = member.email || null;
+      if (!recipient) return res.status(400).json({ message: "Team member has no email address on file." });
+
+      const { randomBytes } = await import("crypto");
+      const token = randomBytes(32).toString("hex");
+      const expiryHours = 2;
+      const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000);
+
+      await storage.invalidateActiveTeamPasswordResetTokens(member.id);
+      await storage.createTeamPasswordResetToken(member.id, token, expiresAt);
+
+      const proto = req.headers["x-forwarded-proto"] || req.protocol;
+      const host = req.headers["x-forwarded-host"] || req.get("host");
+      const resetUrl = `${proto}://${host}/team-reset/${token}`;
+
+      let sent = false;
+      let emailError: string | undefined;
+      try {
+        sent = await sendTeamMemberPasswordResetLinkEmail(recipient, member.name || "Team Member", member.username, resetUrl, expiryHours);
+        if (!sent) emailError = "Email provider returned a failure (check server logs).";
+      } catch (e: any) {
+        emailError = e?.message || "Unknown email error";
+        console.error("[team-member-reset-link-email] error:", e);
+      }
+      res.json({ success: sent, emailSent: sent, emailError, recipient, expiresAt, resetUrl });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to send reset link" });
+    }
+  });
+
+  // Public: verify a team password reset token (no auth)
+  app.get("/api/team/reset/:token", async (req, res) => {
+    try {
+      const row = await storage.getTeamPasswordResetTokenByToken(req.params.token);
+      if (!row) return res.status(404).json({ message: "Invalid reset link." });
+      if (row.usedAt) return res.status(410).json({ message: "This reset link has already been used." });
+      if (new Date(row.expiresAt).getTime() < Date.now()) return res.status(410).json({ message: "This reset link has expired." });
+      const member = await storage.getTeamMemberById(row.memberId);
+      if (!member) return res.status(404).json({ message: "Team member not found." });
+      res.json({ valid: true, username: member.username, name: member.name, expiresAt: row.expiresAt });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Public: consume a team password reset token and set a new password
+  app.post("/api/team/reset/:token", async (req, res) => {
+    try {
+      const { password } = req.body || {};
+      if (!password || typeof password !== "string" || password.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters." });
+      }
+      const row = await storage.getTeamPasswordResetTokenByToken(req.params.token);
+      if (!row) return res.status(404).json({ message: "Invalid reset link." });
+      if (row.usedAt) return res.status(410).json({ message: "This reset link has already been used." });
+      if (new Date(row.expiresAt).getTime() < Date.now()) return res.status(410).json({ message: "This reset link has expired." });
+      const member = await storage.getTeamMemberById(row.memberId);
+      if (!member) return res.status(404).json({ message: "Team member not found." });
+      await storage.updateTeamMember(member.id, { password });
+      await storage.markTeamPasswordResetTokenUsed(row.id);
+      await storage.invalidateActiveTeamPasswordResetTokens(member.id);
+      res.json({ success: true, username: member.username });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
     }
   });
 

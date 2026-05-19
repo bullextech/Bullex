@@ -41,6 +41,8 @@ import {
   teamMembers,
   type TeamMember,
   type InsertTeamMember,
+  teamPasswordResetTokens,
+  type TeamPasswordResetToken,
   teamMemberDocuments,
   type TeamMemberDocument,
   type InsertTeamMemberDocument,
@@ -162,6 +164,11 @@ export interface IStorage {
   updateTeamMember(id: string, data: Partial<InsertTeamMember>): Promise<TeamMember>;
   updateTeamMemberPhoto(id: string, photoStoredName: string): Promise<TeamMember>;
   deleteTeamMember(id: string): Promise<void>;
+
+  createTeamPasswordResetToken(memberId: string, token: string, expiresAt: Date): Promise<TeamPasswordResetToken>;
+  getTeamPasswordResetTokenByToken(token: string): Promise<TeamPasswordResetToken | undefined>;
+  markTeamPasswordResetTokenUsed(id: string): Promise<void>;
+  invalidateActiveTeamPasswordResetTokens(memberId: string): Promise<void>;
 
   getTeamMemberDocuments(memberId: string): Promise<TeamMemberDocument[]>;
   getTeamMemberDocumentById(id: string): Promise<TeamMemberDocument | undefined>;
@@ -855,7 +862,28 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTeamMember(id: string): Promise<void> {
     await db.delete(teamMemberDocuments).where(eq(teamMemberDocuments.memberId, id));
+    await db.delete(teamPasswordResetTokens).where(eq(teamPasswordResetTokens.memberId, id));
     await db.delete(teamMembers).where(eq(teamMembers.id, id));
+  }
+
+  async createTeamPasswordResetToken(memberId: string, token: string, expiresAt: Date): Promise<TeamPasswordResetToken> {
+    const [created] = await db.insert(teamPasswordResetTokens).values({ memberId, token, expiresAt }).returning();
+    return created;
+  }
+
+  async getTeamPasswordResetTokenByToken(token: string): Promise<TeamPasswordResetToken | undefined> {
+    const [row] = await db.select().from(teamPasswordResetTokens).where(eq(teamPasswordResetTokens.token, token));
+    return row;
+  }
+
+  async markTeamPasswordResetTokenUsed(id: string): Promise<void> {
+    await db.update(teamPasswordResetTokens).set({ usedAt: new Date() }).where(eq(teamPasswordResetTokens.id, id));
+  }
+
+  async invalidateActiveTeamPasswordResetTokens(memberId: string): Promise<void> {
+    await db.update(teamPasswordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(and(eq(teamPasswordResetTokens.memberId, memberId), isNull(teamPasswordResetTokens.usedAt)));
   }
 
   async getTeamMemberDocuments(memberId: string): Promise<TeamMemberDocument[]> {

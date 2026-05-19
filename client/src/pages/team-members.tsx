@@ -16,7 +16,7 @@ import {
   User, Phone, Briefcase, GraduationCap, Heart, Landmark, Lock,
   ChevronRight, Camera, Edit2, Save, FilePlus, UserCheck,
   CheckCircle2, XCircle, PenTool, ImageIcon, AlertCircle, ClipboardList,
-  Mail, Send, Copy, ExternalLink, ShieldCheck, RefreshCw,
+  Mail, Send, Copy, ExternalLink, ShieldCheck, RefreshCw, KeyRound,
 } from "lucide-react";
 import { PLATFORM_MODULES } from "@/components/admin-sidebar";
 import { useAuth } from "@/hooks/use-auth";
@@ -907,26 +907,32 @@ export default function TeamMembersPage() {
       if (!r.ok) { const j = await r.json(); throw new Error(j.message); }
       return r.json();
     },
-    onSuccess: (data: any) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/team/members"] });
-      if (data?.passwordChanged) {
-        if (data.passwordEmailSent) {
-          toast({
-            title: "Password Updated",
-            description: `New password emailed to ${data.email || "the team member"}.`,
-          });
-        } else {
-          toast({
-            title: "Password Updated — Email Failed",
-            description: data.passwordEmailError || "Password changed, but the notification email could not be sent.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        toast({ title: "Profile Saved", description: "Team member data updated." });
-      }
+      toast({ title: "Profile Saved", description: "Team member data updated." });
     },
     onError: (err: any) => toast({ title: "Save Failed", description: err.message, variant: "destructive" }),
+  });
+
+  const sendResetMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetch(`/api/team/members/${id}/send-reset-link`, { method: "POST", credentials: "include" });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.message || "Failed to send reset link");
+      return j as { emailSent: boolean; emailError?: string; recipient: string; expiresAt: string };
+    },
+    onSuccess: (data) => {
+      if (data.emailSent) {
+        toast({ title: "Reset Link Sent", description: `Secure password reset link emailed to ${data.recipient}.` });
+      } else {
+        toast({
+          title: "Reset Link Created — Email Failed",
+          description: data.emailError || "The link was generated but the email could not be delivered.",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (err: any) => toast({ title: "Could Not Send Reset Link", description: err.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -1302,7 +1308,7 @@ export default function TeamMembersPage() {
                   <div className="max-w-2xl space-y-5">
                     {tab === "credentials" && (
                       <div className="space-y-4">
-                        <p className="text-xs text-muted-foreground">Change username or reset password. Leave password blank to keep current.</p>
+                        <p className="text-xs text-muted-foreground">Update username and contact email. Passwords can only be changed by the team member via a secure one-time reset link below.</p>
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1.5">
                             <Label className={lbl}>Full Name *</Label>
@@ -1321,14 +1327,38 @@ export default function TeamMembersPage() {
                             <Label className={lbl}>Username *</Label>
                             <Input className={inp} value={form.username} onChange={e => up("username", e.target.value)} data-testid="input-edit-username" />
                           </div>
-                          <div className="space-y-1.5">
-                            <Label className={lbl}>New Password</Label>
-                            <Input type="password" className={inp} placeholder="Leave blank to keep current" value={form.password} onChange={e => up("password", e.target.value)} />
-                          </div>
                         </div>
                         <div className="space-y-1.5">
                           <Label className={lbl}>Email</Label>
-                          <Input type="email" className={inp} value={form.email} onChange={e => up("email", e.target.value)} />
+                          <Input type="email" className={inp} value={form.email} onChange={e => up("email", e.target.value)} data-testid="input-edit-email" />
+                        </div>
+
+                        <div className="border border-border bg-muted/30 rounded-md p-4 space-y-2.5">
+                          <div className="flex items-start gap-2.5">
+                            <KeyRound className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                              <p className="text-xs font-bold">Password Reset Link</p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                Recommended. Emails a secure one-time link (valid for 2 hours) so the team member can set their own password — no plaintext password is sent.
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="rounded-none text-xs font-bold uppercase tracking-wider h-8"
+                            disabled={!selected?.email || sendResetMutation.isPending}
+                            onClick={() => selectedId && sendResetMutation.mutate(selectedId)}
+                            data-testid="btn-send-reset-link"
+                          >
+                            {sendResetMutation.isPending
+                              ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Sending...</>
+                              : <><Mail className="w-3.5 h-3.5 mr-1.5" /> Email Reset Link{selected?.email ? ` to ${selected.email}` : ""}</>}
+                          </Button>
+                          {!selected?.email && (
+                            <p className="text-[10px] text-destructive">Add an email address above before sending a reset link.</p>
+                          )}
                         </div>
                       </div>
                     )}
