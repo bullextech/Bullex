@@ -771,7 +771,12 @@ export default function TeamPortal() {
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <CardTitle className="text-base" data-testid={`text-kyc-name-${kyc.id}`}>{kyc.companyName}</CardTitle>
+                          <CardTitle className="text-base flex items-center gap-2 flex-wrap" data-testid={`text-kyc-name-${kyc.id}`}>
+                            {kyc.companyName}
+                            {(kyc as any).participantId && (
+                              <Badge variant="outline" className="font-mono text-[10px]" data-testid={`badge-participant-id-${kyc.id}`}>{(kyc as any).participantId}</Badge>
+                            )}
+                          </CardTitle>
                           <CardDescription className="text-xs mt-1">
                             Reg #{kyc.registrationNumber} • {kyc.countryOfIncorporation} • Submitted {new Date(kyc.createdAt).toLocaleDateString()}
                           </CardDescription>

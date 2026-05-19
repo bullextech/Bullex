@@ -595,6 +595,9 @@ export default function TeamKycAdmin() {
                         <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
                         <p className="text-xs text-green-700 dark:text-green-400 flex-1 min-w-[160px]">
                           Approved — Login created for <span className="font-mono font-bold">{app.teamUsername}</span>
+                          {(app as any).participantId && (
+                            <> · Participant ID <span className="font-mono font-bold" data-testid={`text-team-participant-id-${app.id}`}>{(app as any).participantId}</span></>
+                          )}
                         </p>
                         <Button
                           size="sm"

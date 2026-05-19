@@ -419,7 +419,14 @@ export async function registerRoutes(
   app.get("/api/team-kyc", requireAdminAuth, async (req, res) => {
     res.set("Cache-Control", "no-store");
     const apps = await storage.getTeamKycApplications();
-    res.json(apps.map(a => ({ ...a, teamPassword: undefined })));
+    // Join participantId from team_members (by teamUsername) so the admin UI can display it.
+    const members = await storage.getAllTeamMembers();
+    const pidByUsername = new Map(members.map(m => [m.username, m.participantId]));
+    res.json(apps.map(a => ({
+      ...a,
+      teamPassword: undefined,
+      participantId: a.teamUsername ? (pidByUsername.get(a.teamUsername) || null) : null,
+    })));
   });
 
   // Send KYC invitation email to a candidate (admin only)
@@ -672,7 +679,14 @@ export async function registerRoutes(
       // On approval (transition only): send welcome email + auto-prepare NCNDA for admin to sign & send.
       // Skip if the application was already approved on a prior PATCH so we don't resend or duplicate.
       if (status === "approved" && app.status !== "approved") {
-        // 1) Welcome email
+        // 1) Welcome email — include participant ID from the freshly-created/updated team member.
+        let welcomeParticipantId: string | null = null;
+        try {
+          if (teamUsername) {
+            const tm = await storage.getTeamMemberByUsername(teamUsername);
+            welcomeParticipantId = tm?.participantId || null;
+          }
+        } catch (_) {}
         if (app.email) {
           try {
             await sendTeamMemberWelcomeEmail(
@@ -681,6 +695,7 @@ export async function registerRoutes(
               app.positionApplied || null,
               app.employmentType || null,
               teamUsername || null,
+              welcomeParticipantId,
             );
           } catch (e) {
             console.error("[team-kyc] welcome email failed:", e);
@@ -744,6 +759,13 @@ export async function registerRoutes(
       }
 
       let emailSent = false;
+      let resendParticipantId: string | null = null;
+      try {
+        if (app.teamUsername) {
+          const tm = await storage.getTeamMemberByUsername(app.teamUsername);
+          resendParticipantId = tm?.participantId || null;
+        }
+      } catch (_) {}
       if (app.email) {
         try {
           emailSent = await sendTeamMemberWelcomeEmail(
@@ -752,6 +774,7 @@ export async function registerRoutes(
             app.positionApplied || null,
             app.employmentType || null,
             app.teamUsername || null,
+            resendParticipantId,
           );
         } catch (e) {
           console.error("[team-kyc] resend welcome email failed:", e);
@@ -1250,12 +1273,21 @@ export async function registerRoutes(
         }
       }
 
-      const updated = await storage.updateKycStatus(id, status, reviewNotes, category, products);
+      let updated = await storage.updateKycStatus(id, status, reviewNotes, category, products);
 
       let finalResult = updated;
       if (status === "approved") {
         if (clientUsername && clientPassword) {
           await storage.updateKycClientCredentials(id, clientUsername, clientPassword);
+        }
+        // Allocate a stable, human-readable participant ID on first approval (idempotent).
+        // Fail the approval if allocation fails — clients must have a participant ID.
+        try {
+          updated = await storage.assignKycParticipantId(id);
+          finalResult = updated;
+        } catch (err: any) {
+          console.error("[participant-id] KYC allocation failed:", err.message);
+          return res.status(500).json({ message: "Failed to allocate participant ID; approval not finalised." });
         }
 
         try {
@@ -1274,7 +1306,8 @@ export async function registerRoutes(
             category || updated.category,
             products || updated.products,
             clientUsername,
-            clientPassword
+            clientPassword,
+            updated.participantId
           ).catch((err) => console.error("[email] background approval send failed:", err));
         }
         if (updated.filledByEmail && updated.filledByEmail !== emailTo) {
@@ -1285,7 +1318,8 @@ export async function registerRoutes(
             category || updated.category,
             products || updated.products,
             clientUsername,
-            clientPassword
+            clientPassword,
+            updated.participantId
           ).catch((err) => console.error("[email] background approval send to filledBy failed:", err));
         }
         // Admin audit copy

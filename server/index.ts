@@ -78,6 +78,17 @@ app.use((req, res, next) => {
 (async () => {
   await registerRoutes(httpServer, app);
 
+  // Backfill participant IDs for any pre-existing approved KYC clients / team members.
+  try {
+    const { storage } = await import("./storage");
+    const result = await storage.backfillParticipantIds();
+    if (result.kyc || result.team) {
+      log(`[participant-id] backfilled ${result.kyc} client(s), ${result.team} team member(s)`);
+    }
+  } catch (e: any) {
+    console.error("[participant-id] backfill failed:", e?.message || e);
+  }
+
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

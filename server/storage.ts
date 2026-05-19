@@ -154,6 +154,9 @@ export interface IStorage {
 
   getAllTeamMembers(): Promise<TeamMember[]>;
   getTeamMemberByUsername(username: string): Promise<TeamMember | undefined>;
+  allocateParticipantId(prefix: "TM" | "CL"): Promise<string>;
+  assignKycParticipantId(id: string): Promise<KycApplication>;
+  backfillParticipantIds(): Promise<{ kyc: number; team: number }>;
   getTeamMemberById(id: string): Promise<TeamMember | undefined>;
   createTeamMember(member: InsertTeamMember): Promise<TeamMember>;
   updateTeamMember(id: string, data: Partial<InsertTeamMember>): Promise<TeamMember>;
@@ -746,8 +749,93 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTeamMember(member: InsertTeamMember): Promise<TeamMember> {
-    const [created] = await db.insert(teamMembers).values(member).returning();
-    return created;
+    // Ignore caller-supplied participantId — allocator owns format & uniqueness.
+    const { participantId: _ignored, ...rest } = member as any;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const participantId = await this.allocateParticipantId("TM");
+      try {
+        const [created] = await db.insert(teamMembers).values({ ...rest, participantId }).returning();
+        return created;
+      } catch (err: any) {
+        if (err?.code === "23505" && String(err?.constraint || "").includes("participant_id")) continue;
+        throw err;
+      }
+    }
+    throw new Error("Failed to allocate unique team participant ID after retries");
+  }
+
+  // Allocate next sequential participant ID for the given prefix ("TM" team / "CL" client).
+  // Format: BFG-<PREFIX>-<NNNN> (zero-padded to 4 digits, grows beyond if needed).
+  // Note: callers must handle 23505 unique-violation and retry — this is best-effort, not atomic.
+  async allocateParticipantId(prefix: "TM" | "CL"): Promise<string> {
+    const table = prefix === "TM" ? teamMembers : kycApplications;
+    const rows = await db.select({ pid: table.participantId }).from(table);
+    let maxN = 0;
+    for (const r of rows) {
+      const m = r.pid && r.pid.match(/^BFG-(TM|CL)-(\d+)$/);
+      if (m && m[1] === prefix) {
+        const n = parseInt(m[2], 10);
+        if (n > maxN) maxN = n;
+      }
+    }
+    const next = maxN + 1;
+    return `BFG-${prefix}-${String(next).padStart(4, "0")}`;
+  }
+
+  async assignKycParticipantId(id: string): Promise<KycApplication> {
+    const [existing] = await db.select().from(kycApplications).where(eq(kycApplications.id, id));
+    if (!existing) throw new Error("KYC application not found");
+    if (existing.participantId) return existing;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const participantId = await this.allocateParticipantId("CL");
+      try {
+        const [updated] = await db.update(kycApplications).set({ participantId }).where(eq(kycApplications.id, id)).returning();
+        return updated;
+      } catch (err: any) {
+        if (err?.code === "23505" && String(err?.constraint || "").includes("participant_id")) continue;
+        throw err;
+      }
+    }
+    throw new Error("Failed to allocate unique client participant ID after retries");
+  }
+
+  // Backfill participantId for any approved records that don't yet have one (legacy data).
+  async backfillParticipantIds(): Promise<{ kyc: number; team: number }> {
+    let kycCount = 0;
+    let teamCount = 0;
+    const kycRows = await db.select().from(kycApplications).orderBy(kycApplications.createdAt);
+    for (const row of kycRows) {
+      if (row.status === "approved" && !row.participantId) {
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const pid = await this.allocateParticipantId("CL");
+          try {
+            await db.update(kycApplications).set({ participantId: pid }).where(eq(kycApplications.id, row.id));
+            kycCount++;
+            break;
+          } catch (err: any) {
+            if (err?.code === "23505") continue;
+            throw err;
+          }
+        }
+      }
+    }
+    const teamRows = await db.select().from(teamMembers).orderBy(teamMembers.createdAt);
+    for (const row of teamRows) {
+      if (!row.participantId) {
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const pid = await this.allocateParticipantId("TM");
+          try {
+            await db.update(teamMembers).set({ participantId: pid }).where(eq(teamMembers.id, row.id));
+            teamCount++;
+            break;
+          } catch (err: any) {
+            if (err?.code === "23505") continue;
+            throw err;
+          }
+        }
+      }
+    }
+    return { kyc: kycCount, team: teamCount };
   }
 
   async getTeamMemberById(id: string): Promise<TeamMember | undefined> {

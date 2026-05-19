@@ -1161,6 +1161,12 @@ export default function KycAdmin() {
                                     </div>
                                     <p className="text-xs text-muted-foreground">This application has been approved.</p>
                                   </div>
+                                  {(app as any).participantId && (
+                                    <div className="flex justify-between items-center py-1.5 border-b border-border/30 text-sm">
+                                      <span className="text-muted-foreground text-xs uppercase tracking-wider">Participant ID</span>
+                                      <span className="font-mono font-bold text-primary" data-testid={`text-client-participant-id-${app.id}`}>{(app as any).participantId}</span>
+                                    </div>
+                                  )}
                                   {app.blockchainHash && (
                                     <div className="p-3 bg-primary/5 border border-primary/20 text-sm space-y-1">
                                       <div className="flex items-center gap-2">

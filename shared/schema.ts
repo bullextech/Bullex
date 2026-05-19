@@ -67,6 +67,7 @@ export const kycApplications = pgTable("kyc_applications", {
   filledByEmail: text("filled_by_email"),
   clientUsername: text("client_username"),
   clientPassword: text("client_password"),
+  participantId: text("participant_id").unique(),
   status: text("status").notNull().default("pending"),
   category: text("category"),
   products: text("products"),
@@ -412,6 +413,7 @@ export type TeamKycApplication = typeof teamKycApplications.$inferSelect;
 
 export const teamMembers = pgTable("team_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  participantId: text("participant_id").unique(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),

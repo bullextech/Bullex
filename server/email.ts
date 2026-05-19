@@ -184,8 +184,12 @@ export async function sendKycApprovalEmail(
   category?: string | null,
   products?: string | null,
   clientUsername?: string | null,
-  clientPassword?: string | null
+  clientPassword?: string | null,
+  participantId?: string | null
 ): Promise<boolean> {
+  const participantIdRow = participantId
+    ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Participant ID</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">${escapeHtml(participantId)}</td></tr>`
+    : "";
   const detailsRows = [
     category ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Category</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${category}</td></tr>` : "",
     products ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Products</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${products}</td></tr>` : "",
@@ -219,9 +223,10 @@ export async function sendKycApprovalEmail(
         Your organisation is now registered as a verified participant on the Bullex Trading Platform.
       </p>
     </div>
-    ${detailsRows ? `
+    ${(detailsRows || participantIdRow) ? `
     <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
       <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Company</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${companyName}</td></tr>
+      ${participantIdRow}
       ${detailsRows}
     </table>
     ` : ""}
@@ -1004,6 +1009,7 @@ export async function sendTeamMemberWelcomeEmail(
   position: string | null,
   employmentType: string | null,
   username: string | null,
+  participantId: string | null = null,
 ): Promise<boolean> {
   const isAgent = (employmentType || "").toLowerCase() === "agent";
   const roleLine = position
@@ -1020,6 +1026,7 @@ export async function sendTeamMemberWelcomeEmail(
 
     <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="color: #166534; margin: 0; font-weight: 700;">&#10003; Your Team KYC has been approved</p>
+      ${participantId ? `<p style="color: #166534; margin: 6px 0 0; font-size: 13px;">Your Bullfrog Group Participant ID: <strong style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">${escapeHtml(participantId)}</strong></p>` : ""}
       ${username ? `<p style="color: #166534; margin: 6px 0 0; font-size: 13px;">Your Bullex login username: <strong>${escapeHtml(username)}</strong> (password shared separately).</p>` : ""}
     </div>
 
