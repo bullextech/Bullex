@@ -28,8 +28,7 @@ export const PLATFORM_MODULES = [
 ];
 
 const adminOnlyItems = [
-  { id: "team-kyc-admin", title: "Team KYC", url: "/team-kyc-admin", icon: UserPlus },
-  { id: "team-members", title: "Team Members", url: "/team-members", icon: Users },
+  { id: "team-members", title: "Team", url: "/team", icon: Users },
   { id: "db-backup", title: "DB Backup", url: "/db-backup", icon: Cloud },
 ];
 

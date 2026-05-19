@@ -35,7 +35,6 @@ import RegistrationsAdmin from "@/pages/registrations-admin";
 import HumanResources from "@/pages/human-resources";
 import TeamMembers from "@/pages/team-members";
 import TeamKYC from "@/pages/team-kyc";
-import TeamKycAdmin from "@/pages/team-kyc-admin";
 import DatabaseBackup from "@/pages/database-backup";
 import TaskBoard from "@/pages/task-board";
 import TeamPortal from "@/pages/team-portal";
@@ -96,13 +95,14 @@ function Router() {
       <Route path="/dashboard">{() => <ModuleRoute component={Dashboard} moduleId="dashboard" />}</Route>
       <Route path="/registrations">{() => <ModuleRoute component={RegistrationsAdmin} moduleId="registrations" />}</Route>
       <Route path="/kyc-admin">{() => <ModuleRoute component={KycAdmin} moduleId="kyc-admin" />}</Route>
-      <Route path="/team-kyc-admin">{() => <ProtectedRoute component={TeamKycAdmin} />}</Route>
+      <Route path="/team">{() => <ProtectedRoute component={TeamMembers} />}</Route>
+      <Route path="/team-kyc-admin">{() => <Redirect to="/team" />}</Route>
       <Route path="/trade-enquiries">{() => <ModuleRoute component={TradeEnquiries} moduleId="enquiries" />}</Route>
       <Route path="/documents">{() => <ProtectedRoute component={DocumentGenerator} />}</Route>
       <Route path="/trading">{() => <ModuleRoute component={Trading} moduleId="trading" />}</Route>
       <Route path="/vault">{() => <ModuleRoute component={Vault} moduleId="vault" />}</Route>
       <Route path="/blockchain">{() => <ModuleRoute component={Blockchain} moduleId="blockchain" />}</Route>
-      <Route path="/team-members">{() => <ProtectedRoute component={TeamMembers} />}</Route>
+      <Route path="/team-members">{() => <Redirect to="/team" />}</Route>
       <Route path="/db-backup">{() => <ProtectedRoute component={DatabaseBackup} />}</Route>
       <Route path="/tasks">{() => <ModuleRoute component={TaskBoard} moduleId="tasks" />}</Route>
       <Route path="/team-portal">{() => <ProtectedRoute component={TeamPortal} />}</Route>

@@ -16,7 +16,7 @@ import {
   User, Phone, Briefcase, GraduationCap, Heart, Landmark, Lock,
   ChevronRight, Camera, Edit2, Save, FilePlus, UserCheck,
   CheckCircle2, XCircle, PenTool, ImageIcon, AlertCircle, ClipboardList,
-  Mail, Send, Copy, ExternalLink, ShieldCheck,
+  Mail, Send, Copy, ExternalLink, ShieldCheck, RefreshCw,
 } from "lucide-react";
 import { PLATFORM_MODULES } from "@/components/admin-sidebar";
 import { useAuth } from "@/hooks/use-auth";
@@ -58,6 +58,7 @@ interface TeamKycApp {
   declarationAgreed: boolean | null; declarationName: string | null; declarationDate: string | null;
   photoStoredName: string | null; photoOriginalName: string | null;
   status: string; reviewNotes: string | null; teamUsername: string | null; createdAt: string;
+  participantId?: string | null;
 }
 
 interface TeamKycDoc {
@@ -172,6 +173,14 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
     queryKey: ["/api/team-kyc", app.id, "documents"],
     queryFn: () =>
       fetch(`/api/team-kyc/${app.id}/documents`, { credentials: "include", cache: "no-store" }).then(r => r.json()),
+  });
+
+  const resendMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/team-kyc/${app.id}/resend-welcome`),
+    onSuccess: () => {
+      toast({ title: "Welcome Resent", description: `Welcome email + NCNDA resent to ${app.fullName}.` });
+    },
+    onError: (err: any) => toast({ title: "Resend Failed", description: err.message, variant: "destructive" }),
   });
 
   const reviewMutation = useMutation({
@@ -578,14 +587,28 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
               })()}
 
               {app.status === "approved" && app.teamUsername ? (
-                <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                  <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
-                  <div>
+                <div className="flex items-start gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-green-700 dark:text-green-400">Application Approved</p>
                     <p className="text-xs text-green-600 dark:text-green-500">
-                      Login created for <span className="font-mono font-bold">{app.teamUsername}</span>. Team member profile is now active.
+                      Login created for <span className="font-mono font-bold">{app.teamUsername}</span>
+                      {app.participantId && (
+                        <> · Participant ID <span className="font-mono font-bold" data-testid={`text-team-participant-id-${app.id}`}>{app.participantId}</span></>
+                      )}. Team member profile is now active.
                     </p>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-[11px] h-7 flex-shrink-0"
+                    disabled={resendMutation.isPending}
+                    onClick={() => resendMutation.mutate()}
+                    data-testid={`btn-team-kyc-resend-${app.id}`}
+                  >
+                    {resendMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <RefreshCw className="w-3 h-3 mr-1.5" />}
+                    {resendMutation.isPending ? "Sending..." : "Resend Welcome + NCNDA"}
+                  </Button>
                 </div>
               ) : app.status === "rejected" ? (
                 <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
@@ -1023,8 +1046,8 @@ export default function TeamMembersPage() {
               <div className="flex items-center gap-2.5">
                 <Users className="w-4 h-4 text-primary" />
                 <div>
-                  <h1 className="text-sm font-bold tracking-tight" data-testid="text-team-page-title">Team Members</h1>
-                  <p className="text-[10px] text-muted-foreground">Full KYT staff profiles</p>
+                  <h1 className="text-sm font-bold tracking-tight" data-testid="text-team-page-title">Team</h1>
+                  <p className="text-[10px] text-muted-foreground">Team members &amp; KYC applications</p>
                 </div>
               </div>
               <Button size="sm" className="rounded-none text-xs font-bold uppercase tracking-wider h-8" onClick={openAdd} data-testid="button-add-team-member">
