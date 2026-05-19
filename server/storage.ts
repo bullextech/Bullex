@@ -610,7 +610,19 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async approveAndApplyEnquiryChangeRequest(id: string, adminNotes?: string): Promise<TradeEnquiry> {
+  async approveAndApplyEnquiryChangeRequest(
+    id: string,
+    adminNotes?: string,
+    blockData?: {
+      blockNumber: number;
+      hash: string;
+      previousHash: string;
+      nonce: number;
+      timestamp: Date;
+      dataId: string;
+      dataSummary: string;
+    },
+  ): Promise<TradeEnquiry> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -625,6 +637,20 @@ export class DatabaseStorage implements IStorage {
         adminNotes: adminNotes || null,
         reviewedAt: new Date(),
       }).where(eq(enquiryChangeRequests.id, id));
+      if (blockData) {
+        await txDb.insert(blocks).values({
+          blockNumber: blockData.blockNumber,
+          hash: blockData.hash,
+          previousHash: blockData.previousHash,
+          nonce: blockData.nonce,
+          tradeCount: 1,
+          verified: true,
+          timestamp: blockData.timestamp,
+          dataType: "enquiry_amendment",
+          dataId: blockData.dataId,
+          dataSummary: blockData.dataSummary,
+        });
+      }
       await client.query("COMMIT");
       return updated;
     } catch (error) {

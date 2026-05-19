@@ -27,20 +27,30 @@ import type { Block, Trade, KycApplication, TradeEnquiry } from "@shared/schema"
 function BlockCard({ block, trades, kycApps, enquiries }: { block: Block; trades: Trade[]; kycApps: KycApplication[]; enquiries: TradeEnquiry[] }) {
   const isKyc = block.dataType === "kyc";
   const isAmendment = block.dataType === "kyc_amendment";
+  const isEnquiryAmendment = block.dataType === "enquiry_amendment";
   const isTradeEnquiry = block.dataType === "trade_enquiry";
   const isKycRelated = isKyc || isAmendment;
-  const blockTrades = (isKycRelated || isTradeEnquiry) ? [] : trades.filter((t) => t.blockNumber === block.blockNumber);
+  const isEnquiryRelated = isTradeEnquiry || isEnquiryAmendment;
+  const blockTrades = (isKycRelated || isEnquiryRelated) ? [] : trades.filter((t) => t.blockNumber === block.blockNumber);
   const kycApp = isKycRelated && block.dataId ? kycApps.find((k) => k.id === block.dataId) : null;
-  const enquiry = isTradeEnquiry && block.dataId ? enquiries.find((e) => e.id === block.dataId) : null;
+  const enquiry = isEnquiryRelated && block.dataId ? enquiries.find((e) => e.id === block.dataId) : null;
   const formattedDate = block.timestamp
     ? new Date(block.timestamp).toLocaleString()
     : "Unknown";
 
-  const blockTypeLabel = isAmendment ? "KYC Amendment" : isKyc ? "KYC" : isTradeEnquiry ? "Trade Enquiry" : "Trade";
-  const blockTypeColor = isKycRelated ? "bg-chart-2/10" : isTradeEnquiry ? "bg-emerald-500/10" : "bg-primary/10";
+  const blockTypeLabel = isAmendment
+    ? "KYC Amendment"
+    : isEnquiryAmendment
+    ? "Enquiry Amendment"
+    : isKyc
+    ? "KYC"
+    : isTradeEnquiry
+    ? "Trade Enquiry"
+    : "Trade";
+  const blockTypeColor = isKycRelated ? "bg-chart-2/10" : isEnquiryRelated ? "bg-emerald-500/10" : "bg-primary/10";
   const blockTypeIcon = isKycRelated
     ? <FileCheck className="w-5 h-5 text-chart-2" />
-    : isTradeEnquiry
+    : isEnquiryRelated
     ? <SearchCheck className="w-5 h-5 text-emerald-600" />
     : <Layers className="w-5 h-5 text-primary" />;
 
@@ -58,7 +68,7 @@ function BlockCard({ block, trades, kycApps, enquiries }: { block: Block; trades
           <div className="flex-1 min-w-0 text-left">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-sm">Block #{block.blockNumber}</span>
-              <Badge variant={isKycRelated ? "secondary" : isTradeEnquiry ? "secondary" : "outline"} className={`text-[10px] ${isTradeEnquiry ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" : ""}`}>
+              <Badge variant={isKycRelated ? "secondary" : isEnquiryRelated ? "secondary" : "outline"} className={`text-[10px] ${isEnquiryRelated ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" : ""}`}>
                 {blockTypeLabel}
               </Badge>
               {block.verified && (
@@ -69,12 +79,12 @@ function BlockCard({ block, trades, kycApps, enquiries }: { block: Block; trades
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {isKyc ? (block.dataSummary || "KYC Verification") : isTradeEnquiry ? (block.dataSummary || "Trade Enquiry Accepted") : `${block.tradeCount} transaction${block.tradeCount !== 1 ? "s" : ""}`} &middot; {formattedDate}
+              {isAmendment ? (block.dataSummary || "KYC Amendment Approved") : isEnquiryAmendment ? (block.dataSummary || "Enquiry Amendment Approved") : isKyc ? (block.dataSummary || "KYC Verification") : isTradeEnquiry ? (block.dataSummary || "Trade Enquiry Accepted") : `${block.tradeCount} transaction${block.tradeCount !== 1 ? "s" : ""}`} &middot; {formattedDate}
             </p>
           </div>
           <div className="text-right flex-shrink-0 hidden sm:block">
             <span className="text-xs font-mono text-muted-foreground">
-              {isKyc ? (kycApp?.companyName || "") : isTradeEnquiry ? (enquiry?.enquiryRef || "") : (blockTrades[0]?.tradeRef || "")}
+              {isKycRelated ? (kycApp?.companyName || "") : isEnquiryRelated ? (enquiry?.enquiryRef || "") : (blockTrades[0]?.tradeRef || "")}
             </span>
           </div>
         </div>

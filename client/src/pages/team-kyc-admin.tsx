@@ -142,6 +142,20 @@ export default function TeamKycAdmin() {
     },
   });
 
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const resendMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/team-kyc/${id}/resend-welcome`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      toast({ title: "Welcome resent", description: "Welcome email sent and a fresh NCNDA was created in your Documents list." });
+      setResendingId(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Resend failed", description: err.message, variant: "destructive" });
+      setResendingId(null);
+    },
+  });
+
   if (!authenticated) return <Login />;
 
   const statusBadge = (s: string) => {
@@ -577,11 +591,21 @@ export default function TeamKycAdmin() {
                     />
 
                     {app.status === "approved" && app.teamUsername && (
-                      <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                      <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                         <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                        <p className="text-xs text-green-700 dark:text-green-400">
+                        <p className="text-xs text-green-700 dark:text-green-400 flex-1 min-w-[160px]">
                           Approved — Login created for <span className="font-mono font-bold">{app.teamUsername}</span>
                         </p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-[11px] h-7"
+                          disabled={resendMutation.isPending && resendingId === app.id}
+                          onClick={() => { setResendingId(app.id); resendMutation.mutate(app.id); }}
+                          data-testid={`btn-team-kyc-resend-${app.id}`}
+                        >
+                          {resendMutation.isPending && resendingId === app.id ? "Sending..." : "Resend Welcome + NCNDA"}
+                        </Button>
                       </div>
                     )}
 

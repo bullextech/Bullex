@@ -734,6 +734,78 @@ export async function registerRoutes(
     }
   });
 
+  // Re-fire welcome email + auto-generate NCNDA for an already-approved team KYC application.
+  app.post("/api/team-kyc/:id/resend-welcome", requireAdminAuth, async (req, res) => {
+    try {
+      const app = await storage.getTeamKycApplicationById(req.params.id);
+      if (!app) return res.status(404).json({ message: "Application not found" });
+      if (app.status !== "approved") {
+        return res.status(400).json({ message: "Application must be approved before resending welcome / NCNDA" });
+      }
+
+      let emailSent = false;
+      if (app.email) {
+        try {
+          emailSent = await sendTeamMemberWelcomeEmail(
+            app.email,
+            app.fullName,
+            app.positionApplied || null,
+            app.employmentType || null,
+            app.teamUsername || null,
+          );
+        } catch (e) {
+          console.error("[team-kyc] resend welcome email failed:", e);
+        }
+      }
+
+      let ncndaDocId: string | null = null;
+      try {
+        const partyA: PartyDetails = {
+          name: "Bullfrog Group",
+          address: "Dubai, United Arab Emirates",
+          contact: "team@bullex.tech",
+        };
+        const partyB: PartyDetails = {
+          name: app.fullName,
+          address: [app.homeAddress, app.city, app.country].filter(Boolean).join(", ") || "—",
+          contact: app.email || "—",
+        };
+        const product: any = {
+          commodity: "Introduction, representation and onboarding of prospective counterparties on behalf of Bullfrog Group / Bullex Trading Platform",
+          governingLaw: "United Arab Emirates",
+          recapValidity: "Courts of Dubai, UAE",
+          validity: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }),
+        };
+        const title = `NCNDA — ${app.fullName}`;
+        const content = generateDocumentContent("NCNDA", undefined, partyB, partyA, product);
+        const created = await storage.createDocument({
+          docType: "NCNDA",
+          title,
+          content,
+          status: "pending_review",
+          adminChecks: buildAdminChecks("NCNDA"),
+          buyerEmail: app.email || null,
+          sellerEmail: null,
+        } as any);
+        ncndaDocId = created.id;
+        try {
+          const docxPath = await generateDocx(created.id, title, content, "Bullex Admin");
+          const pdfPath = await generatePdf(created.id, title, content, "Bullex Admin");
+          await storage.updateDocument(created.id, { docxPath, pdfPath });
+        } catch (fileErr) {
+          console.error("[team-kyc] resend NCNDA file generation failed:", fileErr);
+        }
+      } catch (e: any) {
+        console.error("[team-kyc] resend NCNDA creation failed:", e);
+        return res.status(500).json({ message: `NCNDA creation failed: ${e.message || e}` });
+      }
+
+      res.json({ success: true, emailSent, ncndaDocId });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to resend welcome" });
+    }
+  });
+
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy(() => {
       res.json({ authenticated: false });
@@ -1720,39 +1792,38 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Status must be approved or rejected" });
       }
       if (status === "approved") {
-        const updated = await storage.approveAndApplyEnquiryChangeRequest(req.params.id, adminNotes);
-        try {
-          const latestBlock = await storage.getLatestBlock();
-          const previousHash = latestBlock?.hash || GENESIS_HASH;
-          const blockNumber = (latestBlock?.blockNumber || 0) + 1;
-          const timestamp = new Date().toISOString();
-          const changeReqs = await storage.getEnquiryChangeRequestsByEnquiryId(updated.id);
-          const changeReq = changeReqs.find((cr) => cr.id === req.params.id);
-          const changedFields = (changeReq?.changedFields || {}) as Record<string, any>;
-          const amendmentHash = generateKycAmendmentHash(
-            updated.enquiryRef,
-            updated.product,
-            changedFields,
-            timestamp,
-          );
-          const { hash: blockHash, nonce } = mineBlock(blockNumber, previousHash, timestamp, amendmentHash);
-          const fieldNames = Object.keys(changedFields).map((k) => k.replace(/([A-Z])/g, " $1").trim()).join(", ");
-          await storage.createBlock({
-            blockNumber,
-            hash: blockHash,
-            previousHash,
-            nonce,
-            tradeCount: 1,
-            verified: true,
-            timestamp: new Date(timestamp),
-            dataType: "enquiry_amendment",
-            dataId: updated.id,
-            dataSummary: `${updated.enquiryRef} | Amendment: ${fieldNames}`,
-          });
-          console.log(`[blockchain] Enquiry amendment block minted for ${updated.enquiryRef}, block #${blockNumber}`);
-        } catch (err: any) {
-          console.error("[blockchain] Enquiry amendment minting failed:", err.message);
-        }
+        // Pre-compute block (no DB writes) so amendment + block can be persisted atomically.
+        const allReqs = await storage.getEnquiryChangeRequests();
+        const pendingReq = allReqs.find((c) => c.id === req.params.id);
+        if (!pendingReq) return res.status(404).json({ message: "Change request not found" });
+        if (pendingReq.status !== "pending") return res.status(400).json({ message: "Change request is no longer pending" });
+        const targetEnquiry = await storage.getTradeEnquiryById(pendingReq.enquiryId);
+        if (!targetEnquiry) return res.status(404).json({ message: "Enquiry not found" });
+
+        const changedFields = (pendingReq.changedFields || {}) as Record<string, any>;
+        const latestBlock = await storage.getLatestBlock();
+        const previousHash = latestBlock?.hash || GENESIS_HASH;
+        const blockNumber = (latestBlock?.blockNumber || 0) + 1;
+        const timestampIso = new Date().toISOString();
+        const amendmentHash = generateKycAmendmentHash(
+          targetEnquiry.enquiryRef,
+          targetEnquiry.product,
+          changedFields,
+          timestampIso,
+        );
+        const { hash: blockHash, nonce } = mineBlock(blockNumber, previousHash, timestampIso, amendmentHash);
+        const fieldNames = Object.keys(changedFields).map((k) => k.replace(/([A-Z])/g, " $1").trim()).join(", ");
+
+        const updated = await storage.approveAndApplyEnquiryChangeRequest(req.params.id, adminNotes, {
+          blockNumber,
+          hash: blockHash,
+          previousHash,
+          nonce,
+          timestamp: new Date(timestampIso),
+          dataId: targetEnquiry.id,
+          dataSummary: `${targetEnquiry.enquiryRef} | Amendment: ${fieldNames}`,
+        });
+        console.log(`[blockchain] Enquiry amendment block minted for ${updated.enquiryRef}, block #${blockNumber}`);
         res.json({ status: "approved", enquiry: updated });
       } else {
         const updated = await storage.updateEnquiryChangeRequestStatus(req.params.id, status, adminNotes);
@@ -3049,10 +3120,26 @@ export async function registerRoutes(
     }
   });
 
+  // Verify the current session owns this enquiry. Admins always pass; team members
+  // must be the original submitter. Returns the enquiry on success, or sends an error
+  // response and returns null on failure (in which case the caller should return).
+  async function ensureEnquiryAccess(req: Request, res: Response, enquiryId: string) {
+    const enquiry = await storage.getTradeEnquiryById(enquiryId);
+    if (!enquiry) { res.status(404).json({ message: "Enquiry not found" }); return null; }
+    if (req.session?.role === "team") {
+      const tmId = await getSessionTeamMemberId(req);
+      if (!tmId || enquiry.submittedByTeamMemberId !== tmId) {
+        res.status(403).json({ message: "Forbidden" });
+        return null;
+      }
+    }
+    return enquiry;
+  }
+
   app.delete("/api/trade-enquiries/:id", requireAuth, async (req: Request, res: Response) => {
     try {
-      const existing = await storage.getTradeEnquiryById(req.params.id);
-      if (!existing) return res.status(404).json({ message: "Enquiry not found" });
+      const existing = await ensureEnquiryAccess(req, res, req.params.id);
+      if (!existing) return;
       const docs = await storage.getTradeEnquiryDocuments(req.params.id);
       for (const doc of docs) {
         const filePath = path.join(enquiryUploadsDir, doc.storedName);
@@ -3068,6 +3155,8 @@ export async function registerRoutes(
   // ─── TRADE ENQUIRY DOCUMENTS ───
   app.get("/api/trade-enquiries/:id/documents", requireAuth, async (req: Request, res: Response) => {
     try {
+      const enquiry = await ensureEnquiryAccess(req, res, req.params.id);
+      if (!enquiry) return;
       const docs = await storage.getTradeEnquiryDocuments(req.params.id);
       res.json(docs);
     } catch (error: any) {
@@ -3079,10 +3168,11 @@ export async function registerRoutes(
     const file = req.file;
     try {
       if (!file) return res.status(400).json({ message: "No file uploaded" });
-      const enquiry = await storage.getTradeEnquiryById(req.params.id);
+      const enquiry = await ensureEnquiryAccess(req, res, req.params.id);
       if (!enquiry) {
-        fs.unlinkSync(path.join(enquiryUploadsDir, file.filename));
-        return res.status(404).json({ message: "Enquiry not found" });
+        const fp = path.join(enquiryUploadsDir, file.filename);
+        if (fs.existsSync(fp)) fs.unlinkSync(fp);
+        return;
       }
       const doc = await storage.createTradeEnquiryDocument({
         enquiryId: req.params.id,
@@ -3105,6 +3195,8 @@ export async function registerRoutes(
     try {
       const doc = await storage.getTradeEnquiryDocumentById(req.params.docId);
       if (!doc) return res.status(404).json({ message: "Document not found" });
+      const enquiry = await ensureEnquiryAccess(req, res, doc.enquiryId);
+      if (!enquiry) return;
       const filePath = path.join(enquiryUploadsDir, doc.storedName);
       if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
       res.setHeader("Content-Disposition", `attachment; filename="${doc.originalName}"`);
@@ -3117,6 +3209,10 @@ export async function registerRoutes(
 
   app.delete("/api/trade-enquiry-documents/:docId", requireAuth, async (req: Request, res: Response) => {
     try {
+      const doc = await storage.getTradeEnquiryDocumentById(req.params.docId);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      const enquiry = await ensureEnquiryAccess(req, res, doc.enquiryId);
+      if (!enquiry) return;
       const deleted = await storage.deleteTradeEnquiryDocument(req.params.docId);
       if (!deleted) return res.status(404).json({ message: "Document not found" });
       const filePath = path.join(enquiryUploadsDir, deleted.storedName);
