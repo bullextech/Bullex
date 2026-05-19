@@ -9,9 +9,9 @@ import fs from "fs";
 import { storage } from "./storage";
 import { insertTradeSchema, insertKycSchema, insertDocumentSchema, insertPotentialClientSchema, type Trade } from "@shared/schema";
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
-import { generateDocumentContent } from "./documentTemplates";
+import { generateDocumentContent, type PartyDetails } from "./documentTemplates";
 import { seedDatabase } from "./seed";
-import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification, sendJobApplicationToHR, sendJobApplicationAcknowledgement, sendTeamKycAdminNotification, sendTeamKycConfirmation } from "./email";
+import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification, sendJobApplicationToHR, sendJobApplicationAcknowledgement, sendTeamKycAdminNotification, sendTeamKycConfirmation, sendTeamMemberWelcomeEmail } from "./email";
 import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures, generateKycApplicationPdf, generateBlankKycApplicationPdf } from "./documentFileGenerator";
 
 const ADMIN_CHECKLISTS: Record<string, string[]> = {
@@ -667,6 +667,65 @@ export async function registerRoutes(
             });
           }
         } catch (_) {}
+      }
+
+      // On approval (transition only): send welcome email + auto-prepare NCNDA for admin to sign & send.
+      // Skip if the application was already approved on a prior PATCH so we don't resend or duplicate.
+      if (status === "approved" && app.status !== "approved") {
+        // 1) Welcome email
+        if (app.email) {
+          try {
+            await sendTeamMemberWelcomeEmail(
+              app.email,
+              app.fullName,
+              app.positionApplied || null,
+              app.employmentType || null,
+              teamUsername || null,
+            );
+          } catch (e) {
+            console.error("[team-kyc] welcome email failed:", e);
+          }
+        }
+
+        // 2) Auto-prepare NCNDA (Party A = Bullfrog Group, Party B = team member)
+        try {
+          const partyA: PartyDetails = {
+            name: "Bullfrog Group",
+            address: "Dubai, United Arab Emirates",
+            contact: "team@bullex.tech",
+          };
+          const partyB: PartyDetails = {
+            name: app.fullName,
+            address: [app.homeAddress, app.city, app.country].filter(Boolean).join(", ") || "—",
+            contact: app.email || "—",
+          };
+          const product: any = {
+            commodity: "Introduction, representation and onboarding of prospective counterparties on behalf of Bullfrog Group / Bullex Trading Platform",
+            governingLaw: "United Arab Emirates",
+            recapValidity: "Courts of Dubai, UAE",
+            validity: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }),
+          };
+          const title = `NCNDA — ${app.fullName}`;
+          const content = generateDocumentContent("NCNDA", undefined, partyB, partyA, product);
+          const created = await storage.createDocument({
+            docType: "NCNDA",
+            title,
+            content,
+            status: "pending_review",
+            adminChecks: buildAdminChecks("NCNDA"),
+            buyerEmail: app.email || null,
+            sellerEmail: null,
+          } as any);
+          try {
+            const docxPath = await generateDocx(created.id, title, content, "Bullex Admin");
+            const pdfPath = await generatePdf(created.id, title, content, "Bullex Admin");
+            await storage.updateDocument(created.id, { docxPath, pdfPath });
+          } catch (fileErr) {
+            console.error("[team-kyc] NCNDA file generation failed:", fileErr);
+          }
+        } catch (e) {
+          console.error("[team-kyc] auto-NCNDA creation failed:", e);
+        }
       }
 
       res.json({ ...updated, teamPassword: undefined });

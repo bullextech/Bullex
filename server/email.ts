@@ -1001,6 +1001,65 @@ export async function sendTeamKycConfirmation(
   return sendEmail(to, "Bullex — Your Team KYC Application Has Been Received", emailWrapper(body));
 }
 
+export async function sendTeamMemberWelcomeEmail(
+  to: string,
+  fullName: string,
+  position: string | null,
+  employmentType: string | null,
+  username: string | null,
+): Promise<boolean> {
+  const isAgent = (employmentType || "").toLowerCase() === "agent";
+  const roleLine = position
+    ? `${position}${employmentType ? ` (${employmentType})` : ""}`
+    : (employmentType || "Team Member");
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Welcome to Bullfrog Group, ${escapeHtml(fullName)}</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${escapeHtml(fullName)},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      On behalf of <strong>Bullfrog Group</strong>, it is our pleasure to welcome you on board as
+      <strong>${escapeHtml(roleLine)}</strong>. We are delighted to have you join our team and look
+      forward to a long, successful and rewarding association.
+    </p>
+
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #166534; margin: 0; font-weight: 700;">&#10003; Your Team KYC has been approved</p>
+      ${username ? `<p style="color: #166534; margin: 6px 0 0; font-size: 13px;">Your Bullex login username: <strong>${escapeHtml(username)}</strong> (password shared separately).</p>` : ""}
+    </div>
+
+    <h3 style="color: #1e293b; margin: 24px 0 8px;">About Bullex Trading Platform</h3>
+    <p style="color: #475569; line-height: 1.6;">
+      <strong>Bullex</strong> is the proprietary commodity trading platform of Bullfrog Group — an
+      institutional-grade, blockchain-backed system used across our global operations to manage the
+      full commodity trade lifecycle. It brings together client onboarding, trade execution, document
+      generation, and immutable verification in a single, audited environment.
+    </p>
+    <ul style="color: #475569; line-height: 1.7; padding-left: 20px;">
+      <li><strong>Client Onboarding &amp; KYC</strong> — institutional KYC capture with admin review and approval workflow.</li>
+      <li><strong>Trade Lifecycle Management</strong> — track every deal from enquiry through pre-deal, deal, execution and final payment.</li>
+      <li><strong>Document Generation</strong> — produce LOI, SCO, ICPO, Deal Recap, SPA, NCNDA, BL, COO and more, with digital signatures and PDF/DOCX export.</li>
+      <li><strong>Blockchain Verification</strong> — every trade, KYC and amendment is hashed and recorded on our private ledger for tamper-evident provenance.</li>
+      <li><strong>Client &amp; Team Portals</strong> — approved counterparties and our internal team each work in dedicated, role-aware portals.</li>
+    </ul>
+
+    <h3 style="color: #1e293b; margin: 24px 0 8px;">Your Role at Bullex</h3>
+    <p style="color: #475569; line-height: 1.6;">
+      ${isAgent
+        ? `As an <strong>Agent</strong> of Bullfrog Group, you will use Bullex to introduce and manage prospective counterparties, log enquiries on behalf of clients you represent, and track the resulting deals through the platform. A Mutual Non-Circumvention Non-Disclosure Agreement (NCNDA) covering your engagement is being prepared and will be sent to you shortly for execution.`
+        : `As part of the Bullex team, you will use the platform to support clients, originate and execute trades, prepare and circulate trade documentation, and contribute to the integrity of our blockchain-verified record of business.`
+      }
+    </p>
+
+    <p style="color: #475569; line-height: 1.6;">
+      Please complete any pending document signatures sent to you separately, and reach out to
+      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a> with any questions
+      about access, training or your first steps on the platform.
+    </p>
+
+    <p style="color: #475569; margin: 24px 0 0;">Warm welcome and best wishes,<br /><strong>Bullfrog Group · Bullex Trading Platform</strong></p>
+  `;
+  return sendEmail(to, `Welcome to Bullfrog Group — ${fullName}`, emailWrapper(body));
+}
+
 export async function sendKycApplicationPdfEmail(
   to: string,
   recipientName: string,

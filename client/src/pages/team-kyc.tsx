@@ -517,6 +517,7 @@ export default function TeamKYC() {
                           <SelectItem value="Part-Time">Part-Time</SelectItem>
                           <SelectItem value="Contract">Contract</SelectItem>
                           <SelectItem value="Consultant">Consultant</SelectItem>
+                          <SelectItem value="Agent">Agent</SelectItem>
                           <SelectItem value="Intern">Intern</SelectItem>
                         </SelectContent>
                       </Select>
