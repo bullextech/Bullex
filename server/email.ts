@@ -38,7 +38,7 @@ async function sendEmail(to: string, subject: string, html: string, attachments?
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error("[email] Failed to send email:", errorData);
+      console.error(`[email] Failed to send email to ${to} (status ${response.status}) using from="${payload.from}": ${errorData}`);
       return false;
     }
 

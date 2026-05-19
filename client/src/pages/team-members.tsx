@@ -192,16 +192,22 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
   });
 
   const reviewMutation = useMutation({
-    mutationFn: (body: { status: string; reviewNotes?: string; teamUsername?: string; teamPassword?: string; allowedModules?: string[] }) =>
-      apiRequest("PATCH", `/api/team-kyc/${app.id}`, body),
-    onSuccess: (_, vars) => {
+    mutationFn: async (body: { status: string; reviewNotes?: string; teamUsername?: string; teamPassword?: string; allowedModules?: string[] }) => {
+      const res = await apiRequest("PATCH", `/api/team-kyc/${app.id}`, body);
+      try { return await res.json(); } catch { return {}; }
+    },
+    onSuccess: (data: any, vars) => {
       queryClient.invalidateQueries({ queryKey: ["/api/team-kyc"] });
       queryClient.invalidateQueries({ queryKey: ["/api/team/members"] });
+      const emailFailed = vars.status === "approved" && data && data.emailSent !== true;
       toast({
         title: vars.status === "approved" ? "Application Approved" : "Application Rejected",
         description: vars.status === "approved"
-          ? `${app.fullName} has been approved and their account created.`
+          ? (emailFailed
+              ? `${app.fullName} has been approved and their account created. ⚠ Welcome email was NOT delivered: ${data?.emailError || "no confirmation from email provider"}`
+              : `${app.fullName} has been approved, account created, and welcome email sent to ${app.email}.`)
           : `${app.fullName}'s application has been rejected.`,
+        variant: emailFailed ? "destructive" : "default",
       });
       onClose();
     },

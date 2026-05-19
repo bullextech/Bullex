@@ -691,6 +691,8 @@ export async function registerRoutes(
 
       // On approval (transition only): send welcome email + auto-prepare NCNDA for admin to sign & send.
       // Skip if the application was already approved on a prior PATCH so we don't resend or duplicate.
+      let emailSent: boolean | null = null;
+      let emailError: string | null = null;
       if (status === "approved" && app.status !== "approved") {
         // 1) Welcome email — include participant ID from the freshly-created/updated team member.
         let welcomeParticipantId: string | null = null;
@@ -700,9 +702,12 @@ export async function registerRoutes(
             welcomeParticipantId = tm?.participantId || null;
           }
         } catch (_) {}
-        if (app.email) {
+        if (!app.email) {
+          emailError = "No email address on the application — welcome email skipped.";
+          console.warn("[team-kyc] welcome email skipped: no recipient email");
+        } else {
           try {
-            await sendTeamMemberWelcomeEmail(
+            emailSent = await sendTeamMemberWelcomeEmail(
               app.email,
               app.fullName,
               app.positionApplied || null,
@@ -710,7 +715,12 @@ export async function registerRoutes(
               teamUsername || null,
               welcomeParticipantId,
             );
-          } catch (e) {
+            if (!emailSent) {
+              emailError = `Welcome email was rejected by the email provider. Recipient: ${app.email}. Check server logs and ensure your Resend "from" domain is verified.`;
+            }
+          } catch (e: any) {
+            emailSent = false;
+            emailError = `Welcome email failed: ${e?.message || "unknown error"}`;
             console.error("[team-kyc] welcome email failed:", e);
           }
         }
@@ -756,7 +766,7 @@ export async function registerRoutes(
         }
       }
 
-      res.json({ ...updated, teamPassword: undefined });
+      res.json({ ...updated, teamPassword: undefined, emailSent, emailError });
     } catch (err: any) {
       res.status(500).json({ message: err.message || "Failed to update application" });
     }
