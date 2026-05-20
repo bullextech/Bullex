@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
+  Activity,
   ShieldCheck,
   SearchCheck,
   FileText,
@@ -17,6 +18,7 @@ import { useAuth } from "@/hooks/use-auth";
 
 export const PLATFORM_MODULES = [
   { id: "dashboard",      title: "Dashboard",      url: "/dashboard",       icon: LayoutDashboard, description: "Platform overview, metrics & summary" },
+  { id: "terminal",       title: "Trading Terminal", url: "/terminal",      icon: Activity,        description: "Live trading dashboard & market overview" },
   { id: "registrations",  title: "Registrations",  url: "/registrations",   icon: UserPlus,        description: "Client registration applications" },
   { id: "kyc-admin",      title: "KYC Admin",      url: "/kyc-admin",       icon: ShieldCheck,     description: "Client KYC reviews & approvals" },
   { id: "enquiries",      title: "Enquiries",      url: "/trade-enquiries", icon: SearchCheck,     description: "Trade enquiry management" },

@@ -39,6 +39,7 @@ import DatabaseBackup from "@/pages/database-backup";
 import TaskBoard from "@/pages/task-board";
 import TeamPortal from "@/pages/team-portal";
 import TeamReset from "@/pages/team-reset";
+import TradingTerminal from "@/pages/trading-terminal";
 
 // Always requires login; admins get full access, team members get all modules unrestricted by this gate
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
@@ -94,6 +95,7 @@ function Router() {
     <Switch>
       <Route path="/">{() => <HomeOrTeamPortal />}</Route>
       <Route path="/dashboard">{() => <ModuleRoute component={Dashboard} moduleId="dashboard" />}</Route>
+      <Route path="/terminal">{() => <ModuleRoute component={TradingTerminal} moduleId="terminal" />}</Route>
       <Route path="/registrations">{() => <ModuleRoute component={RegistrationsAdmin} moduleId="registrations" />}</Route>
       <Route path="/kyc-admin">{() => <ModuleRoute component={KycAdmin} moduleId="kyc-admin" />}</Route>
       <Route path="/team">{() => <ProtectedRoute component={TeamMembers} />}</Route>
