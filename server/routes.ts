@@ -1131,6 +1131,128 @@ export async function registerRoutes(
     }
   });
 
+  // Generate NCNDA against a registered team member (by team_members.id).
+  // Party A (Issuer) = Bullfrog Group; Party B (Receiving Party) = the team member (Agent).
+  app.post("/api/team-members/:id/generate-ncnda", requireAdminAuth, async (req, res) => {
+    try {
+      const tm = await storage.getTeamMemberById(req.params.id);
+      if (!tm) return res.status(404).json({ message: "Team member not found" });
+      const participantId = tm.participantId || null;
+
+      const partyA: any = { name: "Bullfrog Group", address: "Dubai, United Arab Emirates", contact: "team@bullex.tech" };
+      const partyB: any = {
+        name: tm.name,
+        address: [tm.homeAddress, tm.city, tm.country].filter(Boolean).join(", ") || "—",
+        contact: tm.email || "—",
+      };
+      const product: any = {
+        commodity: "Introduction, representation and onboarding of prospective counterparties on behalf of Bullfrog Group / Bullex Trading Platform",
+        governingLaw: "United Arab Emirates",
+        recapValidity: "Courts of Dubai, UAE",
+        validity: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }),
+      };
+
+      const title = `NCNDA — ${tm.name}`;
+      const content = generateDocumentContent("NCNDA", undefined, partyB, partyA, product);
+      const created = await storage.createDocument({
+        docType: "NCNDA",
+        title,
+        content,
+        status: "pending_review",
+        adminChecks: buildAdminChecks("NCNDA"),
+        buyerEmail: tm.email || null,
+        sellerEmail: null,
+        agentCode: participantId,
+      } as any);
+      try {
+        const docxPath = await generateDocx(created.id, title, content, "Bullex Admin", participantId || undefined);
+        const pdfPath = await generatePdf(created.id, title, content, "Bullex Admin", participantId || undefined);
+        await storage.updateDocument(created.id, { docxPath, pdfPath });
+      } catch (fileErr: any) {
+        console.error("[tm-ncnda] file generation failed:", fileErr?.message || fileErr);
+      }
+      const fresh = await storage.getDocumentById(created.id);
+      res.json(fresh || created);
+    } catch (err: any) {
+      console.error("[tm-ncnda] generation failed:", err);
+      res.status(500).json({ message: err.message || "Failed to generate NCNDA" });
+    }
+  });
+
+  // Generate ICA against a registered team member (by team_members.id).
+  // Principal = Bullfrog Group; Agent = the team member.
+  app.post("/api/team-members/:id/generate-ica", requireAdminAuth, async (req, res) => {
+    try {
+      const tm = await storage.getTeamMemberById(req.params.id);
+      if (!tm) return res.status(404).json({ message: "Team member not found" });
+      const participantId = tm.participantId || null;
+      if (!participantId) {
+        return res.status(400).json({ message: "Team member has no participant ID allocated; cannot generate ICA without an agent code" });
+      }
+
+      const agentLabel = req.body?.agentLabel || "Agent";
+      const agencyType = req.body?.agencyType || "Non-Exclusive";
+
+      const principal: any = { name: "Bullfrog Group", address: "Dubai, United Arab Emirates", contact: "team@bullex.tech" };
+      const agent: any = {
+        name: tm.name,
+        address: [tm.homeAddress, tm.city, tm.country].filter(Boolean).join(", ") || "—",
+        contact: tm.email || "—",
+      };
+      const product: any = {
+        effectiveDate: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }),
+        agentLabel,
+        agencyType,
+        principalCountry: "United Arab Emirates",
+        principalEntityType: "Group Holding",
+        agentCountry: tm.country || undefined,
+        agentEntityType: tm.employmentType || "Individual",
+        agentRepresentative: tm.name,
+        agentDesignation: tm.position || undefined,
+        agentBankName: tm.bankName || undefined,
+        agentBankAddress: tm.bankBranch || undefined,
+        agentAccountName: tm.payrollAccountName || undefined,
+        agentAccountNumber: tm.payrollAccountNumber || undefined,
+        agentSwift: tm.payrollSwift || undefined,
+        commodity: "Introduction, representation and onboarding of prospective counterparties on behalf of Bullfrog Group / Bullex Trading Platform",
+        governingLaw: "United Arab Emirates",
+        seatOfArbitration: "Dubai, UAE",
+        venueOfArbitration: "Dubai International Arbitration Centre (DIAC)",
+        numArbitrators: "One",
+        termYears: "3",
+        recordKeepingYears: "7",
+        amlOption: "Standard Commercial Compliance",
+        commissionStructure: req.body?.commissionStructure || undefined,
+        commissionBasis: req.body?.commissionBasis || undefined,
+      };
+
+      const title = `ICA — ${tm.name}`;
+      const content = generateDocumentContent("ICA", undefined, principal, agent, product);
+      const created = await storage.createDocument({
+        docType: "ICA",
+        title,
+        content,
+        status: "pending_review",
+        adminChecks: buildAdminChecks("ICA"),
+        buyerEmail: null,
+        sellerEmail: tm.email || null,
+        agentCode: participantId,
+      } as any);
+      try {
+        const docxPath = await generateDocx(created.id, title, content, "Bullex Admin", participantId);
+        const pdfPath = await generatePdf(created.id, title, content, "Bullex Admin", participantId);
+        await storage.updateDocument(created.id, { docxPath, pdfPath });
+      } catch (fileErr: any) {
+        console.error("[tm-ica] file generation failed:", fileErr?.message || fileErr);
+      }
+      const fresh = await storage.getDocumentById(created.id);
+      res.json(fresh || created);
+    } catch (err: any) {
+      console.error("[tm-ica] generation failed:", err);
+      res.status(500).json({ message: err.message || "Failed to generate ICA" });
+    }
+  });
+
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy(() => {
       res.json({ authenticated: false });

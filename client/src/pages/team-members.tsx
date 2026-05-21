@@ -16,7 +16,7 @@ import {
   User, Phone, Briefcase, GraduationCap, Heart, Landmark, Lock,
   ChevronRight, Camera, FilePlus, UserCheck,
   CheckCircle2, XCircle, PenTool, ImageIcon, AlertCircle, ClipboardList,
-  Mail, Send, Copy, ExternalLink, ShieldCheck, RefreshCw, KeyRound,
+  Mail, Send, Copy, ExternalLink, ShieldCheck, RefreshCw, KeyRound, FileSignature,
 } from "lucide-react";
 import { PLATFORM_MODULES } from "@/components/admin-sidebar";
 import { useAuth } from "@/hooks/use-auth";
@@ -878,6 +878,7 @@ function LockedMemberView({
   sendingReset: boolean;
   onNavigate: (to: string) => void;
 }) {
+  const { toast } = useToast();
   return (
     <div className="max-w-4xl mx-auto space-y-5 pb-10" data-testid="locked-member-view">
       <div className="border border-primary/30 bg-primary/5 px-4 py-2.5 flex items-center gap-2.5 rounded-none">
@@ -887,6 +888,65 @@ function LockedMemberView({
           <p className="text-[11px] text-muted-foreground">This team member has been approved. All profile data is read-only and cannot be amended. Use the secure reset link below to let the member update their own password.</p>
         </div>
       </div>
+
+      <LockedSection icon={FileText} title="Agent Agreements">
+        <div className="flex items-start gap-2.5 mb-3">
+          <FileSignature className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-xs font-bold">Generate NCNDA / ICA</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Create a Mutual Non-Circumvention / Non-Disclosure Agreement or an International Commission Agreement with this team member as the Agent. Agent code{member.participantId ? <> <span className="font-mono font-bold">{member.participantId}</span></> : <> (not allocated)</>} is stamped in the document footer automatically.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="rounded-none text-xs font-bold uppercase tracking-wider h-8"
+            onClick={async () => {
+              try {
+                const r = await apiRequest("POST", `/api/team-members/${member.id}/generate-ncnda`, {});
+                await r.json();
+                toast({ title: "NCNDA generated", description: `NCNDA created for ${member.name}. Open the Document Generator to review and sign.` });
+                queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+              } catch (err: any) {
+                toast({ title: "NCNDA generation failed", description: err?.message || "Could not generate NCNDA.", variant: "destructive" });
+              }
+            }}
+            data-testid="btn-locked-generate-ncnda"
+          >
+            <FileSignature className="w-3.5 h-3.5 mr-1.5" />
+            Generate NCNDA
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="default"
+            className="rounded-none text-xs font-bold uppercase tracking-wider h-8"
+            disabled={!member.participantId}
+            onClick={async () => {
+              try {
+                const r = await apiRequest("POST", `/api/team-members/${member.id}/generate-ica`, {
+                  agentLabel: "Agent",
+                  agencyType: "Non-Exclusive",
+                });
+                await r.json();
+                toast({ title: "ICA generated", description: `International Commission Agreement created for ${member.name}. Open the Document Generator to review and sign.` });
+                queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+              } catch (err: any) {
+                toast({ title: "ICA generation failed", description: err?.message || "Could not generate ICA.", variant: "destructive" });
+              }
+            }}
+            data-testid="btn-locked-generate-ica"
+          >
+            <FileSignature className="w-3.5 h-3.5 mr-1.5" />
+            Generate ICA
+          </Button>
+        </div>
+        {!member.participantId && <p className="text-[10px] text-amber-600 mt-2">ICA disabled — this team member has no Participant ID allocated.</p>}
+      </LockedSection>
 
       <LockedSection icon={Lock} title="Login & Account">
         <div className="grid grid-cols-2 gap-x-5 gap-y-3">
