@@ -391,6 +391,49 @@ export default function TeamKycAdmin() {
                     </span>
                   )}
                   {statusBadge(app.status)}
+                  {app.status === "approved" && app.teamUsername && (
+                    <div className="hidden md:flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="text-[10px] h-7 px-2"
+                        onClick={async () => {
+                          try {
+                            const r = await apiRequest("POST", `/api/team-kyc/${app.id}/generate-ncnda`, {});
+                            await r.json();
+                            toast({ title: "NCNDA generated", description: `NCNDA created for ${app.fullName}.` });
+                            queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+                          } catch (err: any) {
+                            toast({ title: "NCNDA generation failed", description: err?.message || "Could not generate NCNDA.", variant: "destructive" });
+                          }
+                        }}
+                        data-testid={`btn-team-kyc-header-ncnda-${app.id}`}
+                      >
+                        Generate NCNDA
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="text-[10px] h-7 px-2"
+                        onClick={async () => {
+                          try {
+                            const r = await apiRequest("POST", `/api/team-kyc/${app.id}/generate-ica`, {
+                              agentLabel: "Agent",
+                              agencyType: "Non-Exclusive",
+                            });
+                            await r.json();
+                            toast({ title: "ICA generated", description: `International Commission Agreement created for ${app.fullName}.` });
+                            queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+                          } catch (err: any) {
+                            toast({ title: "ICA generation failed", description: err?.message || "Could not generate ICA.", variant: "destructive" });
+                          }
+                        }}
+                        data-testid={`btn-team-kyc-header-ica-${app.id}`}
+                      >
+                        Generate ICA
+                      </Button>
+                    </div>
+                  )}
                   <span className="text-xs text-muted-foreground hidden sm:block">
                     {new Date(app.createdAt).toLocaleDateString()}
                   </span>
