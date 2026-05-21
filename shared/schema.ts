@@ -156,6 +156,7 @@ export const documents = pgTable("documents", {
   recipientAmendmentNotes: text("recipient_amendment_notes"),
   parentDocId: text("parent_doc_id"),
   submittedByTeamMemberId: varchar("submitted_by_team_member_id"),
+  agentCode: text("agent_code"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

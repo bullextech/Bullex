@@ -55,6 +55,7 @@ import {
   CalendarDays,
   Loader2,
   Trash2,
+  FileSignature,
 } from "lucide-react";
 import type { DailyReport, TeamTask } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -1227,6 +1228,34 @@ export default function KycAdmin() {
                                     <Pencil className="w-3.5 h-3.5" />
                                     Amend (Admin)
                                   </Button>
+                                  {(() => {
+                                    const AGENT_CATEGORIES = ["Port Agent","Shipping Agent","Chartering Broker","Custom Clearing Agent","Stevedoring Agent","Analysis Agency"];
+                                    if (!app.category || !AGENT_CATEGORIES.includes(app.category)) return null;
+                                    return (
+                                      <Button
+                                        size="sm"
+                                        variant="default"
+                                        className="w-full rounded-none h-9 text-xs font-bold uppercase tracking-wider gap-1.5"
+                                        onClick={async () => {
+                                          try {
+                                            const r = await apiRequest("POST", `/api/kyc/${app.id}/generate-ica`, {
+                                              agentLabel: app.category === "Chartering Broker" ? "Broker" : "Agent",
+                                              agencyType: "Non-Exclusive",
+                                            });
+                                            const created = await r.json();
+                                            toast({ title: "ICA generated", description: `International Commission Agreement created for ${app.companyName}.` });
+                                            queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+                                          } catch (err: any) {
+                                            toast({ title: "ICA generation failed", description: err?.message || "Could not generate ICA.", variant: "destructive" });
+                                          }
+                                        }}
+                                        data-testid={`button-generate-ica-${app.id}`}
+                                      >
+                                        <FileSignature className="w-3.5 h-3.5" />
+                                        Generate ICA
+                                      </Button>
+                                    );
+                                  })()}
                                 </div>
                               ) : (
                               <div className="space-y-3">

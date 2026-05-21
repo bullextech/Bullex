@@ -88,6 +88,7 @@ const docTypes = [
   { value: "COA", label: "Certificate of Quality", short: "COA", description: "Independent quality inspection certificate with chemical analysis, moisture content and physical size results, auto-filled from the corresponding LC", icon: FileCheck },
   { value: "COW", label: "Certificate of Weight", short: "COW", description: "Draft survey weight certificate issued at loading port confirming wet and dry metric tons, auto-filled from the corresponding LC", icon: FileCheck },
   { value: "CI", label: "Commercial Invoice", short: "CI", description: "Provisional commercial invoice showing seller/buyer details, shipment info, commodity quantity & price table, and total invoice value — auto-filled from the corresponding LC", icon: BadgeDollarSign },
+  { value: "ICA", label: "International Commission Agreement", short: "ICA", description: "ICC-compliant master commission agreement between Principal and Agent/Broker/Facilitator, including Annexure A (IMFPA), Annexure B (NCNDA) and full AML/Compliance article", icon: FileSignature },
 ];
 
 export default function DocumentGenerator() {

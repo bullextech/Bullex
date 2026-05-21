@@ -70,7 +70,55 @@ const ADMIN_CHECKLISTS: Record<string, string[]> = {
     "Both party signatories authorised",
     "Sanctions and anti-bribery clauses reviewed",
   ],
+  ICA: [
+    "Principal details verified against company records",
+    "Agent / Broker details verified against approved KYC application",
+    "Agent participant ID (agent code) present on the document",
+    "Agency type (Exclusive / Non-Exclusive) selected",
+    "Commission structure, basis and currency complete",
+    "Transaction details (commodity, qty, value, incoterm) consistent",
+    "Governing law, seat of arbitration and ICC clause set",
+    "AML / sanctions / anti-bribery articles reviewed",
+    "Annexure A (IMFPA) and Annexure B (NCNDA) attached",
+    "Signatory blocks for Principal and Agent complete",
+  ],
 };
+async function resolveAgentCode(opts: {
+  buyerEmail?: string | null;
+  sellerEmail?: string | null;
+  sentToClientId?: string | null;
+  submittedByTeamMemberId?: string | null;
+}): Promise<string | null> {
+  try {
+    // 1) Prefer the explicit client recipient if linked.
+    if (opts.sentToClientId) {
+      const k = await storage.getKycApplicationById(opts.sentToClientId);
+      if (k?.participantId) return k.participantId;
+    }
+    // 2) Match an approved KYC by buyer/seller email.
+    const emails = [opts.buyerEmail, opts.sellerEmail].filter(Boolean) as string[];
+    if (emails.length) {
+      const all = await storage.getKycApplications();
+      for (const e of emails) {
+        const hit = all.find(a =>
+          a.status === "approved" &&
+          a.participantId &&
+          [a.signatoryEmail, a.contactEmail, a.filledByEmail].filter(Boolean).some(x => (x as string).toLowerCase() === e.toLowerCase())
+        );
+        if (hit?.participantId) return hit.participantId;
+      }
+    }
+    // 3) Fall back to the submitting team member's participant ID.
+    if (opts.submittedByTeamMemberId) {
+      const tm = await storage.getTeamMemberById(opts.submittedByTeamMemberId);
+      if (tm?.participantId) return tm.participantId;
+    }
+  } catch (err) {
+    console.error("[agent-code] resolution failed:", err);
+  }
+  return null;
+}
+
 const DEFAULT_CHECKLIST = [
   "Document details complete and accurate",
   "Trade reference verified",
@@ -845,10 +893,11 @@ export async function registerRoutes(
             adminChecks: buildAdminChecks("NCNDA"),
             buyerEmail: app.email || null,
             sellerEmail: null,
+            agentCode: welcomeParticipantId || null,
           } as any);
           try {
-            const docxPath = await generateDocx(created.id, title, content, "Bullex Admin");
-            const pdfPath = await generatePdf(created.id, title, content, "Bullex Admin");
+            const docxPath = await generateDocx(created.id, title, content, "Bullex Admin", welcomeParticipantId || undefined);
+            const pdfPath = await generatePdf(created.id, title, content, "Bullex Admin", welcomeParticipantId || undefined);
             await storage.updateDocument(created.id, { docxPath, pdfPath });
           } catch (fileErr) {
             console.error("[team-kyc] NCNDA file generation failed:", fileErr);
@@ -924,11 +973,12 @@ export async function registerRoutes(
           adminChecks: buildAdminChecks("NCNDA"),
           buyerEmail: app.email || null,
           sellerEmail: null,
+          agentCode: resendParticipantId || null,
         } as any);
         ncndaDocId = created.id;
         try {
-          const docxPath = await generateDocx(created.id, title, content, "Bullex Admin");
-          const pdfPath = await generatePdf(created.id, title, content, "Bullex Admin");
+          const docxPath = await generateDocx(created.id, title, content, "Bullex Admin", resendParticipantId || undefined);
+          const pdfPath = await generatePdf(created.id, title, content, "Bullex Admin", resendParticipantId || undefined);
           await storage.updateDocument(created.id, { docxPath, pdfPath });
         } catch (fileErr) {
           console.error("[team-kyc] resend NCNDA file generation failed:", fileErr);
@@ -1581,6 +1631,89 @@ export async function registerRoutes(
       res.json(sanitizeKyc(finalResult));
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to update KYC status" });
+    }
+  });
+
+  // Generate an International Commission Agreement (ICA) for an approved KYC application
+  // (typically used for Agent / Broker / Facilitator participant categories).
+  app.post("/api/kyc/:id/generate-ica", requireAdminAuth, async (req, res) => {
+    try {
+      const kyc = await storage.getKycApplicationById(req.params.id);
+      if (!kyc) return res.status(404).json({ message: "KYC application not found" });
+      if (kyc.status !== "approved") {
+        return res.status(400).json({ message: "ICA can only be generated for approved KYC applications" });
+      }
+      if (!kyc.participantId) {
+        return res.status(400).json({ message: "KYC has no participant ID allocated; cannot generate ICA without an agent code" });
+      }
+
+      const agentLabel = req.body?.agentLabel || "Agent";
+      const agencyType = req.body?.agencyType || "Non-Exclusive";
+
+      const principal = {
+        name: "Bullfrog Group",
+        address: "Dubai, United Arab Emirates",
+        contact: "team@bullex.tech",
+      };
+      const agent = {
+        name: kyc.companyName,
+        address: [kyc.registeredAddress, kyc.primaryBusinessAddress].filter(Boolean).join(" / ") || "—",
+        contact: kyc.signatoryEmail || kyc.contactEmail || "—",
+      };
+      const product: any = {
+        effectiveDate: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }),
+        agentLabel,
+        agencyType,
+        principalCountry: "United Arab Emirates",
+        principalEntityType: "Group Holding",
+        agentCountry: kyc.countryOfOperation || undefined,
+        agentEntityType: kyc.businessType || undefined,
+        agentRepresentative: kyc.signatoryName || kyc.contactName || undefined,
+        agentDesignation: kyc.signatoryTitle || kyc.contactTitle || undefined,
+        agentBankName: kyc.bankName || undefined,
+        agentBankAddress: kyc.bankAddress || undefined,
+        agentAccountName: kyc.accountName || undefined,
+        agentAccountNumber: kyc.accountNumber || undefined,
+        agentSwift: kyc.swiftCode || undefined,
+        commodity: kyc.products || kyc.coreBusinessDescription || undefined,
+        governingLaw: "United Arab Emirates",
+        seatOfArbitration: "Dubai, UAE",
+        venueOfArbitration: "Dubai International Arbitration Centre (DIAC)",
+        numArbitrators: "One",
+        termYears: "3",
+        recordKeepingYears: "7",
+        amlOption: "Standard Commercial Compliance",
+        commissionStructure: req.body?.commissionStructure || undefined,
+        commissionBasis: req.body?.commissionBasis || undefined,
+      };
+
+      const title = `ICA — ${kyc.companyName}`;
+      const content = generateDocumentContent("ICA", undefined, principal as any, agent as any, product);
+      const created = await storage.createDocument({
+        docType: "ICA",
+        title,
+        content,
+        status: "pending_review",
+        adminChecks: buildAdminChecks("ICA"),
+        buyerEmail: null,
+        sellerEmail: kyc.signatoryEmail || kyc.contactEmail || null,
+        sentToClientId: kyc.id,
+        agentCode: kyc.participantId,
+      } as any);
+
+      try {
+        const docxPath = await generateDocx(created.id, title, content, "Bullex Admin", kyc.participantId);
+        const pdfPath = await generatePdf(created.id, title, content, "Bullex Admin", kyc.participantId);
+        await storage.updateDocument(created.id, { docxPath, pdfPath });
+      } catch (fileErr: any) {
+        console.error("[ica] file generation failed:", fileErr?.message || fileErr);
+      }
+
+      const fresh = await storage.getDocumentById(created.id);
+      res.json(fresh || created);
+    } catch (err: any) {
+      console.error("[ica] generation failed:", err);
+      res.status(500).json({ message: err.message || "Failed to generate ICA" });
     }
   });
 
@@ -2433,6 +2566,14 @@ export async function registerRoutes(
 
       const content = generateDocumentContent(parsed.data.docType, trade, buyerDetails, sellerDetails, { ...productDetails, loiIssueNumber: issueNumber, dealRecapNumber: dealRecapNumber || undefined });
       const adminChecks = buildAdminChecks(parsed.data.docType);
+      const buyerEmailExtracted = buyerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || null;
+      const sellerEmailExtracted = sellerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || null;
+      const resolvedAgentCode = await resolveAgentCode({
+        buyerEmail: buyerEmailExtracted,
+        sellerEmail: sellerEmailExtracted,
+        sentToClientId: (parsed.data as any).sentToClientId || null,
+        submittedByTeamMemberId,
+      });
       const result = await storage.createDocument({
         ...parsed.data,
         content,
@@ -2442,17 +2583,18 @@ export async function registerRoutes(
         dealRecapNumber,
         enquiryRef,
         submittedByTeamMemberId,
-        buyerEmail: buyerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || null,
-        sellerEmail: sellerDetails?.contact?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || null,
-      });
+        agentCode: resolvedAgentCode,
+        buyerEmail: buyerEmailExtracted,
+        sellerEmail: sellerEmailExtracted,
+      } as any);
 
       try {
         const isLoi = parsed.data.docType === "LOI";
         const submittedByLabel = await getDocSubmittedByLabel(submittedByTeamMemberId);
-        const docxPath = await generateDocx(result.id, result.title, content, submittedByLabel);
+        const docxPath = await generateDocx(result.id, result.title, content, submittedByLabel, resolvedAgentCode || undefined);
         let pdfPath: string | undefined;
         if (!isLoi) {
-          pdfPath = await generatePdf(result.id, result.title, content, submittedByLabel);
+          pdfPath = await generatePdf(result.id, result.title, content, submittedByLabel, resolvedAgentCode || undefined);
         }
         const updated = await storage.updateDocument(result.id, { docxPath, ...(pdfPath ? { pdfPath } : {}) });
 
@@ -2548,6 +2690,7 @@ export async function registerRoutes(
           submittedByLabel,
           doc.buyerSignedIp || undefined,
           doc.sellerSignedIp || undefined,
+          (doc as any).agentCode || undefined,
         );
         const filePath = getDocFilePath(result.docxPath);
         if (!filePath) return res.status(500).json({ message: "Failed to generate DOCX file" });
@@ -2555,7 +2698,7 @@ export async function registerRoutes(
         res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
         return res.sendFile(filePath);
       }
-      const docxPath = await generateDocx(doc.id, doc.title, doc.content, submittedByLabel);
+      const docxPath = await generateDocx(doc.id, doc.title, doc.content, submittedByLabel, (doc as any).agentCode || undefined);
       await storage.updateDocument(doc.id, { docxPath });
       const filePath = getDocFilePath(docxPath);
       if (!filePath) return res.status(500).json({ message: "Failed to generate DOCX file" });
@@ -2587,6 +2730,7 @@ export async function registerRoutes(
           submittedByLabelPdf,
           doc.buyerSignedIp || undefined,
           doc.sellerSignedIp || undefined,
+          (doc as any).agentCode || undefined,
         );
         const filePath = getDocFilePath(result.pdfPath);
         if (!filePath) return res.status(500).json({ message: "Failed to generate PDF file" });
@@ -2594,7 +2738,7 @@ export async function registerRoutes(
         res.setHeader("Content-Type", "application/pdf");
         return res.sendFile(filePath);
       }
-      const pdfPath = await generatePdf(doc.id, doc.title, doc.content, submittedByLabelPdf);
+      const pdfPath = await generatePdf(doc.id, doc.title, doc.content, submittedByLabelPdf, (doc as any).agentCode || undefined);
       await storage.updateDocument(doc.id, { pdfPath });
       const filePath = getDocFilePath(pdfPath);
       if (!filePath) return res.status(500).json({ message: "Failed to generate PDF file" });
@@ -2625,6 +2769,7 @@ export async function registerRoutes(
         submittedByLabelConv,
         doc.buyerSignedIp || undefined,
         doc.sellerSignedIp || undefined,
+        (doc as any).agentCode || undefined,
       );
 
       const updated = await storage.updateDocument(doc.id, { pdfPath: result.pdfPath, status: "final" });
@@ -2718,6 +2863,7 @@ export async function registerRoutes(
             submittedByLabelSign,
             updated.buyerSignedIp || undefined,
             updated.sellerSignedIp || undefined,
+            (updated as any).agentCode || undefined,
           );
         } catch (regenErr: any) {
           console.error("Failed to regenerate files with signature:", regenErr.message);
@@ -2770,6 +2916,7 @@ export async function registerRoutes(
             submittedByLabelUnsign,
             updated.buyerSignedIp || undefined,
             updated.sellerSignedIp || undefined,
+            (updated as any).agentCode || undefined,
           );
         } catch (regenErr: any) {
           console.error("Failed to regenerate files after removing signature:", regenErr.message);
@@ -2825,6 +2972,19 @@ export async function registerRoutes(
           try {
             const { regenerateWithSignatures } = await import("./documentFileGenerator");
             const submittedByLabelSend = await getDocSubmittedByLabel(doc.submittedByTeamMemberId);
+            // If sentToClientId is set and doc has no agentCode yet, resolve now.
+            let effectiveAgentCode = (doc as any).agentCode || null;
+            if (!effectiveAgentCode) {
+              effectiveAgentCode = await resolveAgentCode({
+                buyerEmail: doc.buyerEmail,
+                sellerEmail: doc.sellerEmail,
+                sentToClientId: clientId || (doc as any).sentToClientId || null,
+                submittedByTeamMemberId: doc.submittedByTeamMemberId || null,
+              });
+              if (effectiveAgentCode) {
+                await storage.updateDocument(doc.id, { agentCode: effectiveAgentCode } as any);
+              }
+            }
             const fresh = await regenerateWithSignatures(
               doc.id, doc.title, doc.content!,
               doc.buyerSignature || undefined, doc.sellerSignature || undefined,
@@ -2835,6 +2995,7 @@ export async function registerRoutes(
               submittedByLabelSend,
               doc.buyerSignedIp || undefined,
               doc.sellerSignedIp || undefined,
+              effectiveAgentCode || undefined,
             );
             await storage.updateDocument(doc.id, { pdfPath: fresh.pdfPath, docxPath: fresh.docxPath });
             await sendDocumentEmail(recipientEmail, isNcnda ? "Party B" : "Recipient", doc.docType, doc.title, recipientRole, fresh.pdfPath, ccEmail || undefined);
@@ -2975,10 +3136,19 @@ export async function registerRoutes(
 
       try {
         const submittedByLabelNext = await getDocSubmittedByLabel(result.submittedByTeamMemberId);
-        const docxPath = await generateDocx(result.id, result.title, result.content || "", submittedByLabelNext);
+        const nextAgentCode = (parentDoc as any).agentCode || await resolveAgentCode({
+          buyerEmail: result.buyerEmail,
+          sellerEmail: result.sellerEmail,
+          sentToClientId: null,
+          submittedByTeamMemberId: result.submittedByTeamMemberId || null,
+        });
+        if (nextAgentCode) {
+          await storage.updateDocument(result.id, { agentCode: nextAgentCode } as any);
+        }
+        const docxPath = await generateDocx(result.id, result.title, result.content || "", submittedByLabelNext, nextAgentCode || undefined);
         let pdfPath: string | undefined;
         if (nextDocType !== "LOI") {
-          pdfPath = await generatePdf(result.id, result.title, result.content || "", submittedByLabelNext);
+          pdfPath = await generatePdf(result.id, result.title, result.content || "", submittedByLabelNext, nextAgentCode || undefined);
         }
         const updated = await storage.updateDocument(result.id, { docxPath, ...(pdfPath ? { pdfPath } : {}) });
         res.json(updated);

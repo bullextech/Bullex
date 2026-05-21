@@ -50,6 +50,44 @@ export interface ProductDetails {
   companyOnBehalf?: string;
   masterOfVessel?: string;
   agentsName?: string;
+  // ICA-specific fields
+  effectiveDate?: string;
+  principalEntityType?: string;
+  principalCountry?: string;
+  principalRegNo?: string;
+  principalRepresentative?: string;
+  principalDesignation?: string;
+  principalPassport?: string;
+  agentEntityType?: string;
+  agentCountry?: string;
+  agentRegNo?: string;
+  agentRepresentative?: string;
+  agentDesignation?: string;
+  agentPassport?: string;
+  agentLabel?: string; // "Agent" | "Broker" | "Facilitator"
+  agencyType?: string; // "Exclusive" | "Non-Exclusive"
+  contractRef?: string;
+  contractValue?: string;
+  commissionStructure?: string;
+  commissionBasis?: string;
+  termYears?: string;
+  seatOfArbitration?: string;
+  venueOfArbitration?: string;
+  numArbitrators?: string;
+  amlOption?: string;
+  recordKeepingYears?: string;
+  principalBankName?: string;
+  principalBankAddress?: string;
+  principalAccountName?: string;
+  principalAccountNumber?: string;
+  principalIban?: string;
+  principalSwift?: string;
+  agentBankName?: string;
+  agentBankAddress?: string;
+  agentAccountName?: string;
+  agentAccountNumber?: string;
+  agentIban?: string;
+  agentSwift?: string;
 }
 
 const today = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
@@ -1578,6 +1616,315 @@ Title: _______________
 Bank: _______________
 Date: ${today()}
 Signature & Bank Seal: _______________`,
+
+  ICA: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const principal = buyer;
+    const agent = seller;
+    const cur = product?.currency || trade?.currency || "USD";
+    const agentRoleLabel = product?.agentLabel?.trim() || "Agent";
+    const exclusiveBox = product?.agencyType?.toLowerCase() === "exclusive" ? "[X]" : "[ ]";
+    const nonExclusiveBox = product?.agencyType?.toLowerCase() === "non-exclusive" ? "[X]" : "[ ]";
+    return `INTERNATIONAL COMMISSION AGREEMENT
+(ICC COMPLIANT MASTER COMMISSION AGREEMENT)
+
+THIS INTERNATIONAL COMMISSION AGREEMENT ("Agreement") is made and entered into on ${v(product?.effectiveDate, today())} ("Effective Date")
+
+BETWEEN
+
+1. PRINCIPAL
+Company Name: ${v(principal?.name)}
+Type of Entity: ${v(product?.principalEntityType)}
+Country of Incorporation: ${v(product?.principalCountry)}
+Company Registration No.: ${v(product?.principalRegNo)}
+Registered Address: ${v(principal?.address)}
+Represented By: ${v(product?.principalRepresentative)}
+Designation: ${v(product?.principalDesignation)}
+Passport/ID No.: ${v(product?.principalPassport)}
+Telephone / Email: ${v(principal?.contact)}
+Hereinafter referred to as the "Principal".
+
+AND
+
+2. ${agentRoleLabel.toUpperCase()} / BROKER / FACILITATOR
+Company Name: ${v(agent?.name)}
+Type of Entity: ${v(product?.agentEntityType)}
+Country of Incorporation: ${v(product?.agentCountry)}
+Company Registration No.: ${v(product?.agentRegNo)}
+Registered Address: ${v(agent?.address)}
+Represented By: ${v(product?.agentRepresentative)}
+Designation: ${v(product?.agentDesignation)}
+Passport/ID No.: ${v(product?.agentPassport)}
+Telephone / Email: ${v(agent?.contact)}
+Hereinafter referred to as the "${agentRoleLabel}".
+
+The Principal and ${agentRoleLabel} are hereinafter individually referred to as a "Party" and collectively as the "Parties."
+
+RECITALS
+WHEREAS:
+A. The Principal is engaged in the business of international trade, procurement, supply, marketing, financing, brokerage, logistics, commodities, petroleum products, petrochemicals, metals, minerals, agricultural products, or related commercial activities;
+B. The ${agentRoleLabel} possesses expertise, business contacts, networks, market intelligence, and commercial relationships capable of assisting the Principal in securing commercial opportunities and transactions;
+C. The ${agentRoleLabel} desires to introduce and/or facilitate business opportunities for the Principal;
+D. The Principal agrees to compensate the ${agentRoleLabel} by payment of commission in accordance with the terms and conditions of this Agreement;
+NOW THEREFORE, in consideration of the mutual covenants herein contained, the Parties agree as follows:
+
+ARTICLE 1 – DEFINITIONS
+1.1 "Transaction" means any commercial transaction, sale, purchase, supply agreement, SPA, financing arrangement, joint venture, trade finance transaction, shipping arrangement, or business contract arising directly or indirectly from the ${agentRoleLabel}'s introduction, facilitation, negotiation, assistance, or involvement.
+1.2 "Commission" means the compensation payable to the ${agentRoleLabel} pursuant to this Agreement.
+1.3 "Buyer" means the purchaser, importer, consignee, end-user, or recipient introduced by the ${agentRoleLabel}.
+1.4 "Seller" means the supplier, exporter, manufacturer, refinery, trader, or producer involved in the Transaction.
+1.5 "Confidential Information" means all information disclosed between Parties including but not limited to trade secrets, customer data, banking information, pricing, contracts, logistics, commercial arrangements, business strategies, and financial details.
+1.6 "ICC Rules" means the rules, guidelines, and practices issued by the International Chamber of Commerce including UCP 600, URDG 758, ISP98, Incoterms®, and ICC Arbitration Rules.
+
+ARTICLE 2 – APPOINTMENT
+2.1 Appointment. The Principal hereby appoints the ${agentRoleLabel} as its:
+${nonExclusiveBox} Non-Exclusive Agent          ${exclusiveBox} Exclusive Agent
+for the purpose of introducing, facilitating, negotiating, arranging, coordinating, and assisting in Transactions.
+2.2 Scope of Services. The ${agentRoleLabel} may perform any of the following services:
+- Introduce buyers, sellers, suppliers, or financiers;
+- Facilitate negotiations between Parties;
+- Coordinate documentation;
+- Assist in banking and trade finance procedures;
+- Assist in logistics and shipment coordination;
+- Arrange meetings and communications;
+- Facilitate issuance of financial instruments;
+- Support execution of SPA/FCO/ICPO/LOI agreements;
+- Assist in dispute coordination and commercial follow-up.
+2.3 No Employment Relationship. Nothing herein shall create any partnership, employment, agency, fiduciary, or joint venture relationship unless expressly agreed in writing.
+
+ARTICLE 3 – TRANSACTION DETAILS
+Product / Commodity: ${v(product?.commodity, trade?.commodity)}
+Origin: ${v(product?.origin, trade?.origin)}
+Destination: ${v(product?.dischargePort, trade?.destination)}
+Quantity: ${v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined)}
+Contract Reference: ${v(product?.contractRef, trade?.tradeRef)}
+Approximate Contract Value: ${cur} ${v(product?.contractValue)}
+Delivery Terms (Incoterms®): ${v(product?.incoterm, trade?.incoterm)}
+Payment Terms: ${v(product?.paymentTerms)}
+
+ARTICLE 4 – COMMISSION STRUCTURE
+4.1 Commission Amount: ${v(product?.commissionStructure)}
+4.2 Commission Basis: ${v(product?.commissionBasis, "Gross Invoice Value")}
+4.3 Payment Timing. Commission payments shall be made:
+- Simultaneously with each shipment/payment;
+- Within 5 banking days from receipt of funds by the Principal;
+- Automatically from proceeds of each Transaction where applicable.
+4.4 Method of Payment. Commission shall be paid by MT103 Wire Transfer, Telegraphic Transfer (TT), SWIFT Payment, Cryptocurrency (if legally permissible), or other agreed banking method.
+4.5 Currency. All Commission payments shall be made in ${cur}.
+4.6 Irrevocable Obligation. The Principal acknowledges that the ${agentRoleLabel}'s entitlement to Commission becomes irrevocable upon successful introduction or facilitation leading to a Transaction.
+4.7 Continuing Transactions. Commission shall remain payable for contract renewals, extensions, rollovers, repeat orders, addendums, side agreements, related entities, affiliates or subsidiaries, and future transactions arising from the introduced relationship. This obligation shall survive termination of this Agreement.
+
+ARTICLE 5 – NON-CIRCUMVENTION
+5.1 The Parties irrevocably agree not to circumvent, bypass, avoid, interfere with, or attempt to exclude the ${agentRoleLabel} from any Transaction introduced under this Agreement.
+5.2 All contacts introduced by the ${agentRoleLabel} shall remain protected. The Principal shall not directly or indirectly transact with such contacts without honoring Commission obligations.
+5.3 Indirect Circumvention through related companies, nominees, subsidiaries, agents, partners, shareholders, affiliates, family members, or intermediaries shall constitute breach of this Agreement.
+5.4 Penalty. In case of circumvention, the offending Party shall be liable for full unpaid Commission, damages, legal costs, arbitration expenses, and loss of profits.
+
+ARTICLE 6 – NON-DISCLOSURE & CONFIDENTIALITY
+The Parties agree to maintain strict confidentiality concerning all Confidential Information. Neither Party shall disclose any information to third parties without written consent except to banks, legal advisors, compliance officers, or government authorities where legally required. This obligation shall survive for 3 years after termination.
+
+ARTICLE 7 – ICC RULES & INTERNATIONAL TRADE COMPLIANCE
+This Agreement shall be interpreted in accordance with internationally accepted trade practices and ICC Rules including but not limited to ICC UCP 600, ICC URDG 758, ICC ISP98, ICC Incoterms® latest edition, ICC eUCP, and ICC Arbitration Rules. All documentary credits, guarantees, trade finance instruments, and banking operations shall comply with applicable ICC standards.
+
+ARTICLE 8 – AML / KYC / SANCTIONS COMPLIANCE
+Each Party represents and warrants that it complies with AML and KYC regulations; that it is not sanctioned under UN, OFAC, EU, UK, or other applicable sanctions regimes; that funds used are from lawful sources; and that it shall cooperate with compliance and due diligence requests. Any violation may result in immediate termination.
+
+ARTICLE 9 – ANTI-BRIBERY & ETHICS
+The Parties shall comply with all applicable anti-corruption laws including the UK Bribery Act, US FCPA, OECD Anti-Bribery Convention, and applicable local laws. No illegal payments, kickbacks, or improper inducements shall be made.
+
+ARTICLE 10 – TERM & TERMINATION
+10.1 Term. This Agreement shall remain valid for ${v(product?.termYears, "3")} years from the Effective Date.
+10.2 Termination. Either Party may terminate this Agreement by giving 15 days written notice. Termination shall not affect accrued Commission rights.
+10.3 Immediate Termination may occur in cases of fraud, sanctions violations, illegal activity, material breach, or insolvency.
+
+ARTICLE 11 – FORCE MAJEURE
+Neither Party shall be liable for delay or failure caused by events beyond reasonable control including war, government restrictions, sanctions, port closures, banking restrictions, natural disasters, pandemics, civil unrest, cyber attacks, and acts of God. The affected Party shall notify the other Party promptly.
+
+ARTICLE 12 – GOVERNING LAW
+This Agreement shall be governed by the laws of ${v(product?.governingLaw)} without regard to conflict of law principles.
+
+ARTICLE 13 – DISPUTE RESOLUTION & ICC ARBITRATION
+Any dispute arising from or related to this Agreement shall be finally settled under the Rules of Arbitration of the International Chamber of Commerce (ICC).
+Seat of Arbitration: ${v(product?.seatOfArbitration)}
+Venue: ${v(product?.venueOfArbitration)}
+Language: English
+Number of Arbitrators: ${v(product?.numArbitrators, "One")}
+The arbitral award shall be final, binding, and enforceable in any competent jurisdiction.
+
+ARTICLE 14 – DIGITAL EXECUTION
+The Parties agree that electronically signed copies, PDF signatures, digital signatures, scanned copies, and electronic communications shall be deemed legally valid and enforceable as original documents.
+
+ARTICLE 15 – NOTICES
+All notices shall be made by Email, Courier, Registered mail, SWIFT, or Electronic communication. Notice shall be deemed received upon confirmed transmission.
+
+ARTICLE 16 – ASSIGNMENT
+Neither Party may assign this Agreement without prior written consent except to affiliated entities involved in the Transaction.
+
+ARTICLE 17 – ENTIRE AGREEMENT
+This Agreement constitutes the complete understanding between the Parties and supersedes all prior oral or written agreements. Any amendment must be in writing signed by both Parties.
+
+ARTICLE 18 – SEVERABILITY
+If any provision is deemed invalid or unenforceable, the remaining provisions shall remain in full force and effect.
+
+ARTICLE 19 – COUNTERPARTS
+This Agreement may be executed in counterparts, each of which shall constitute an original.
+
+ARTICLE 20 – STRICT AML, SANCTIONS, COMPLIANCE & REGULATORY PROTECTION
+1. General Compliance Undertaking. The Parties acknowledge that international trade transactions are subject to strict international banking, financial crime prevention, anti-money laundering, sanctions, anti-bribery, counter-terrorism financing, export control, and regulatory compliance requirements. Each Party agrees to fully comply with all applicable AML, CTF, KYC, sanctions, export control, anti-bribery, banking compliance and financial intelligence obligations.
+2. Applicable International Regulations include FATF Recommendations, UN/OFAC/EU/UK sanctions, US FCPA, UK Bribery Act, Wolfsberg Principles, Basel compliance principles, ICC Anti-Corruption Clause, applicable Central Bank regulations, and applicable customs and trade regulations.
+3. Compliance Standard elected for this Transaction: ${v(product?.amlOption, "Standard Commercial Compliance")}.
+4. Right to Request Compliance Documents. Each Party shall have the right to request KYC, AML, banking compliance, and trade finance documentation reasonably necessary for due diligence.
+5. Sanctions Representations. Each Party represents and warrants that it is not subject to sanctions imposed by the UN, OFAC, EU, UK, or any applicable governmental authority, nor owned or controlled by sanctioned persons or entities.
+6. Prohibited Transactions. No Party shall use this Agreement for money laundering, terrorism financing, sanctions evasion, fraudulent trade, trade-based money laundering, bribery or corruption, illegal transfer of funds, false invoicing, illegal dual-use trade, or prohibited jurisdictions or activities.
+7. Suspension Rights. If any Party reasonably suspects AML violations, fraudulent activity, sanctions exposure, suspicious financial activity, regulatory breaches, or illicit trade activity, such Party may immediately suspend performance pending compliance review without liability.
+8. Termination for Compliance Breach. Any breach of AML, sanctions, anti-corruption, export control, or regulatory obligations shall constitute material breach permitting immediate termination.
+9. Banking & Compliance Delays. Neither Party shall be liable for delays caused by legitimate compliance or banking review procedures.
+10. Record Keeping. Each Party shall maintain accurate books, records, invoices, shipping documents, compliance records, and transaction documentation for a minimum period of ${v(product?.recordKeepingYears, "7")} years following completion of the Transaction.
+11. Cooperation with Authorities. Where legally required, the Parties shall cooperate with regulatory authorities, courts, financial intelligence units, and banking institutions.
+
+ARTICLE 21 – BANKING DETAILS
+PRINCIPAL BANK DETAILS
+Bank Name: ${v(product?.principalBankName, principal?.bank)}
+Bank Address: ${v(product?.principalBankAddress)}
+Account Name: ${v(product?.principalAccountName, principal?.name)}
+Account Number: ${v(product?.principalAccountNumber)}
+IBAN: ${v(product?.principalIban)}
+SWIFT Code: ${v(product?.principalSwift, principal?.swift)}
+
+${agentRoleLabel.toUpperCase()} BANK DETAILS
+Bank Name: ${v(product?.agentBankName, agent?.bank)}
+Bank Address: ${v(product?.agentBankAddress)}
+Account Name: ${v(product?.agentAccountName, agent?.name)}
+Account Number: ${v(product?.agentAccountNumber)}
+IBAN: ${v(product?.agentIban)}
+SWIFT Code: ${v(product?.agentSwift, agent?.swift)}
+
+SIGNATURE PAGE
+FOR THE PRINCIPAL
+Company Name: ${v(principal?.name)}
+Name: ${v(product?.principalRepresentative)}
+Position: ${v(product?.principalDesignation)}
+Signature: _______________
+Date: _______________
+
+FOR THE ${agentRoleLabel.toUpperCase()}
+Company Name: ${v(agent?.name)}
+Name: ${v(product?.agentRepresentative)}
+Position: ${v(product?.agentDesignation)}
+Signature: _______________
+Date: _______________
+
+
+ANNEXURE A — IRREVOCABLE MASTER FEE PROTECTION AGREEMENT (IMFPA)
+(Integral Part of the International Commission Agreement)
+
+IMPORTANT NOTICE
+This Annexure A forms an integral and inseparable part of the International Commission Agreement and shall survive completion, termination, expiration, renewal, rollover, amendment, extension, replacement, or substitution of the Main Agreement and/or underlying commercial Transaction(s). The obligations herein are irrevocable, unconditional, continuing, and legally binding upon the Parties, their successors, assigns, affiliates, subsidiaries, nominees, agents, representatives, and beneficiaries.
+
+1. PURPOSE
+The purpose of this Annexure is to establish an irrevocable fee protection mechanism ensuring that all commissions, fees, remunerations, and intermediary compensations due to the ${agentRoleLabel}, Broker, Facilitator, Intermediary, Introducer, or Beneficiary are fully protected and paid in accordance with internationally accepted trade and banking practices including applicable ICC Rules.
+
+2. IRREVOCABLE PAYMENT UNDERTAKING
+The Principal hereby irrevocably, unconditionally, and absolutely undertakes to pay the ${agentRoleLabel} the agreed Commission for all Transaction(s) concluded directly or indirectly as a result of the ${agentRoleLabel}'s introduction, facilitation, negotiation, assistance, participation, or involvement. Such payment obligation shall remain enforceable regardless of change in transaction structure, replacement of parties, use of affiliates or nominees, assignment of contract, change of commodity, destination, vessel, banking arrangements, amendment to SPA or underlying agreements, corporate restructuring, termination of intermediary relationships, or direct dealings between parties introduced by the ${agentRoleLabel}.
+
+3. ICC RULES & INTERNATIONAL BANKING STANDARDS
+The Parties expressly agree that all payments, banking instruments, trade finance mechanisms, and obligations arising under this Annexure shall be interpreted and implemented in accordance with internationally recognized ICC standards including ICC UCP 600, ICC URDG 758, ICC ISP98, ICC Incoterms® (latest edition), ICC eRules, ICC Rules of Arbitration, ICC Banking Commission Opinions and Guidelines, ICC Anti-Corruption Clause, and ICC Model International Sale Contract principles where applicable.
+
+4. FEE PROTECTION OBLIGATION
+4.1 Earned Commission. Commission shall be deemed fully earned immediately upon successful introduction of Buyer and Seller; execution of LOI, ICPO, FCO, SPA, MOU, Term Sheet, or Contract; issuance of banking instruments; receipt of payment by Principal; shipment commencement; or any commercial benefit derived from the introduced relationship.
+4.2 No Avoidance. The Principal shall not avoid payment of Commission by changing company names, using affiliated entities, utilizing subsidiaries or holding companies, appointing alternative intermediaries, re-routing transactions, splitting contracts, altering invoice structures, or using third-party payment structures.
+4.3 Automatic Continuity. Fee protection shall automatically extend to renewals, extensions, rollovers, repeat shipments, spot contracts, framework agreements, additional quantities, addendums, side agreements, and future contracts between introduced parties.
+
+5. PAYMENT MECHANISM
+5.1 Timing. Commission payments shall be made simultaneously with receipt of commercial proceeds, on each shipment, on each tranche/payment received, without delay, deduction, withholding, or set-off.
+5.2 Currency. All payments shall be made in freely transferable currency unless otherwise agreed.
+5.3 Banking Method. MT103, SWIFT Wire Transfer, Escrow, Documentary Credit, automated split-payment structures, or blockchain-based payment systems where lawful.
+5.4 Banking Charges. All sending bank charges shall be borne by the Principal and receiving bank charges by the ${agentRoleLabel} unless otherwise agreed.
+
+6. NON-REVOCABILITY
+The obligations under this Annexure are irrevocable, unconditional, absolute, continuing, and independent of underlying disputes. No dispute between Buyer and Seller shall affect the ${agentRoleLabel}'s right to earned Commission.
+
+7. TRUST & FIDUCIARY OBLIGATION
+The Principal acknowledges that any Commission amount received or retained on behalf of the ${agentRoleLabel} constitutes funds held in trust for the ${agentRoleLabel}. Failure to remit such funds may constitute breach of contract, unjust enrichment, fraudulent concealment, or breach of fiduciary undertaking.
+
+8. AUDIT & TRANSPARENCY
+The ${agentRoleLabel} shall have the right, upon reasonable notice, to request supporting documents evidencing shipment quantities, invoice values, payment receipts, banking confirmations, and contract amendments relevant to Commission calculation. The Principal shall not intentionally conceal commercial information affecting Commission entitlement.
+
+9. DEFAULT
+Failure to pay Commission when due shall constitute immediate default. Upon default, the ${agentRoleLabel} shall be entitled to immediate payment of outstanding sums, interest at 1% per annum, recovery of legal costs, recovery of arbitration costs, recovery of consequential damages, and injunctive relief where permissible.
+
+10. SURVIVAL
+This Annexure shall survive expiration, completion, termination, cancellation, rescission, or suspension of the Main Agreement. The obligations herein shall remain valid for all Transactions initiated during the term of the Main Agreement.
+
+11. ICC ARBITRATION
+Any dispute arising from this Annexure shall be resolved exclusively under ICC Arbitration Rules. The Parties expressly waive objections relating to jurisdiction or enforceability of ICC arbitration awards.
+
+12. ENFORCEABILITY
+This Annexure may be enforced independently of the Main Agreement. A breach of this Annexure shall constitute material breach of the Main Agreement.
+
+
+ANNEXURE B — NON-CIRCUMVENTION, NON-DISCLOSURE & WORKING AGREEMENT (NCNDA)
+(Integral Part of the International Commission Agreement)
+
+IMPORTANT NOTICE
+This Annexure B forms an integral and inseparable part of the International Commission Agreement and shall remain legally binding upon all Parties, their affiliates, subsidiaries, nominees, successors, assigns, officers, employees, agents, intermediaries, and representatives.
+
+1. PURPOSE
+To protect introduced business relationships, prevent circumvention, preserve confidentiality, protect commercial interests, ensure ethical international trade practices, and preserve intermediary rights.
+
+2. NON-CIRCUMVENTION OBLIGATION
+The Parties irrevocably agree that they shall not directly or indirectly circumvent, bypass, avoid, exclude, interfere with, or undermine the ${agentRoleLabel} or any protected party introduced under the Main Agreement.
+
+3. PROTECTED PARTIES
+Buyers, Sellers, Suppliers, Refineries, Manufacturers, End buyers, Financiers, Banks, Shipping companies, Investors, Trade contacts, Agents, Affiliates, and Mandates. Protection applies whether introduced verbally, electronically, physically, or through documentation.
+
+4. PROHIBITED ACTIVITIES
+Without written consent, the Parties shall not directly contact protected parties for competing transactions, negotiate around the ${agentRoleLabel}, use confidential information for independent transactions, divert business opportunities, utilize nominee companies to bypass the ${agentRoleLabel}, induce protected parties to terminate intermediary arrangements, or modify transaction structures to avoid commission obligations.
+
+5. CONFIDENTIALITY
+All commercial, banking, technical, financial, operational, and transactional information exchanged between Parties shall remain strictly confidential — including pricing, banking coordinates, SWIFT copies, SPA terms, logistics arrangements, client identities, financial structures, trade finance arrangements, commission structures, and contractual negotiations.
+
+6. PERMITTED DISCLOSURE
+Only with prior written consent, to banks and financial institutions, to legal counsel, to auditors, to compliance departments, or when required by applicable law or court order.
+
+7. ICC ETHICS & GOOD FAITH
+The Parties agree to conduct themselves in accordance with ICC ethical standards, international good faith trade practices, honest commercial dealing, international anti-corruption standards, and fair intermediary protection principles.
+
+8. TERM OF PROTECTION
+Non-circumvention and confidentiality obligations shall remain valid for 5 years from termination or completion of the Main Agreement.
+
+9. DAMAGES
+In case of breach, the offending Party shall be liable for full unpaid Commission, loss of profits, consequential damages, legal fees, ICC arbitration costs, equitable remedies, and injunctive relief.
+
+10. ELECTRONIC COMMUNICATIONS
+Emails, SWIFT messages, electronic signatures, scanned copies, PDF transmissions, blockchain records, and digital communications shall constitute admissible evidence and legally binding communications.
+
+11. NO WAIVER
+Failure by any Party to enforce any provision shall not constitute waiver of rights.
+
+12. SEVERABILITY
+If any provision is held unenforceable, the remaining provisions shall remain valid and enforceable.
+
+13. ICC ARBITRATION
+All disputes arising under this Annexure shall be finally resolved under ICC Arbitration Rules. The arbitral award shall be final, binding, and enforceable internationally under the New York Convention.
+
+14. ACKNOWLEDGEMENT
+The Parties acknowledge that they have read and understood this Annexure, voluntarily accept its terms, recognize the ${agentRoleLabel}'s role as protected intermediary, and accept ICC-based international trade principles governing this relationship.
+
+SIGNATURES (ANNEXURES A & B)
+FOR THE PRINCIPAL
+Company: ${v(principal?.name)}
+Authorized Signatory: ${v(product?.principalRepresentative)}
+Position: ${v(product?.principalDesignation)}
+Signature: _______________
+Date: _______________
+
+FOR THE ${agentRoleLabel.toUpperCase()}
+Company: ${v(agent?.name)}
+Authorized Signatory: ${v(product?.agentRepresentative)}
+Position: ${v(product?.agentDesignation)}
+Signature: _______________
+Date: _______________`;
+  },
 };
 
 export function generateDocumentContent(docType: string, trade?: Trade, buyerDetails?: PartyDetails, sellerDetails?: PartyDetails, productDetails?: ProductDetails): string {
