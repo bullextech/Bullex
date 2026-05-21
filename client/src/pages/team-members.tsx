@@ -671,6 +671,16 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
                     >
                       Generate ICA
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-[11px] h-7"
+                      onClick={() => window.location.assign("/documents")}
+                      data-testid={`btn-team-kyc-other-docs-${app.id}`}
+                    >
+                      <FileText className="w-3 h-3 mr-1" />
+                      Other Documents
+                    </Button>
                   </div>
                 </div>
               ) : app.status === "rejected" ? (
@@ -945,7 +955,19 @@ function LockedMemberView({
             <FileSignature className="w-3.5 h-3.5 mr-1.5" />
             Generate ICA
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="rounded-none text-xs font-bold uppercase tracking-wider h-8"
+            onClick={() => window.location.assign("/documents")}
+            data-testid="btn-locked-other-docs"
+          >
+            <FileText className="w-3.5 h-3.5 mr-1.5" />
+            Other Documents
+          </Button>
         </div>
+        <p className="text-[10px] text-muted-foreground mt-2">Use <strong>Other Documents</strong> to generate any other agreement (LOI, SCO, Deal Recap, SPA, BL, COO, etc.) — the agent code will be stamped automatically when this member is linked.</p>
         {!member.participantId && <p className="text-[10px] text-amber-600 mt-2">ICA disabled — this team member has no Participant ID allocated.</p>}
       </LockedSection>
 
