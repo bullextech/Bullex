@@ -219,7 +219,7 @@ export default function DocumentGenerator() {
   const urlParams = new URLSearchParams(window.location.search);
   const urlTradeRef = urlParams.get("tradeRef");
   const urlEnquiryRef = urlParams.get("enquiryRef");
-  const urlOpenDocId = urlParams.get("openDocId");
+  const urlOpenDocId = urlParams.get("openDocId") || (typeof window !== "undefined" ? sessionStorage.getItem("openDocId") : null);
   const [tradePrefilled, setTradePrefilled] = useState(false);
 
   const { data: allTrades } = useQuery<Trade[]>({
@@ -303,9 +303,14 @@ export default function DocumentGenerator() {
       const found = docs.find((d) => d.id === urlOpenDocId);
       if (found) {
         setViewDoc(found);
+        try { sessionStorage.removeItem("openDocId"); } catch {}
         const url = new URL(window.location.href);
-        url.searchParams.delete("openDocId");
-        window.history.replaceState({}, "", url.toString());
+        if (url.searchParams.has("openDocId")) {
+          url.searchParams.delete("openDocId");
+          window.history.replaceState({}, "", url.toString());
+        }
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       }
     }
   }, [urlOpenDocId, docs]);
