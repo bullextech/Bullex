@@ -169,6 +169,7 @@ function getModulePreset(employmentType: string | null): string[] {
 // ── KYC Detail Panel ─────────────────────────────────────────────────────────
 function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void }) {
   const { toast } = useToast();
+  const [, navigateToDoc] = useLocation();
   const [kycTab, setKycTab] = useState("personal");
   const [kycUsername, setKycUsername] = useState("");
   const [kycPassword, setKycPassword] = useState("");
@@ -634,9 +635,10 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
                       onClick={async () => {
                         try {
                           const r = await apiRequest("POST", `/api/team-kyc/${app.id}/generate-ncnda`, {});
-                          await r.json();
-                          toast({ title: "NCNDA generated", description: `NCNDA created for ${app.fullName}.` });
+                          const created = await r.json();
                           queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+                          toast({ title: "NCNDA generated", description: `Opening NCNDA for ${app.fullName}…` });
+                          navigateToDoc(`/documents?openDocId=${created.id}`);
                         } catch (err: any) {
                           toast({ title: "NCNDA generation failed", description: err?.message || "Could not generate NCNDA.", variant: "destructive" });
                         }
@@ -655,9 +657,10 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
                             agentLabel: "Agent",
                             agencyType: "Non-Exclusive",
                           });
-                          await r.json();
-                          toast({ title: "ICA generated", description: `International Commission Agreement created for ${app.fullName}.` });
+                          const created = await r.json();
                           queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+                          toast({ title: "ICA generated", description: `Opening ICA for ${app.fullName}…` });
+                          navigateToDoc(`/documents?openDocId=${created.id}`);
                         } catch (err: any) {
                           toast({ title: "ICA generation failed", description: err?.message || "Could not generate ICA.", variant: "destructive" });
                         }
@@ -879,6 +882,21 @@ function LockedMemberView({
   onNavigate: (to: string) => void;
 }) {
   const { toast } = useToast();
+  const generateDoc = async (kind: "ncnda" | "ica") => {
+    try {
+      const body = kind === "ica" ? { agentLabel: "Agent", agencyType: "Non-Exclusive" } : {};
+      const r = await apiRequest("POST", `/api/team-members/${member.id}/generate-${kind}`, body);
+      const created = await r.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      toast({
+        title: `${kind.toUpperCase()} generated`,
+        description: `Opening ${kind.toUpperCase()} for ${member.name}…`,
+      });
+      onNavigate(`/documents?openDocId=${created.id}`);
+    } catch (err: any) {
+      toast({ title: `${kind.toUpperCase()} generation failed`, description: err?.message || `Could not generate ${kind.toUpperCase()}.`, variant: "destructive" });
+    }
+  };
   return (
     <div className="max-w-4xl mx-auto space-y-5 pb-10" data-testid="locked-member-view">
       <div className="border border-primary/30 bg-primary/5 px-4 py-2.5 flex items-center gap-2.5 rounded-none">
@@ -905,16 +923,7 @@ function LockedMemberView({
             size="sm"
             variant="secondary"
             className="rounded-none text-xs font-bold uppercase tracking-wider h-8"
-            onClick={async () => {
-              try {
-                const r = await apiRequest("POST", `/api/team-members/${member.id}/generate-ncnda`, {});
-                await r.json();
-                toast({ title: "NCNDA generated", description: `NCNDA created for ${member.name}. Open the Document Generator to review and sign.` });
-                queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-              } catch (err: any) {
-                toast({ title: "NCNDA generation failed", description: err?.message || "Could not generate NCNDA.", variant: "destructive" });
-              }
-            }}
+            onClick={() => generateDoc("ncnda")}
             data-testid="btn-locked-generate-ncnda"
           >
             <FileSignature className="w-3.5 h-3.5 mr-1.5" />
@@ -926,19 +935,7 @@ function LockedMemberView({
             variant="default"
             className="rounded-none text-xs font-bold uppercase tracking-wider h-8"
             disabled={!member.participantId}
-            onClick={async () => {
-              try {
-                const r = await apiRequest("POST", `/api/team-members/${member.id}/generate-ica`, {
-                  agentLabel: "Agent",
-                  agencyType: "Non-Exclusive",
-                });
-                await r.json();
-                toast({ title: "ICA generated", description: `International Commission Agreement created for ${member.name}. Open the Document Generator to review and sign.` });
-                queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-              } catch (err: any) {
-                toast({ title: "ICA generation failed", description: err?.message || "Could not generate ICA.", variant: "destructive" });
-              }
-            }}
+            onClick={() => generateDoc("ica")}
             data-testid="btn-locked-generate-ica"
           >
             <FileSignature className="w-3.5 h-3.5 mr-1.5" />

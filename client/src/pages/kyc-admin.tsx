@@ -1235,9 +1235,10 @@ export default function KycAdmin() {
                                     onClick={async () => {
                                       try {
                                         const r = await apiRequest("POST", `/api/kyc/${app.id}/generate-ncnda`, {});
-                                        await r.json();
-                                        toast({ title: "NCNDA generated", description: `NCNDA created for ${app.companyName}.` });
+                                        const created = await r.json();
                                         queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+                                        toast({ title: "NCNDA generated", description: `Opening NCNDA for ${app.companyName}…` });
+                                        kycNavigate(`/documents?openDocId=${created.id}`);
                                       } catch (err: any) {
                                         toast({ title: "NCNDA generation failed", description: err?.message || "Could not generate NCNDA.", variant: "destructive" });
                                       }
@@ -1261,9 +1262,10 @@ export default function KycAdmin() {
                                               agentLabel: app.category === "Chartering Broker" ? "Broker" : "Agent",
                                               agencyType: "Non-Exclusive",
                                             });
-                                            await r.json();
-                                            toast({ title: "ICA generated", description: `International Commission Agreement created for ${app.companyName}.` });
+                                            const created = await r.json();
                                             queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+                                            toast({ title: "ICA generated", description: `Opening ICA for ${app.companyName}…` });
+                                            kycNavigate(`/documents?openDocId=${created.id}`);
                                           } catch (err: any) {
                                             toast({ title: "ICA generation failed", description: err?.message || "Could not generate ICA.", variant: "destructive" });
                                           }

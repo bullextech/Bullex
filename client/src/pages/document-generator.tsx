@@ -219,6 +219,7 @@ export default function DocumentGenerator() {
   const urlParams = new URLSearchParams(window.location.search);
   const urlTradeRef = urlParams.get("tradeRef");
   const urlEnquiryRef = urlParams.get("enquiryRef");
+  const urlOpenDocId = urlParams.get("openDocId");
   const [tradePrefilled, setTradePrefilled] = useState(false);
 
   const { data: allTrades } = useQuery<Trade[]>({
@@ -296,6 +297,18 @@ export default function DocumentGenerator() {
   const { data: docs, isLoading: docsLoading } = useQuery<Doc[]>({
     queryKey: ["/api/documents"],
   });
+
+  useEffect(() => {
+    if (urlOpenDocId && docs && !viewDoc) {
+      const found = docs.find((d) => d.id === urlOpenDocId);
+      if (found) {
+        setViewDoc(found);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("openDocId");
+        window.history.replaceState({}, "", url.toString());
+      }
+    }
+  }, [urlOpenDocId, docs]);
 
   const { data: kycClients } = useQuery<KycApplication[]>({
     queryKey: ["/api/kyc"],
