@@ -1634,6 +1634,63 @@ export async function registerRoutes(
     }
   });
 
+  // Generate an NCNDA (Mutual Non-Circumvention / Non-Disclosure Agreement) for an approved KYC application.
+  // Party A (Issuer) = Bullfrog Group; Party B (Receiving Party) = the approved participant.
+  app.post("/api/kyc/:id/generate-ncnda", requireAdminAuth, async (req, res) => {
+    try {
+      const kyc = await storage.getKycApplicationById(req.params.id);
+      if (!kyc) return res.status(404).json({ message: "KYC application not found" });
+      if (kyc.status !== "approved") {
+        return res.status(400).json({ message: "NCNDA can only be generated for approved KYC applications" });
+      }
+
+      const partyA: any = {
+        name: "Bullfrog Group",
+        address: "Dubai, United Arab Emirates",
+        contact: "team@bullex.tech",
+      };
+      const partyB: any = {
+        name: kyc.companyName,
+        address: [kyc.registeredAddress, kyc.primaryBusinessAddress].filter(Boolean).join(" / ") || "—",
+        contact: kyc.signatoryEmail || kyc.contactEmail || "—",
+      };
+      const product: any = {
+        commodity: kyc.products || kyc.coreBusinessDescription || "Introduction, representation and onboarding of prospective counterparties on behalf of Bullfrog Group / Bullex Trading Platform",
+        governingLaw: "United Arab Emirates",
+        recapValidity: "Courts of Dubai, UAE",
+        validity: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }),
+      };
+
+      const title = `NCNDA — ${kyc.companyName}`;
+      const content = generateDocumentContent("NCNDA", undefined, partyB, partyA, product);
+      const created = await storage.createDocument({
+        docType: "NCNDA",
+        title,
+        content,
+        status: "pending_review",
+        adminChecks: buildAdminChecks("NCNDA"),
+        buyerEmail: kyc.signatoryEmail || kyc.contactEmail || null,
+        sellerEmail: null,
+        sentToClientId: kyc.id,
+        agentCode: kyc.participantId || null,
+      } as any);
+
+      try {
+        const docxPath = await generateDocx(created.id, title, content, "Bullex Admin", kyc.participantId || undefined);
+        const pdfPath = await generatePdf(created.id, title, content, "Bullex Admin", kyc.participantId || undefined);
+        await storage.updateDocument(created.id, { docxPath, pdfPath });
+      } catch (fileErr: any) {
+        console.error("[ncnda] file generation failed:", fileErr?.message || fileErr);
+      }
+
+      const fresh = await storage.getDocumentById(created.id);
+      res.json(fresh || created);
+    } catch (err: any) {
+      console.error("[ncnda] generation failed:", err);
+      res.status(500).json({ message: err.message || "Failed to generate NCNDA" });
+    }
+  });
+
   // Generate an International Commission Agreement (ICA) for an approved KYC application
   // (typically used for Agent / Broker / Facilitator participant categories).
   app.post("/api/kyc/:id/generate-ica", requireAdminAuth, async (req, res) => {
