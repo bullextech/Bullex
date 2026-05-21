@@ -994,6 +994,143 @@ export async function registerRoutes(
     }
   });
 
+  // Generate a fresh NCNDA against an approved team member (Agent).
+  // Party A (Issuer) = Bullfrog Group; Party B (Receiving Party) = the team member.
+  app.post("/api/team-kyc/:id/generate-ncnda", requireAdminAuth, async (req, res) => {
+    try {
+      const app = await storage.getTeamKycApplicationById(req.params.id);
+      if (!app) return res.status(404).json({ message: "Application not found" });
+      if (app.status !== "approved") {
+        return res.status(400).json({ message: "Team member must be approved before generating NCNDA" });
+      }
+      let participantId: string | null = null;
+      if (app.teamUsername) {
+        const tm = await storage.getTeamMemberByUsername(app.teamUsername);
+        participantId = tm?.participantId || null;
+      }
+
+      const partyA: any = { name: "Bullfrog Group", address: "Dubai, United Arab Emirates", contact: "team@bullex.tech" };
+      const partyB: any = {
+        name: app.fullName,
+        address: [app.homeAddress, app.city, app.country].filter(Boolean).join(", ") || "—",
+        contact: app.email || "—",
+      };
+      const product: any = {
+        commodity: "Introduction, representation and onboarding of prospective counterparties on behalf of Bullfrog Group / Bullex Trading Platform",
+        governingLaw: "United Arab Emirates",
+        recapValidity: "Courts of Dubai, UAE",
+        validity: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }),
+      };
+
+      const title = `NCNDA — ${app.fullName}`;
+      const content = generateDocumentContent("NCNDA", undefined, partyB, partyA, product);
+      const created = await storage.createDocument({
+        docType: "NCNDA",
+        title,
+        content,
+        status: "pending_review",
+        adminChecks: buildAdminChecks("NCNDA"),
+        buyerEmail: app.email || null,
+        sellerEmail: null,
+        agentCode: participantId || null,
+      } as any);
+      try {
+        const docxPath = await generateDocx(created.id, title, content, "Bullex Admin", participantId || undefined);
+        const pdfPath = await generatePdf(created.id, title, content, "Bullex Admin", participantId || undefined);
+        await storage.updateDocument(created.id, { docxPath, pdfPath });
+      } catch (fileErr: any) {
+        console.error("[team-ncnda] file generation failed:", fileErr?.message || fileErr);
+      }
+      const fresh = await storage.getDocumentById(created.id);
+      res.json(fresh || created);
+    } catch (err: any) {
+      console.error("[team-ncnda] generation failed:", err);
+      res.status(500).json({ message: err.message || "Failed to generate NCNDA" });
+    }
+  });
+
+  // Generate an International Commission Agreement (ICA) against an approved team member (Agent).
+  // Principal = Bullfrog Group; Agent = the team member.
+  app.post("/api/team-kyc/:id/generate-ica", requireAdminAuth, async (req, res) => {
+    try {
+      const app = await storage.getTeamKycApplicationById(req.params.id);
+      if (!app) return res.status(404).json({ message: "Application not found" });
+      if (app.status !== "approved") {
+        return res.status(400).json({ message: "Team member must be approved before generating ICA" });
+      }
+      let participantId: string | null = null;
+      if (app.teamUsername) {
+        const tm = await storage.getTeamMemberByUsername(app.teamUsername);
+        participantId = tm?.participantId || null;
+      }
+      if (!participantId) {
+        return res.status(400).json({ message: "Team member has no participant ID allocated; cannot generate ICA without an agent code" });
+      }
+
+      const agentLabel = req.body?.agentLabel || "Agent";
+      const agencyType = req.body?.agencyType || "Non-Exclusive";
+
+      const principal: any = { name: "Bullfrog Group", address: "Dubai, United Arab Emirates", contact: "team@bullex.tech" };
+      const agent: any = {
+        name: app.fullName,
+        address: [app.homeAddress, app.city, app.country].filter(Boolean).join(", ") || "—",
+        contact: app.email || "—",
+      };
+      const product: any = {
+        effectiveDate: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }),
+        agentLabel,
+        agencyType,
+        principalCountry: "United Arab Emirates",
+        principalEntityType: "Group Holding",
+        agentCountry: app.country || undefined,
+        agentEntityType: app.employmentType || "Individual",
+        agentRepresentative: app.fullName,
+        agentDesignation: app.positionApplied || undefined,
+        agentBankName: app.bankName || undefined,
+        agentBankAddress: app.bankBranch || undefined,
+        agentAccountName: app.payrollAccountName || undefined,
+        agentAccountNumber: app.payrollAccountNumber || undefined,
+        agentSwift: app.payrollSwift || undefined,
+        commodity: "Introduction, representation and onboarding of prospective counterparties on behalf of Bullfrog Group / Bullex Trading Platform",
+        governingLaw: "United Arab Emirates",
+        seatOfArbitration: "Dubai, UAE",
+        venueOfArbitration: "Dubai International Arbitration Centre (DIAC)",
+        numArbitrators: "One",
+        termYears: "3",
+        recordKeepingYears: "7",
+        amlOption: "Standard Commercial Compliance",
+        commissionStructure: req.body?.commissionStructure || undefined,
+        commissionBasis: req.body?.commissionBasis || undefined,
+      };
+
+      const title = `ICA — ${app.fullName}`;
+      const content = generateDocumentContent("ICA", undefined, principal, agent, product);
+      const created = await storage.createDocument({
+        docType: "ICA",
+        title,
+        content,
+        status: "pending_review",
+        adminChecks: buildAdminChecks("ICA"),
+        buyerEmail: null,
+        sellerEmail: app.email || null,
+        agentCode: participantId,
+      } as any);
+
+      try {
+        const docxPath = await generateDocx(created.id, title, content, "Bullex Admin", participantId);
+        const pdfPath = await generatePdf(created.id, title, content, "Bullex Admin", participantId);
+        await storage.updateDocument(created.id, { docxPath, pdfPath });
+      } catch (fileErr: any) {
+        console.error("[team-ica] file generation failed:", fileErr?.message || fileErr);
+      }
+      const fresh = await storage.getDocumentById(created.id);
+      res.json(fresh || created);
+    } catch (err: any) {
+      console.error("[team-ica] generation failed:", err);
+      res.status(500).json({ message: err.message || "Failed to generate ICA" });
+    }
+  });
+
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy(() => {
       res.json({ authenticated: false });

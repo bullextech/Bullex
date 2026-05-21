@@ -609,6 +609,45 @@ export default function TeamKycAdmin() {
                         >
                           {resendMutation.isPending && resendingId === app.id ? "Sending..." : "Resend Welcome + NCNDA"}
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="text-[11px] h-7"
+                          onClick={async () => {
+                            try {
+                              const r = await apiRequest("POST", `/api/team-kyc/${app.id}/generate-ncnda`, {});
+                              await r.json();
+                              toast({ title: "NCNDA generated", description: `NCNDA created for ${app.fullName}.` });
+                              queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+                            } catch (err: any) {
+                              toast({ title: "NCNDA generation failed", description: err?.message || "Could not generate NCNDA.", variant: "destructive" });
+                            }
+                          }}
+                          data-testid={`btn-team-kyc-generate-ncnda-${app.id}`}
+                        >
+                          Generate NCNDA
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="text-[11px] h-7"
+                          onClick={async () => {
+                            try {
+                              const r = await apiRequest("POST", `/api/team-kyc/${app.id}/generate-ica`, {
+                                agentLabel: "Agent",
+                                agencyType: "Non-Exclusive",
+                              });
+                              await r.json();
+                              toast({ title: "ICA generated", description: `International Commission Agreement created for ${app.fullName}.` });
+                              queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+                            } catch (err: any) {
+                              toast({ title: "ICA generation failed", description: err?.message || "Could not generate ICA.", variant: "destructive" });
+                            }
+                          }}
+                          data-testid={`btn-team-kyc-generate-ica-${app.id}`}
+                        >
+                          Generate ICA
+                        </Button>
                       </div>
                     )}
 
