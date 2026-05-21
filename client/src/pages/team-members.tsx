@@ -615,17 +615,58 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
                       )}. Team member profile is now active.
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-[11px] h-7 flex-shrink-0"
-                    disabled={resendMutation.isPending}
-                    onClick={() => resendMutation.mutate()}
-                    data-testid={`btn-team-kyc-resend-${app.id}`}
-                  >
-                    {resendMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <RefreshCw className="w-3 h-3 mr-1.5" />}
-                    {resendMutation.isPending ? "Sending..." : "Resend Welcome + NCNDA"}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-1.5 flex-shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-[11px] h-7"
+                      disabled={resendMutation.isPending}
+                      onClick={() => resendMutation.mutate()}
+                      data-testid={`btn-team-kyc-resend-${app.id}`}
+                    >
+                      {resendMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <RefreshCw className="w-3 h-3 mr-1.5" />}
+                      {resendMutation.isPending ? "Sending..." : "Resend Welcome + NCNDA"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="text-[11px] h-7"
+                      onClick={async () => {
+                        try {
+                          const r = await apiRequest("POST", `/api/team-kyc/${app.id}/generate-ncnda`, {});
+                          await r.json();
+                          toast({ title: "NCNDA generated", description: `NCNDA created for ${app.fullName}.` });
+                          queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+                        } catch (err: any) {
+                          toast({ title: "NCNDA generation failed", description: err?.message || "Could not generate NCNDA.", variant: "destructive" });
+                        }
+                      }}
+                      data-testid={`btn-team-kyc-generate-ncnda-${app.id}`}
+                    >
+                      Generate NCNDA
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      className="text-[11px] h-7"
+                      onClick={async () => {
+                        try {
+                          const r = await apiRequest("POST", `/api/team-kyc/${app.id}/generate-ica`, {
+                            agentLabel: "Agent",
+                            agencyType: "Non-Exclusive",
+                          });
+                          await r.json();
+                          toast({ title: "ICA generated", description: `International Commission Agreement created for ${app.fullName}.` });
+                          queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+                        } catch (err: any) {
+                          toast({ title: "ICA generation failed", description: err?.message || "Could not generate ICA.", variant: "destructive" });
+                        }
+                      }}
+                      data-testid={`btn-team-kyc-generate-ica-${app.id}`}
+                    >
+                      Generate ICA
+                    </Button>
+                  </div>
                 </div>
               ) : app.status === "rejected" ? (
                 <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
