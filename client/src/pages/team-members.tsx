@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import { PLATFORM_MODULES } from "@/components/admin-sidebar";
 import { useAuth } from "@/hooks/use-auth";
+import { useAmendMode } from "@/hooks/use-amend-mode";
+import { AmendDialog, type AmendSection } from "@/components/amend-dialog";
+import { Pencil } from "lucide-react";
 import type { KycApplication, TradeEnquiry, PotentialClient } from "@shared/schema";
 
 type MemberSubmissions = {
@@ -1124,6 +1127,8 @@ function LockedMemberView({
 // ── Main Page ────────────────────────────────────────────────────────────────
 export default function TeamMembersPage() {
   const { role } = useAuth();
+  const { requestUnlock } = useAmendMode();
+  const [amendMember, setAmendMember] = useState<TeamMember | null>(null);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -1475,6 +1480,16 @@ export default function TeamMembersPage() {
                       <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-wider border-green-600 text-green-700 dark:text-green-400 gap-1">
                         <Lock className="w-2.5 h-2.5" /> Locked Profile
                       </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-none text-xs h-8 gap-1"
+                        onClick={() => requestUnlock(() => setAmendMember(selected))}
+                        data-testid={`button-amend-member-${selectedId}`}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        Amend (Admin)
+                      </Button>
                       <Button size="sm" variant="destructive" className="rounded-none text-xs h-8" onClick={() => { if (confirm(`Remove ${selected?.name}?`)) deleteMutation.mutate(selectedId!); }} data-testid={`button-delete-member-${selectedId}`}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
@@ -1807,6 +1822,77 @@ export default function TeamMembersPage() {
           </div>
         </div>
       )}
+
+      {amendMember && (
+        <AmendDialog
+          open={!!amendMember}
+          onOpenChange={(o) => { if (!o) setAmendMember(null); }}
+          title={`Amend Team Member — ${amendMember.name}`}
+          description="Edit approved team member fields. Password cannot be changed here — use the password reset link instead."
+          endpoint={`/api/team/members/${amendMember.id}/amend`}
+          invalidateKeys={["/api/team/members", ["/api/team/members", amendMember.id]]}
+          initialValues={{
+            name: amendMember.name ?? "",
+            username: amendMember.username ?? "",
+            email: amendMember.email ?? "",
+            phone: amendMember.phone ?? "",
+            department: amendMember.department ?? "",
+            position: amendMember.position ?? "",
+            employmentType: amendMember.employmentType ?? "",
+            startDate: amendMember.startDate ?? "",
+            dateOfBirth: amendMember.dateOfBirth ?? "",
+            gender: amendMember.gender ?? "",
+            nationality: amendMember.nationality ?? "",
+            passportNumber: amendMember.passportNumber ?? "",
+            maritalStatus: amendMember.maritalStatus ?? "",
+            homeAddress: amendMember.homeAddress ?? "",
+            city: amendMember.city ?? "",
+            country: amendMember.country ?? "",
+            additionalNotes: amendMember.additionalNotes ?? "",
+          }}
+          sections={TEAM_AMEND_SECTIONS}
+        />
+      )}
     </div>
   );
 }
+
+const TEAM_AMEND_SECTIONS: AmendSection[] = [
+  {
+    title: "Login & Account",
+    fields: [
+      { key: "name", label: "Full Name" },
+      { key: "username", label: "Username" },
+      { key: "email", label: "Email", type: "email" },
+      { key: "phone", label: "Phone", type: "tel" },
+    ],
+  },
+  {
+    title: "Personal",
+    fields: [
+      { key: "dateOfBirth", label: "Date of Birth" },
+      { key: "gender", label: "Gender" },
+      { key: "nationality", label: "Nationality" },
+      { key: "passportNumber", label: "Passport / National ID" },
+      { key: "maritalStatus", label: "Marital Status" },
+    ],
+  },
+  {
+    title: "Address",
+    fields: [
+      { key: "homeAddress", label: "Home Address", colSpan: 2 },
+      { key: "city", label: "City" },
+      { key: "country", label: "Country" },
+    ],
+  },
+  {
+    title: "Employment",
+    fields: [
+      { key: "position", label: "Position / Role" },
+      { key: "department", label: "Department" },
+      { key: "employmentType", label: "Employment Type" },
+      { key: "startDate", label: "Start Date" },
+      { key: "additionalNotes", label: "Additional Notes", type: "textarea" },
+    ],
+  },
+];

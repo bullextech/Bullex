@@ -9,6 +9,7 @@ import { TopNavbar } from "@/components/top-navbar";
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { ClientAuthProvider } from "@/hooks/use-client-auth";
+import { AmendModeProvider } from "@/hooks/use-amend-mode";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shield } from "lucide-react";
 import NotFound from "@/pages/not-found";
@@ -155,6 +156,7 @@ function App() {
         <TooltipProvider>
           <ClientAuthProvider>
             <AuthProvider>
+              <AmendModeProvider>
               {isKycRegister ? (
                 <KycRegister />
               ) : isEnquiryRegister ? (
@@ -172,6 +174,7 @@ function App() {
               ) : (
                 <AppShell />
               )}
+              </AmendModeProvider>
             </AuthProvider>
           </ClientAuthProvider>
           <Toaster />

@@ -153,6 +153,7 @@ export interface IStorage {
   getRegistrations(): Promise<Registration[]>;
   createRegistration(reg: InsertRegistration): Promise<Registration>;
   updateRegistrationStatus(id: string, status: string, reviewNotes?: string): Promise<Registration>;
+  updateRegistrationFields(id: string, fields: Record<string, any>): Promise<Registration>;
 
   getAllTeamMembers(): Promise<TeamMember[]>;
   getTeamMemberByUsername(username: string): Promise<TeamMember | undefined>;
@@ -741,6 +742,14 @@ export class DatabaseStorage implements IStorage {
   async updateRegistrationStatus(id: string, status: string, reviewNotes?: string): Promise<Registration> {
     const [updated] = await db.update(registrations)
       .set({ status, reviewNotes: reviewNotes ?? null, reviewedAt: new Date() })
+      .where(eq(registrations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateRegistrationFields(id: string, fields: Record<string, any>): Promise<Registration> {
+    const [updated] = await db.update(registrations)
+      .set(fields)
       .where(eq(registrations.id, id))
       .returning();
     return updated;

@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, XCircle, Clock, Building2, User, Mail, Phone, Globe, Briefcase, Package, MessageSquare, Calendar } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Building2, User, Mail, Phone, Globe, Briefcase, Package, MessageSquare, Calendar, Pencil } from "lucide-react";
 import type { Registration } from "@shared/schema";
+import { AmendDialog, type AmendSection } from "@/components/amend-dialog";
+import { useAmendMode } from "@/hooks/use-amend-mode";
 
 const STATUS_FILTERS = ["all", "pending", "approved", "rejected"];
 
@@ -35,6 +37,12 @@ export default function RegistrationsAdmin() {
   const [selected, setSelected] = useState<Registration | null>(null);
   const [actionType, setActionType] = useState<"approve" | "reject" | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
+  const [amendTarget, setAmendTarget] = useState<Registration | null>(null);
+  const { requestUnlock } = useAmendMode();
+
+  const openAmend = (reg: Registration) => {
+    requestUnlock(() => setAmendTarget(reg));
+  };
 
   const { data: registrations = [], isLoading, isError } = useQuery<Registration[]>({
     queryKey: ["/api/registrations"],
@@ -165,29 +173,41 @@ export default function RegistrationsAdmin() {
                 </div>
               )}
 
-              {reg.status === "pending" && (
-                <div className="flex gap-2 pt-1">
-                  <Button
-                    size="sm"
-                    className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
-                    onClick={() => openAction(reg, "approve")}
-                    data-testid={`button-approve-${reg.id}`}
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Approve
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/10 gap-1.5"
-                    onClick={() => openAction(reg, "reject")}
-                    data-testid={`button-reject-${reg.id}`}
-                  >
-                    <XCircle className="w-4 h-4" />
-                    Reject
-                  </Button>
-                </div>
-              )}
+              <div className="flex gap-2 pt-1 flex-wrap">
+                {reg.status === "pending" && (
+                  <>
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
+                      onClick={() => openAction(reg, "approve")}
+                      data-testid={`button-approve-${reg.id}`}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/10 gap-1.5"
+                      onClick={() => openAction(reg, "reject")}
+                      data-testid={`button-reject-${reg.id}`}
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Reject
+                    </Button>
+                  </>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => openAmend(reg)}
+                  data-testid={`button-amend-${reg.id}`}
+                >
+                  <Pencil className="w-4 h-4" />
+                  Amend (Admin)
+                </Button>
+              </div>
 
               {reg.reviewedAt && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -253,6 +273,51 @@ export default function RegistrationsAdmin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {amendTarget && (
+        <AmendDialog
+          open={!!amendTarget}
+          onOpenChange={(o) => { if (!o) setAmendTarget(null); }}
+          title={`Amend Registration — ${amendTarget.fullName}`}
+          description="Edit registration details. Changes are logged and require admin amend mode."
+          endpoint={`/api/registrations/${amendTarget.id}/amend`}
+          invalidateKeys={["/api/registrations"]}
+          initialValues={{
+            fullName: amendTarget.fullName ?? "",
+            companyName: amendTarget.companyName ?? "",
+            email: amendTarget.email ?? "",
+            phone: amendTarget.phone ?? "",
+            country: amendTarget.country ?? "",
+            roleType: amendTarget.roleType ?? "",
+            commodities: amendTarget.commodities ?? "",
+            message: amendTarget.message ?? "",
+            reviewNotes: amendTarget.reviewNotes ?? "",
+          }}
+          sections={REGISTRATION_AMEND_SECTIONS}
+        />
+      )}
     </div>
   );
 }
+
+const REGISTRATION_AMEND_SECTIONS: AmendSection[] = [
+  {
+    title: "Contact",
+    fields: [
+      { key: "fullName", label: "Full Name" },
+      { key: "companyName", label: "Company Name" },
+      { key: "email", label: "Email", type: "email" },
+      { key: "phone", label: "Phone", type: "tel" },
+      { key: "country", label: "Country" },
+      { key: "roleType", label: "Role Type" },
+    ],
+  },
+  {
+    title: "Details",
+    fields: [
+      { key: "commodities", label: "Commodities", colSpan: 2 },
+      { key: "message", label: "Message", type: "textarea" },
+      { key: "reviewNotes", label: "Review Notes", type: "textarea" },
+    ],
+  },
+];

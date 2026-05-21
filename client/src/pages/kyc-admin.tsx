@@ -61,6 +61,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import type { KycApplication, Trade, Block, Document, KycDocument, KycChangeRequest, TeamKycApplication, TeamMember, TradeEnquiry, EnquiryChangeRequest } from "@shared/schema";
+import { useAmendMode } from "@/hooks/use-amend-mode";
+import { AmendDialog, type AmendSection } from "@/components/amend-dialog";
+import { Pencil } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   pending: { label: "Pending Review", color: "text-amber-600", bg: "bg-amber-600/10 border-amber-600/20 text-amber-700", icon: Clock },
@@ -89,6 +92,8 @@ const tradeStatusLabel = (status: string) => {
 };
 
 export default function KycAdmin() {
+  const { requestUnlock } = useAmendMode();
+  const [amendKyc, setAmendKyc] = useState<KycApplication | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -1212,6 +1217,16 @@ export default function KycAdmin() {
                                       <span className="font-medium text-right max-w-[60%] break-words">{app.products}</span>
                                     </div>
                                   )}
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="w-full rounded-none h-9 text-xs font-bold uppercase tracking-wider mt-2 gap-1.5"
+                                    onClick={() => requestUnlock(() => setAmendKyc(app))}
+                                    data-testid={`button-amend-kyc-${app.id}`}
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                    Amend (Admin)
+                                  </Button>
                                 </div>
                               ) : (
                               <div className="space-y-3">
@@ -1967,6 +1982,92 @@ function AmlScreeningPanel({ app }: { app: any }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {amendKyc && (
+        <AmendDialog
+          open={!!amendKyc}
+          onOpenChange={(o) => { if (!o) setAmendKyc(null); }}
+          title={`Amend KYC — ${(amendKyc as any).companyName || amendKyc.id}`}
+          description="Edit approved KYC fields. Blockchain hash, status, and AML decision are immutable."
+          endpoint={`/api/kyc/${amendKyc.id}/amend`}
+          invalidateKeys={["/api/kyc-applications", "/api/kyc", "/api/team-kyc"]}
+          initialValues={{
+            companyName: (amendKyc as any).companyName ?? "",
+            legalEntityType: (amendKyc as any).legalEntityType ?? "",
+            registrationNumber: (amendKyc as any).registrationNumber ?? "",
+            registeredAddress: (amendKyc as any).registeredAddress ?? "",
+            operatingAddress: (amendKyc as any).operatingAddress ?? "",
+            countryOfIncorporation: (amendKyc as any).countryOfIncorporation ?? "",
+            taxId: (amendKyc as any).taxId ?? "",
+            website: (amendKyc as any).website ?? "",
+            primaryContactName: (amendKyc as any).primaryContactName ?? "",
+            primaryContactEmail: (amendKyc as any).primaryContactEmail ?? "",
+            primaryContactPhone: (amendKyc as any).primaryContactPhone ?? "",
+            primaryContactRole: (amendKyc as any).primaryContactRole ?? "",
+            authorizedSignatoryName: (amendKyc as any).authorizedSignatoryName ?? "",
+            authorizedSignatoryRole: (amendKyc as any).authorizedSignatoryRole ?? "",
+            authorizedSignatoryEmail: (amendKyc as any).authorizedSignatoryEmail ?? "",
+            bankName: (amendKyc as any).bankName ?? "",
+            bankAccountNumber: (amendKyc as any).bankAccountNumber ?? "",
+            bankSwiftCode: (amendKyc as any).bankSwiftCode ?? "",
+            bankIban: (amendKyc as any).bankIban ?? "",
+            category: amendKyc.category ?? "",
+            products: amendKyc.products ?? "",
+            reviewNotes: amendKyc.reviewNotes ?? "",
+          }}
+          sections={KYC_AMEND_SECTIONS}
+        />
+      )}
     </div>
   );
 }
+
+const KYC_AMEND_SECTIONS: AmendSection[] = [
+  {
+    title: "Company",
+    fields: [
+      { key: "companyName", label: "Company Name" },
+      { key: "legalEntityType", label: "Legal Entity Type" },
+      { key: "registrationNumber", label: "Registration Number" },
+      { key: "countryOfIncorporation", label: "Country of Incorporation" },
+      { key: "taxId", label: "Tax ID" },
+      { key: "website", label: "Website" },
+      { key: "registeredAddress", label: "Registered Address", colSpan: 2 },
+      { key: "operatingAddress", label: "Operating Address", colSpan: 2 },
+    ],
+  },
+  {
+    title: "Primary Contact",
+    fields: [
+      { key: "primaryContactName", label: "Contact Name" },
+      { key: "primaryContactRole", label: "Contact Role" },
+      { key: "primaryContactEmail", label: "Contact Email", type: "email" },
+      { key: "primaryContactPhone", label: "Contact Phone", type: "tel" },
+    ],
+  },
+  {
+    title: "Authorized Signatory",
+    fields: [
+      { key: "authorizedSignatoryName", label: "Signatory Name" },
+      { key: "authorizedSignatoryRole", label: "Signatory Role" },
+      { key: "authorizedSignatoryEmail", label: "Signatory Email", type: "email" },
+    ],
+  },
+  {
+    title: "Banking",
+    fields: [
+      { key: "bankName", label: "Bank Name" },
+      { key: "bankAccountNumber", label: "Account Number" },
+      { key: "bankSwiftCode", label: "SWIFT Code" },
+      { key: "bankIban", label: "IBAN" },
+    ],
+  },
+  {
+    title: "Classification",
+    fields: [
+      { key: "category", label: "Category" },
+      { key: "products", label: "Products" },
+      { key: "reviewNotes", label: "Review Notes", type: "textarea" },
+    ],
+  },
+];

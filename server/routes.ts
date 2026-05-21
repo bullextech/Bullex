@@ -92,8 +92,11 @@ declare module "express-session" {
     clientKycId: string;
     clientCompanyName: string;
     allowedModules: string[];
+    amendUnlockUntil?: number;
   }
 }
+
+const AMEND_UNLOCK_DURATION_MS = 15 * 60 * 1000;
 
 const kycUploadsDir = path.join(process.cwd(), "uploads", "kyc");
 const tradeUploadsDir = path.join(process.cwd(), "uploads", "trades");
@@ -193,6 +196,20 @@ function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
     return next();
   }
   res.status(401).json({ message: "Unauthorized" });
+}
+
+function requireAmendUnlock(req: Request, res: Response, next: NextFunction) {
+  if (!req.session?.authenticated || req.session.role !== "admin") {
+    return res.status(401).json({ message: "Admin authentication required" });
+  }
+  const until = req.session.amendUnlockUntil;
+  if (!until || until < Date.now()) {
+    return res.status(403).json({
+      message: "Amend mode is locked. Re-enter admin password to enable amendments.",
+      code: "AMEND_LOCKED",
+    });
+  }
+  return next();
 }
 
 function requireClientAuth(req: Request, res: Response, next: NextFunction) {
@@ -943,6 +960,101 @@ export async function registerRoutes(
       });
     }
     res.json({ authenticated: false });
+  });
+
+  // ---- Admin Amend Mode (sudo-style re-auth gate) -------------------------
+  app.post("/api/admin/amend-unlock", requireAdminAuth, async (req, res) => {
+    const { password } = req.body ?? {};
+    const adminPass = process.env.ADMIN_PASSWORD;
+    if (!adminPass) return res.status(500).json({ message: "Admin credentials not configured" });
+    if (!password || password !== adminPass) {
+      return res.status(401).json({ message: "Incorrect admin password." });
+    }
+    const until = Date.now() + AMEND_UNLOCK_DURATION_MS;
+    req.session.amendUnlockUntil = until;
+    req.session.save(() => res.json({ unlocked: true, until }));
+  });
+
+  app.post("/api/admin/amend-lock", requireAdminAuth, (req, res) => {
+    req.session.amendUnlockUntil = undefined;
+    req.session.save(() => res.json({ unlocked: false }));
+  });
+
+  app.get("/api/admin/amend-status", (req, res) => {
+    const until = req.session?.amendUnlockUntil;
+    const unlocked = !!until && until > Date.now() && req.session?.role === "admin";
+    res.json({ unlocked, until: unlocked ? until : null });
+  });
+
+  // ---- Amend endpoints (admin + unlocked) ---------------------------------
+  const KYC_AMEND_LOCKED_FIELDS = new Set([
+    "id", "status", "blockchainHash", "previousHash", "blockNumber", "nonce",
+    "createdAt", "amlStatus", "amlMatches", "amlCheckedAt", "amlCheckedBy",
+  ]);
+
+  app.patch("/api/kyc/:id/amend", requireAdminAuth, requireAmendUnlock, async (req, res) => {
+    try {
+      const existing = await storage.getKycApplication(req.params.id);
+      if (!existing) return res.status(404).json({ message: "KYC application not found" });
+      const fields: Record<string, any> = {};
+      for (const [key, value] of Object.entries(req.body ?? {})) {
+        if (KYC_AMEND_LOCKED_FIELDS.has(key)) continue;
+        fields[key] = value;
+      }
+      if (Object.keys(fields).length === 0) {
+        return res.status(400).json({ message: "No editable fields supplied" });
+      }
+      const updated = await storage.updateKycApplicationFields(req.params.id, fields);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Failed to amend KYC application" });
+    }
+  });
+
+  const TEAM_AMEND_LOCKED_FIELDS = new Set([
+    "id", "password", "createdAt", "participantId",
+  ]);
+
+  app.patch("/api/team/members/:id/amend", requireAdminAuth, requireAmendUnlock, async (req, res) => {
+    try {
+      const fields: Record<string, any> = {};
+      for (const [key, value] of Object.entries(req.body ?? {})) {
+        if (TEAM_AMEND_LOCKED_FIELDS.has(key)) continue;
+        fields[key] = value;
+      }
+      if (Object.keys(fields).length === 0) {
+        return res.status(400).json({ message: "No editable fields supplied" });
+      }
+      const updated = await storage.updateTeamMember(req.params.id, fields);
+      res.json({ ...updated, password: undefined });
+    } catch (err: any) {
+      if (err?.message?.includes("unique")) {
+        return res.status(409).json({ message: "Username already exists" });
+      }
+      res.status(500).json({ message: err?.message || "Failed to amend team member" });
+    }
+  });
+
+  const REGISTRATION_AMEND_ALLOWED = new Set([
+    "fullName", "companyName", "email", "phone", "country", "roleType",
+    "commodities", "message", "reviewNotes",
+  ]);
+
+  app.patch("/api/registrations/:id/amend", requireAdminAuth, requireAmendUnlock, async (req, res) => {
+    try {
+      const fields: Record<string, any> = {};
+      for (const [key, value] of Object.entries(req.body ?? {})) {
+        if (!REGISTRATION_AMEND_ALLOWED.has(key)) continue;
+        fields[key] = value;
+      }
+      if (Object.keys(fields).length === 0) {
+        return res.status(400).json({ message: "No editable fields supplied" });
+      }
+      const updated = await storage.updateRegistrationFields(req.params.id, fields);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Failed to amend registration" });
+    }
   });
 
   app.post("/api/client/login", async (req, res) => {
