@@ -639,7 +639,7 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
                           queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
                           toast({ title: "NCNDA generated", description: `Opening NCNDA for ${app.fullName}…` });
                           try { sessionStorage.setItem("openDocId", created.id); } catch {}
-                          navigateToDoc(`/documents?openDocId=${created.id}`);
+                          window.location.assign(`/documents?openDocId=${created.id}`);
                         } catch (err: any) {
                           toast({ title: "NCNDA generation failed", description: err?.message || "Could not generate NCNDA.", variant: "destructive" });
                         }
@@ -662,7 +662,7 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
                           queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
                           toast({ title: "ICA generated", description: `Opening ICA for ${app.fullName}…` });
                           try { sessionStorage.setItem("openDocId", created.id); } catch {}
-                          navigateToDoc(`/documents?openDocId=${created.id}`);
+                          window.location.assign(`/documents?openDocId=${created.id}`);
                         } catch (err: any) {
                           toast({ title: "ICA generation failed", description: err?.message || "Could not generate ICA.", variant: "destructive" });
                         }
@@ -895,7 +895,7 @@ function LockedMemberView({
         description: `Opening ${kind.toUpperCase()} for ${member.name}…`,
       });
       try { sessionStorage.setItem("openDocId", created.id); } catch {}
-      onNavigate(`/documents?openDocId=${created.id}`);
+      window.location.assign(`/documents?openDocId=${created.id}`);
     } catch (err: any) {
       toast({ title: `${kind.toUpperCase()} generation failed`, description: err?.message || `Could not generate ${kind.toUpperCase()}.`, variant: "destructive" });
     }

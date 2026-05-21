@@ -1239,7 +1239,7 @@ export default function KycAdmin() {
                                         queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
                                         toast({ title: "NCNDA generated", description: `Opening NCNDA for ${app.companyName}…` });
                                         try { sessionStorage.setItem("openDocId", created.id); } catch {}
-                                        kycNavigate(`/documents?openDocId=${created.id}`);
+                                        window.location.assign(`/documents?openDocId=${created.id}`);
                                       } catch (err: any) {
                                         toast({ title: "NCNDA generation failed", description: err?.message || "Could not generate NCNDA.", variant: "destructive" });
                                       }
@@ -1267,7 +1267,7 @@ export default function KycAdmin() {
                                             queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
                                             toast({ title: "ICA generated", description: `Opening ICA for ${app.companyName}…` });
                                             try { sessionStorage.setItem("openDocId", created.id); } catch {}
-                                            kycNavigate(`/documents?openDocId=${created.id}`);
+                                            window.location.assign(`/documents?openDocId=${created.id}`);
                                           } catch (err: any) {
                                             toast({ title: "ICA generation failed", description: err?.message || "Could not generate ICA.", variant: "destructive" });
                                           }
