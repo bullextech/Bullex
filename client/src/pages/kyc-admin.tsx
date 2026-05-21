@@ -542,9 +542,9 @@ export default function KycAdmin() {
                 <Briefcase className="w-4 h-4 text-primary" />
                 Team Member Registrations
               </CardTitle>
-              <Link href="/hr">
+              <Link href="/team">
                 <Button variant="ghost" size="sm" className="text-xs" data-testid="link-all-team">
-                  View All <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  Manage <ArrowRight className="w-3.5 h-3.5 ml-1" />
                 </Button>
               </Link>
             </CardHeader>
