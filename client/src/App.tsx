@@ -105,6 +105,7 @@ function Router() {
       <Route path="/vault">{() => <ModuleRoute component={Vault} moduleId="vault" />}</Route>
       <Route path="/blockchain">{() => <ModuleRoute component={Blockchain} moduleId="blockchain" />}</Route>
       <Route path="/team-members">{() => <Redirect to="/team" />}</Route>
+      <Route path="/hr">{() => <Redirect to="/team" />}</Route>
       <Route path="/db-backup">{() => <ProtectedRoute component={DatabaseBackup} />}</Route>
       <Route path="/tasks">{() => <ModuleRoute component={TaskBoard} moduleId="tasks" />}</Route>
       <Route path="/team-portal">{() => <ProtectedRoute component={TeamPortal} />}</Route>
