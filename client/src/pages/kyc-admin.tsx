@@ -1241,6 +1241,7 @@ export default function KycAdmin() {
                                         try { sessionStorage.setItem("openDocId", created.id); } catch {}
                                         window.location.assign(`/documents?openDocId=${created.id}`);
                                       } catch (err: any) {
+                                        console.error("[generate-ncnda]", err);
                                         toast({ title: "NCNDA generation failed", description: err?.message || "Could not generate NCNDA.", variant: "destructive" });
                                       }
                                     }}
@@ -1269,6 +1270,7 @@ export default function KycAdmin() {
                                             try { sessionStorage.setItem("openDocId", created.id); } catch {}
                                             window.location.assign(`/documents?openDocId=${created.id}`);
                                           } catch (err: any) {
+                                            console.error("[generate-ica]", err);
                                             toast({ title: "ICA generation failed", description: err?.message || "Could not generate ICA.", variant: "destructive" });
                                           }
                                         }}

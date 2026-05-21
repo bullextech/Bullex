@@ -897,6 +897,7 @@ function LockedMemberView({
       try { sessionStorage.setItem("openDocId", created.id); } catch {}
       window.location.assign(`/documents?openDocId=${created.id}`);
     } catch (err: any) {
+      console.error(`[generate-${kind}]`, err);
       toast({ title: `${kind.toUpperCase()} generation failed`, description: err?.message || `Could not generate ${kind.toUpperCase()}.`, variant: "destructive" });
     }
   };
