@@ -3006,12 +3006,10 @@ export default function DocumentGenerator() {
                     Send to Client
                   </Button>
                 )}
-                {(viewDoc.status === "rejected" || viewDoc.status === "draft") && (
-                  <Button onClick={() => openEdit(viewDoc)} data-testid="button-edit-from-view">
-                    <Pencil className="w-3.5 h-3.5 mr-1.5" />
-                    Amend
-                  </Button>
-                )}
+                <Button onClick={() => openEdit(viewDoc)} data-testid="button-edit-from-view">
+                  <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                  Amend
+                </Button>
               </div>
             </div>
           )}
