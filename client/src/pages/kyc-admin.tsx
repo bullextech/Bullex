@@ -486,12 +486,12 @@ export default function KycAdmin() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-1 gap-4 mb-8">
           <Card data-testid="card-kyc-summary">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <UserCheck className="w-4 h-4 text-primary" />
-                Client KYC Registrations
+                Client KYC Registration Data
               </CardTitle>
               <Link href="/kyc-admin">
                 <Button variant="ghost" size="sm" className="text-xs" data-testid="link-all-kyc">
@@ -545,78 +545,9 @@ export default function KycAdmin() {
             </CardContent>
           </Card>
 
-          <Card data-testid="card-team-kyc-summary">
-            <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-primary" />
-                Team Member Registrations
-              </CardTitle>
-              <Link href="/team">
-                <Button variant="ghost" size="sm" className="text-xs" data-testid="link-all-team">
-                  Manage <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-4 gap-2 mb-4">
-                <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 text-center" data-testid="team-summary-members">
-                  <div className="text-2xl font-bold text-blue-600">{teamMembers?.length || 0}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-blue-700 dark:text-blue-400 mt-0.5">Members</div>
-                </div>
-                <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-center" data-testid="team-kyc-pending">
-                  <div className="text-2xl font-bold text-amber-600">{teamKycPending}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 mt-0.5">Pending</div>
-                </div>
-                <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-center" data-testid="team-kyc-approved">
-                  <div className="text-2xl font-bold text-emerald-600">{teamKycApproved}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mt-0.5">Approved</div>
-                </div>
-                <div className="rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 text-center" data-testid="team-kyc-rejected">
-                  <div className="text-2xl font-bold text-red-600">{teamKycRejected}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 mt-0.5">Rejected</div>
-                </div>
-              </div>
-              <div className="space-y-0">
-                {recentTeamKyc.length > 0 ? recentTeamKyc.map((app) => {
-                  const s = app.status;
-                  const statusClass = s === "approved"
-                    ? "bg-emerald-600/10 border-emerald-600/20 text-emerald-700"
-                    : s === "rejected"
-                    ? "bg-red-600/10 border-red-600/20 text-red-700"
-                    : "bg-amber-600/10 border-amber-600/20 text-amber-700";
-                  const StatusIcon = s === "approved" ? CheckCircle2 : s === "rejected" ? XCircle : Clock;
-                  const statusLabel = s === "approved" ? "Approved" : s === "rejected" ? "Rejected" : "Pending";
-                  return (
-                    <div key={app.id} className="flex items-center justify-between gap-3 py-2.5 border-b last:border-b-0" data-testid={`team-kyc-row-${app.id}`}>
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-7 h-7 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <UserCog className="w-3.5 h-3.5 text-primary" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{app.fullName}</p>
-                          <p className="text-[11px] text-muted-foreground truncate">
-                            {app.positionApplied || "—"}{app.department ? ` · ${app.department}` : ""}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className={`rounded-none text-[10px] font-bold shrink-0 ${statusClass}`}>
-                        <StatusIcon className="w-2.5 h-2.5 mr-1" />
-                        {statusLabel}
-                      </Badge>
-                    </div>
-                  );
-                }) : (
-                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                    <Briefcase className="w-8 h-8 mb-2 opacity-20" />
-                    <p className="text-sm">No team applications yet</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
-        {(() => {
+        {false && (() => {
           const allEnq = enquiries || [];
           const enqActive = allEnq.filter((e) => e.status === "active").length;
           const enqAccepted = allEnq.filter((e) => e.status === "accepted").length;
@@ -804,7 +735,7 @@ export default function KycAdmin() {
           );
         })()}
 
-        {(() => {
+        {false && (() => {
           const pendingEnquiryCRs = enquiryChangeRequests?.filter((cr) => cr.status === "pending") || [];
           if (pendingEnquiryCRs.length === 0) return null;
           return (
