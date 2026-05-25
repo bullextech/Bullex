@@ -500,47 +500,23 @@ export default function KycAdmin() {
               </Link>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-center" data-testid="kyc-summary-pending">
-                  <div className="text-2xl font-bold text-amber-600">{pendingCount}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 mt-0.5">Pending</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="rounded-md bg-primary/5 border border-primary/20 p-4 text-center" data-testid="kyc-summary-total">
+                  <div className="text-3xl font-bold text-primary">{applications?.length || 0}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-primary mt-1">Applications</div>
                 </div>
-                <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-center" data-testid="kyc-summary-approved">
-                  <div className="text-2xl font-bold text-emerald-600">{approvedCount}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mt-0.5">Approved</div>
+                <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-4 text-center" data-testid="kyc-summary-pending">
+                  <div className="text-3xl font-bold text-amber-600">{pendingCount}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 mt-1">Pending</div>
                 </div>
-                <div className="rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 text-center" data-testid="kyc-summary-rejected">
-                  <div className="text-2xl font-bold text-red-600">{rejectedCount}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 mt-0.5">Rejected</div>
+                <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-4 text-center" data-testid="kyc-summary-approved">
+                  <div className="text-3xl font-bold text-emerald-600">{approvedCount}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mt-1">Approved</div>
                 </div>
-              </div>
-              <div className="space-y-0">
-                {recentKyc.length > 0 ? recentKyc.map((app) => {
-                  const cfg = statusConfig[app.status] || statusConfig.pending;
-                  const Icon = cfg.icon;
-                  return (
-                    <div key={app.id} className="flex items-center justify-between gap-3 py-2.5 border-b last:border-b-0" data-testid={`kyc-summary-row-${app.id}`}>
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-7 h-7 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <Building2 className="w-3.5 h-3.5 text-primary" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{app.companyName}</p>
-                          <p className="text-[11px] text-muted-foreground truncate">{app.countryOfIncorporation} · {app.contactEmail}</p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className={`rounded-none text-[10px] font-bold shrink-0 ${cfg.bg}`}>
-                        <Icon className="w-2.5 h-2.5 mr-1" />
-                        {cfg.label}
-                      </Badge>
-                    </div>
-                  );
-                }) : (
-                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                    <UserCheck className="w-8 h-8 mb-2 opacity-20" />
-                    <p className="text-sm">No KYC applications yet</p>
-                  </div>
-                )}
+                <div className="rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-4 text-center" data-testid="kyc-summary-rejected">
+                  <div className="text-3xl font-bold text-red-600">{rejectedCount}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 mt-1">Rejected</div>
+                </div>
               </div>
             </CardContent>
           </Card>
