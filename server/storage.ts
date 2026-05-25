@@ -81,6 +81,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
 
   getKycApplications(): Promise<KycApplication[]>;
+  deleteKycApplication(id: string): Promise<void>;
   getKycApplicationById(id: string): Promise<KycApplication | undefined>;
   getKycByClientUsername(username: string): Promise<KycApplication | undefined>;
   createKycApplication(kyc: InsertKyc): Promise<KycApplication>;
@@ -262,6 +263,14 @@ export class DatabaseStorage implements IStorage {
     if (data.amlNotes !== undefined) updates.amlNotes = data.amlNotes;
     const [updated] = await db.update(kycApplications).set(updates).where(eq(kycApplications.id, id)).returning();
     return updated;
+  }
+
+  async deleteKycApplication(id: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      await tx.delete(kycChangeRequests).where(eq(kycChangeRequests.kycApplicationId, id));
+      await tx.delete(kycDocuments).where(eq(kycDocuments.kycApplicationId, id));
+      await tx.delete(kycApplications).where(eq(kycApplications.id, id));
+    });
   }
 
   async updateKycStatus(id: string, status: string, reviewNotes?: string, category?: string, products?: string): Promise<KycApplication> {

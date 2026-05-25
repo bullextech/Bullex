@@ -4325,6 +4325,26 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/kyc/:id", requireAdminAuth, async (req, res) => {
+    try {
+      const kyc = await storage.getKycApplicationById(req.params.id);
+      if (!kyc) return res.status(404).json({ message: "KYC application not found" });
+      await storage.deleteKycApplication(req.params.id);
+      notify({
+        type: "kyc_deleted",
+        title: "KYC application deleted",
+        message: `${kyc.companyName} (status: ${kyc.status}) was removed by admin`,
+        link: "/kyc-admin",
+        severity: "warning",
+        module: "kyc",
+      });
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error("[kyc] delete failed:", e);
+      res.status(500).json({ message: e.message || "Failed to delete KYC application" });
+    }
+  });
+
   // ── Notifications (admin-only inbox) ─────────────────────────────────────────
   app.get("/api/notifications", requireAdminAuth, async (_req, res) => {
     try {

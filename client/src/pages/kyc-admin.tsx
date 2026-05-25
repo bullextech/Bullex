@@ -256,6 +256,20 @@ export default function KycAdmin() {
     },
   });
 
+  const deleteKyc = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/kyc/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/team-kyc"] });
+      toast({ title: "KYC Deleted", description: "The application has been permanently removed." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const kycSearchStr = useSearch();
   const focusKycId = new URLSearchParams(kycSearchStr).get("kycId");
   const [, kycNavigate] = useLocation();
@@ -1461,6 +1475,23 @@ export default function KycAdmin() {
                                     Reset to Pending
                                   </Button>
                                 )}
+
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="w-full rounded-none h-9 text-xs font-bold uppercase tracking-wider border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                  disabled={deleteKyc.isPending}
+                                  onClick={() => {
+                                    const confirmed = window.confirm(
+                                      `Permanently delete KYC for "${app.companyName}" (status: ${app.status})?\n\nThis removes the application, its uploaded documents and any change requests. This cannot be undone.`
+                                    );
+                                    if (confirmed) deleteKyc.mutate(app.id);
+                                  }}
+                                  data-testid={`button-delete-kyc-${app.id}`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                                  Delete KYC
+                                </Button>
                               </div>
                               )}
                             </div>
