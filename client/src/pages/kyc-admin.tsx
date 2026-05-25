@@ -336,7 +336,7 @@ export default function KycAdmin() {
                 KYC Dashboard
               </h1>
               <p className="text-white/70 text-lg leading-relaxed">
-                Overview of trading activity, blockchain status, and KYC application management.
+                KYC application management, onboarding and compliance review.
               </p>
             </div>
             <div className="grid grid-cols-3 gap-3 lg:gap-4">
@@ -427,65 +427,6 @@ export default function KycAdmin() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card data-testid="stat-trades">
-            <CardContent className="pt-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Link2 className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Total Trades</p>
-                  <p className="text-xl font-bold">{totalTrades}</p>
-                  <p className="text-[11px] text-muted-foreground">{activeTrades} active</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card data-testid="stat-volume">
-            <CardContent className="pt-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Trade Volume</p>
-                  <p className="text-xl font-bold">${totalVolume.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                  <p className="text-[11px] text-muted-foreground">All-time</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card data-testid="stat-blocks">
-            <CardContent className="pt-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Layers className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Chain Blocks</p>
-                  <p className="text-xl font-bold">{latestBlock ? latestBlock.blockNumber.toString() : "0"}</p>
-                  <p className="text-[11px] text-muted-foreground">100% verified</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card data-testid="stat-docs">
-            <CardContent className="pt-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Documents</p>
-                  <p className="text-xl font-bold">{(docs?.length || 0)}</p>
-                  <p className="text-[11px] text-muted-foreground">{applications?.length || 0} KYC applications</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         <div className="grid grid-cols-1 gap-4 mb-8">
           <Card data-testid="card-kyc-summary">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-3">
