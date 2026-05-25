@@ -16,9 +16,9 @@ import {
   Search, Plus, FileText, Download, Trash2, Upload, Eye, X,
   Scale, Clock, Info, User, Mail, Send, ClipboardList, FileSignature,
   MapPin, Package, ChevronDown, ChevronUp, ArrowRight, CheckCircle2,
-  Copy, Link2, ExternalLink,
+  Copy, Link2, ExternalLink, TrendingUp, Activity, XCircle,
 } from "lucide-react";
-import type { TradeEnquiry, TradeEnquiryDocument } from "@shared/schema";
+import type { TradeEnquiry, TradeEnquiryDocument, Trade } from "@shared/schema";
 
 const UNIT_OPTIONS = ["MT", "KG", "LBS", "BBL", "GAL", "LTR", "OZ", "TON"];
 const CURRENCY_OPTIONS = ["USD", "EUR", "GBP", "AED", "CNY"];
@@ -117,6 +117,18 @@ export default function TradeEnquiries() {
   const { data: enquiries = [], isLoading } = useQuery<TradeEnquiry[]>({
     queryKey: ["/api/trade-enquiries"],
   });
+
+  const { data: trades = [] } = useQuery<Trade[]>({
+    queryKey: ["/api/trades"],
+  });
+
+  const totalTrades = trades.length;
+  const activeTrades = trades.filter((t) => t.status !== "final_payment").length;
+  const totalTradeVolume = trades.reduce((s, t) => s + (Number(t.totalValue) || 0), 0);
+
+  const enqPending = enquiries.filter((e) => isActive(e.status) && e.status !== "accepted").length;
+  const enqAccepted = enquiries.filter((e) => e.status === "accepted").length;
+  const enqClosed = enquiries.filter((e) => e.status === "rejected" || e.status === "closed" || e.status === "cancelled").length;
 
   const createMutation = useMutation({
     mutationFn: async (data: EnquiryForm & { specifications: string }) => {
@@ -248,6 +260,80 @@ export default function TradeEnquiries() {
           New Enquiry
         </Button>
       </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3" data-testid="stats-trades">
+        <Card data-testid="stat-total-trades">
+          <CardContent className="pt-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Link2 className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Trades</p>
+                <p className="text-xl font-bold" data-testid="text-total-trades">{totalTrades}</p>
+                <p className="text-[11px] text-muted-foreground">{activeTrades} active</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card data-testid="stat-trade-volume">
+          <CardContent className="pt-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Trade Volume</p>
+                <p className="text-xl font-bold" data-testid="text-trade-volume">${totalTradeVolume.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                <p className="text-[11px] text-muted-foreground">All-time</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card data-testid="stat-active-trades">
+          <CardContent className="pt-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Activity className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Active Trades</p>
+                <p className="text-xl font-bold" data-testid="text-active-trades">{activeTrades}</p>
+                <p className="text-[11px] text-muted-foreground">In progress</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card data-testid="card-enquiry-status">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <ClipboardList className="w-4 h-4 text-primary" />
+            Trade Enquiries Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="rounded-md bg-primary/5 border border-primary/20 p-4 text-center" data-testid="enq-stat-total">
+              <div className="text-3xl font-bold text-primary">{enquiries.length}</div>
+              <div className="text-[10px] uppercase tracking-wider text-primary mt-1">Enquiries</div>
+            </div>
+            <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-4 text-center" data-testid="enq-stat-pending">
+              <div className="text-3xl font-bold text-amber-600">{enqPending}</div>
+              <div className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 mt-1">Pending</div>
+            </div>
+            <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-4 text-center" data-testid="enq-stat-accepted">
+              <div className="text-3xl font-bold text-emerald-600">{enqAccepted}</div>
+              <div className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mt-1">Accepted</div>
+            </div>
+            <div className="rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-4 text-center" data-testid="enq-stat-closed">
+              <div className="text-3xl font-bold text-red-600">{enqClosed}</div>
+              <div className="text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 mt-1">Closed</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border-primary/20 bg-primary/5" data-testid="card-online-enquiry-link">
         <CardContent className="p-5">
