@@ -928,17 +928,27 @@ export default function DocumentGenerator() {
     );
   }
 
+  const pageMode: "templates" | "documents" | "both" =
+    typeof window !== "undefined" && window.location.pathname.startsWith("/doc-templates")
+      ? "templates"
+      : typeof window !== "undefined" && window.location.pathname.startsWith("/documents")
+      ? "documents"
+      : "both";
+
   return (
     <div className="p-6 space-y-6 overflow-y-auto h-full">
       <div>
         <h1 className="text-2xl font-bold tracking-tight" data-testid="text-docgen-title">
-          Document Templates
+          {pageMode === "documents" ? "Generated Documents" : "Document Templates"}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Select a template to generate trade documents linked to blockchain-verified transactions
+          {pageMode === "documents"
+            ? "Review, amend, sign and send documents that have been generated from templates."
+            : "Select a template to generate trade documents linked to blockchain-verified transactions"}
         </p>
       </div>
 
+      {pageMode !== "documents" && (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {docTypes.map((dt) => {
           const Icon = dt.icon;
@@ -968,7 +978,9 @@ export default function DocumentGenerator() {
           );
         })}
       </div>
+      )}
 
+      {pageMode !== "templates" && (
       <Card data-testid="card-doc-list">
         <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-3">
           <CardTitle className="text-base font-semibold">Generated Documents</CardTitle>
@@ -1176,6 +1188,7 @@ export default function DocumentGenerator() {
           })()}
         </CardContent>
       </Card>
+      )}
 
       <Dialog open={!!selectedType} onOpenChange={(open) => { if (!open) { resetForm(); } }}>
         <DialogContent className={reviewContent ? "max-w-3xl max-h-[90vh] overflow-y-auto" : (selectedType?.value === "DEAL_RECAP" || selectedType?.value === "LOI" || selectedType?.value === "NCNDA" || selectedType?.value === "BL" || selectedType?.value === "COO" || selectedType?.value === "COA" || selectedType?.value === "COW") ? "max-w-2xl max-h-[90vh] overflow-y-auto" : "max-w-lg max-h-[85vh] overflow-y-auto"}>
