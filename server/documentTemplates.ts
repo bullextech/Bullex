@@ -735,8 +735,20 @@ ${"─".repeat(70)}
 ${"─".repeat(70)}
  07      │ Contract Confirmation       │ ${v(product?.contractConfirmation, "Subject to Producer's Confirmation of cargo")}
 ${"─".repeat(70)}
- 08      │ Commodity                   │ ${v(product?.qualitySpecs)}
-         │ Specifications              │
+${(() => {
+  const specs = (product?.qualitySpecs || "").trim();
+  if (!specs) {
+    return ` 08      │ Commodity                   │ _______________\n         │ Specifications              │`;
+  }
+  const lines = specs.split("\n").map(l => l.trim()).filter(Boolean);
+  const out: string[] = [];
+  out.push(` 08      │ Commodity                   │ ${lines[0] || ""}`);
+  out.push(`         │ Specifications              │${lines[1] ? " " + lines[1] : ""}`);
+  for (let i = 2; i < lines.length; i++) {
+    out.push(`         │                             │ ${lines[i]}`);
+  }
+  return out.join("\n");
+})()}
 ${"─".repeat(70)}
  09      │ Payment Terms               │ ${v(product?.paymentTerms, "By DLC against 2% Performance Bond")}
 ${"─".repeat(70)}

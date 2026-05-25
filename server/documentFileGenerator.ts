@@ -2251,11 +2251,17 @@ function parseLoiContent(content: string): LoiParsed {
         const cells = trimmed.split("|").map(c => c.trim());
         if (cells.length >= 3 && cells[0].match(/^\d{2}$/)) {
           result.paramRows.push({ sr: cells[0], param: cells[1], detail: cells.slice(2).join(" ").trim() });
-        } else if (cells.length >= 3 && cells.filter(c => c).length >= 2) {
+        } else if (cells.length >= 3) {
           const lastParam = result.paramRows[result.paramRows.length - 1];
           if (lastParam) {
-            lastParam.param += " " + cells[1];
-            lastParam.detail += " " + cells.slice(2).join(" ").trim();
+            const contParam = cells[1];
+            const contDetail = cells.slice(2).join(" ").trim();
+            if (contParam) {
+              lastParam.param += (lastParam.param ? " " : "") + contParam;
+            }
+            if (contDetail) {
+              lastParam.detail += (lastParam.detail ? "\n" : "") + contDetail;
+            }
           }
         }
         continue;
@@ -2399,7 +2405,10 @@ function buildLoiDocx(content: string): (Paragraph | Table)[] {
           verticalAlign: VerticalAlign.CENTER,
         }),
         new TableCell({
-          children: [new Paragraph({ children: [new TextRun({ text: row.detail, size: 16, font: "Calibri" })], spacing: { before: 30, after: 30 } })],
+          children: (row.detail || "").split("\n").map((ln, i, arr) => new Paragraph({
+            children: [new TextRun({ text: ln, size: 16, font: "Calibri" })],
+            spacing: { before: i === 0 ? 30 : 0, after: i === arr.length - 1 ? 30 : 0 },
+          })),
           width: { size: 5500, type: WidthType.DXA },
           borders: cellBorder,
           verticalAlign: VerticalAlign.CENTER,
