@@ -44,7 +44,6 @@ import { ComingSoon } from "@/pages/coming-soon";
 
 const Analytics = () => <ComingSoon title="Analytics" description="Trading performance, KYC throughput and operational analytics will appear here." />;
 const Notifications = () => <ComingSoon title="Notifications" description="System notifications, alerts and audit events for the platform." />;
-const DocTemplates = () => <ComingSoon title="Document Templates" description="Library of editable document templates (LOI, SCO, Deal Recap, SPA, NCNDA, ICA, BL, COO, ...)." />;
 const Shipments = () => <ComingSoon title="Shipments" description="Vessel scheduling, cargo loading, ETA tracking and discharge events." />;
 const QaReports = () => <ComingSoon title="QA Reports" description="Sampling, quality, moisture and weight inspection reports from independent agencies." />;
 const Banking = () => <ComingSoon title="Banking & LC" description="Letters of credit, payment instructions, bank guarantees and remittance tracking." />;
@@ -119,7 +118,7 @@ function Router() {
       <Route path="/tasks">{() => <ModuleRoute component={TaskBoard} moduleId="tasks" />}</Route>
       <Route path="/analytics">{() => <ModuleRoute component={Analytics} moduleId="analytics" />}</Route>
       <Route path="/notifications">{() => <ModuleRoute component={Notifications} moduleId="notifications" />}</Route>
-      <Route path="/doc-templates">{() => <ModuleRoute component={DocTemplates} moduleId="doc-templates" />}</Route>
+      <Route path="/doc-templates">{() => <ModuleRoute component={DocumentGenerator} moduleId="doc-templates" />}</Route>
       <Route path="/shipments">{() => <ModuleRoute component={Shipments} moduleId="shipments" />}</Route>
       <Route path="/qa-reports">{() => <ModuleRoute component={QaReports} moduleId="qa-reports" />}</Route>
       <Route path="/banking">{() => <ModuleRoute component={Banking} moduleId="banking" />}</Route>
