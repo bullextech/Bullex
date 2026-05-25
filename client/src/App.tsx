@@ -40,10 +40,10 @@ import DatabaseBackup from "@/pages/database-backup";
 import TaskBoard from "@/pages/task-board";
 import TeamPortal from "@/pages/team-portal";
 import TeamReset from "@/pages/team-reset";
+import Notifications from "@/pages/notifications";
 import { ComingSoon } from "@/pages/coming-soon";
 
 const Analytics = () => <ComingSoon title="Analytics" description="Trading performance, KYC throughput and operational analytics will appear here." />;
-const Notifications = () => <ComingSoon title="Notifications" description="System notifications, alerts and audit events for the platform." />;
 const Shipments = () => <ComingSoon title="Shipments" description="Vessel scheduling, cargo loading, ETA tracking and discharge events." />;
 const QaReports = () => <ComingSoon title="QA Reports" description="Sampling, quality, moisture and weight inspection reports from independent agencies." />;
 const Banking = () => <ComingSoon title="Banking & LC" description="Letters of credit, payment instructions, bank guarantees and remittance tracking." />;

@@ -20,6 +20,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
 
 export const PLATFORM_MODULES = [
   { id: "dashboard",      title: "Dashboard",        url: "/dashboard",       icon: LayoutDashboard, description: "Platform overview, metrics & summary" },
@@ -55,7 +56,13 @@ const adminOnlyItems = [
 
 export function AdminSidebar() {
   const [location] = useLocation();
-  const { role, allowedModules } = useAuth();
+  const { role, allowedModules, authenticated } = useAuth();
+  const { data: unread } = useQuery<{ count: number }>({
+    queryKey: ["/api/notifications/unread-count"],
+    enabled: authenticated,
+    refetchInterval: 30000,
+  });
+  const unreadCount = unread?.count || 0;
 
   const moduleById = Object.fromEntries(PLATFORM_MODULES.map(m => [m.id, m]));
   const isVisible = (id: string) =>
@@ -69,8 +76,9 @@ export function AdminSidebar() {
   const otherItems = PLATFORM_MODULES.filter(m => !groupedIds.has(m.id) && isVisible(m.id));
   if (otherItems.length > 0) sections.push({ label: "Other", items: otherItems });
 
-  const renderLink = (item: { url: string; title: string; icon: any }) => {
+  const renderLink = (item: { url: string; title: string; icon: any; id?: string }) => {
     const active = location === item.url;
+    const showBadge = item.url === "/notifications" && unreadCount > 0;
     return (
       <Link
         key={item.url}
@@ -83,7 +91,17 @@ export function AdminSidebar() {
         }`}
       >
         <item.icon className="w-4 h-4 flex-shrink-0" />
-        {item.title}
+        <span className="flex-1">{item.title}</span>
+        {showBadge && (
+          <span
+            className={`min-w-[18px] h-[18px] px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center ${
+              active ? "bg-primary-foreground text-primary" : "bg-primary text-primary-foreground"
+            }`}
+            data-testid="badge-notifications-unread"
+          >
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
       </Link>
     );
   };

@@ -14,6 +14,21 @@ import { seedDatabase } from "./seed";
 import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification, sendJobApplicationToHR, sendJobApplicationAcknowledgement, sendTeamKycAdminNotification, sendTeamKycConfirmation, sendTeamMemberWelcomeEmail, sendTeamMemberPasswordChangedEmail, sendTeamMemberPasswordResetLinkEmail } from "./email";
 import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures, generateKycApplicationPdf, generateBlankKycApplicationPdf } from "./documentFileGenerator";
 
+async function notify(args: { type: string; title: string; message: string; link?: string | null; severity?: "info" | "success" | "warning" | "alert"; module?: string | null }) {
+  try {
+    await storage.createNotification({
+      type: args.type,
+      title: args.title,
+      message: args.message,
+      link: args.link ?? null,
+      severity: args.severity ?? "info",
+      module: args.module ?? null,
+    });
+  } catch (err: any) {
+    console.error("[notifications] create failed:", err.message);
+  }
+}
+
 const ADMIN_CHECKLISTS: Record<string, string[]> = {
   LOI: [
     "Buyer details verified against KYC records",
@@ -1622,6 +1637,17 @@ export async function registerRoutes(
         }
       }
 
+      notify({
+        type: response === "accepted" ? "document_accepted" : "document_rejected",
+        title: response === "accepted" ? `${doc.docType} accepted by client` : `${doc.docType} amendment requested`,
+        message: response === "accepted"
+          ? `${req.session.clientCompanyName || "Client"} accepted ${doc.title}`
+          : `${req.session.clientCompanyName || "Client"} requested changes to ${doc.title}`,
+        link: "/documents",
+        severity: response === "accepted" ? "success" : "warning",
+        module: "documents",
+      });
+
       res.json(updated);
     } catch (error) {
       res.status(500).json({ message: "Failed to respond to document" });
@@ -1733,6 +1759,16 @@ export async function registerRoutes(
         amlMatches: allMatches,
         amlCheckedBy: checkedBy,
       });
+      if (amlStatus === "flagged") {
+        notify({
+          type: "aml_flagged",
+          title: "AML screening flagged",
+          message: `${kyc.companyName} — ${positives.length} positive match(es)`,
+          link: "/kyc-admin",
+          severity: "alert",
+          module: "kyc",
+        });
+      }
       res.json({ amlStatus, matchCount: allMatches.length, positiveCount: positives.length, kyc: sanitizeKyc(updated) });
     } catch (error: any) {
       console.error("[aml] screening error:", error);
@@ -2089,6 +2125,14 @@ export async function registerRoutes(
         kycApplicationId: req.params.id,
         changedFields: sanitized,
         reason: reason || null,
+      });
+      notify({
+        type: "kyc_change_request",
+        title: "KYC change requested",
+        message: `${kyc.companyName} requested changes to ${Object.keys(sanitized).length} field(s)`,
+        link: "/kyc-admin",
+        severity: "warning",
+        module: "kyc",
       });
       res.status(201).json(created);
     } catch (error: any) {
@@ -2472,6 +2516,14 @@ export async function registerRoutes(
         changedFields: sanitized,
         reason: reason || null,
       });
+      notify({
+        type: "enquiry_change_request",
+        title: "Enquiry change requested",
+        message: `Amendment requested on enquiry ${enquiry.enquiryRef}`,
+        link: "/trade-enquiries",
+        severity: "warning",
+        module: "enquiries",
+      });
       res.status(201).json(created);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -2581,6 +2633,14 @@ export async function registerRoutes(
         submittedByTeamMemberId: null,
       });
       sendEnquiryCreatedNotification(enquiry).catch(() => {});
+      notify({
+        type: "enquiry_created",
+        title: "New trade enquiry",
+        message: `${enquiry.createdBy || "Client"} — ${enquiry.product} (${enquiry.enquiryRef})`,
+        link: "/trade-enquiries",
+        severity: "info",
+        module: "enquiries",
+      });
       res.json({ success: true, enquiryRef: enquiry.enquiryRef });
     } catch (error: any) {
       console.error("[public-enquiry] failed:", error);
@@ -2654,6 +2714,15 @@ export async function registerRoutes(
           submittedAt
         ).catch((err) => console.error("[email] admin KYC notification failed:", err));
       }
+
+      notify({
+        type: "kyc_submitted",
+        title: "New KYC submission",
+        message: `${parsed.data.companyName} submitted a KYC application`,
+        link: "/kyc-admin",
+        severity: "info",
+        module: "kyc",
+      });
 
       res.json(sanitizeKyc(result));
     } catch (error: any) {
@@ -3324,6 +3393,15 @@ export async function registerRoutes(
           .catch(err => console.error("[docs] Failed to send signature pending email:", err));
       }
 
+      notify({
+        type: "document_sent",
+        title: `${doc.docType} sent for review`,
+        message: `${doc.title} sent to ${recipientEmail}`,
+        link: "/documents",
+        severity: "info",
+        module: "documents",
+      });
+
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to send document" });
@@ -3353,6 +3431,17 @@ export async function registerRoutes(
         updateData.recipientAmendmentNotes = amendmentNotes;
       }
       const updated = await storage.updateDocument(doc.id, updateData);
+
+      notify({
+        type: response === "accepted" ? "document_accepted" : "document_rejected",
+        title: response === "accepted" ? `${doc.docType} accepted` : `${doc.docType} amendment requested`,
+        message: response === "accepted"
+          ? `${doc.title} was accepted`
+          : `Amendment requested on ${doc.title}`,
+        link: "/documents",
+        severity: response === "accepted" ? "success" : "warning",
+        module: "documents",
+      });
 
       res.json(updated);
     } catch (error: any) {
@@ -3756,6 +3845,14 @@ export async function registerRoutes(
         submittedByTeamMemberId,
       });
       sendEnquiryCreatedNotification(enquiry).catch(() => {});
+      notify({
+        type: "enquiry_created",
+        title: "New trade enquiry",
+        message: `${enquiry.createdBy || "Team"} — ${enquiry.product} (${enquiry.enquiryRef})`,
+        link: "/trade-enquiries",
+        severity: "info",
+        module: "enquiries",
+      });
       res.json(enquiry);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -3986,6 +4083,14 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid registration data", errors: parsed.error.flatten() });
       }
       const reg = await storage.createRegistration(parsed.data);
+      notify({
+        type: "registration",
+        title: "New registration",
+        message: `${reg.fullName} (${reg.companyName}) — ${reg.roleType}`,
+        link: "/registrations",
+        severity: "info",
+        module: "registrations",
+      });
       const submittedAt = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
       sendRegistrationConfirmationEmail(reg.email, reg.fullName, reg.roleType, reg.companyName).catch(() => {});
       sendRegistrationAdminEmail(
@@ -4074,6 +4179,14 @@ export async function registerRoutes(
       const { title, description, priority, status, assignee, dueDate, createdBy } = req.body;
       if (!title) return res.status(400).json({ message: "Title is required" });
       const task = await storage.createTeamTask({ title, description, priority: priority || "medium", status: status || "todo", assignee, dueDate, createdBy });
+      notify({
+        type: "task_created",
+        title: "New task",
+        message: `${title}${assignee ? ` — assigned to ${assignee}` : ""}`,
+        link: "/tasks",
+        severity: priority === "high" ? "warning" : "info",
+        module: "tasks",
+      });
       res.json(task);
     } catch (e: any) {
       res.status(500).json({ message: e.message });
@@ -4082,7 +4195,18 @@ export async function registerRoutes(
 
   app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
     try {
+      const prev = await storage.getTeamTaskById(req.params.id);
       const task = await storage.updateTeamTask(req.params.id, req.body);
+      if (prev && req.body?.status && prev.status !== task.status) {
+        notify({
+          type: "task_status",
+          title: `Task ${task.status === "done" ? "completed" : "moved to " + task.status}`,
+          message: `${task.title}${task.assignee ? ` — ${task.assignee}` : ""}`,
+          link: "/tasks",
+          severity: task.status === "done" ? "success" : "info",
+          module: "tasks",
+        });
+      }
       res.json(task);
     } catch (e: any) {
       res.status(500).json({ message: e.message });
@@ -4112,6 +4236,15 @@ export async function registerRoutes(
       const { author, text } = req.body;
       if (!text) return res.status(400).json({ message: "Text is required" });
       const update = await storage.createTaskUpdate({ taskId: req.params.id, author: author || "Admin", text });
+      const task = await storage.getTeamTaskById(req.params.id);
+      notify({
+        type: "task_update",
+        title: `Task update: ${task?.title || "Task"}`,
+        message: `${author || "Admin"}: ${text.slice(0, 140)}`,
+        link: "/tasks",
+        severity: "info",
+        module: "tasks",
+      });
       res.json(update);
     } catch (e: any) {
       res.status(500).json({ message: e.message });
@@ -4169,6 +4302,14 @@ export async function registerRoutes(
         blockers: str(b.blockers, 2000),
         nextSteps: str(b.nextSteps, 2000),
       });
+      notify({
+        type: "daily_report",
+        title: `Daily report — ${teamMemberName}`,
+        message: `${reportDate}: ${b.summary.trim().slice(0, 160)}`,
+        link: "/tasks",
+        severity: b.blockers ? "warning" : "info",
+        module: "tasks",
+      });
       res.json(created);
     } catch (e: any) {
       res.status(500).json({ message: e.message });
@@ -4178,6 +4319,53 @@ export async function registerRoutes(
   app.delete("/api/daily-reports/:id", requireAdminAuth, async (req: Request, res: Response) => {
     try {
       await storage.deleteDailyReport(req.params.id);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // ── Notifications (admin-only inbox) ─────────────────────────────────────────
+  app.get("/api/notifications", requireAdminAuth, async (_req, res) => {
+    try {
+      const rows = await storage.getNotifications(100);
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/notifications/unread-count", requireAuth, async (req, res) => {
+    try {
+      if (req.session?.role !== "admin") return res.json({ count: 0 });
+      const count = await storage.getUnreadNotificationCount();
+      res.json({ count });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", requireAdminAuth, async (req, res) => {
+    try {
+      await storage.markNotificationRead(req.params.id);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.patch("/api/notifications/read-all", requireAdminAuth, async (_req, res) => {
+    try {
+      await storage.markAllNotificationsRead();
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.delete("/api/notifications/:id", requireAdminAuth, async (req, res) => {
+    try {
+      await storage.deleteNotification(req.params.id);
       res.json({ success: true });
     } catch (e: any) {
       res.status(500).json({ message: e.message });

@@ -64,6 +64,9 @@ import {
   potentialClients,
   type PotentialClient,
   type InsertPotentialClient,
+  notifications,
+  type Notification,
+  type InsertNotification,
 } from "@shared/schema";
 
 export const pool = new pg.Pool({
@@ -196,6 +199,13 @@ export interface IStorage {
   getDailyReports(filters?: { date?: string; teamMemberId?: string }): Promise<DailyReport[]>;
   createDailyReport(report: InsertDailyReport): Promise<DailyReport>;
   deleteDailyReport(id: string): Promise<void>;
+
+  getNotifications(limit?: number): Promise<Notification[]>;
+  getUnreadNotificationCount(): Promise<number>;
+  createNotification(n: InsertNotification): Promise<Notification>;
+  markNotificationRead(id: string): Promise<void>;
+  markAllNotificationsRead(): Promise<void>;
+  deleteNotification(id: string): Promise<void>;
 
   getPotentialClients(): Promise<PotentialClient[]>;
   getPotentialClientsByTeamMemberId(teamMemberId: string): Promise<PotentialClient[]>;
@@ -1046,6 +1056,32 @@ export class DatabaseStorage implements IStorage {
 
   async deletePotentialClient(id: string): Promise<void> {
     await db.delete(potentialClients).where(eq(potentialClients.id, id));
+  }
+
+  async getNotifications(limit = 100): Promise<Notification[]> {
+    return db.select().from(notifications).orderBy(desc(notifications.createdAt)).limit(limit);
+  }
+
+  async getUnreadNotificationCount(): Promise<number> {
+    const rows = await db.select().from(notifications).where(eq(notifications.isRead, false));
+    return rows.length;
+  }
+
+  async createNotification(n: InsertNotification): Promise<Notification> {
+    const [row] = await db.insert(notifications).values(n).returning();
+    return row;
+  }
+
+  async markNotificationRead(id: string): Promise<void> {
+    await db.update(notifications).set({ isRead: true }).where(eq(notifications.id, id));
+  }
+
+  async markAllNotificationsRead(): Promise<void> {
+    await db.update(notifications).set({ isRead: true }).where(eq(notifications.isRead, false));
+  }
+
+  async deleteNotification(id: string): Promise<void> {
+    await db.delete(notifications).where(eq(notifications.id, id));
   }
 }
 
