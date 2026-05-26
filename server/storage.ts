@@ -87,7 +87,7 @@ export interface IStorage {
   createKycApplication(kyc: InsertKyc): Promise<KycApplication>;
   updateKycStatus(id: string, status: string, reviewNotes?: string, category?: string, products?: string): Promise<KycApplication>;
   updateKycClientCredentials(id: string, clientUsername: string, clientPassword: string): Promise<KycApplication>;
-  updateKycAmlScreening(id: string, data: { amlStatus: string; amlMatches?: any; amlCheckedBy?: string; amlNotes?: string }): Promise<KycApplication>;
+  updateKycAmlScreening(id: string, data: { amlStatus: string; amlMatches?: any; amlCheckedBy?: string; amlNotes?: string; ofacStatus?: string; ofacMatches?: any; unSanctionsStatus?: string; unSanctionsMatches?: any; pepStatus?: string; pepMatches?: any }): Promise<KycApplication>;
 
   getTrades(): Promise<Trade[]>;
   getTradeById(id: string): Promise<Trade | undefined>;
@@ -256,11 +256,17 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async updateKycAmlScreening(id: string, data: { amlStatus: string; amlMatches?: any; amlCheckedBy?: string; amlNotes?: string }): Promise<KycApplication> {
+  async updateKycAmlScreening(id: string, data: { amlStatus: string; amlMatches?: any; amlCheckedBy?: string; amlNotes?: string; ofacStatus?: string; ofacMatches?: any; unSanctionsStatus?: string; unSanctionsMatches?: any; pepStatus?: string; pepMatches?: any }): Promise<KycApplication> {
     const updates: any = { amlStatus: data.amlStatus, amlCheckedAt: new Date() };
     if (data.amlMatches !== undefined) updates.amlMatches = data.amlMatches;
     if (data.amlCheckedBy !== undefined) updates.amlCheckedBy = data.amlCheckedBy;
     if (data.amlNotes !== undefined) updates.amlNotes = data.amlNotes;
+    if (data.ofacStatus !== undefined) updates.ofacStatus = data.ofacStatus;
+    if (data.ofacMatches !== undefined) updates.ofacMatches = data.ofacMatches;
+    if (data.unSanctionsStatus !== undefined) updates.unSanctionsStatus = data.unSanctionsStatus;
+    if (data.unSanctionsMatches !== undefined) updates.unSanctionsMatches = data.unSanctionsMatches;
+    if (data.pepStatus !== undefined) updates.pepStatus = data.pepStatus;
+    if (data.pepMatches !== undefined) updates.pepMatches = data.pepMatches;
     const [updated] = await db.update(kycApplications).set(updates).where(eq(kycApplications.id, id)).returning();
     return updated;
   }

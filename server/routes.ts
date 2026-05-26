@@ -1694,82 +1694,161 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/kyc/:id/aml-check", requireAdminAuth, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const kyc = await storage.getKycApplicationById(id);
-      if (!kyc) return res.status(404).json({ message: "KYC application not found" });
+  async function runSanctionsScreening(kycId: string, checkedBy: string) {
+    const kyc = await storage.getKycApplicationById(kycId);
+    if (!kyc) return null;
 
-      const queries: { label: string; name: string; schema: string }[] = [];
-      if (kyc.companyName) queries.push({ label: "Company", name: kyc.companyName, schema: "Company" });
-      if (kyc.signatoryName) queries.push({ label: "Authorized Signatory", name: kyc.signatoryName, schema: "Person" });
-      if (kyc.contactName && kyc.contactName !== kyc.signatoryName) {
-        queries.push({ label: "Primary Contact", name: kyc.contactName, schema: "Person" });
-      }
+    const queries: { label: string; name: string; schema: string }[] = [];
+    if (kyc.companyName) queries.push({ label: "Company", name: kyc.companyName, schema: "Company" });
+    if (kyc.signatoryName) queries.push({ label: "Authorized Signatory", name: kyc.signatoryName, schema: "Person" });
+    if (kyc.contactName && kyc.contactName !== kyc.signatoryName) {
+      queries.push({ label: "Primary Contact", name: kyc.contactName, schema: "Person" });
+    }
 
-      const allMatches: any[] = [];
-      for (const q of queries) {
-        try {
-          const url = `https://api.opensanctions.org/match/default`;
-          const body = { queries: { q1: { schema: q.schema, properties: { name: [q.name] } } } };
-          const resp = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          if (!resp.ok) {
-            // Fallback to free search endpoint
-            const searchUrl = `https://api.opensanctions.org/search/default?q=${encodeURIComponent(q.name)}&limit=5`;
-            const sresp = await fetch(searchUrl);
-            if (sresp.ok) {
-              const sdata: any = await sresp.json();
-              for (const r of sdata.results || []) {
-                allMatches.push({
-                  queryLabel: q.label, queryName: q.name,
-                  matchedName: r.caption, schema: r.schema,
-                  score: r.score ?? null, datasets: r.datasets || [],
-                  topics: r.properties?.topics || [], countries: r.properties?.country || [],
-                  sourceUrl: `https://www.opensanctions.org/entities/${r.id}/`,
-                });
-              }
-            }
+    const allMatches: any[] = [];
+    let successfulQueries = 0;
+    for (const q of queries) {
+      try {
+        const url = `https://api.opensanctions.org/match/default`;
+        const body = { queries: { q1: { schema: q.schema, properties: { name: [q.name] } } } };
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!resp.ok) {
+          const searchUrl = `https://api.opensanctions.org/search/default?q=${encodeURIComponent(q.name)}&limit=5`;
+          const sresp = await fetch(searchUrl);
+          if (!sresp.ok) {
+            console.error(`[aml] both match and search endpoints failed for "${q.name}" (match ${resp.status}, search ${sresp.status})`);
             continue;
           }
-          const data: any = await resp.json();
-          const results = data?.responses?.q1?.results || [];
-          for (const r of results) {
+          const sdata: any = await sresp.json();
+          for (const r of sdata.results || []) {
             allMatches.push({
               queryLabel: q.label, queryName: q.name,
               matchedName: r.caption, schema: r.schema,
-              score: r.score ?? null, match: r.match ?? false, datasets: r.datasets || [],
+              score: r.score ?? null, datasets: r.datasets || [],
               topics: r.properties?.topics || [], countries: r.properties?.country || [],
               sourceUrl: `https://www.opensanctions.org/entities/${r.id}/`,
             });
           }
-        } catch (err: any) {
-          console.error(`[aml] screening failed for "${q.name}":`, err.message);
+          successfulQueries++;
+          continue;
         }
+        const data: any = await resp.json();
+        const results = data?.responses?.q1?.results || [];
+        for (const r of results) {
+          allMatches.push({
+            queryLabel: q.label, queryName: q.name,
+            matchedName: r.caption, schema: r.schema,
+            score: r.score ?? null, match: r.match ?? false, datasets: r.datasets || [],
+            topics: r.properties?.topics || [], countries: r.properties?.country || [],
+            sourceUrl: `https://www.opensanctions.org/entities/${r.id}/`,
+          });
+        }
+        successfulQueries++;
+      } catch (err: any) {
+        console.error(`[aml] screening failed for "${q.name}":`, err.message);
       }
+    }
 
-      const positives = allMatches.filter(m => m.match === true || (m.score != null && m.score >= 0.7));
-      const amlStatus = positives.length > 0 ? "flagged" : "clear";
-      const checkedBy = req.session.username || "admin";
-      const updated = await storage.updateKycAmlScreening(id, {
-        amlStatus,
-        amlMatches: allMatches,
+    // Fail-closed: if no queries succeeded, do NOT mark as clear. Persist an error state
+    // so the approval gate remains locked until a real screening run completes.
+    if (successfulQueries === 0) {
+      const errored = await storage.updateKycAmlScreening(kycId, {
+        amlStatus: "not_run",
+        amlMatches: [],
         amlCheckedBy: checkedBy,
+        amlNotes: "Screening provider unreachable — no queries completed successfully.",
+        ofacStatus: "not_run", ofacMatches: [],
+        unSanctionsStatus: "not_run", unSanctionsMatches: [],
+        pepStatus: "not_run", pepMatches: [],
       });
-      if (amlStatus === "flagged") {
-        notify({
-          type: "aml_flagged",
-          title: "AML screening flagged",
-          message: `${kyc.companyName} — ${positives.length} positive match(es)`,
-          link: "/kyc-admin",
-          severity: "alert",
-          module: "kyc",
-        });
-      }
-      res.json({ amlStatus, matchCount: allMatches.length, positiveCount: positives.length, kyc: sanitizeKyc(updated) });
+      return {
+        kyc: errored,
+        amlStatus: "not_run",
+        ofacStatus: "not_run",
+        unSanctionsStatus: "not_run",
+        pepStatus: "not_run",
+        matchCount: 0,
+        positiveCount: 0,
+      };
+    }
+
+    const classifyMatch = (m: any) => {
+      const ds: string[] = (m.datasets || []).map((d: string) => String(d).toLowerCase());
+      const topics: string[] = (m.topics || []).map((t: string) => String(t).toLowerCase());
+      return {
+        ofac: ds.some(d => d.includes("us_ofac")),
+        un: ds.some(d => d.includes("un_sc")),
+        pep: topics.some(t => t.includes("role.pep") || t === "pep") || ds.some(d => /(^|_)peps?(_|$)/.test(d) || d.includes("pep")),
+      };
+    };
+    const isPositive = (m: any) => m.match === true || (m.score != null && m.score >= 0.7);
+
+    const ofacMatches = allMatches.filter(m => classifyMatch(m).ofac);
+    const unMatches = allMatches.filter(m => classifyMatch(m).un);
+    const pepMatches = allMatches.filter(m => classifyMatch(m).pep);
+    const positives = allMatches.filter(isPositive);
+
+    const ofacStatus = ofacMatches.some(isPositive) ? "hit" : "clear";
+    const unSanctionsStatus = unMatches.some(isPositive) ? "hit" : "clear";
+    const pepStatus = pepMatches.some(isPositive) ? "hit" : "clear";
+    const amlStatus = positives.length > 0 ? "flagged" : "clear";
+
+    const updated = await storage.updateKycAmlScreening(kycId, {
+      amlStatus,
+      amlMatches: allMatches,
+      amlCheckedBy: checkedBy,
+      ofacStatus, ofacMatches,
+      unSanctionsStatus, unSanctionsMatches: unMatches,
+      pepStatus, pepMatches,
+    });
+
+    if (amlStatus === "flagged") {
+      const hits: string[] = [];
+      if (ofacStatus === "hit") hits.push("OFAC");
+      if (unSanctionsStatus === "hit") hits.push("UN Sanctions");
+      if (pepStatus === "hit") hits.push("PEP");
+      notify({
+        type: "aml_flagged",
+        title: "Sanctions / PEP screening flagged",
+        message: `${kyc.companyName} — ${positives.length} positive match(es)${hits.length ? ` (${hits.join(", ")})` : ""}`,
+        link: "/kyc-admin",
+        severity: "alert",
+        module: "kyc",
+      });
+    }
+
+    return {
+      kyc: updated,
+      amlStatus,
+      ofacStatus,
+      unSanctionsStatus,
+      pepStatus,
+      matchCount: allMatches.length,
+      positiveCount: positives.length,
+    };
+  }
+
+  app.post("/api/kyc/:id/aml-check", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const exists = await storage.getKycApplicationById(id);
+      if (!exists) return res.status(404).json({ message: "KYC application not found" });
+      const checkedBy = req.session.username || "admin";
+      const result = await runSanctionsScreening(id, checkedBy);
+      if (!result) return res.status(404).json({ message: "KYC application not found" });
+      res.json({
+        amlStatus: result.amlStatus,
+        ofacStatus: result.ofacStatus,
+        unSanctionsStatus: result.unSanctionsStatus,
+        pepStatus: result.pepStatus,
+        matchCount: result.matchCount,
+        positiveCount: result.positiveCount,
+        kyc: sanitizeKyc(result.kyc),
+      });
     } catch (error: any) {
       console.error("[aml] screening error:", error);
       res.status(500).json({ message: error.message || "AML screening failed" });
@@ -2679,6 +2758,11 @@ export async function registerRoutes(
         if (tm) data.submittedByTeamMemberId = tm.id;
       }
       const result = await storage.createKycApplication(data);
+
+      // Mandatory sanctions / PEP screening for every KYC application.
+      // Runs in background so it doesn't delay the response or block submission on Yahoo/OpenSanctions latency.
+      runSanctionsScreening(result.id, "system:auto")
+        .catch((err) => console.error("[aml] auto-screening failed:", err?.message));
 
       const signatoryEmail = parsed.data.signatoryEmail;
       const submittedAt = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });

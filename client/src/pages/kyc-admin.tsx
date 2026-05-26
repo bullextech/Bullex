@@ -1481,6 +1481,15 @@ function AmlScreeningPanel({ app }: { app: any }) {
   const status: string = app.amlStatus || "not_run";
   const matches: any[] = Array.isArray(app.amlMatches) ? app.amlMatches : [];
   const positives = matches.filter(m => m.match === true || (m.score != null && m.score >= 0.7));
+  const ofacStatus: string = app.ofacStatus || "not_run";
+  const unSanctionsStatus: string = app.unSanctionsStatus || "not_run";
+  const pepStatus: string = app.pepStatus || "not_run";
+  const subBadgeClass = (s: string) => {
+    if (s === "hit") return "bg-red-100 text-red-700 border-red-300";
+    if (s === "clear") return "bg-emerald-100 text-emerald-700 border-emerald-300";
+    return "bg-gray-100 text-gray-600 border-gray-300";
+  };
+  const subBadgeLabel = (s: string) => (s === "hit" ? "Hit" : s === "clear" ? "Clear" : "Not Run");
 
   const runCheck = useMutation({
     mutationFn: () => apiRequest("POST", `/api/kyc/${app.id}/aml-check`, {}),
@@ -1527,9 +1536,24 @@ function AmlScreeningPanel({ app }: { app: any }) {
       </div>
 
       <p className="text-[11px] text-muted-foreground leading-relaxed">
-        Screens company &amp; signatory names against the OpenSanctions consolidated dataset (UN, EU, OFAC, UK HMT, World-Check public lists, PEPs).
-        Approval is locked until this check is cleared.
+        Every KYC application is screened against three mandatory lists — OFAC SDN, UN Consolidated Sanctions, and global PEPs — via the OpenSanctions consolidated dataset.
+        Approval is locked until all three checks are cleared (or manually overridden).
       </p>
+
+      <div className="grid grid-cols-3 gap-2">
+        <div className="border border-border bg-background rounded-none p-2 flex flex-col gap-1" data-testid={`screening-ofac-${app.id}`}>
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">OFAC Sanctions</span>
+          <Badge className={`rounded-none text-[10px] font-bold uppercase border w-fit ${subBadgeClass(ofacStatus)}`}>{subBadgeLabel(ofacStatus)}</Badge>
+        </div>
+        <div className="border border-border bg-background rounded-none p-2 flex flex-col gap-1" data-testid={`screening-un-${app.id}`}>
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">UN Sanctions</span>
+          <Badge className={`rounded-none text-[10px] font-bold uppercase border w-fit ${subBadgeClass(unSanctionsStatus)}`}>{subBadgeLabel(unSanctionsStatus)}</Badge>
+        </div>
+        <div className="border border-border bg-background rounded-none p-2 flex flex-col gap-1" data-testid={`screening-pep-${app.id}`}>
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">PEP Screening</span>
+          <Badge className={`rounded-none text-[10px] font-bold uppercase border w-fit ${subBadgeClass(pepStatus)}`}>{subBadgeLabel(pepStatus)}</Badge>
+        </div>
+      </div>
 
       {app.amlCheckedAt && (
         <div className="text-[10px] text-muted-foreground flex items-center gap-2 flex-wrap">

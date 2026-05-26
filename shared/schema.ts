@@ -82,6 +82,12 @@ export const kycApplications = pgTable("kyc_applications", {
   amlCheckedAt: timestamp("aml_checked_at"),
   amlCheckedBy: text("aml_checked_by"),
   amlNotes: text("aml_notes"),
+  ofacStatus: text("ofac_status").notNull().default("not_run"),
+  ofacMatches: jsonb("ofac_matches"),
+  unSanctionsStatus: text("un_sanctions_status").notNull().default("not_run"),
+  unSanctionsMatches: jsonb("un_sanctions_matches"),
+  pepStatus: text("pep_status").notNull().default("not_run"),
+  pepMatches: jsonb("pep_matches"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -336,6 +342,20 @@ export const insertKycSchema = createInsertSchema(kycApplications).omit({
   blockNumber: true,
   nonce: true,
   createdAt: true,
+  amlStatus: true,
+  amlMatches: true,
+  amlCheckedAt: true,
+  amlCheckedBy: true,
+  amlNotes: true,
+  ofacStatus: true,
+  ofacMatches: true,
+  unSanctionsStatus: true,
+  unSanctionsMatches: true,
+  pepStatus: true,
+  pepMatches: true,
+  participantId: true,
+  clientUsername: true,
+  clientPassword: true,
 });
 
 export const insertTradeSchema = createInsertSchema(trades).omit({
