@@ -262,7 +262,7 @@ export default function TradeEnquiries() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3" data-testid="stats-trades">
-        <Card data-testid="stat-total-trades">
+        <Card className="bullex-stat-card" data-testid="stat-total-trades">
           <CardContent className="pt-5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -276,7 +276,7 @@ export default function TradeEnquiries() {
             </div>
           </CardContent>
         </Card>
-        <Card data-testid="stat-trade-volume">
+        <Card className="bullex-stat-card" data-testid="stat-trade-volume">
           <CardContent className="pt-5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -290,7 +290,7 @@ export default function TradeEnquiries() {
             </div>
           </CardContent>
         </Card>
-        <Card data-testid="stat-active-trades">
+        <Card className="bullex-stat-card" data-testid="stat-active-trades">
           <CardContent className="pt-5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">

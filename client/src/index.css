@@ -175,6 +175,17 @@
   }
 }
 
+@layer components {
+  /* Bullex shared design tokens — match the dashboard look across all pages */
+  .bullex-header-dark {
+    background-color: hsl(220 40% 12%);
+    color: #ffffff;
+  }
+  .bullex-stat-card {
+    @apply rounded-none border-t-4 border-t-primary border-x border-b border-border shadow-none bg-card;
+  }
+}
+
 /**
  * Using the elevate system.
  * Automatic contrast adjustment.

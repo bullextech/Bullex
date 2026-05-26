@@ -310,7 +310,7 @@ export default function Blockchain() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card data-testid="stat-total-blocks">
+        <Card className="bullex-stat-card" data-testid="stat-total-blocks">
           <CardContent className="pt-5 flex items-center gap-3">
             <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
               <Layers className="w-5 h-5 text-primary" />
@@ -321,7 +321,7 @@ export default function Blockchain() {
             </div>
           </CardContent>
         </Card>
-        <Card data-testid="stat-total-txns">
+        <Card className="bullex-stat-card" data-testid="stat-total-txns">
           <CardContent className="pt-5 flex items-center gap-3">
             <div className="w-10 h-10 rounded-md bg-chart-2/10 flex items-center justify-center">
               <Link2 className="w-5 h-5 text-chart-2" />
@@ -332,7 +332,7 @@ export default function Blockchain() {
             </div>
           </CardContent>
         </Card>
-        <Card data-testid="stat-chain-integrity">
+        <Card className="bullex-stat-card" data-testid="stat-chain-integrity">
           <CardContent className="pt-5 flex items-center gap-3">
             <div className="w-10 h-10 rounded-md bg-status-online/10 flex items-center justify-center">
               <Shield className="w-5 h-5 text-status-online" />

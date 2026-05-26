@@ -617,7 +617,7 @@ export default function Trading() {
         )}
 
         <div className="space-y-0 border border-border" data-testid="card-trades-table">
-          <div className="grid grid-cols-12 gap-2 px-5 py-3 bg-muted/50 border-b border-border text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          <div className="grid grid-cols-12 gap-2 px-5 py-3 bullex-header-dark border-b border-border text-xs font-bold uppercase tracking-wider text-white/80">
             <div className="col-span-2">Trade Ref</div>
             <div className="col-span-2">Commodity</div>
             <div className="col-span-1 text-right">Qty</div>

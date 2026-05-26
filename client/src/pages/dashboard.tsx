@@ -75,7 +75,7 @@ function kycBadge(s: string) {
 
 function StatCard({ value, label, testId }: { value: string; label: string; testId: string }) {
   return (
-    <Card className="rounded-none border-t-4 border-t-primary border-x border-b border-border shadow-none" data-testid={testId}>
+    <Card className="bullex-stat-card" data-testid={testId}>
       <CardContent className="py-5 px-5">
         <div className="text-3xl font-bold text-foreground leading-tight" data-testid={`${testId}-value`}>{value}</div>
         <div className="text-xs text-muted-foreground mt-1.5">{label}</div>
@@ -149,7 +149,7 @@ export default function Dashboard() {
       </div>
 
       {/* Commodity ticker */}
-      <div className="bg-[hsl(220,40%,12%)] text-white border-b border-[hsl(220,40%,8%)] overflow-x-auto" data-testid="ticker-bar">
+      <div className="bullex-header-dark border-b border-[hsl(220,40%,8%)] overflow-x-auto" data-testid="ticker-bar">
         <div className="flex items-center gap-6 px-6 py-2.5 whitespace-nowrap">
           {TICKER.map((t) => (
             <div key={t.name} className="flex items-center gap-2 text-xs" data-testid={`ticker-${t.name.toLowerCase().replace(/\s+/g, "-")}`}>
@@ -184,7 +184,7 @@ export default function Dashboard() {
               <SectionHeader title="Recent Deals" action={<SectionLinkButton href="/trading" />} />
               {recentDeals.length > 0 ? (
                 <div className="border border-border">
-                  <div className="grid grid-cols-[1fr_1.2fr_0.8fr_0.7fr] gap-2 px-3 py-2.5 bg-[hsl(220,40%,12%)] text-white text-[10px] font-bold uppercase tracking-wider">
+                  <div className="grid grid-cols-[1fr_1.2fr_0.8fr_0.7fr] gap-2 px-3 py-2.5 bullex-header-dark text-[10px] font-bold uppercase tracking-wider">
                     <div>Ref</div><div>Commodity</div><div>Value</div><div>Stage</div>
                   </div>
                   {recentDeals.map((t) => (
