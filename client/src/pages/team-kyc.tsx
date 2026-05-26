@@ -313,7 +313,7 @@ export default function TeamKYC() {
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-primary mb-1">Staff Employment KYC Form</h2>
             <p className="text-sm text-muted-foreground">
-              Complete all sections accurately. Fields marked <span className="text-destructive font-bold">*</span> are mandatory. Your login credentials will be allocated by admin upon approval.
+              Complete all sections accurately. Your login credentials will be allocated by admin upon approval.
             </p>
           </div>
 
@@ -404,7 +404,7 @@ export default function TeamKYC() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="space-y-2 md:col-span-2">
-                      <Label className={lbl}>Full Legal Name <span className="text-destructive">*</span></Label>
+                      <Label className={lbl}>Full Legal Name</Label>
                       <Input className={inp} placeholder="As it appears on your passport or national ID" value={form.fullName} onChange={e => up("fullName", e.target.value)} data-testid="input-team-full-name" />
                     </div>
                     <div className="space-y-2">
@@ -455,7 +455,7 @@ export default function TeamKYC() {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="space-y-2">
-                      <Label className={lbl}>Email Address <span className="text-destructive">*</span></Label>
+                      <Label className={lbl}>Email Address</Label>
                       <Input type="email" className={inp} placeholder="your.email@example.com" value={form.email} onChange={e => up("email", e.target.value)} data-testid="input-team-email" />
                       <p className="text-[10px] text-muted-foreground">Login credentials will be sent to this address upon approval.</p>
                     </div>
@@ -790,14 +790,14 @@ export default function TeamKYC() {
                       {declarationAgreed && <CheckCircle2 className="w-3.5 h-3.5 text-primary-foreground" />}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold">I agree to the above Statutory Declaration <span className="text-destructive">*</span></p>
+                      <p className="text-sm font-semibold">I agree to the above Statutory Declaration</p>
                       <p className="text-xs text-muted-foreground mt-0.5">By checking this box, I confirm that all information and documents provided are true and accurate.</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="space-y-2 md:col-span-2">
-                      <Label className={lbl}>Print Full Name (Digital Signature) <span className="text-destructive">*</span></Label>
+                      <Label className={lbl}>Print Full Name (Digital Signature)</Label>
                       <Input
                         className={`${inp} font-serif italic text-base`}
                         placeholder="Type your full legal name as your signature"

@@ -191,17 +191,6 @@ export default function KycRegister() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.companyName || !form.registeredAddress || !form.contactName ||
-        !form.contactTitle || !form.contactPhone || !form.contactEmail ||
-        !form.dateOfIncorporation || !form.countryOfIncorporation || !form.registrationNumber ||
-        !form.signatoryCompany || !form.filledByName || !form.filledByEmail) {
-      toast({
-        title: "Missing Required Fields",
-        description: "Please complete all mandatory fields marked with * before submitting.",
-        variant: "destructive",
-      });
-      return;
-    }
     if (uploadingCount > 0) {
       toast({
         title: "Uploads In Progress",
@@ -290,7 +279,7 @@ export default function KycRegister() {
             </h2>
             <p className="text-sm text-primary-foreground/70">
               Complete all 10 sections below to begin your onboarding with Bullex.
-              Fields marked with * are mandatory. Your information is transmitted securely.
+               Your information is transmitted securely.
             </p>
           </div>
         </div>
@@ -323,11 +312,11 @@ export default function KycRegister() {
                   </h3>
                   <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2 md:col-span-2">
-                      <Label className={labelClass}>Full Legal Name *</Label>
+                      <Label className={labelClass}>Full Legal Name</Label>
                       <Input name="companyName" className={inputClass} placeholder="e.g. Acme Trading LLC" value={form.companyName} onChange={(e) => update("companyName", e.target.value)} data-testid="input-reg-company-name" />
                     </div>
                     <div className="space-y-2 md:col-span-2">
-                      <Label className={labelClass}>Full Legal (Registered) Address *</Label>
+                      <Label className={labelClass}>Full Legal (Registered) Address</Label>
                       <Textarea name="registeredAddress" className={textareaClass} placeholder="Full legal address including postal code" value={form.registeredAddress} onChange={(e) => update("registeredAddress", e.target.value)} data-testid="input-reg-address" />
                     </div>
                     <div className="space-y-2 md:col-span-2">
@@ -335,11 +324,11 @@ export default function KycRegister() {
                       <Textarea name="primaryBusinessAddress" className={textareaClass} placeholder="Primary business address" value={form.primaryBusinessAddress} onChange={(e) => update("primaryBusinessAddress", e.target.value)} data-testid="input-reg-business-address" />
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Date of Incorporation (DD/MM/YYYY) *</Label>
+                      <Label className={labelClass}>Date of Incorporation (DD/MM/YYYY)</Label>
                       <Input name="dateOfIncorporation" className={inputClass} placeholder="DD/MM/YYYY" value={form.dateOfIncorporation} onChange={(e) => update("dateOfIncorporation", e.target.value)} data-testid="input-reg-incorporation-date" />
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Country of Incorporation *</Label>
+                      <Label className={labelClass}>Country of Incorporation</Label>
                       <Input name="countryOfIncorporation" className={inputClass} placeholder="e.g. United Arab Emirates" value={form.countryOfIncorporation} onChange={(e) => update("countryOfIncorporation", e.target.value)} data-testid="input-reg-country-incorporation" />
                     </div>
                     <div className="space-y-2">
@@ -347,7 +336,7 @@ export default function KycRegister() {
                       <Input name="countryOfOperation" className={inputClass} placeholder="Primary country of operations" value={form.countryOfOperation} onChange={(e) => update("countryOfOperation", e.target.value)} data-testid="input-reg-country-operation" />
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Business Registration Number *</Label>
+                      <Label className={labelClass}>Business Registration Number</Label>
                       <Input name="registrationNumber" className={inputClass} placeholder="Registration number" value={form.registrationNumber} onChange={(e) => update("registrationNumber", e.target.value)} data-testid="input-reg-number" />
                     </div>
                     <div className="space-y-2">
@@ -355,15 +344,15 @@ export default function KycRegister() {
                       <Input name="taxIdNumber" className={inputClass} placeholder="Tax ID / TIN" value={form.taxIdNumber} onChange={(e) => update("taxIdNumber", e.target.value)} data-testid="input-reg-tax-id" />
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Name of Contact Person *</Label>
+                      <Label className={labelClass}>Name of Contact Person</Label>
                       <Input name="contactName" className={inputClass} placeholder="Full name of primary contact" value={form.contactName} onChange={(e) => update("contactName", e.target.value)} data-testid="input-reg-contact-name" />
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Corporate Title / Role *</Label>
+                      <Label className={labelClass}>Corporate Title / Role</Label>
                       <Input name="contactTitle" className={inputClass} placeholder="e.g. Director, CEO" value={form.contactTitle} onChange={(e) => update("contactTitle", e.target.value)} data-testid="input-reg-contact-title" />
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Phone Number *</Label>
+                      <Label className={labelClass}>Phone Number</Label>
                       <Input name="contactPhone" className={inputClass} placeholder="+971 XX XXX XXXX" value={form.contactPhone} onChange={(e) => update("contactPhone", e.target.value)} data-testid="input-reg-contact-phone" />
                     </div>
                     <div className="space-y-2">
@@ -371,7 +360,7 @@ export default function KycRegister() {
                       <Input name="faxNumber" className={inputClass} placeholder="Fax number" value={form.faxNumber} onChange={(e) => update("faxNumber", e.target.value)} data-testid="input-reg-fax" />
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Contact Email *</Label>
+                      <Label className={labelClass}>Contact Email</Label>
                       <Input name="contactEmail" type="email" className={inputClass} placeholder="corporate@email.com" value={form.contactEmail} onChange={(e) => update("contactEmail", e.target.value)} data-testid="input-reg-contact-email" />
                     </div>
                     <div className="space-y-2">
@@ -434,7 +423,7 @@ export default function KycRegister() {
                   </h3>
                   <div className="mt-6 space-y-6">
                     <div className="space-y-2">
-                      <Label className={labelClass}>Ultimate Beneficial Owner(s) *</Label>
+                      <Label className={labelClass}>Ultimate Beneficial Owner(s)</Label>
                       <p className="text-xs text-muted-foreground">Please provide details of all individuals who hold directly or indirectly more than 10% of the company's shares or voting rights.</p>
                     </div>
                     {Array.from({ length: Math.max(1, (form.ultimateBeneficialOwners ? form.ultimateBeneficialOwners.split("\n").filter(Boolean).length : 0) || 1) }).map((_, idx) => {
@@ -463,7 +452,7 @@ export default function KycRegister() {
                         <div key={idx} className="p-4 border border-border bg-muted/20 space-y-3" data-testid={`ubo-box-reg-${idx + 1}`}>
                           <div className="flex items-center justify-between">
                             <h4 className="text-sm font-bold text-primary flex items-center gap-2">
-                              UBO {idx + 1} {idx === 0 && <span className="text-destructive">*</span>}
+                              UBO {idx + 1}
                             </h4>
                             {idx > 0 && (
                               <button type="button" onClick={removeUbo} className="text-xs text-destructive hover:text-destructive/80 flex items-center gap-1" data-testid={`btn-remove-ubo-reg-${idx + 1}`}>
@@ -500,7 +489,7 @@ export default function KycRegister() {
                       <Plus className="h-4 w-4" /> Add Another UBO
                     </button>
                     <div className="space-y-2 mt-4">
-                      <Label className={labelClass}>Shareholders (Direct & Indirect) *</Label>
+                      <Label className={labelClass}>Shareholders (Direct & Indirect)</Label>
                       <p className="text-xs text-muted-foreground">Provide details of all direct and indirect shareholders.</p>
                     </div>
                     {Array.from({ length: Math.max(1, (form.shareholders ? form.shareholders.split("\n").filter(Boolean).length : 0) || 1) }).map((_, idx) => {
@@ -527,7 +516,7 @@ export default function KycRegister() {
                         <div key={idx} className="p-4 border border-border bg-muted/20 space-y-3" data-testid={`shareholder-box-reg-${idx + 1}`}>
                           <div className="flex items-center justify-between">
                             <h4 className="text-sm font-bold text-primary flex items-center gap-2">
-                              Shareholder {idx + 1} {idx === 0 && <span className="text-destructive">*</span>}
+                              Shareholder {idx + 1}
                             </h4>
                             {idx > 0 && (
                               <button type="button" onClick={removeShareholder} className="text-xs text-destructive hover:text-destructive/80 flex items-center gap-1" data-testid={`btn-remove-shareholder-reg-${idx + 1}`}>
@@ -565,7 +554,7 @@ export default function KycRegister() {
                     <Users className="h-5 w-5 text-primary" /> 4. Management Structure
                   </h3>
                   <div className="mt-6 space-y-6">
-                    <p className="text-xs text-muted-foreground">Provide details for directors / senior officers. At least Director 1 is mandatory.</p>
+                    <p className="text-xs text-muted-foreground">Provide details for directors / senior officers.</p>
                     {(() => {
                       const lines = form.managementStructure ? form.managementStructure.split("\n").filter(Boolean) : [];
                       const count = Math.max(1, lines.length);
@@ -595,7 +584,7 @@ export default function KycRegister() {
                               <div key={idx} className="p-4 border border-border bg-muted/20 space-y-3" data-testid={`director-box-${idx + 1}`}>
                                 <div className="flex items-center justify-between">
                                   <h4 className="text-sm font-bold text-primary flex items-center gap-2">
-                                    Director {idx + 1} {idx === 0 && <span className="text-destructive">*</span>}
+                                    Director {idx + 1}
                                   </h4>
                                   {idx > 0 && (
                                     <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive" onClick={removeDirector} data-testid={`button-remove-director-${idx + 1}`}>
@@ -660,7 +649,7 @@ export default function KycRegister() {
                   </h3>
                   <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label className={labelClass}>Indicative Capital Range *</Label>
+                      <Label className={labelClass}>Indicative Capital Range</Label>
                       <Select value={form.capitalRange} onValueChange={(v) => update("capitalRange", v)}>
                         <SelectTrigger className={inputClass} data-testid="select-reg-capital-range">
                           <SelectValue placeholder="Select range..." />
@@ -731,7 +720,7 @@ export default function KycRegister() {
                   </h3>
                   <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2 md:col-span-2">
-                      <Label className={labelClass}>Bank Name *</Label>
+                      <Label className={labelClass}>Bank Name</Label>
                       <Input className={inputClass} placeholder="Full name of bank" value={form.bankName} onChange={(e) => update("bankName", e.target.value)} data-testid="input-reg-bank-name" />
                     </div>
                     <div className="space-y-2">
@@ -739,19 +728,19 @@ export default function KycRegister() {
                       <Input className={inputClass} placeholder="Branch name" value={form.bankBranch} onChange={(e) => update("bankBranch", e.target.value)} data-testid="input-reg-bank-branch" />
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Bank Address *</Label>
+                      <Label className={labelClass}>Bank Address</Label>
                       <Input className={inputClass} placeholder="Full bank address" value={form.bankAddress} onChange={(e) => update("bankAddress", e.target.value)} data-testid="input-reg-bank-address" />
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Account Name *</Label>
+                      <Label className={labelClass}>Account Name</Label>
                       <Input className={inputClass} placeholder="Name on account" value={form.accountName} onChange={(e) => update("accountName", e.target.value)} data-testid="input-reg-account-name" />
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Account Number / IBAN *</Label>
+                      <Label className={labelClass}>Account Number / IBAN</Label>
                       <Input className={inputClass} placeholder="Account number or IBAN" value={form.accountNumber} onChange={(e) => update("accountNumber", e.target.value)} data-testid="input-reg-account-number" />
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Swift Code *</Label>
+                      <Label className={labelClass}>Swift Code</Label>
                       <Input className={inputClass} placeholder="SWIFT / BIC code" value={form.swiftCode} onChange={(e) => update("swiftCode", e.target.value)} data-testid="input-reg-swift-code" />
                     </div>
                     <div className="space-y-2">
@@ -771,11 +760,11 @@ export default function KycRegister() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Bank Officer Name *</Label>
+                      <Label className={labelClass}>Bank Officer Name</Label>
                       <Input className={inputClass} placeholder="Full name of bank officer" value={form.bankOfficerName} onChange={(e) => update("bankOfficerName", e.target.value)} data-testid="input-reg-bank-officer-name" />
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Bank Officer Email *</Label>
+                      <Label className={labelClass}>Bank Officer Email</Label>
                       <Input className={inputClass} type="email" placeholder="Bank officer email address" value={form.bankOfficerEmail} onChange={(e) => update("bankOfficerEmail", e.target.value)} data-testid="input-reg-bank-officer-email" />
                     </div>
                   </div>
@@ -797,7 +786,7 @@ export default function KycRegister() {
                       <Input className={inputClass} placeholder="Group-wide employee count" value={form.employeesGroup} onChange={(e) => update("employeesGroup", e.target.value)} data-testid="input-reg-employees-group" />
                     </div>
                     <div className="space-y-2 md:col-span-2">
-                      <Label className={labelClass}>Previous Bullfrog Group Employee? *</Label>
+                      <Label className={labelClass}>Previous Bullfrog Group Employee?</Label>
                       <Select value={form.previousBullfrogEmployee} onValueChange={(v) => update("previousBullfrogEmployee", v)}>
                         <SelectTrigger className={inputClass} data-testid="select-reg-previous-employee">
                           <SelectValue placeholder="Select..." />
@@ -819,7 +808,7 @@ export default function KycRegister() {
                   </h3>
                   <div className="mt-6 space-y-6">
                     <div className="space-y-2">
-                      <Label className={labelClass}>Is your company subject to AML/CFT regulations? *</Label>
+                      <Label className={labelClass}>Is your company subject to AML/CFT regulations?</Label>
                       <Select value={form.amlSubject} onValueChange={(v) => update("amlSubject", v)}>
                         <SelectTrigger className={inputClass} data-testid="select-reg-aml-subject">
                           <SelectValue placeholder="Select..." />
@@ -831,7 +820,7 @@ export default function KycRegister() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Does your company have an AML/CFT conformity program? *</Label>
+                      <Label className={labelClass}>Does your company have an AML/CFT conformity program?</Label>
                       <Select value={form.amlConformityProgram} onValueChange={(v) => update("amlConformityProgram", v)}>
                         <SelectTrigger className={inputClass} data-testid="select-reg-aml-conformity">
                           <SelectValue placeholder="Select..." />
@@ -843,11 +832,11 @@ export default function KycRegister() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Name of AML/CFT Regulator *</Label>
+                      <Label className={labelClass}>Name of AML/CFT Regulator</Label>
                       <Input className={inputClass} placeholder="Regulatory authority name" value={form.amlRegulator} onChange={(e) => update("amlRegulator", e.target.value)} data-testid="input-reg-aml-regulator" />
                     </div>
                     <div className="space-y-2">
-                      <Label className={labelClass}>Applicable AML/CFT Law Name *</Label>
+                      <Label className={labelClass}>Applicable AML/CFT Law Name</Label>
                       <Input className={inputClass} placeholder="Name of applicable law / regulation" value={form.amlLawName} onChange={(e) => update("amlLawName", e.target.value)} data-testid="input-reg-aml-law" />
                     </div>
                   </div>
@@ -942,23 +931,23 @@ export default function KycRegister() {
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label className={labelClass}>Print Name *</Label>
+                        <Label className={labelClass}>Print Name</Label>
                         <Input className={inputClass} placeholder="Full name of signatory" value={form.signatoryName} onChange={(e) => update("signatoryName", e.target.value)} data-testid="input-reg-signatory-name" />
                       </div>
                       <div className="space-y-2">
-                        <Label className={labelClass}>Title *</Label>
+                        <Label className={labelClass}>Title</Label>
                         <Input className={inputClass} placeholder="e.g. Managing Director" value={form.signatoryTitle} onChange={(e) => update("signatoryTitle", e.target.value)} data-testid="input-reg-signatory-title" />
                       </div>
                       <div className="space-y-2">
-                        <Label className={labelClass}>Company Name *</Label>
+                        <Label className={labelClass}>Company Name</Label>
                         <Input className={inputClass} placeholder="Company name" value={form.signatoryCompany} onChange={(e) => update("signatoryCompany", e.target.value)} data-testid="input-reg-signatory-company" />
                       </div>
                       <div className="space-y-2">
-                        <Label className={labelClass}>Email *</Label>
+                        <Label className={labelClass}>Email</Label>
                         <Input className={inputClass} type="email" placeholder="signatory@company.com" value={form.signatoryEmail} onChange={(e) => update("signatoryEmail", e.target.value)} data-testid="input-reg-signatory-email" />
                       </div>
                       <div className="space-y-2">
-                        <Label className={labelClass}>Place & Date *</Label>
+                        <Label className={labelClass}>Place & Date</Label>
                         <Input className={inputClass} placeholder="e.g. Dubai, 15/03/2025" value={form.signatoryPlaceDate} onChange={(e) => update("signatoryPlaceDate", e.target.value)} data-testid="input-reg-signatory-place-date" />
                       </div>
                     </div>
@@ -967,11 +956,11 @@ export default function KycRegister() {
                       <h4 className="text-sm font-bold text-primary mb-4">Form Filled By</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <Label className={labelClass}>Name *</Label>
+                          <Label className={labelClass}>Name</Label>
                           <Input className={inputClass} placeholder="Name of person filling this form" value={form.filledByName} onChange={(e) => update("filledByName", e.target.value)} data-testid="input-reg-filled-by-name" />
                         </div>
                         <div className="space-y-2">
-                          <Label className={labelClass}>Email *</Label>
+                          <Label className={labelClass}>Email</Label>
                           <Input className={inputClass} type="email" placeholder="email@company.com" value={form.filledByEmail} onChange={(e) => update("filledByEmail", e.target.value)} data-testid="input-reg-filled-by-email" />
                         </div>
                       </div>
@@ -994,38 +983,6 @@ export default function KycRegister() {
                   <Button
                     type="button"
                     onClick={() => {
-                      if (activeTab === 2) {
-                        if (!form.ultimateBeneficialOwners.trim() || !form.shareholders.trim()) {
-                          toast({ title: "Required Fields", description: "Ultimate Beneficial Owners and Shareholders are mandatory. Please complete both fields before proceeding.", variant: "destructive" });
-                          return;
-                        }
-                      }
-                      if (activeTab === 3) {
-                        const lines = form.managementStructure ? form.managementStructure.split("\n").filter(Boolean) : [];
-                        const parts = (lines[0] || "").split(" — ");
-                        if (!parts[0]?.trim() || !parts[1]?.trim() || !parts[2]?.trim() || !parts[3]?.trim()) {
-                          toast({ title: "Required Fields", description: "Director 1 details (Full Name, Nationality, Date of Birth, Position) are mandatory.", variant: "destructive" });
-                          return;
-                        }
-                      }
-                      if (activeTab === 5) {
-                        if (!form.bankOfficerName.trim() || !form.bankOfficerEmail.trim()) {
-                          toast({ title: "Required Fields", description: "Bank Officer Name and Email are mandatory. Please complete both fields before proceeding.", variant: "destructive" });
-                          return;
-                        }
-                      }
-                      if (activeTab === 6) {
-                        if (!form.previousBullfrogEmployee.trim()) {
-                          toast({ title: "Required Field", description: "Please select whether you are a previous Bullfrog Group employee before proceeding.", variant: "destructive" });
-                          return;
-                        }
-                      }
-                      if (activeTab === 7) {
-                        if (!form.amlSubject.trim() || !form.amlConformityProgram.trim() || !form.amlRegulator.trim() || !form.amlLawName.trim()) {
-                          toast({ title: "Required Fields", description: "All Compliance Questionnaire fields are mandatory. Please complete every field before proceeding.", variant: "destructive" });
-                          return;
-                        }
-                      }
                       setActiveTab(activeTab + 1);
                     }}
                     data-testid="btn-reg-next-section"
