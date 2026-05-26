@@ -335,9 +335,19 @@ export default function KycAdmin() {
               <h1 className="text-3xl md:text-4xl font-serif font-bold mb-4" data-testid="text-kyc-admin-title">
                 KYC Dashboard
               </h1>
-              <p className="text-white/70 text-lg leading-relaxed">
+              <p className="text-white/70 text-lg leading-relaxed mb-5">
                 KYC application management, onboarding and compliance review.
               </p>
+              <Link href="/kyc">
+                <Button
+                  size="lg"
+                  className="bg-white text-primary hover:bg-white/90 rounded-none font-bold uppercase tracking-wider text-xs h-11 px-5"
+                  data-testid="button-new-kyc-onboarding"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New KYC Onboarding
+                </Button>
+              </Link>
             </div>
             <div className="grid grid-cols-3 gap-3 lg:gap-4">
               <div className="bg-white/5 border border-white/10 p-4 rounded text-center" data-testid="stat-pending">
