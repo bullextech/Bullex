@@ -1,563 +1,312 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Link2,
-  Shield,
-  FileText,
-  ArrowRight,
-  Layers,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  TrendingUp,
-  Building2,
-  UserCheck,
-  UserCog,
-  Briefcase,
-  XCircle,
-  ClipboardList,
-  Package,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import type { Trade, Block, KycApplication, Document, TeamKycApplication, TeamMember, TradeEnquiry } from "@shared/schema";
+import {
+  Bell,
+  ShoppingCart,
+  Plus,
+  ArrowRight,
+  Ship,
+  TrendingUp,
+  TrendingDown,
+  Package,
+  Building2,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  AlertCircle,
+} from "lucide-react";
+import type {
+  Trade,
+  KycApplication,
+  Document,
+  TradeEnquiry,
+} from "@shared/schema";
 
-function StatCard({
-  title,
-  value,
-  subtitle,
-  icon: Icon,
-  testId,
-}: {
-  title: string;
-  value: string;
-  subtitle?: string;
-  icon: any;
-  testId: string;
-}) {
+const TICKER: { name: string; price: string; change: number }[] = [
+  { name: "WHEAT", price: "$6.04/bu", change: 0.20 },
+  { name: "SILVER", price: "$27.42/oz", change: -0.65 },
+  { name: "ALUMINIUM", price: "$2,412/MT", change: 0.75 },
+  { name: "SUGAR", price: "$0.197/lb", change: -0.30 },
+  { name: "CRUDE OIL WTI", price: "$82.40/bbl", change: 1.20 },
+  { name: "GOLD SPOT", price: "$2,318/oz", change: 0.40 },
+  { name: "BRENT CRUDE", price: "$85.90/bbl", change: 0.55 },
+];
+
+const LIVE_PRICES: { name: string; price: string; change: number }[] = [
+  { name: "WTI Crude", price: "$82.51", change: 1.2 },
+  { name: "Gold Spot", price: "$2,316", change: 0.4 },
+  { name: "Copper LME", price: "$4.56/lb", change: 0.9 },
+];
+
+function formatMoney(n: number) {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  return `$${n.toLocaleString()}`;
+}
+
+function stageLabel(s: string) {
+  switch (s) {
+    case "pre_deal": return "ICPO";
+    case "deal": return "SPA";
+    case "execution": return "BL";
+    case "final_payment": return "Settled";
+    default: return s;
+  }
+}
+
+function stageColor(s: string) {
+  switch (s) {
+    case "final_payment": return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    case "execution": return "bg-blue-100 text-blue-700 border-blue-200";
+    case "deal": return "bg-amber-100 text-amber-700 border-amber-200";
+    default: return "bg-primary/10 text-primary border-primary/30";
+  }
+}
+
+function kycBadge(s: string) {
+  if (s === "approved") return { label: "Approved", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" };
+  if (s === "rejected") return { label: "Rejected", cls: "bg-red-100 text-red-700 border-red-200" };
+  return { label: "Pending", cls: "bg-amber-100 text-amber-700 border-amber-200" };
+}
+
+function StatCard({ value, label, testId }: { value: string; label: string; testId: string }) {
   return (
-    <Card data-testid={testId}>
-      <CardContent className="pt-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Icon className="w-5 h-5 text-primary" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">{title}</p>
-            <p className="text-xl font-bold" data-testid={`${testId}-value`}>
-              {value}
-            </p>
-            {subtitle && (
-              <p className="text-[11px] text-muted-foreground">{subtitle}</p>
-            )}
-          </div>
-        </div>
+    <Card className="rounded-none border-t-4 border-t-primary border-x border-b border-border shadow-none" data-testid={testId}>
+      <CardContent className="py-5 px-5">
+        <div className="text-3xl font-bold text-foreground leading-tight" data-testid={`${testId}-value`}>{value}</div>
+        <div className="text-xs text-muted-foreground mt-1.5">{label}</div>
       </CardContent>
     </Card>
   );
 }
 
-const statusIcon = (status: string) => {
-  switch (status) {
-    case "final_payment":
-      return <CheckCircle2 className="w-3.5 h-3.5 text-status-online" />;
-    case "execution":
-    case "deal":
-    case "pre_deal":
-      return <Clock className="w-3.5 h-3.5 text-status-away" />;
-    default:
-      return <AlertCircle className="w-3.5 h-3.5 text-muted-foreground" />;
-  }
-};
+function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between mb-3">
+      <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-foreground">{title}</h3>
+      {action}
+    </div>
+  );
+}
 
-const statusLabel = (status: string) => {
-  return status
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-};
+function SectionLinkButton({ href, label = "View All" }: { href: string; label?: string }) {
+  return (
+    <Link href={href}>
+      <Button variant="outline" size="sm" className="h-7 px-3 rounded-none text-[11px] font-medium border-border">
+        {label} <ArrowRight className="w-3 h-3 ml-1" />
+      </Button>
+    </Link>
+  );
+}
 
 export default function Dashboard() {
-  const { data: trades, isLoading: tl } = useQuery<Trade[]>({
-    queryKey: ["/api/trades"],
-  });
-  const { data: blocks, isLoading: bl } = useQuery<Block[]>({
-    queryKey: ["/api/blocks"],
-  });
-  const { data: kycs, isLoading: kl } = useQuery<KycApplication[]>({
-    queryKey: ["/api/kyc"],
-  });
-  const { data: docs, isLoading: dl } = useQuery<Document[]>({
-    queryKey: ["/api/documents"],
-  });
-  const { data: teamKycApps } = useQuery<TeamKycApplication[]>({
-    queryKey: ["/api/team-kyc"],
-  });
-  const { data: teamMembers } = useQuery<TeamMember[]>({
-    queryKey: ["/api/team/members"],
-  });
-  const { data: enquiries } = useQuery<TradeEnquiry[]>({
-    queryKey: ["/api/trade-enquiries"],
-  });
+  const { data: trades, isLoading: tl } = useQuery<Trade[]>({ queryKey: ["/api/trades"] });
+  const { data: kycs, isLoading: kl } = useQuery<KycApplication[]>({ queryKey: ["/api/kyc"] });
+  const { data: docs, isLoading: dl } = useQuery<Document[]>({ queryKey: ["/api/documents"] });
+  const { data: enquiries, isLoading: el } = useQuery<TradeEnquiry[]>({ queryKey: ["/api/trade-enquiries"] });
 
-  const isLoading = tl || bl || kl || dl;
+  const isLoading = tl || kl || dl || el;
 
-  if (isLoading) {
-    return (
-      <div className="p-6 space-y-6">
-        <Skeleton className="h-8 w-64 mb-2" />
-        <Skeleton className="h-4 w-96" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-[90px] rounded-md" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Skeleton className="h-[320px] rounded-md" />
-          <Skeleton className="h-[320px] rounded-md" />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Skeleton className="h-[400px] rounded-md lg:col-span-2" />
-          <Skeleton className="h-[400px] rounded-md" />
-        </div>
-      </div>
-    );
-  }
-
-  const totalTrades = trades?.length || 0;
-  const latestBlock = blocks && blocks.length > 0 ? blocks[0] : null;
   const totalVolume = trades?.reduce((s, t) => s + t.totalValue, 0) || 0;
-  const activeTrades = trades?.filter((t) => t.status !== "final_payment").length || 0;
-  const recentTrades = trades?.slice(0, 6) || [];
+  const activeShipments = trades?.filter((t) => t.status === "execution").length || 0;
+  const activeEnquiries = enquiries?.filter((e) => e.status === "active" || e.status === "open").length || 0;
+  const letterOfCredit = docs?.filter((d) => ["POP", "POF", "BCL", "LOI"].includes((d.documentType || "").toUpperCase())).length || 0;
 
-  const kycPending = kycs?.filter((a) => a.status === "pending").length || 0;
-  const kycApproved = kycs?.filter((a) => a.status === "approved").length || 0;
-  const kycRejected = kycs?.filter((a) => a.status === "rejected").length || 0;
+  const recentDeals = (trades || []).slice(0, 5);
   const recentKyc = (kycs || []).slice(0, 5);
-
-  const teamKycPending = teamKycApps?.filter((a) => a.status === "pending").length || 0;
-  const teamKycApproved = teamKycApps?.filter((a) => a.status === "approved").length || 0;
-  const teamKycRejected = teamKycApps?.filter((a) => a.status === "rejected").length || 0;
-  const recentTeamKyc = (teamKycApps || []).slice(0, 5);
-
-  const kycStatusConfig: Record<string, { label: string; color: string; bg: string; icon: any }> = {
-    pending: { label: "Pending", color: "text-amber-600", bg: "bg-amber-600/10 border-amber-600/20 text-amber-700", icon: Clock },
-    approved: { label: "Approved", color: "text-emerald-600", bg: "bg-emerald-600/10 border-emerald-600/20 text-emerald-700", icon: CheckCircle2 },
-    rejected: { label: "Rejected", color: "text-red-600", bg: "bg-red-600/10 border-red-600/20 text-red-700", icon: XCircle },
-  };
+  const pendingKyc = kycs?.filter((k) => k.status === "pending") || [];
+  const pendingEnq = enquiries?.filter((e) => e.status === "open" || e.status === "active") || [];
+  const pendingActions = [
+    ...pendingKyc.slice(0, 3).map((k) => ({ id: `kyc-${k.id}`, label: `KYC review: ${k.companyName}`, href: "/kyc-admin" })),
+    ...pendingEnq.slice(0, 3).map((e) => ({ id: `enq-${e.id}`, label: `Enquiry ${e.enquiryRef} · ${e.product}`, href: "/trade-enquiries" })),
+  ].slice(0, 5);
+  const liveShipments = trades?.filter((t) => t.status === "execution").slice(0, 3) || [];
 
   return (
-    <div className="p-6 space-y-6 overflow-y-auto h-full">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <div className="overflow-y-auto h-full bg-background">
+      <div className="px-6 pt-6 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border bg-card">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Badge variant="secondary" className="text-[10px] uppercase tracking-widest">
-              Bullex
-            </Badge>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground" data-testid="text-dashboard-title">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Overview of your trading activity</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground" data-testid="button-notifications">
+            <Bell className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground" data-testid="button-cart">
+            <ShoppingCart className="w-4 h-4" />
+          </Button>
+          <Link href="/trade-enquiries">
+            <Button size="sm" className="h-9 px-4 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold" data-testid="button-new-enquiry">
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> New Enquiry
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Commodity ticker */}
+      <div className="bg-[hsl(220,40%,12%)] text-white border-b border-[hsl(220,40%,8%)] overflow-x-auto" data-testid="ticker-bar">
+        <div className="flex items-center gap-6 px-6 py-2.5 whitespace-nowrap">
+          {TICKER.map((t) => (
+            <div key={t.name} className="flex items-center gap-2 text-xs" data-testid={`ticker-${t.name.toLowerCase().replace(/\s+/g, "-")}`}>
+              <span className="font-bold uppercase tracking-wider text-white/70 text-[10px]">{t.name}</span>
+              <span className="font-mono font-semibold">{t.price}</span>
+              <span className={`font-mono font-semibold ${t.change >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {t.change >= 0 ? "+" : ""}{t.change.toFixed(2)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-6 space-y-6">
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-none" />)}
           </div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-dashboard-title">
-            Admin Dashboard
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Physically backed trades, full provenance tracking, and transparent blockchain settlement
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Link href="/trading">
-            <Button size="sm" data-testid="button-new-trade-dash">
-              <TrendingUp className="w-3.5 h-3.5 mr-1.5" />
-              New Trade
-            </Button>
-          </Link>
-          <Link href="/kyc">
-            <Button size="sm" variant="secondary" data-testid="button-kyc-dash">
-              KYC Onboarding
-            </Button>
-          </Link>
-        </div>
-      </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard value={String(activeEnquiries)} label="Active Enquiries" testId="stat-enquiries" />
+            <StatCard value={formatMoney(totalVolume)} label="Pipeline Value" testId="stat-pipeline" />
+            <StatCard value={String(activeShipments)} label="Shipments" testId="stat-shipments" />
+            <StatCard value={String(letterOfCredit)} label="Letters of Credit" testId="stat-loc" />
+          </div>
+        )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Trades"
-          value={totalTrades.toString()}
-          subtitle={`${activeTrades} active`}
-          icon={Link2}
-          testId="stat-trades"
-        />
-        <StatCard
-          title="Trade Volume"
-          value={`$${totalVolume.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-          subtitle="All-time"
-          icon={TrendingUp}
-          testId="stat-volume"
-        />
-        <StatCard
-          title="Chain Blocks"
-          value={latestBlock ? latestBlock.blockNumber.toString() : "0"}
-          subtitle="100% verified"
-          icon={Layers}
-          testId="stat-blocks"
-        />
-        <StatCard
-          title="Documents"
-          value={(docs?.length || 0).toString()}
-          subtitle={`${kycs?.length || 0} KYC applications`}
-          icon={FileText}
-          testId="stat-docs"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card data-testid="card-kyc-summary">
-          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <UserCheck className="w-4 h-4 text-primary" />
-              Client KYC Registrations
-            </CardTitle>
-            <Link href="/kyc-admin">
-              <Button variant="ghost" size="sm" className="text-xs" data-testid="link-all-kyc-dash">
-                Manage <ArrowRight className="w-3.5 h-3.5 ml-1" />
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-center" data-testid="dash-kyc-pending">
-                <div className="text-2xl font-bold text-amber-600">{kycPending}</div>
-                <div className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 mt-0.5">Pending</div>
-              </div>
-              <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-center" data-testid="dash-kyc-approved">
-                <div className="text-2xl font-bold text-emerald-600">{kycApproved}</div>
-                <div className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mt-0.5">Approved</div>
-              </div>
-              <div className="rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 text-center" data-testid="dash-kyc-rejected">
-                <div className="text-2xl font-bold text-red-600">{kycRejected}</div>
-                <div className="text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 mt-0.5">Rejected</div>
-              </div>
-            </div>
-            <div className="space-y-0">
-              {recentKyc.length > 0 ? recentKyc.map((app) => {
-                const cfg = kycStatusConfig[app.status] || kycStatusConfig.pending;
-                const Icon = cfg.icon;
-                return (
-                  <div key={app.id} className="flex items-center justify-between gap-3 py-2.5 border-b last:border-b-0" data-testid={`dash-kyc-row-${app.id}`}>
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-7 h-7 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="w-3.5 h-3.5 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{app.companyName}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">{app.countryOfIncorporation} · {app.contactEmail}</p>
+        {/* Recent Deals + Recent KYC */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card className="rounded-none border border-border shadow-none">
+            <CardContent className="p-5">
+              <SectionHeader title="Recent Deals" action={<SectionLinkButton href="/trading" />} />
+              {recentDeals.length > 0 ? (
+                <div className="border border-border">
+                  <div className="grid grid-cols-[1fr_1.2fr_0.8fr_0.7fr] gap-2 px-3 py-2.5 bg-[hsl(220,40%,12%)] text-white text-[10px] font-bold uppercase tracking-wider">
+                    <div>Ref</div><div>Commodity</div><div>Value</div><div>Stage</div>
+                  </div>
+                  {recentDeals.map((t) => (
+                    <div key={t.id} className="grid grid-cols-[1fr_1.2fr_0.8fr_0.7fr] gap-2 px-3 py-3 border-t border-border text-sm items-center" data-testid={`deal-row-${t.id}`}>
+                      <div className="font-mono text-xs">{t.tradeRef}</div>
+                      <div className="truncate">{t.commodity}</div>
+                      <div className="font-mono text-xs">{t.totalValue.toLocaleString()}</div>
+                      <div>
+                        <Badge variant="outline" className={`rounded-none text-[10px] font-bold ${stageColor(t.status)}`}>{stageLabel(t.status)}</Badge>
                       </div>
                     </div>
-                    <Badge variant="outline" className={`rounded-none text-[10px] font-bold shrink-0 ${cfg.bg}`}>
-                      <Icon className="w-2.5 h-2.5 mr-1" />
-                      {cfg.label}
-                    </Badge>
-                  </div>
-                );
-              }) : (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                  <UserCheck className="w-8 h-8 mb-2 opacity-20" />
-                  <p className="text-sm">No KYC applications yet</p>
+                  ))}
                 </div>
+              ) : (
+                <div className="border border-border py-10 text-center text-sm text-muted-foreground" data-testid="deals-empty">No deals yet</div>
               )}
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card data-testid="card-team-summary">
-          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-primary" />
-              Team Member Registrations
-            </CardTitle>
-            <Link href="/hr">
-              <Button variant="ghost" size="sm" className="text-xs" data-testid="link-all-team-dash">
-                Manage <ArrowRight className="w-3.5 h-3.5 ml-1" />
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-4 gap-2 mb-4">
-              <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 text-center" data-testid="dash-team-members">
-                <div className="text-2xl font-bold text-blue-600">{teamMembers?.length || 0}</div>
-                <div className="text-[10px] uppercase tracking-wider text-blue-700 dark:text-blue-400 mt-0.5">Members</div>
-              </div>
-              <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-center" data-testid="dash-team-pending">
-                <div className="text-2xl font-bold text-amber-600">{teamKycPending}</div>
-                <div className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 mt-0.5">Pending</div>
-              </div>
-              <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-center" data-testid="dash-team-approved">
-                <div className="text-2xl font-bold text-emerald-600">{teamKycApproved}</div>
-                <div className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mt-0.5">Approved</div>
-              </div>
-              <div className="rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 text-center" data-testid="dash-team-rejected">
-                <div className="text-2xl font-bold text-red-600">{teamKycRejected}</div>
-                <div className="text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 mt-0.5">Rejected</div>
-              </div>
-            </div>
-            <div className="space-y-0">
-              {recentTeamKyc.length > 0 ? recentTeamKyc.map((app) => {
-                const s = app.status;
-                const cfg = kycStatusConfig[s] || kycStatusConfig.pending;
-                const Icon = cfg.icon;
-                return (
-                  <div key={app.id} className="flex items-center justify-between gap-3 py-2.5 border-b last:border-b-0" data-testid={`dash-team-row-${app.id}`}>
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-7 h-7 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <UserCog className="w-3.5 h-3.5 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{app.fullName}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">
-                          {app.positionApplied || "—"}{app.department ? ` · ${app.department}` : ""}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className={`rounded-none text-[10px] font-bold shrink-0 ${cfg.bg}`}>
-                      <Icon className="w-2.5 h-2.5 mr-1" />
-                      {cfg.label}
-                    </Badge>
-                  </div>
-                );
-              }) : (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                  <Briefcase className="w-8 h-8 mb-2 opacity-20" />
-                  <p className="text-sm">No team applications yet</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {(() => {
-        const allEnq = enquiries || [];
-        const enqActive = allEnq.filter((e) => e.status === "active").length;
-        const enqAccepted = allEnq.filter((e) => e.status === "accepted").length;
-        const enqClosed = allEnq.filter((e) => e.status === "closed").length;
-        const enqRejected = allEnq.filter((e) => e.status === "rejected").length;
-        const recentEnq = [...allEnq]
-          .sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime())
-          .slice(0, 6);
-        const enqStatusClass = (s: string) =>
-          s === "accepted"
-            ? "bg-emerald-600/10 border-emerald-600/20 text-emerald-700"
-            : s === "rejected"
-            ? "bg-red-600/10 border-red-600/20 text-red-700"
-            : s === "closed"
-            ? "bg-slate-500/10 border-slate-500/20 text-slate-700 dark:text-slate-300"
-            : "bg-blue-600/10 border-blue-600/20 text-blue-700";
-        const EnqIcon = (s: string) =>
-          s === "accepted" ? CheckCircle2 : s === "rejected" ? XCircle : s === "closed" ? AlertCircle : Clock;
-        return (
-          <Card data-testid="card-enquiries-summary">
-            <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <ClipboardList className="w-4 h-4 text-primary" />
-                Trade Enquiries Status
-              </CardTitle>
-              <Link href="/trade-enquiries">
-                <Button variant="ghost" size="sm" className="text-xs" data-testid="link-all-enquiries">
-                  View All <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
-                <div className="rounded-md bg-primary/5 border border-primary/20 p-3 text-center" data-testid="enq-summary-total">
-                  <div className="text-2xl font-bold text-primary">{allEnq.length}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-primary mt-0.5">Total</div>
-                </div>
-                <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 text-center" data-testid="enq-summary-active">
-                  <div className="text-2xl font-bold text-blue-600">{enqActive}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-blue-700 dark:text-blue-400 mt-0.5">Active</div>
-                </div>
-                <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-center" data-testid="enq-summary-accepted">
-                  <div className="text-2xl font-bold text-emerald-600">{enqAccepted}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mt-0.5">Accepted</div>
-                </div>
-                <div className="rounded-md bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 p-3 text-center" data-testid="enq-summary-closed">
-                  <div className="text-2xl font-bold text-slate-600 dark:text-slate-300">{enqClosed}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-slate-700 dark:text-slate-400 mt-0.5">Closed</div>
-                </div>
-                <div className="rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 text-center" data-testid="enq-summary-rejected">
-                  <div className="text-2xl font-bold text-red-600">{enqRejected}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 mt-0.5">Rejected</div>
-                </div>
-              </div>
-              <div className="space-y-0">
-                {recentEnq.length > 0 ? recentEnq.map((eq) => {
-                  const Icon = EnqIcon(eq.status);
-                  const created = new Date(eq.createdAt as any).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-                  return (
-                    <Link key={eq.id} href="/trade-enquiries">
-                      <a className="flex items-center justify-between gap-3 py-2.5 border-b last:border-b-0 hover-elevate active-elevate-2 px-2 -mx-2 rounded" data-testid={`enq-summary-row-${eq.id}`}>
+          <Card className="rounded-none border border-border shadow-none">
+            <CardContent className="p-5">
+              <SectionHeader title="Recent KYC Applications" action={<SectionLinkButton href="/kyc-admin" />} />
+              {recentKyc.length > 0 ? (
+                <div className="divide-y divide-border border border-border">
+                  {recentKyc.map((k) => {
+                    const b = kycBadge(k.status);
+                    return (
+                      <div key={k.id} className="flex items-center justify-between gap-3 px-4 py-3" data-testid={`kyc-row-${k.id}`}>
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-7 h-7 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <Package className="w-3.5 h-3.5 text-primary" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">
-                              <span className="font-mono text-xs text-muted-foreground mr-1.5">{eq.enquiryRef}</span>
-                              {eq.product}
-                              {eq.side ? <span className="text-[10px] uppercase ml-1.5 text-muted-foreground">({eq.side})</span> : null}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground truncate">
-                              {eq.quantity ? `${eq.quantity} ${eq.unit || ""}` : "—"}
-                              {eq.loadingPort ? ` · ${eq.loadingPort}` : ""}
-                              {eq.incoterms ? ` · ${eq.incoterms}` : ""}
-                              {` · ${created}`}
-                            </p>
-                          </div>
+                          <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                          <span className="text-sm truncate">{k.companyName}</span>
                         </div>
-                        <Badge variant="outline" className={`rounded-none text-[10px] font-bold shrink-0 ${enqStatusClass(eq.status)}`}>
-                          <Icon className="w-2.5 h-2.5 mr-1" />
-                          {eq.status.charAt(0).toUpperCase() + eq.status.slice(1)}
-                        </Badge>
-                      </a>
-                    </Link>
-                  );
-                }) : (
-                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                    <ClipboardList className="w-8 h-8 mb-2 opacity-20" />
-                    <p className="text-sm">No trade enquiries yet</p>
-                  </div>
-                )}
+                        <Badge variant="outline" className={`rounded-none text-[10px] font-bold shrink-0 ${b.cls}`}>{b.label}</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="border border-border py-10 text-center text-sm text-muted-foreground" data-testid="kyc-empty">No KYC applications yet</div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Pending Actions + Active Shipments + Live Prices */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card className="rounded-none border border-border shadow-none">
+            <CardContent className="p-5 h-full flex flex-col">
+              <SectionHeader title="Pending Actions" />
+              {pendingActions.length > 0 ? (
+                <ul className="space-y-2 flex-1" data-testid="pending-actions-list">
+                  {pendingActions.map((a) => (
+                    <li key={a.id} data-testid={`pending-${a.id}`}>
+                      <Link href={a.href}>
+                        <a className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors py-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span className="truncate">{a.label}</span>
+                        </a>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="flex-1 flex items-center justify-center py-12 text-sm text-muted-foreground" data-testid="pending-empty">No pending actions</div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-none border border-border shadow-none">
+            <CardContent className="p-5 h-full flex flex-col">
+              <SectionHeader title="Active Shipments" action={<SectionLinkButton href="/trading" label="View" />} />
+              {liveShipments.length > 0 ? (
+                <ul className="space-y-2 flex-1" data-testid="shipments-list">
+                  {liveShipments.map((t) => (
+                    <li key={t.id} className="flex items-center justify-between gap-3 py-1.5 text-sm" data-testid={`shipment-${t.id}`}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Ship className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <span className="font-mono text-xs">{t.tradeRef}</span>
+                        <span className="truncate text-muted-foreground">· {t.commodity}</span>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground shrink-0">{t.origin} → {t.destination}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center py-8 gap-3" data-testid="shipments-empty">
+                  <Ship className="w-8 h-8 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">No shipments</p>
+                  <Link href="/trading">
+                    <Button size="sm" className="rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8" data-testid="button-add-shipment">
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Add Shipment
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-none border border-border shadow-none">
+            <CardContent className="p-5 h-full flex flex-col">
+              <SectionHeader title="Live Prices" action={<SectionLinkButton href="/products" label="All" />} />
+              <ul className="space-y-3 flex-1" data-testid="live-prices-list">
+                {LIVE_PRICES.map((p) => (
+                  <li key={p.name} className="flex items-center justify-between gap-3 text-sm" data-testid={`price-${p.name.toLowerCase().replace(/\s+/g, "-")}`}>
+                    <span className="text-foreground">{p.name}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="font-mono font-semibold text-foreground">{p.price}</span>
+                      <span className={`font-mono text-xs font-semibold ${p.change >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                        {p.change >= 0 ? "+" : ""}{p.change.toFixed(1)}%
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4">
+                <Link href="/products">
+                  <Button variant="outline" size="sm" className="w-full h-8 rounded-none text-[11px] border-border">All Prices →</Button>
+                </Link>
               </div>
             </CardContent>
           </Card>
-        );
-      })()}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2" data-testid="card-recent-trades">
-          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0">
-            <CardTitle className="text-base font-semibold">Recent Trades</CardTitle>
-            <Link href="/trading">
-              <Button variant="ghost" size="sm" data-testid="link-all-trades">
-                View All
-                <ArrowRight className="w-3.5 h-3.5 ml-1" />
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {recentTrades.length > 0 ? (
-              <div className="space-y-0">
-                {recentTrades.map((trade) => (
-                  <div
-                    key={trade.id}
-                    className="flex items-center justify-between gap-3 py-3 border-b last:border-b-0"
-                    data-testid={`trade-row-${trade.id}`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Link2 className="w-4 h-4 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium font-mono">
-                            {trade.tradeRef}
-                          </span>
-                          <Badge variant="secondary" className="text-[10px]">
-                            {trade.commodityCategory}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {trade.commodity} &middot; {trade.origin} to {trade.destination}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <div className="text-right">
-                        <p className="text-sm font-medium font-mono">
-                          ${trade.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {trade.quantity} {trade.unit}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {statusIcon(trade.status)}
-                        <span className="text-[10px]">{statusLabel(trade.status)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Link2 className="w-10 h-10 mb-3 opacity-20" />
-                <p className="text-sm">No trades yet</p>
-                <p className="text-xs">Execute your first trade to begin</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card data-testid="card-chain-status">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Shield className="w-4 h-4 text-primary" />
-              Chain Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Bullex Chain</span>
-              <Badge className="text-[10px]">Live</Badge>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Total Blocks</span>
-              <span className="font-mono font-medium">
-                {latestBlock?.blockNumber || 0}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Chain Integrity</span>
-              <span className="text-status-online font-medium">Valid</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Active Trades</span>
-              <span className="font-mono font-medium">{activeTrades}</span>
-            </div>
-
-            {blocks && blocks.length > 0 && (
-              <div className="pt-2 space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Recent Blocks</p>
-                {blocks.slice(0, 3).map((block) => {
-                  const blockTrade = trades?.find((t) => t.blockNumber === block.blockNumber);
-                  return (
-                    <div
-                      key={block.id}
-                      className="p-2.5 rounded-md bg-muted space-y-1"
-                      data-testid={`block-preview-${block.blockNumber}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono font-medium">
-                          #{block.blockNumber}
-                        </span>
-                        <span className="text-[10px] font-mono text-muted-foreground">
-                          {block.hash.slice(0, 8)}...{block.hash.slice(-4)}
-                        </span>
-                      </div>
-                      {blockTrade && (
-                        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                          <span>{blockTrade.tradeRef}</span>
-                          <span>{statusLabel(blockTrade.status)}</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        </div>
       </div>
     </div>
   );
