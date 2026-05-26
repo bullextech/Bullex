@@ -422,23 +422,23 @@ export default function KYC() {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Full Name {idx === 0 && "*"}</Label>
+                          <Label className="text-xs text-muted-foreground">Full Name</Label>
                           <Input className={inputClass} placeholder="Full name" value={uName} onChange={(e) => updateUbo(0, e.target.value)} data-testid={`input-ubo-${idx + 1}-name`} />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Date of Birth {idx === 0 && "*"}</Label>
+                          <Label className="text-xs text-muted-foreground">Date of Birth</Label>
                           <Input className={inputClass} placeholder="DD/MM/YYYY" value={uDob} onChange={(e) => updateUbo(1, e.target.value)} data-testid={`input-ubo-${idx + 1}-dob`} />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Nationality {idx === 0 && "*"}</Label>
+                          <Label className="text-xs text-muted-foreground">Nationality</Label>
                           <Input className={inputClass} placeholder="Nationality" value={uNat} onChange={(e) => updateUbo(2, e.target.value)} data-testid={`input-ubo-${idx + 1}-nationality`} />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Passport No. {idx === 0 && "*"}</Label>
+                          <Label className="text-xs text-muted-foreground">Passport No.</Label>
                           <Input className={inputClass} placeholder="Passport number" value={uPassport} onChange={(e) => updateUbo(3, e.target.value)} data-testid={`input-ubo-${idx + 1}-passport`} />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Percentage Held {idx === 0 && "*"}</Label>
+                          <Label className="text-xs text-muted-foreground">Percentage Held</Label>
                           <Input className={inputClass} placeholder="e.g. 25%" value={uPercent} onChange={(e) => updateUbo(4, e.target.value)} data-testid={`input-ubo-${idx + 1}-percent`} />
                         </div>
                       </div>
@@ -486,15 +486,15 @@ export default function KYC() {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Name {idx === 0 && "*"}</Label>
+                          <Label className="text-xs text-muted-foreground">Name</Label>
                           <Input className={inputClass} placeholder="Full name or entity" value={sName} onChange={(e) => updateShareholder(0, e.target.value)} data-testid={`input-shareholder-${idx + 1}-name`} />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Nationality {idx === 0 && "*"}</Label>
+                          <Label className="text-xs text-muted-foreground">Nationality</Label>
                           <Input className={inputClass} placeholder="Nationality" value={sNat} onChange={(e) => updateShareholder(1, e.target.value)} data-testid={`input-shareholder-${idx + 1}-nationality`} />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Percentage Held {idx === 0 && "*"}</Label>
+                          <Label className="text-xs text-muted-foreground">Percentage Held</Label>
                           <Input className={inputClass} placeholder="e.g. 25%" value={sPercent} onChange={(e) => updateShareholder(2, e.target.value)} data-testid={`input-shareholder-${idx + 1}-percent`} />
                         </div>
                       </div>
@@ -554,19 +554,19 @@ export default function KYC() {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Full Name {idx === 0 && "*"}</Label>
+                                <Label className="text-xs text-muted-foreground">Full Name</Label>
                                 <Input className={inputClass} placeholder="Full name" value={dName} onChange={(e) => updateDirector(0, e.target.value)} data-testid={`input-director-${idx + 1}-name`} />
                               </div>
                               <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Nationality {idx === 0 && "*"}</Label>
+                                <Label className="text-xs text-muted-foreground">Nationality</Label>
                                 <Input className={inputClass} placeholder="Nationality" value={dNat} onChange={(e) => updateDirector(1, e.target.value)} data-testid={`input-director-${idx + 1}-nationality`} />
                               </div>
                               <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Date of Birth {idx === 0 && "*"}</Label>
+                                <Label className="text-xs text-muted-foreground">Date of Birth</Label>
                                 <Input className={inputClass} placeholder="DD/MM/YYYY" value={dDob} onChange={(e) => updateDirector(2, e.target.value)} data-testid={`input-director-${idx + 1}-dob`} />
                               </div>
                               <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Position {idx === 0 && "*"}</Label>
+                                <Label className="text-xs text-muted-foreground">Position</Label>
                                 <Input className={inputClass} placeholder="e.g. Managing Director" value={dPos} onChange={(e) => updateDirector(3, e.target.value)} data-testid={`input-director-${idx + 1}-position`} />
                               </div>
                             </div>
