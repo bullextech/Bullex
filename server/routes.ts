@@ -7,7 +7,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
-import { insertTradeSchema, insertKycSchema, insertDocumentSchema, insertPotentialClientSchema, type Trade } from "@shared/schema";
+import { insertTradeSchema, insertKycSchema, insertDocumentSchema, insertPotentialClientSchema, kycApplications, type Trade } from "@shared/schema";
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent, type PartyDetails } from "./documentTemplates";
 import { seedDatabase } from "./seed";
@@ -2756,6 +2756,11 @@ export async function registerRoutes(
         return res.status(400).json({ message: parsed.error.message });
       }
       const data: any = { ...parsed.data };
+      // All KYC fields are optional — coerce missing/null values to empty strings so
+      // the NOT NULL database columns accept the row even when the applicant skips them.
+      for (const k of Object.keys(kycApplications)) {
+        if (data[k] === undefined || data[k] === null) data[k] = "";
+      }
       // Always strip caller-supplied attribution; only the server may set it.
       delete data.submittedByTeamMemberId;
       if (req.session?.authenticated && req.session.role === "team" && req.session.username) {

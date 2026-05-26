@@ -284,11 +284,11 @@ export default function KYC() {
               <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2 md:col-span-2">
                   <Label className={labelClass}>Full Legal Name *</Label>
-                  <Input name="companyName" required className={inputClass} placeholder="e.g. Acme Trading LLC" value={form.companyName} onChange={(e) => update("companyName", e.target.value)} data-testid="input-company-name" />
+                  <Input name="companyName" className={inputClass} placeholder="e.g. Acme Trading LLC" value={form.companyName} onChange={(e) => update("companyName", e.target.value)} data-testid="input-company-name" />
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label className={labelClass}>Full Legal (Registered) Address *</Label>
-                  <Textarea name="registeredAddress" required className={textareaClass} placeholder="Full legal address including postal code" value={form.registeredAddress} onChange={(e) => update("registeredAddress", e.target.value)} data-testid="input-address" />
+                  <Textarea name="registeredAddress" className={textareaClass} placeholder="Full legal address including postal code" value={form.registeredAddress} onChange={(e) => update("registeredAddress", e.target.value)} data-testid="input-address" />
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label className={labelClass}>Full Primary Business Address (if different)</Label>
@@ -296,11 +296,11 @@ export default function KYC() {
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>Date of Incorporation (DD/MM/YYYY) *</Label>
-                  <Input name="dateOfIncorporation" required className={inputClass} placeholder="DD/MM/YYYY" value={form.dateOfIncorporation} onChange={(e) => update("dateOfIncorporation", e.target.value)} data-testid="input-incorporation-date" />
+                  <Input name="dateOfIncorporation" className={inputClass} placeholder="DD/MM/YYYY" value={form.dateOfIncorporation} onChange={(e) => update("dateOfIncorporation", e.target.value)} data-testid="input-incorporation-date" />
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>Country of Incorporation *</Label>
-                  <Input name="countryOfIncorporation" required className={inputClass} placeholder="e.g. United Arab Emirates" value={form.countryOfIncorporation} onChange={(e) => update("countryOfIncorporation", e.target.value)} data-testid="input-country-incorporation" />
+                  <Input name="countryOfIncorporation" className={inputClass} placeholder="e.g. United Arab Emirates" value={form.countryOfIncorporation} onChange={(e) => update("countryOfIncorporation", e.target.value)} data-testid="input-country-incorporation" />
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>Country of Operation</Label>
@@ -308,7 +308,7 @@ export default function KYC() {
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>Business Registration Number *</Label>
-                  <Input name="registrationNumber" required className={inputClass} placeholder="Registration number" value={form.registrationNumber} onChange={(e) => update("registrationNumber", e.target.value)} data-testid="input-reg-number" />
+                  <Input name="registrationNumber" className={inputClass} placeholder="Registration number" value={form.registrationNumber} onChange={(e) => update("registrationNumber", e.target.value)} data-testid="input-reg-number" />
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>Tax Identification Number</Label>
@@ -316,15 +316,15 @@ export default function KYC() {
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>Name of Contact Person *</Label>
-                  <Input name="contactName" required className={inputClass} placeholder="Full name of primary contact" value={form.contactName} onChange={(e) => update("contactName", e.target.value)} data-testid="input-contact-name" />
+                  <Input name="contactName" className={inputClass} placeholder="Full name of primary contact" value={form.contactName} onChange={(e) => update("contactName", e.target.value)} data-testid="input-contact-name" />
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>Corporate Title / Role *</Label>
-                  <Input name="contactTitle" required className={inputClass} placeholder="e.g. Director, CEO" value={form.contactTitle} onChange={(e) => update("contactTitle", e.target.value)} data-testid="input-contact-title" />
+                  <Input name="contactTitle" className={inputClass} placeholder="e.g. Director, CEO" value={form.contactTitle} onChange={(e) => update("contactTitle", e.target.value)} data-testid="input-contact-title" />
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>Phone Number *</Label>
-                  <Input name="contactPhone" required className={inputClass} placeholder="+971 XX XXX XXXX" value={form.contactPhone} onChange={(e) => update("contactPhone", e.target.value)} data-testid="input-contact-phone" />
+                  <Input name="contactPhone" className={inputClass} placeholder="+971 XX XXX XXXX" value={form.contactPhone} onChange={(e) => update("contactPhone", e.target.value)} data-testid="input-contact-phone" />
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>Fax Number</Label>
@@ -332,7 +332,7 @@ export default function KYC() {
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>Contact Email *</Label>
-                  <Input name="contactEmail" type="email" required className={inputClass} placeholder="corporate@email.com" value={form.contactEmail} onChange={(e) => update("contactEmail", e.target.value)} data-testid="input-contact-email" />
+                  <Input name="contactEmail" type="email" className={inputClass} placeholder="corporate@email.com" value={form.contactEmail} onChange={(e) => update("contactEmail", e.target.value)} data-testid="input-contact-email" />
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>Website</Label>

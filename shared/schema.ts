@@ -356,7 +356,7 @@ export const insertKycSchema = createInsertSchema(kycApplications).omit({
   participantId: true,
   clientUsername: true,
   clientPassword: true,
-});
+}).partial();
 
 export const insertTradeSchema = createInsertSchema(trades).omit({
   id: true,
