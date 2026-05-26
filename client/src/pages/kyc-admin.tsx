@@ -802,9 +802,20 @@ export default function KycAdmin() {
 
               return (
                 <div key={app.id} className="border-b border-border last:border-b-0" data-testid={`kyc-row-${app.id}`}>
-                  <button
-                    className="w-full grid grid-cols-12 gap-2 px-5 py-4 items-center hover:bg-muted/30 transition-colors text-left"
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isExpanded}
+                    aria-controls={`kyc-detail-${app.id}`}
+                    className="w-full grid grid-cols-12 gap-2 px-5 py-4 items-center hover:bg-muted/30 transition-colors text-left cursor-pointer"
                     onClick={() => setExpandedId(isExpanded ? null : app.id)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setExpandedId(isExpanded ? null : app.id);
+                      }
+                    }}
                     data-testid={`button-expand-kyc-${app.id}`}
                   >
                     <div className="col-span-3">
@@ -829,10 +840,27 @@ export default function KycAdmin() {
                         {config.label}
                       </Badge>
                     </div>
-                    <div className="col-span-1 flex justify-end">
+                    <div className="col-span-1 flex justify-end items-center gap-1">
+                      <button
+                        type="button"
+                        className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        disabled={deleteKyc.isPending}
+                        title={`Delete KYC for ${app.companyName}`}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const confirmed = window.confirm(
+                            `Permanently delete KYC for "${app.companyName}" (status: ${app.status})?\n\nThis removes the application, its uploaded documents and any change requests. This cannot be undone.`
+                          );
+                          if (confirmed) deleteKyc.mutate(app.id);
+                        }}
+                        data-testid={`button-row-delete-kyc-${app.id}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                       {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                     </div>
-                  </button>
+                  </div>
 
                   {isExpanded && (
                     <div className="border-t border-border bg-muted/10" data-testid={`kyc-detail-${app.id}`}>
