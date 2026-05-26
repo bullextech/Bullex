@@ -1085,7 +1085,7 @@ export default function KycAdmin() {
                                     </div>
                                     <p className="text-xs text-muted-foreground">This application has been approved.</p>
                                   </div>
-                                  <AmlScreeningPanel app={app} readOnly />
+                                  <AmlScreeningPanel app={app} />
                                   {(app as any).participantId && (
                                     <div className="flex justify-between items-center py-1.5 border-b border-border/30 text-sm">
                                       <span className="text-muted-foreground text-xs uppercase tracking-wider">Participant ID</span>
