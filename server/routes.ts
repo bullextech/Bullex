@@ -1707,18 +1707,20 @@ export async function registerRoutes(
 
     const allMatches: any[] = [];
     let successfulQueries = 0;
+    const apiKey = process.env.OPENSANCTIONS_API_KEY;
+    const authHeaders: Record<string, string> = apiKey ? { Authorization: `ApiKey ${apiKey}` } : {};
     for (const q of queries) {
       try {
         const url = `https://api.opensanctions.org/match/default`;
         const body = { queries: { q1: { schema: q.schema, properties: { name: [q.name] } } } };
         const resp = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...authHeaders },
           body: JSON.stringify(body),
         });
         if (!resp.ok) {
           const searchUrl = `https://api.opensanctions.org/search/default?q=${encodeURIComponent(q.name)}&limit=5`;
-          const sresp = await fetch(searchUrl);
+          const sresp = await fetch(searchUrl, { headers: authHeaders });
           if (!sresp.ok) {
             console.error(`[aml] both match and search endpoints failed for "${q.name}" (match ${resp.status}, search ${sresp.status})`);
             continue;
@@ -1756,11 +1758,14 @@ export async function registerRoutes(
     // Fail-closed: if no queries succeeded, do NOT mark as clear. Persist an error state
     // so the approval gate remains locked until a real screening run completes.
     if (successfulQueries === 0) {
+      const reason = apiKey
+        ? "Screening provider unreachable — no queries completed successfully."
+        : "Screening provider not connected — set OPENSANCTIONS_API_KEY to enable OFAC / UN / PEP screening.";
       const errored = await storage.updateKycAmlScreening(kycId, {
         amlStatus: "not_run",
         amlMatches: [],
         amlCheckedBy: checkedBy,
-        amlNotes: "Screening provider unreachable — no queries completed successfully.",
+        amlNotes: reason,
         ofacStatus: "not_run", ofacMatches: [],
         unSanctionsStatus: "not_run", unSanctionsMatches: [],
         pepStatus: "not_run", pepMatches: [],
