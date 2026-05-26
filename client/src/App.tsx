@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TopNavbar } from "@/components/top-navbar";
 import { AdminSidebar } from "@/components/admin-sidebar";
+import { LivePricesTicker } from "@/components/live-prices-ticker";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { ClientAuthProvider } from "@/hooks/use-client-auth";
 import { AmendModeProvider } from "@/hooks/use-amend-mode";
@@ -143,6 +144,7 @@ function AppShell() {
       <div className="flex flex-1 overflow-hidden">
         {authenticated && <AdminSidebar />}
         <main className="flex-1 overflow-hidden flex flex-col">
+          <LivePricesTicker />
           <div className="flex-1 overflow-hidden">
             <Router />
           </div>
