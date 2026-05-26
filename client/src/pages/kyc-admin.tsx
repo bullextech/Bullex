@@ -1085,6 +1085,7 @@ export default function KycAdmin() {
                                     </div>
                                     <p className="text-xs text-muted-foreground">This application has been approved.</p>
                                   </div>
+                                  <AmlScreeningPanel app={app} readOnly />
                                   {(app as any).participantId && (
                                     <div className="flex justify-between items-center py-1.5 border-b border-border/30 text-sm">
                                       <span className="text-muted-foreground text-xs uppercase tracking-wider">Participant ID</span>
@@ -1519,7 +1520,7 @@ export default function KycAdmin() {
   );
 }
 
-function AmlScreeningPanel({ app }: { app: any }) {
+function AmlScreeningPanel({ app, readOnly = false }: { app: any; readOnly?: boolean }) {
   const { toast } = useToast();
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [overrideNotes, setOverrideNotes] = useState("");
@@ -1651,31 +1652,33 @@ function AmlScreeningPanel({ app }: { app: any }) {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          className="rounded-none h-8 text-[11px] font-semibold"
-          onClick={() => runCheck.mutate()}
-          disabled={runCheck.isPending}
-          data-testid={`button-aml-run-${app.id}`}
-        >
-          {runCheck.isPending ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : <Search className="w-3 h-3 mr-1.5" />}
-          {status === "not_run" ? "Run Screening" : "Re-run Screening"}
-        </Button>
-        {status !== "not_run" && (
+      {!readOnly && (
+        <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
             variant="outline"
             className="rounded-none h-8 text-[11px] font-semibold"
-            onClick={() => setOverrideOpen(true)}
-            data-testid={`button-aml-override-${app.id}`}
+            onClick={() => runCheck.mutate()}
+            disabled={runCheck.isPending}
+            data-testid={`button-aml-run-${app.id}`}
           >
-            <UserCheck className="w-3 h-3 mr-1.5" />
-            Manual Decision
+            {runCheck.isPending ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : <Search className="w-3 h-3 mr-1.5" />}
+            {status === "not_run" ? "Run Screening" : "Re-run Screening"}
           </Button>
-        )}
-      </div>
+          {status !== "not_run" && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-none h-8 text-[11px] font-semibold"
+              onClick={() => setOverrideOpen(true)}
+              data-testid={`button-aml-override-${app.id}`}
+            >
+              <UserCheck className="w-3 h-3 mr-1.5" />
+              Manual Decision
+            </Button>
+          )}
+        </div>
+      )}
 
       <Dialog open={overrideOpen} onOpenChange={setOverrideOpen}>
         <DialogContent className="max-w-md">

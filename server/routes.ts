@@ -1709,7 +1709,6 @@ export async function registerRoutes(
     let successfulQueries = 0;
     const apiKey = process.env.OPENSANCTIONS_API_KEY;
     const authHeaders: Record<string, string> = apiKey ? { Authorization: `ApiKey ${apiKey}` } : {};
-    console.log(`[aml] starting screening kyc=${kycId} keyPresent=${!!apiKey} keyLen=${apiKey?.length || 0} queries=${queries.length}`);
     for (const q of queries) {
       try {
         const url = `https://api.opensanctions.org/match/default`;
