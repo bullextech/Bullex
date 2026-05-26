@@ -1,39 +1,21 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Bell, Check, CheckCheck, Trash2, AlertCircle, AlertTriangle, Info, CheckCircle2, ExternalLink } from "lucide-react";
+import { FileText, Bell } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Notification } from "@shared/schema";
 
-const SEVERITY_META: Record<string, { icon: any; color: string; bg: string }> = {
-  info:    { icon: Info,          color: "text-blue-600 dark:text-blue-400",     bg: "bg-blue-50 dark:bg-blue-950/30" },
-  success: { icon: CheckCircle2,  color: "text-green-600 dark:text-green-400",   bg: "bg-green-50 dark:bg-green-950/30" },
-  warning: { icon: AlertTriangle, color: "text-amber-600 dark:text-amber-400",   bg: "bg-amber-50 dark:bg-amber-950/30" },
-  alert:   { icon: AlertCircle,   color: "text-red-600 dark:text-red-400",       bg: "bg-red-50 dark:bg-red-950/30" },
-};
-
-const MODULE_LABELS: Record<string, string> = {
-  kyc: "KYC",
-  enquiries: "Enquiries",
-  documents: "Documents",
-  tasks: "Tasks",
-  registrations: "Registrations",
-};
-
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString();
+function formatTimestamp(iso: string) {
+  const d = new Date(iso);
+  const day = d.getDate();
+  const month = d.toLocaleString("en-GB", { month: "short" });
+  const year = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${day} ${month} ${year} at ${hh}:${mm}`;
 }
 
 export default function NotificationsPage() {
@@ -58,132 +40,116 @@ export default function NotificationsPage() {
     },
   });
 
-  const removeNotif = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/notifications/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
-    },
-  });
-
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="border-b border-border px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Bell className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight" data-testid="text-notifications-title">Notifications</h1>
-            <p className="text-xs text-muted-foreground">
-              {unreadCount > 0 ? `${unreadCount} unread` : "All caught up"} · {notifications.length} total
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={unreadCount === 0 || markAllRead.isPending}
-            onClick={() => markAllRead.mutate()}
-            data-testid="button-mark-all-read"
-          >
-            <CheckCheck className="w-4 h-4 mr-1.5" />
-            Mark all read
-          </Button>
-        </div>
+    <div className="flex-1 flex flex-col overflow-hidden bg-background">
+      <div className="border-b border-border px-6 py-5 bg-card">
+        <h1 className="text-xl font-bold tracking-tight text-foreground" data-testid="text-notifications-title">
+          Notifications
+        </h1>
+        <p className="text-xs text-muted-foreground mt-0.5">Platform alerts and updates</p>
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="max-w-3xl mx-auto p-6 space-y-2">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Notifications</h2>
+              <p className="text-xs text-muted-foreground mt-0.5" data-testid="text-notifications-counts">
+                {unreadCount} unread · {notifications.length} total
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={unreadCount === 0 || markAllRead.isPending}
+              onClick={() => markAllRead.mutate()}
+              className="h-8 rounded-md border-border text-xs font-medium"
+              data-testid="button-mark-all-read"
+            >
+              Mark all read
+            </Button>
+          </div>
+
           {isLoading ? (
-            <>
-              <Skeleton className="h-20" />
-              <Skeleton className="h-20" />
-              <Skeleton className="h-20" />
-            </>
+            <Card className="rounded-md border border-border shadow-none">
+              <div className="divide-y divide-border">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="px-5 py-4">
+                    <Skeleton className="h-14 w-full" />
+                  </div>
+                ))}
+              </div>
+            </Card>
           ) : notifications.length === 0 ? (
-            <Card className="p-12 text-center">
-              <Bell className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-40" />
+            <Card className="rounded-md border border-border shadow-none py-16 text-center" data-testid="notifications-empty">
+              <Bell className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">No notifications yet</p>
               <p className="text-xs text-muted-foreground mt-1">
                 New activity across KYC, enquiries, documents and tasks will appear here.
               </p>
             </Card>
           ) : (
-            notifications.map((n) => {
-              const meta = SEVERITY_META[n.severity] || SEVERITY_META.info;
-              const Icon = meta.icon;
-              return (
-                <Card
-                  key={n.id}
-                  className={`p-4 transition-colors ${!n.isRead ? "border-l-4 border-l-primary" : "opacity-70"}`}
-                  data-testid={`notification-${n.id}`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 ${meta.bg}`}>
-                      <Icon className={`w-4 h-4 ${meta.color}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold leading-tight" data-testid={`text-notif-title-${n.id}`}>
+            <Card className="rounded-md border border-border shadow-none overflow-hidden">
+              <ul className="divide-y divide-border">
+                {notifications.map((n) => {
+                  const body = (
+                    <div className="flex items-start gap-4 px-5 py-4 hover-elevate active-elevate-2 transition-colors" data-testid={`notification-${n.id}`}>
+                      <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                        <FileText className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-semibold text-foreground leading-tight truncate" data-testid={`text-notif-title-${n.id}`}>
                             {n.title}
-                            {!n.isRead && <span className="inline-block w-2 h-2 rounded-full bg-primary ml-2 align-middle" />}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1 break-words">{n.message}</p>
+                          {!n.isRead && <span className="text-muted-foreground text-sm leading-none">·</span>}
                         </div>
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">{timeAgo(n.createdAt as any)}</span>
+                        <p className="text-xs text-muted-foreground mt-1 break-words">{n.message}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1.5" data-testid={`text-notif-time-${n.id}`}>
+                          {formatTimestamp(n.createdAt as any)}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2 mt-2.5">
-                        {n.module && (
-                          <Badge variant="secondary" className="text-[10px] h-5">
-                            {MODULE_LABELS[n.module] || n.module}
-                          </Badge>
-                        )}
-                        {n.link && (
-                          <Link href={n.link}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 px-2 text-xs"
-                              onClick={() => !n.isRead && markRead.mutate(n.id)}
-                              data-testid={`button-open-${n.id}`}
-                            >
-                              <ExternalLink className="w-3 h-3 mr-1" />
-                              Open
-                            </Button>
-                          </Link>
-                        )}
+                      <div className="shrink-0 pt-2 w-2">
                         {!n.isRead && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-xs"
-                            onClick={() => markRead.mutate(n.id)}
-                            data-testid={`button-read-${n.id}`}
-                          >
-                            <Check className="w-3 h-3 mr-1" />
-                            Mark read
-                          </Button>
+                          <span
+                            className="block w-2 h-2 rounded-full bg-primary"
+                            aria-label="Unread"
+                            data-testid={`indicator-unread-${n.id}`}
+                          />
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive ml-auto"
-                          onClick={() => removeNotif.mutate(n.id)}
-                          data-testid={`button-delete-${n.id}`}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
                       </div>
                     </div>
-                  </div>
-                </Card>
-              );
-            })
+                  );
+
+                  return (
+                    <li key={n.id}>
+                      {n.link ? (
+                        <Link href={n.link}>
+                          <a
+                            className="block cursor-pointer"
+                            onClick={() => !n.isRead && markRead.mutate(n.id)}
+                            data-testid={`link-notif-${n.id}`}
+                          >
+                            {body}
+                          </a>
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          className="w-full text-left"
+                          onClick={() => !n.isRead && markRead.mutate(n.id)}
+                          data-testid={`button-notif-${n.id}`}
+                        >
+                          {body}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </Card>
           )}
         </div>
       </ScrollArea>
