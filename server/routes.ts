@@ -282,12 +282,74 @@ function requireClientAuth(req: Request, res: Response, next: NextFunction) {
   res.status(401).json({ message: "Unauthorized" });
 }
 
+const LIVE_PRICE_SYMBOLS: { symbol: string; name: string; unit: string }[] = [
+  { symbol: "CL=F",  name: "CRUDE OIL WTI", unit: "/bbl" },
+  { symbol: "BZ=F",  name: "BRENT CRUDE",   unit: "/bbl" },
+  { symbol: "NG=F",  name: "NATURAL GAS",   unit: "/mmbtu" },
+  { symbol: "GC=F",  name: "GOLD SPOT",     unit: "/oz" },
+  { symbol: "SI=F",  name: "SILVER",        unit: "/oz" },
+  { symbol: "HG=F",  name: "COPPER LME",    unit: "/lb" },
+  { symbol: "ALI=F", name: "ALUMINIUM",     unit: "/MT" },
+  { symbol: "ZW=F",  name: "WHEAT",         unit: "/bu" },
+  { symbol: "SB=F",  name: "SUGAR",         unit: "/lb" },
+];
+
+let livePriceCache: { ts: number; data: any[] } = { ts: 0, data: [] };
+
+async function fetchYahooQuote(symbol: string) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
+    const resp = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; BullexTicker/1.0)",
+        "Accept": "application/json",
+      },
+    });
+    if (!resp.ok) return null;
+    const json: any = await resp.json();
+    const meta = json?.chart?.result?.[0]?.meta;
+    if (!meta) return null;
+    const price = meta.regularMarketPrice;
+    const prev = meta.chartPreviousClose ?? meta.previousClose;
+    if (typeof price !== "number" || typeof prev !== "number" || prev === 0) return null;
+    const changePct = ((price - prev) / prev) * 100;
+    return { price, changePct };
+  } catch {
+    return null;
+  }
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
 
   app.set("trust proxy", 1);
+
+  app.get("/api/live-prices", async (_req, res) => {
+    const now = Date.now();
+    if (livePriceCache.data.length > 0 && now - livePriceCache.ts < 60_000) {
+      return res.json({ prices: livePriceCache.data, cachedAt: livePriceCache.ts });
+    }
+    const results = await Promise.all(
+      LIVE_PRICE_SYMBOLS.map(async (s) => {
+        const q = await fetchYahooQuote(s.symbol);
+        if (!q) return null;
+        return {
+          name: s.name,
+          unit: s.unit,
+          symbol: s.symbol,
+          price: q.price,
+          changePct: q.changePct,
+        };
+      })
+    );
+    const prices = results.filter((r): r is NonNullable<typeof r> => r !== null);
+    if (prices.length > 0) {
+      livePriceCache = { ts: now, data: prices };
+    }
+    res.json({ prices: livePriceCache.data, cachedAt: livePriceCache.ts });
+  });
 
   const PgSession = connectPgSimple(session);
   const pgPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
