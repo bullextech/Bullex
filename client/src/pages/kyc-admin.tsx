@@ -1183,7 +1183,7 @@ export default function KycAdmin() {
                                 <div className="space-y-1.5">
                                   <label className="text-xs font-bold uppercase tracking-wider text-primary">Category</label>
                                   {(() => {
-                                    const KNOWN = ["Producer","Buyer","Seller","Analysis Agency","Port Agent","Shipping Agent","Chartering Broker","Ship Owner","Custom Clearing Agent","Stevedoring Agent"];
+                                    const KNOWN = ["Producer","Buyer","Seller","Analysis Agency","Port Agent","Shipping Agent","Chartering Broker","Ship Owner","Custom Clearing Agent","Stevedoring Agent","Trading House"];
                                     const raw = categories[app.id] !== undefined ? categories[app.id] : (app.category || "");
                                     const isOther = raw && !KNOWN.includes(raw);
                                     const dropdownVal = isOther ? "Others" : raw;

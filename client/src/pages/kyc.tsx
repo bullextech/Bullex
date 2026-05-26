@@ -340,7 +340,7 @@ export default function KYC() {
                 <div className="space-y-2">
                   <Label className={labelClass}>Type of Business</Label>
                   {(() => {
-                    const KNOWN = ["Producer","Buyer","Seller","Analysis Agency","Port Agent","Shipping Agent","Chartering Broker","Ship Owner","Custom Clearing Agent","Stevedoring Agent"];
+                    const KNOWN = ["Producer","Buyer","Seller","Analysis Agency","Port Agent","Shipping Agent","Chartering Broker","Ship Owner","Custom Clearing Agent","Stevedoring Agent","Trading House"];
                     const raw = form.businessType || "";
                     const isOther = raw && !KNOWN.includes(raw);
                     const dropdownVal = isOther ? "Others" : raw;
