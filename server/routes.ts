@@ -7,6 +7,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
+import { getTableColumns } from "drizzle-orm";
 import { insertTradeSchema, insertKycSchema, insertDocumentSchema, insertPotentialClientSchema, kycApplications, type Trade } from "@shared/schema";
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent, type PartyDetails } from "./documentTemplates";
@@ -2756,9 +2757,16 @@ export async function registerRoutes(
         return res.status(400).json({ message: parsed.error.message });
       }
       const data: any = { ...parsed.data };
-      // All KYC fields are optional — coerce missing/null values to empty strings so
-      // the NOT NULL database columns accept the row even when the applicant skips them.
-      for (const k of Object.keys(kycApplications)) {
+      // All KYC fields are optional — coerce missing/null values for text columns to
+      // empty strings so NOT NULL text columns accept the row when the applicant skips them.
+      // Skip non-text columns (timestamp, jsonb, integer, etc.) which cannot accept "".
+      const cols: any = getTableColumns(kycApplications);
+      for (const k of Object.keys(cols)) {
+        const col = cols[k];
+        if (!col?.notNull || col?.hasDefault) continue;
+        const sqlType = typeof col?.getSQLType === "function" ? col.getSQLType() : "";
+        const isText = sqlType === "text" || /^varchar/.test(sqlType);
+        if (!isText) continue;
         if (data[k] === undefined || data[k] === null) data[k] = "";
       }
       // Always strip caller-supplied attribution; only the server may set it.
