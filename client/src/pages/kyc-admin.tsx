@@ -323,45 +323,46 @@ export default function KycAdmin() {
   return (
     <div className="overflow-y-auto h-full">
       <div className="bg-primary text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
-            <div className="max-w-2xl">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-white/10 rounded" data-testid="icon-kyc-admin">
-                  <Shield className="w-6 h-6" />
-                </div>
-                <span className="text-xs font-bold uppercase tracking-widest text-white/60">Administration</span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+            <div className="max-w-2xl flex items-center gap-3.5">
+              <div className="p-2 bg-white/10 rounded flex-shrink-0" data-testid="icon-kyc-admin">
+                <Shield className="w-5 h-5" />
               </div>
-              <h1 className="text-3xl md:text-4xl font-serif font-bold mb-4" data-testid="text-kyc-admin-title">
-                KYC Dashboard
-              </h1>
-              <p className="text-white/70 text-lg leading-relaxed mb-5">
-                KYC application management, onboarding and compliance review.
-              </p>
+              <div className="min-w-0">
+                <h1 className="text-xl md:text-2xl font-serif font-bold leading-tight" data-testid="text-kyc-admin-title">
+                  KYC Dashboard
+                </h1>
+                <p className="text-white/60 text-sm leading-snug mt-1">
+                  KYC application management, onboarding and compliance review.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-white/5 border border-white/10 px-3 py-2.5 rounded text-center" data-testid="stat-pending">
+                  <div className="text-[10px] text-white/50 uppercase tracking-wider">Pending</div>
+                  <div className="text-lg font-bold text-amber-400">{pendingCount}</div>
+                </div>
+                <div className="bg-white/5 border border-white/10 px-3 py-2.5 rounded text-center" data-testid="stat-approved">
+                  <div className="text-[10px] text-white/50 uppercase tracking-wider">Approved</div>
+                  <div className="text-lg font-bold text-emerald-400">{approvedCount}</div>
+                </div>
+                <div className="bg-white/5 border border-white/10 px-3 py-2.5 rounded text-center" data-testid="stat-rejected">
+                  <div className="text-[10px] text-white/50 uppercase tracking-wider">Rejected</div>
+                  <div className="text-lg font-bold text-red-400">{rejectedCount}</div>
+                </div>
+              </div>
               <Link href="/kyc">
                 <Button
-                  size="lg"
-                  className="bg-white text-primary hover:bg-white/90 rounded-none font-bold uppercase tracking-wider text-xs h-11 px-5"
+                  size="sm"
+                  className="bg-white text-primary hover:bg-white/90 rounded font-bold uppercase tracking-wider text-[11px] h-9 px-3"
                   data-testid="button-new-kyc-onboarding"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New KYC Onboarding
+                  <Plus className="w-3.5 h-3.5 mr-1.5" />
+                  New KYC
                 </Button>
               </Link>
-            </div>
-            <div className="grid grid-cols-3 gap-3 lg:gap-4">
-              <div className="bg-white/5 border border-white/10 p-4 rounded text-center" data-testid="stat-pending">
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Pending</div>
-                <div className="text-2xl font-bold text-amber-400">{pendingCount}</div>
-              </div>
-              <div className="bg-white/5 border border-white/10 p-4 rounded text-center" data-testid="stat-approved">
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Approved</div>
-                <div className="text-2xl font-bold text-emerald-400">{approvedCount}</div>
-              </div>
-              <div className="bg-white/5 border border-white/10 p-4 rounded text-center" data-testid="stat-rejected">
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Rejected</div>
-                <div className="text-2xl font-bold text-red-400">{rejectedCount}</div>
-              </div>
             </div>
           </div>
         </div>

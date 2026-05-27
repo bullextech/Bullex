@@ -128,38 +128,37 @@ export default function Vault() {
   return (
     <div className="overflow-y-auto h-full">
       <div className="bg-primary text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
-            <div className="max-w-2xl">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-white/10 rounded" data-testid="icon-vault">
-                  <FolderOpen className="w-6 h-6" />
-                </div>
-                <span className="text-xs font-bold uppercase tracking-widest text-white/60">Bullex Platform</span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+            <div className="max-w-2xl flex items-center gap-3.5">
+              <div className="p-2 bg-white/10 rounded flex-shrink-0" data-testid="icon-vault">
+                <FolderOpen className="w-5 h-5" />
               </div>
-              <h1 className="text-3xl md:text-4xl font-serif font-bold mb-4" data-testid="text-vault-title">
-                Document Vault
-              </h1>
-              <p className="text-white/70 text-lg leading-relaxed">
-                Secure repository of all trade pipeline documents. Every file uploaded during blockchain trading is archived here for compliance and audit purposes.
-              </p>
+              <div className="min-w-0">
+                <h1 className="text-xl md:text-2xl font-serif font-bold leading-tight" data-testid="text-vault-title">
+                  Document Vault
+                </h1>
+                <p className="text-white/60 text-sm leading-snug mt-1">
+                  Secure repository of all trade pipeline documents — archived for compliance and audit.
+                </p>
+              </div>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-              <div className="bg-white/5 border border-white/10 p-4 rounded text-center" data-testid="stat-total-docs">
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Total Files</div>
-                <div className="text-2xl font-bold">{totalDocs}</div>
+            <div className="grid grid-cols-4 gap-3">
+              <div className="bg-white/5 border border-white/10 px-3 py-2.5 rounded text-center" data-testid="stat-total-docs">
+                <div className="text-[10px] text-white/50 uppercase tracking-wider">Files</div>
+                <div className="text-lg font-bold">{totalDocs}</div>
               </div>
-              <div className="bg-white/5 border border-white/10 p-4 rounded text-center" data-testid="stat-trade-count">
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Trades</div>
-                <div className="text-2xl font-bold">{tradeCount}</div>
+              <div className="bg-white/5 border border-white/10 px-3 py-2.5 rounded text-center" data-testid="stat-trade-count">
+                <div className="text-[10px] text-white/50 uppercase tracking-wider">Trades</div>
+                <div className="text-lg font-bold">{tradeCount}</div>
               </div>
-              <div className="bg-white/5 border border-white/10 p-4 rounded text-center" data-testid="stat-stage-execution">
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Execution Docs</div>
-                <div className="text-2xl font-bold">{stageBreakdown["execution"] || 0}</div>
+              <div className="bg-white/5 border border-white/10 px-3 py-2.5 rounded text-center" data-testid="stat-stage-execution">
+                <div className="text-[10px] text-white/50 uppercase tracking-wider">Exec.</div>
+                <div className="text-lg font-bold">{stageBreakdown["execution"] || 0}</div>
               </div>
-              <div className="bg-white/5 border border-white/10 p-4 rounded text-center" data-testid="stat-stage-deal">
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Deal Docs</div>
-                <div className="text-2xl font-bold">{stageBreakdown["deal"] || 0}</div>
+              <div className="bg-white/5 border border-white/10 px-3 py-2.5 rounded text-center" data-testid="stat-stage-deal">
+                <div className="text-[10px] text-white/50 uppercase tracking-wider">Deal</div>
+                <div className="text-lg font-bold">{stageBreakdown["deal"] || 0}</div>
               </div>
             </div>
           </div>
