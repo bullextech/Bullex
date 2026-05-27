@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TopNavbar } from "@/components/top-navbar";
 import { AdminSidebar } from "@/components/admin-sidebar";
+import { TickerBar } from "@/components/ticker-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { ClientAuthProvider } from "@/hooks/use-client-auth";
 import { AmendModeProvider } from "@/hooks/use-amend-mode";
@@ -138,12 +139,13 @@ function Router() {
 function AppShell() {
   const { authenticated } = useAuth();
   return (
-    <div className="flex flex-col h-screen w-full">
-      <TopNavbar />
-      <div className="flex flex-1 overflow-hidden">
-        {authenticated && <AdminSidebar />}
+    <div className="flex h-screen w-full overflow-hidden">
+      {authenticated && <AdminSidebar />}
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <TopNavbar />
+        {authenticated && <TickerBar />}
         <main className="flex-1 overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-auto">
             <Router />
           </div>
           <footer className="border-t border-border bg-muted/30 px-4 py-2 text-center flex-shrink-0">

@@ -182,7 +182,7 @@
     color: #ffffff;
   }
   .bullex-stat-card {
-    @apply rounded-none border-t-4 border-t-primary border-x border-b border-border shadow-none bg-card;
+    @apply rounded-none border-l-4 border-l-primary border-y border-r border-border shadow-none bg-card;
   }
 }
 
