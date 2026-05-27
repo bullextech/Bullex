@@ -118,12 +118,12 @@ export function AdminSidebar() {
     >
       {/* Brand */}
       <div className="px-4 py-4 flex items-center gap-2.5 border-b border-sidebar-border flex-shrink-0">
-        <div className="w-8 h-8 rounded-md bg-sidebar-primary flex items-center justify-center">
-          <Shield className="w-4 h-4 text-sidebar-primary-foreground" />
+        <div className="w-9 h-9 rounded-md bg-sidebar-primary flex items-center justify-center flex-shrink-0">
+          <Shield className="w-[18px] h-[18px] text-sidebar-primary-foreground" strokeWidth={2.5} />
         </div>
-        <div className="flex flex-col leading-tight">
-          <span className="text-sm font-bold tracking-tight">Bullex</span>
-          <span className="text-[9px] text-sidebar-foreground/60 uppercase tracking-[0.18em]">Commodity Trading</span>
+        <div className="flex flex-col leading-tight min-w-0">
+          <span className="text-base font-semibold tracking-tight text-sidebar-foreground">Bullex</span>
+          <span className="text-[9px] text-sidebar-foreground/55 tracking-wide truncate">Block Trade Platform</span>
         </div>
       </div>
 
