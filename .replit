@@ -49,3 +49,7 @@ EMAIL_FROM = "Bullex Trading Platform <noreply@bullex.tech>"
 
 [agent]
 integrations = ["onedrive:1.0.0"]
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
