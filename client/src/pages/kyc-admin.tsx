@@ -421,42 +421,6 @@ export default function KycAdmin() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 gap-4 mb-8">
-          <Card data-testid="card-kyc-summary">
-            <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-primary" />
-                Client KYC Registration Data
-              </CardTitle>
-              <Link href="/kyc-admin">
-                <Button variant="ghost" size="sm" className="text-xs" data-testid="link-all-kyc">
-                  View All <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="rounded-md bg-primary/5 border border-primary/20 p-4 text-center" data-testid="kyc-summary-total">
-                  <div className="text-3xl font-bold text-primary">{applications?.length || 0}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-primary mt-1">Applications</div>
-                </div>
-                <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-4 text-center" data-testid="kyc-summary-pending">
-                  <div className="text-3xl font-bold text-amber-600">{pendingCount}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 mt-1">Pending</div>
-                </div>
-                <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-4 text-center" data-testid="kyc-summary-approved">
-                  <div className="text-3xl font-bold text-emerald-600">{approvedCount}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mt-1">Approved</div>
-                </div>
-                <div className="rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-4 text-center" data-testid="kyc-summary-rejected">
-                  <div className="text-3xl font-bold text-red-600">{rejectedCount}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 mt-1">Rejected</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-        </div>
 
         {false && (() => {
           const allEnq = enquiries || [];
