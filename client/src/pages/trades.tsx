@@ -391,39 +391,39 @@ export default function Trading() {
   return (
     <div className="overflow-y-auto h-full">
       <div className="bg-primary text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-5">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="max-w-2xl flex items-center gap-3">
-              <div className="p-1.5 bg-white/10 rounded flex-shrink-0" data-testid="icon-blockchain-trading">
-                <Shield className="w-4 h-4" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+            <div className="max-w-2xl flex items-center gap-3.5">
+              <div className="p-2 bg-white/10 rounded flex-shrink-0" data-testid="icon-blockchain-trading">
+                <Shield className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-base md:text-lg font-serif font-bold leading-tight" data-testid="text-trading-title">
+                <h1 className="text-xl md:text-2xl font-serif font-bold leading-tight" data-testid="text-trading-title">
                   Document Gated Blockchain Deal Desk
                 </h1>
-                <p className="text-white/60 text-[11px] leading-snug mt-0.5">
+                <p className="text-white/60 text-sm leading-snug mt-1">
                   Every stage requires mandatory documents before advancing — transparency, compliance, immutable verification.
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-2">
-              <div className="bg-white/5 border border-white/10 px-2 py-1.5 rounded text-center" data-testid="stat-total-blocks">
-                <div className="text-[9px] text-white/50 uppercase tracking-wider">Blocks</div>
-                <div className="text-sm font-bold">{totalBlocks}</div>
+            <div className="grid grid-cols-4 gap-3">
+              <div className="bg-white/5 border border-white/10 px-3 py-2.5 rounded text-center" data-testid="stat-total-blocks">
+                <div className="text-[10px] text-white/50 uppercase tracking-wider">Blocks</div>
+                <div className="text-lg font-bold">{totalBlocks}</div>
               </div>
-              <div className="bg-white/5 border border-white/10 px-2 py-1.5 rounded text-center" data-testid="stat-transactions">
-                <div className="text-[9px] text-white/50 uppercase tracking-wider">Trans.</div>
-                <div className="text-sm font-bold">{totalTrades}</div>
+              <div className="bg-white/5 border border-white/10 px-3 py-2.5 rounded text-center" data-testid="stat-transactions">
+                <div className="text-[10px] text-white/50 uppercase tracking-wider">Trans.</div>
+                <div className="text-lg font-bold">{totalTrades}</div>
               </div>
-              <div className="bg-white/5 border border-white/10 px-2 py-1.5 rounded text-center" data-testid="stat-chain-integrity">
-                <div className="text-[9px] text-white/50 uppercase tracking-wider">Chain</div>
-                <div className={`text-sm font-bold ${chainValid ? "text-emerald-400" : "text-red-400"}`}>
+              <div className="bg-white/5 border border-white/10 px-3 py-2.5 rounded text-center" data-testid="stat-chain-integrity">
+                <div className="text-[10px] text-white/50 uppercase tracking-wider">Chain</div>
+                <div className={`text-lg font-bold ${chainValid ? "text-emerald-400" : "text-red-400"}`}>
                   {chainValid ? "Valid" : "Invalid"}
                 </div>
               </div>
-              <div className="bg-white/5 border border-white/10 px-2 py-1.5 rounded text-center" data-testid="stat-active-trades">
-                <div className="text-[9px] text-white/50 uppercase tracking-wider">Active</div>
-                <div className="text-sm font-bold">{activeTrades}</div>
+              <div className="bg-white/5 border border-white/10 px-3 py-2.5 rounded text-center" data-testid="stat-active-trades">
+                <div className="text-[10px] text-white/50 uppercase tracking-wider">Active</div>
+                <div className="text-lg font-bold">{activeTrades}</div>
               </div>
             </div>
           </div>
