@@ -401,7 +401,7 @@ export default function Trading() {
                 <span className="text-xs font-bold uppercase tracking-widest text-white/60">Bullex Platform</span>
               </div>
               <h1 className="text-3xl md:text-4xl font-serif font-bold mb-4" data-testid="text-trading-title">
-                Blockchain Trading
+                Blockchain Deal Desk
               </h1>
               <p className="text-white/70 text-lg leading-relaxed">
                 Document-gated blockchain trading platform. Every stage requires mandatory documents to be confirmed before advancing — ensuring transparency, compliance, and immutable verification.
