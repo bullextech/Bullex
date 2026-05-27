@@ -339,7 +339,11 @@ export default function KycAdmin() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
+                <div className="bg-white/5 border border-white/10 px-3 py-2.5 rounded text-center" data-testid="stat-total">
+                  <div className="text-[10px] text-white/50 uppercase tracking-wider">Total</div>
+                  <div className="text-lg font-bold">{applications?.length || 0}</div>
+                </div>
                 <div className="bg-white/5 border border-white/10 px-3 py-2.5 rounded text-center" data-testid="stat-pending">
                   <div className="text-[10px] text-white/50 uppercase tracking-wider">Pending</div>
                   <div className="text-lg font-bold text-amber-400">{pendingCount}</div>
