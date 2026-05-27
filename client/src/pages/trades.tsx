@@ -404,7 +404,7 @@ export default function Trading() {
                 Document Gated Blockchain Deal Desk
               </h1>
               <p className="text-white/70 text-lg leading-relaxed">
-                Document-gated blockchain trading platform. Every stage requires mandatory documents to be confirmed before advancing — ensuring transparency, compliance, and immutable verification.
+                Every stage requires mandatory documents to be confirmed before advancing — ensuring transparency, compliance, and immutable verification.
               </p>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
