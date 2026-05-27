@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { FileText, Bell } from "lucide-react";
+import { FileText, Bell, ExternalLink, Check } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -93,9 +93,12 @@ export default function NotificationsPage() {
           ) : (
             <Card className="rounded-md border border-border shadow-none overflow-hidden">
               <ul className="divide-y divide-border">
-                {notifications.map((n) => {
-                  const body = (
-                    <div className="flex items-start gap-4 px-5 py-4 hover-elevate active-elevate-2 transition-colors" data-testid={`notification-${n.id}`}>
+                {notifications.map((n) => (
+                  <li key={n.id}>
+                    <div
+                      className="flex items-start gap-4 px-5 py-4 transition-colors"
+                      data-testid={`notification-${n.id}`}
+                    >
                       <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
                         <FileText className="w-4 h-4 text-muted-foreground" />
                       </div>
@@ -104,50 +107,48 @@ export default function NotificationsPage() {
                           <p className="text-sm font-semibold text-foreground leading-tight truncate" data-testid={`text-notif-title-${n.id}`}>
                             {n.title}
                           </p>
-                          {!n.isRead && <span className="text-muted-foreground text-sm leading-none">·</span>}
+                          {!n.isRead && (
+                            <span
+                              className="inline-block w-2 h-2 rounded-full bg-primary shrink-0"
+                              aria-label="Unread"
+                              data-testid={`indicator-unread-${n.id}`}
+                            />
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1 break-words">{n.message}</p>
                         <p className="text-[11px] text-muted-foreground mt-1.5" data-testid={`text-notif-time-${n.id}`}>
                           {formatTimestamp(n.createdAt as any)}
                         </p>
                       </div>
-                      <div className="shrink-0 pt-2 w-2">
-                        {!n.isRead && (
-                          <span
-                            className="block w-2 h-2 rounded-full bg-primary"
-                            aria-label="Unread"
-                            data-testid={`indicator-unread-${n.id}`}
-                          />
+                      <div className="shrink-0 flex items-center gap-2 pt-1">
+                        {n.link && (
+                          <Link href={n.link}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 rounded-md text-xs font-medium gap-1.5"
+                              data-testid={`button-notif-open-${n.id}`}
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              Open
+                            </Button>
+                          </Link>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={n.isRead || markRead.isPending}
+                          onClick={() => markRead.mutate(n.id)}
+                          className="h-8 rounded-md text-xs font-medium gap-1.5"
+                          data-testid={`button-notif-mark-read-${n.id}`}
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          {n.isRead ? "Read" : "Mark read"}
+                        </Button>
                       </div>
                     </div>
-                  );
-
-                  return (
-                    <li key={n.id}>
-                      {n.link ? (
-                        <Link href={n.link}>
-                          <a
-                            className="block cursor-pointer"
-                            onClick={() => !n.isRead && markRead.mutate(n.id)}
-                            data-testid={`link-notif-${n.id}`}
-                          >
-                            {body}
-                          </a>
-                        </Link>
-                      ) : (
-                        <button
-                          type="button"
-                          className="w-full text-left"
-                          onClick={() => !n.isRead && markRead.mutate(n.id)}
-                          data-testid={`button-notif-${n.id}`}
-                        >
-                          {body}
-                        </button>
-                      )}
-                    </li>
-                  );
-                })}
+                  </li>
+                ))}
               </ul>
             </Card>
           )}
