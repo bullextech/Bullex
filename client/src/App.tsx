@@ -138,12 +138,12 @@ function Router() {
 function AppShell() {
   const { authenticated } = useAuth();
   return (
-    <div className="flex h-screen w-full overflow-hidden">
-      {authenticated && <AdminSidebar />}
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <TopNavbar />
+    <div className="flex flex-col h-screen w-full">
+      <TopNavbar />
+      <div className="flex flex-1 overflow-hidden">
+        {authenticated && <AdminSidebar />}
         <main className="flex-1 overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-hidden">
             <Router />
           </div>
           <footer className="border-t border-border bg-muted/30 px-4 py-2 text-center flex-shrink-0">
