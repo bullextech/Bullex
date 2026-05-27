@@ -323,7 +323,7 @@ export default function KycAdmin() {
   return (
     <div className="overflow-y-auto h-full">
       <div className="bg-primary text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
             <div className="max-w-2xl flex items-center gap-3.5">
               <div className="p-2 bg-white/10 rounded flex-shrink-0" data-testid="icon-kyc-admin">
@@ -365,76 +365,59 @@ export default function KycAdmin() {
               </Link>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-0">
-        <Card className="border-primary/20 bg-primary/5" data-testid="card-kyc-onboarding-link">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Link2 className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold">KYC Onboarding Link</p>
-                <p className="text-xs text-muted-foreground">Share with clients to start their KYC application</p>
-              </div>
+          {/* Onboarding link strip */}
+          <div className="bg-white/5 border border-white/10 rounded px-3 py-2.5 flex flex-wrap items-center gap-2" data-testid="card-kyc-onboarding-link">
+            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-white/60 mr-1">
+              <Link2 className="w-3.5 h-3.5" />
+              <span>Client KYC Link</span>
             </div>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex flex-1 items-center gap-2 bg-background border border-border rounded-md px-3 py-2 min-w-0">
-                <ExternalLink className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                <span className="text-xs text-muted-foreground truncate font-mono" data-testid="text-kyc-link">{kycOnboardingUrl}</span>
-              </div>
-              <Button
-                size="sm"
-                variant={kycLinkCopied ? "secondary" : "outline"}
-                onClick={copyKycLink}
-                className="flex-shrink-0"
-                data-testid="button-copy-kyc-link"
-              >
-                <Copy className="w-3.5 h-3.5 mr-1.5" />
-                {kycLinkCopied ? "Copied!" : "Copy Link"}
-              </Button>
+            <div className="flex flex-1 items-center gap-1.5 bg-white/10 border border-white/10 rounded px-2 py-1 min-w-[180px]">
+              <ExternalLink className="w-3 h-3 text-white/50 flex-shrink-0" />
+              <span className="text-[11px] text-white/80 truncate font-mono" data-testid="text-kyc-link">{kycOnboardingUrl}</span>
             </div>
-            <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={copyKycLink}
+              className="h-8 px-2.5 text-[11px] bg-white/5 border-white/20 text-white hover:bg-white/15 hover:text-white"
+              data-testid="button-copy-kyc-link"
+            >
+              <Copy className="w-3 h-3 mr-1" />
+              {kycLinkCopied ? "Copied!" : "Copy"}
+            </Button>
+            <div className="flex items-center gap-1.5">
               <Input
                 placeholder="client@company.com"
                 value={kycLinkEmail}
                 onChange={(e) => setKycLinkEmail(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && sendKycLinkEmail()}
-                className="h-9 text-xs flex-1"
+                className="h-8 text-[11px] w-48 bg-white/10 border-white/20 text-white placeholder:text-white/40"
                 data-testid="input-kyc-link-email"
               />
               <Button
                 size="sm"
                 onClick={sendKycLinkEmail}
                 disabled={kycLinkSending}
-                className="flex-shrink-0"
+                className="h-8 px-2.5 text-[11px] bg-white text-primary hover:bg-white/90"
                 data-testid="button-send-kyc-link"
               >
-                <Send className="w-3.5 h-3.5 mr-1.5" />
-                {kycLinkSending ? "Sending…" : "Send Invite"}
+                <Send className="w-3 h-3 mr-1" />
+                {kycLinkSending ? "Sending…" : "Send"}
               </Button>
             </div>
-            <div className="mt-3 pt-3 border-t border-border/60 flex items-center justify-between gap-2 flex-wrap">
-              <div className="text-xs text-muted-foreground">
-                Prefer offline? Send a printable KYC application form for the client to fill in by hand.
-              </div>
-              <div className="flex items-center gap-2">
-                <a href="/api/kyc-form/blank-pdf" target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" variant="outline" data-testid="button-download-blank-kyc">
-                    <Download className="w-3.5 h-3.5 mr-1.5" />
-                    Download Blank Form
-                  </Button>
-                </a>
-                <Button size="sm" variant="secondary" onClick={() => setBlankFormDialogOpen(true)} data-testid="button-email-blank-kyc">
-                  <Send className="w-3.5 h-3.5 mr-1.5" />
-                  Email Blank Form
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <a href="/api/kyc-form/blank-pdf" target="_blank" rel="noopener noreferrer">
+              <Button size="sm" variant="outline" className="h-8 px-2.5 text-[11px] bg-white/5 border-white/20 text-white hover:bg-white/15 hover:text-white" data-testid="button-download-blank-kyc">
+                <Download className="w-3 h-3 mr-1" />
+                Blank PDF
+              </Button>
+            </a>
+            <Button size="sm" variant="outline" onClick={() => setBlankFormDialogOpen(true)} className="h-8 px-2.5 text-[11px] bg-white/5 border-white/20 text-white hover:bg-white/15 hover:text-white" data-testid="button-email-blank-kyc">
+              <Send className="w-3 h-3 mr-1" />
+              Email Form
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
