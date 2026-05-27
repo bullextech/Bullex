@@ -391,40 +391,39 @@ export default function Trading() {
   return (
     <div className="overflow-y-auto h-full">
       <div className="bg-primary text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
-            <div className="max-w-2xl">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-white/10 rounded" data-testid="icon-blockchain-trading">
-                  <Shield className="w-6 h-6" />
-                </div>
-                <span className="text-xs font-bold uppercase tracking-widest text-white/60">Bullex Platform</span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-5">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="max-w-2xl flex items-center gap-3">
+              <div className="p-1.5 bg-white/10 rounded flex-shrink-0" data-testid="icon-blockchain-trading">
+                <Shield className="w-4 h-4" />
               </div>
-              <h1 className="text-3xl md:text-4xl font-serif font-bold mb-4" data-testid="text-trading-title">
-                Document Gated Blockchain Deal Desk
-              </h1>
-              <p className="text-white/70 text-lg leading-relaxed">
-                Every stage requires mandatory documents to be confirmed before advancing — ensuring transparency, compliance, and immutable verification.
-              </p>
+              <div className="min-w-0">
+                <h1 className="text-base md:text-lg font-serif font-bold leading-tight" data-testid="text-trading-title">
+                  Document Gated Blockchain Deal Desk
+                </h1>
+                <p className="text-white/60 text-[11px] leading-snug mt-0.5">
+                  Every stage requires mandatory documents before advancing — transparency, compliance, immutable verification.
+                </p>
+              </div>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-              <div className="bg-white/5 border border-white/10 p-4 rounded text-center" data-testid="stat-total-blocks">
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Total Blocks</div>
-                <div className="text-2xl font-bold">{totalBlocks}</div>
+            <div className="grid grid-cols-4 gap-2">
+              <div className="bg-white/5 border border-white/10 px-2 py-1.5 rounded text-center" data-testid="stat-total-blocks">
+                <div className="text-[9px] text-white/50 uppercase tracking-wider">Blocks</div>
+                <div className="text-sm font-bold">{totalBlocks}</div>
               </div>
-              <div className="bg-white/5 border border-white/10 p-4 rounded text-center" data-testid="stat-transactions">
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Transactions</div>
-                <div className="text-2xl font-bold">{totalTrades}</div>
+              <div className="bg-white/5 border border-white/10 px-2 py-1.5 rounded text-center" data-testid="stat-transactions">
+                <div className="text-[9px] text-white/50 uppercase tracking-wider">Trans.</div>
+                <div className="text-sm font-bold">{totalTrades}</div>
               </div>
-              <div className="bg-white/5 border border-white/10 p-4 rounded text-center" data-testid="stat-chain-integrity">
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Chain Integrity</div>
-                <div className={`text-2xl font-bold ${chainValid ? "text-emerald-400" : "text-red-400"}`}>
+              <div className="bg-white/5 border border-white/10 px-2 py-1.5 rounded text-center" data-testid="stat-chain-integrity">
+                <div className="text-[9px] text-white/50 uppercase tracking-wider">Chain</div>
+                <div className={`text-sm font-bold ${chainValid ? "text-emerald-400" : "text-red-400"}`}>
                   {chainValid ? "Valid" : "Invalid"}
                 </div>
               </div>
-              <div className="bg-white/5 border border-white/10 p-4 rounded text-center" data-testid="stat-active-trades">
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Active Trades</div>
-                <div className="text-2xl font-bold">{activeTrades}</div>
+              <div className="bg-white/5 border border-white/10 px-2 py-1.5 rounded text-center" data-testid="stat-active-trades">
+                <div className="text-[9px] text-white/50 uppercase tracking-wider">Active</div>
+                <div className="text-sm font-bold">{activeTrades}</div>
               </div>
             </div>
           </div>
