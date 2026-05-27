@@ -1332,7 +1332,7 @@ export default function DocumentGenerator() {
                             <SelectContent>
                               <SelectItem value="USD">USD</SelectItem>
                               <SelectItem value="EUR">EUR</SelectItem>
-                              <SelectItem value="GBP">GBP</SelectItem>
+                              <SelectItem value="GBP">GBP</SelectItem><SelectItem value="CNY">CNY</SelectItem>
                               <SelectItem value="AED">AED</SelectItem>
                               <SelectItem value="CNY">CNY</SelectItem>
                             </SelectContent>
@@ -1573,7 +1573,7 @@ export default function DocumentGenerator() {
                             <SelectContent>
                               <SelectItem value="USD">USD</SelectItem>
                               <SelectItem value="EUR">EUR</SelectItem>
-                              <SelectItem value="GBP">GBP</SelectItem>
+                              <SelectItem value="GBP">GBP</SelectItem><SelectItem value="CNY">CNY</SelectItem>
                               <SelectItem value="AED">AED</SelectItem>
                               <SelectItem value="CNY">CNY</SelectItem>
                             </SelectContent>
@@ -2505,7 +2505,7 @@ export default function DocumentGenerator() {
                             <SelectContent>
                               <SelectItem value="USD">USD</SelectItem>
                               <SelectItem value="EUR">EUR</SelectItem>
-                              <SelectItem value="GBP">GBP</SelectItem>
+                              <SelectItem value="GBP">GBP</SelectItem><SelectItem value="CNY">CNY</SelectItem>
                               <SelectItem value="AED">AED</SelectItem>
                             </SelectContent>
                           </Select>
@@ -2578,7 +2578,7 @@ export default function DocumentGenerator() {
                         <SelectContent>
                           <SelectItem value="USD">USD</SelectItem>
                           <SelectItem value="EUR">EUR</SelectItem>
-                          <SelectItem value="GBP">GBP</SelectItem>
+                          <SelectItem value="GBP">GBP</SelectItem><SelectItem value="CNY">CNY</SelectItem>
                           <SelectItem value="AED">AED</SelectItem>
                           <SelectItem value="CNY">CNY</SelectItem>
                         </SelectContent>

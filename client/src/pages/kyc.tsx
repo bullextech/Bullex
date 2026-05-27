@@ -634,7 +634,7 @@ export default function KYC() {
                     <SelectContent>
                       <SelectItem value="USD">USD</SelectItem>
                       <SelectItem value="EUR">EUR</SelectItem>
-                      <SelectItem value="GBP">GBP</SelectItem>
+                      <SelectItem value="GBP">GBP</SelectItem><SelectItem value="CNY">CNY</SelectItem>
                       <SelectItem value="AED">AED</SelectItem>
                       <SelectItem value="CHF">CHF</SelectItem>
                       <SelectItem value="SGD">SGD</SelectItem>
@@ -712,7 +712,7 @@ export default function KYC() {
                     <SelectContent>
                       <SelectItem value="USD">USD</SelectItem>
                       <SelectItem value="EUR">EUR</SelectItem>
-                      <SelectItem value="GBP">GBP</SelectItem>
+                      <SelectItem value="GBP">GBP</SelectItem><SelectItem value="CNY">CNY</SelectItem>
                       <SelectItem value="AED">AED</SelectItem>
                       <SelectItem value="CHF">CHF</SelectItem>
                       <SelectItem value="SGD">SGD</SelectItem>

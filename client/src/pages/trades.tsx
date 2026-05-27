@@ -596,7 +596,7 @@ export default function Trading() {
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Currency</label>
                     <Select value={form.currency} onValueChange={(v) => setForm({ ...form, currency: v })}>
                       <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-currency"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="EUR">EUR</SelectItem><SelectItem value="GBP">GBP</SelectItem><SelectItem value="AED">AED</SelectItem></SelectContent>
+                      <SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="EUR">EUR</SelectItem><SelectItem value="GBP">GBP</SelectItem><SelectItem value="AED">AED</SelectItem><SelectItem value="CNY">CNY</SelectItem></SelectContent>
                     </Select>
                   </div>
                 </div>
