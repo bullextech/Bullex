@@ -4,6 +4,23 @@ import "./index.css";
 
 createRoot(document.getElementById("root")!).render(<App />);
 
+// Emergency cache/SW reset: visit any URL with ?reset=1 to wipe stale caches & service workers.
+if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("reset")) {
+  (async () => {
+    try {
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+    } catch {}
+    window.location.replace(window.location.pathname);
+  })();
+}
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").then((reg) => {
