@@ -18,9 +18,7 @@ import {
   Clock,
   XCircle,
   AlertCircle,
-  MessageSquare,
 } from "lucide-react";
-import { ChatPanel } from "@/components/chat-panel";
 import type {
   Trade,
   KycApplication,
@@ -205,26 +203,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Bullex Chat */}
-        <Card className="rounded-none border border-border shadow-none">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-bold uppercase tracking-wider" data-testid="text-dashboard-chat-heading">Bullex Chat</h3>
-              </div>
-              <Link href="/chat">
-                <Button variant="ghost" size="sm" className="h-7 text-[11px] text-muted-foreground hover:text-primary" data-testid="link-open-full-chat">
-                  Open full chat <ArrowRight className="w-3 h-3 ml-1" />
-                </Button>
-              </Link>
-            </div>
-            <div className="h-[480px]">
-              <ChatPanel embedded />
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Pending Actions + Active Shipments + Live Prices */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
