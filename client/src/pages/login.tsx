@@ -53,7 +53,7 @@ export default function Login() {
           {/* Role selector */}
           <div className="mb-5">
             <label className="block text-[11px] text-slate-400 mb-2">Login as:</label>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid grid-cols-5 gap-1 p-1 bg-[#0a1628] border border-white/10 rounded-md">
               {ROLES.map((r) => {
                 const active = r === role;
                 return (
@@ -62,10 +62,10 @@ export default function Login() {
                     type="button"
                     onClick={() => setRole(r)}
                     data-testid={`tab-role-${r.toLowerCase()}`}
-                    className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                    className={`px-1 py-1.5 text-[11px] sm:text-xs rounded transition-colors text-center truncate ${
                       active
-                        ? "bg-primary/15 border-primary text-white"
-                        : "bg-transparent border-white/10 text-slate-300 hover:bg-white/5"
+                        ? "bg-primary text-primary-foreground font-semibold"
+                        : "text-slate-300 hover:bg-white/5"
                     }`}
                   >
                     {r}
