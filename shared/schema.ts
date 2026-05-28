@@ -629,3 +629,17 @@ export type TradeEnquiry = typeof tradeEnquiries.$inferSelect;
 export type InsertTradeEnquiry = z.infer<typeof insertTradeEnquirySchema>;
 export type TradeEnquiryDocument = typeof tradeEnquiryDocuments.$inferSelect;
 export type InsertTradeEnquiryDocument = z.infer<typeof insertTradeEnquiryDocumentSchema>;
+
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roomId: text("room_id").notNull(),
+  senderId: text("sender_id").notNull(),
+  senderName: text("sender_name").notNull(),
+  senderRole: text("sender_role").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({ id: true, createdAt: true });
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
+export type ChatMessage = typeof chatMessages.$inferSelect;

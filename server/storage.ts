@@ -57,6 +57,9 @@ import {
   type InsertTeamTask,
   taskUpdates,
   dailyReports,
+  chatMessages,
+  type ChatMessage,
+  type InsertChatMessage,
   type DailyReport,
   type InsertDailyReport,
   type TaskUpdate,
@@ -79,6 +82,9 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+
+  getChatMessages(roomId: string, limit?: number): Promise<ChatMessage[]>;
+  createChatMessage(msg: InsertChatMessage): Promise<ChatMessage>;
 
   getKycApplications(): Promise<KycApplication[]>;
   deleteKycApplication(id: string): Promise<void>;
@@ -1097,6 +1103,21 @@ export class DatabaseStorage implements IStorage {
 
   async deleteNotification(id: string): Promise<void> {
     await db.delete(notifications).where(eq(notifications.id, id));
+  }
+
+  async getChatMessages(roomId: string, limit: number = 200): Promise<ChatMessage[]> {
+    const rows = await db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.roomId, roomId))
+      .orderBy(desc(chatMessages.createdAt))
+      .limit(limit);
+    return rows.reverse();
+  }
+
+  async createChatMessage(msg: InsertChatMessage): Promise<ChatMessage> {
+    const [row] = await db.insert(chatMessages).values(msg).returning();
+    return row;
   }
 }
 

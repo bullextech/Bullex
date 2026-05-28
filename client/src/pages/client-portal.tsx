@@ -31,9 +31,11 @@ import {
   FileCheck,
   Send,
   Pencil,
+  MessageSquare,
 } from "lucide-react";
 import { useClientAuth } from "@/hooks/use-client-auth";
 import ClientLogin from "./client-login";
+import { ChatPanel } from "@/components/chat-panel";
 
 interface Trade {
   id: string;
@@ -823,6 +825,17 @@ export default function ClientPortal() {
             </CardContent>
           </Card>
         )}
+
+        <div className="mb-8">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-4 flex items-center gap-2" data-testid="text-chat-heading">
+            <MessageSquare className="w-4 h-4" />
+            Messages
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Chat directly with the Bullex team — text messages and 1-to-1 video calls.
+          </p>
+          <ChatPanel embedded />
+        </div>
 
         {clientDocs && clientDocs.length > 0 && (
           <div className="mb-8">

@@ -41,6 +41,7 @@ import TaskBoard from "@/pages/task-board";
 import TeamPortal from "@/pages/team-portal";
 import TeamReset from "@/pages/team-reset";
 import Notifications from "@/pages/notifications";
+import Chat from "@/pages/chat";
 import { ComingSoon } from "@/pages/coming-soon";
 
 const Analytics = () => <ComingSoon title="Analytics" description="Trading performance, KYC throughput and operational analytics will appear here." />;
@@ -118,6 +119,7 @@ function Router() {
       <Route path="/tasks">{() => <ModuleRoute component={TaskBoard} moduleId="tasks" />}</Route>
       <Route path="/analytics">{() => <ModuleRoute component={Analytics} moduleId="analytics" />}</Route>
       <Route path="/notifications">{() => <ModuleRoute component={Notifications} moduleId="notifications" />}</Route>
+      <Route path="/chat">{() => <ProtectedRoute component={Chat} />}</Route>
       <Route path="/doc-templates">{() => <ModuleRoute component={DocumentGenerator} moduleId="doc-templates" />}</Route>
       <Route path="/shipments">{() => <ModuleRoute component={Shipments} moduleId="shipments" />}</Route>
       <Route path="/qa-reports">{() => <ModuleRoute component={QaReports} moduleId="qa-reports" />}</Route>

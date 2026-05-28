@@ -14,6 +14,7 @@ import { generateDocumentContent, type PartyDetails } from "./documentTemplates"
 import { seedDatabase } from "./seed";
 import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification, sendJobApplicationToHR, sendJobApplicationAcknowledgement, sendTeamKycAdminNotification, sendTeamKycConfirmation, sendTeamMemberWelcomeEmail, sendTeamMemberPasswordChangedEmail, sendTeamMemberPasswordResetLinkEmail } from "./email";
 import { generateDocx, generatePdf, getDocFilePath, regenerateWithSignatures, generateKycApplicationPdf, generateBlankKycApplicationPdf } from "./documentFileGenerator";
+import { attachChat, getSessionIdentity, dmRoomId, canAccessRoom } from "./chat";
 
 async function notify(args: { type: string; title: string; message: string; link?: string | null; severity?: "info" | "success" | "warning" | "alert"; module?: string | null }) {
   try {
@@ -293,24 +294,75 @@ export async function registerRoutes(
   const PgSession = connectPgSimple(session);
   const pgPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
-  app.use(
-    session({
-      store: new PgSession({
-        pool: pgPool,
-        tableName: "session",
-        createTableIfMissing: false,
-      }),
-      secret: process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || "bullex-dev-only",
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-      },
-    })
-  );
+  const sessionMiddleware = session({
+    store: new PgSession({
+      pool: pgPool,
+      tableName: "session",
+      createTableIfMissing: false,
+    }),
+    secret: process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || "bullex-dev-only",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+    },
+  });
+  app.use(sessionMiddleware);
+
+  // Attach WebSocket chat (Bullex Chat: text + WebRTC signaling)
+  attachChat(httpServer, sessionMiddleware);
+
+  // ---- Bullex Chat REST endpoints ----
+  app.get("/api/chat/me", (req, res) => {
+    const identity = getSessionIdentity(req.session);
+    if (!identity) return res.status(401).json({ message: "Unauthorized" });
+    res.json(identity);
+  });
+
+  app.get("/api/chat/users", async (req, res) => {
+    const me = getSessionIdentity(req.session);
+    if (!me) return res.status(401).json({ message: "Unauthorized" });
+    const out: { id: string; name: string; role: string; subtitle?: string }[] = [];
+    const adminUser = process.env.ADMIN_USERNAME;
+    if (adminUser) out.push({ id: `admin:${adminUser}`, name: adminUser, role: "admin", subtitle: "Bullex Admin" });
+    try {
+      const teamRows = await storage.getAllTeamMembers();
+      for (const t of teamRows) {
+        out.push({ id: `team:${t.username}`, name: t.name || t.username, role: "team", subtitle: t.department || t.position || "Team Member" });
+      }
+    } catch {}
+    try {
+      const kycRows = await storage.getKycApplications();
+      for (const k of kycRows) {
+        if (k.status === "approved" && k.clientUsername) {
+          out.push({ id: `client:${k.id}`, name: k.companyName, role: "client", subtitle: k.contactName || "Client" });
+        }
+      }
+    } catch {}
+    res.json(out.filter((u) => u.id !== me.id));
+  });
+
+  app.get("/api/chat/messages", async (req, res) => {
+    const me = getSessionIdentity(req.session);
+    if (!me) return res.status(401).json({ message: "Unauthorized" });
+    const roomId = String(req.query.room || "");
+    if (!roomId) return res.status(400).json({ message: "room required" });
+    if (!canAccessRoom(roomId, me.id)) return res.status(403).json({ message: "Forbidden" });
+    const messages = await storage.getChatMessages(roomId, 200);
+    res.json(messages);
+  });
+
+  app.get("/api/chat/dm-room", (req, res) => {
+    const me = getSessionIdentity(req.session);
+    if (!me) return res.status(401).json({ message: "Unauthorized" });
+    const other = String(req.query.user || "");
+    if (!other) return res.status(400).json({ message: "user required" });
+    res.json({ roomId: dmRoomId(me.id, other) });
+  });
+  // ---- end Bullex Chat ----
 
   app.get("/api/health", (_req, res) => {
     res.status(200).json({ status: "ok" });

@@ -18,6 +18,7 @@ import {
   FlaskConical,
   Banknote,
   TrendingUp,
+  MessageSquare,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
@@ -26,6 +27,7 @@ export const PLATFORM_MODULES = [
   { id: "dashboard",      title: "Dashboard",        url: "/dashboard",       icon: LayoutDashboard, description: "Platform overview, metrics & summary" },
   { id: "analytics",      title: "Analytics",        url: "/analytics",       icon: BarChart3,       description: "Trading & operational analytics" },
   { id: "notifications",  title: "Notifications",    url: "/notifications",   icon: Bell,            description: "System notifications & alerts" },
+  { id: "chat",           title: "Bullex Chat",      url: "/chat",            icon: MessageSquare,   description: "Real-time chat & video calls" },
   { id: "kyc-admin",      title: "KYC & Compliance", url: "/kyc-admin",       icon: ShieldCheck,     description: "Client KYC reviews & approvals" },
   { id: "enquiries",      title: "Enquiries",        url: "/trade-enquiries", icon: SearchCheck,     description: "Trade enquiry management" },
   { id: "trading",        title: "Deal Desk",        url: "/trading",         icon: Link2,           description: "Trade execution & deal management" },
@@ -42,7 +44,7 @@ export const PLATFORM_MODULES = [
 ];
 
 const SECTIONS: Array<{ label: string; ids: string[] }> = [
-  { label: "Overview",   ids: ["dashboard", "analytics", "notifications"] },
+  { label: "Overview",   ids: ["dashboard", "analytics", "notifications", "chat"] },
   { label: "Trading",    ids: ["kyc-admin", "enquiries", "trading"] },
   { label: "Documents",  ids: ["documents", "doc-templates", "vault"] },
   { label: "Operations", ids: ["shipments", "qa-reports"] },
