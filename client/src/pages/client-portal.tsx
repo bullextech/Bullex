@@ -699,7 +699,7 @@ export default function ClientPortal() {
 
   if (loading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         <Skeleton className="h-8 w-72" />
         <Skeleton className="h-[400px]" />
       </div>

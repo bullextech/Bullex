@@ -118,7 +118,7 @@ export default function Dashboard() {
 
   return (
     <div className="overflow-y-auto h-full bg-background">
-      <div className="px-6 pt-6 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border bg-card">
+      <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border bg-card">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground" data-testid="text-dashboard-title">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Overview of your trading activity</p>
@@ -138,7 +138,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-none" />)}
@@ -158,7 +158,8 @@ export default function Dashboard() {
             <CardContent className="p-5">
               <SectionHeader title="Recent Deals" action={<SectionLinkButton href="/trading" />} />
               {recentDeals.length > 0 ? (
-                <div className="border border-border">
+                <div className="border border-border overflow-x-auto">
+                  <div className="min-w-[420px]">
                   <div className="grid grid-cols-[1fr_1.2fr_0.8fr_0.7fr] gap-2 px-3 py-2.5 bullex-header-dark text-[10px] font-bold uppercase tracking-wider">
                     <div>Ref</div><div>Commodity</div><div>Value</div><div>Stage</div>
                   </div>
@@ -172,6 +173,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                   ))}
+                  </div>
                 </div>
               ) : (
                 <div className="border border-border py-10 text-center text-sm text-muted-foreground" data-testid="deals-empty">No deals yet</div>

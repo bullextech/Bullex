@@ -7,6 +7,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TopNavbar } from "@/components/top-navbar";
 import { AdminSidebar } from "@/components/admin-sidebar";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { MobileSidebarProvider, useMobileSidebar } from "@/hooks/use-mobile-sidebar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { ClientAuthProvider } from "@/hooks/use-client-auth";
 import { AmendModeProvider } from "@/hooks/use-amend-mode";
@@ -137,14 +139,34 @@ function Router() {
   );
 }
 
+function MobileSidebarSheet() {
+  const { open, setOpen } = useMobileSidebar();
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetContent side="left" className="p-0 w-64 max-w-[85vw]" data-testid="sheet-mobile-sidebar">
+        <div onClick={() => setOpen(false)} className="h-full">
+          <AdminSidebar />
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 function AppShell() {
   const { authenticated } = useAuth();
   return (
     <div className="flex flex-col h-screen w-full">
       <TopNavbar />
       <div className="flex flex-1 overflow-hidden">
-        {authenticated && <AdminSidebar />}
-        <main className="flex-1 overflow-hidden flex flex-col">
+        {authenticated && (
+          <>
+            <div className="hidden md:flex">
+              <AdminSidebar />
+            </div>
+            <MobileSidebarSheet />
+          </>
+        )}
+        <main className="flex-1 overflow-hidden flex flex-col min-w-0">
           <div className="flex-1 overflow-hidden">
             <Router />
           </div>
@@ -174,6 +196,7 @@ function App() {
         <TooltipProvider>
           <ClientAuthProvider>
             <AuthProvider>
+              <MobileSidebarProvider>
               <AmendModeProvider>
               {isKycRegister ? (
                 <KycRegister />
@@ -193,6 +216,7 @@ function App() {
                 <AppShell />
               )}
               </AmendModeProvider>
+              </MobileSidebarProvider>
             </AuthProvider>
           </ClientAuthProvider>
           <Toaster />

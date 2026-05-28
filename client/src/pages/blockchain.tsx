@@ -282,7 +282,7 @@ export default function Blockchain() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         <Skeleton className="h-8 w-48" />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -299,7 +299,7 @@ export default function Blockchain() {
   const verifiedBlocks = blocks?.filter((b) => b.verified).length || 0;
 
   return (
-    <div className="p-6 space-y-6 overflow-y-auto h-full">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto h-full">
       <div>
         <h1 className="text-2xl font-bold tracking-tight" data-testid="text-blockchain-title">
           Bullex Blockchain Ledger

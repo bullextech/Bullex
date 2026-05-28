@@ -17,6 +17,7 @@ import {
   VideoOff,
   Phone,
   Hash,
+  ArrowLeft,
 } from "lucide-react";
 
 interface ChatUser {
@@ -100,6 +101,7 @@ export function ChatPanel({ embedded = false }: { embedded?: boolean }) {
   const [incomingCall, setIncomingCall] = useState<{ from: string; fromName: string; sdp: any } | null>(null);
   const [muted, setMuted] = useState(false);
   const [camOff, setCamOff] = useState(false);
+  const [showMobileList, setShowMobileList] = useState(true);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
@@ -387,7 +389,7 @@ export function ChatPanel({ embedded = false }: { embedded?: boolean }) {
   return (
     <div className={`flex ${embedded ? "h-[640px]" : "h-full"} bg-background border border-border rounded-md overflow-hidden`}>
       {/* Left: rooms / users */}
-      <aside className="w-64 flex-shrink-0 border-r border-border flex flex-col bg-muted/20">
+      <aside className={`${showMobileList ? "flex" : "hidden"} md:flex w-full md:w-64 flex-shrink-0 border-r border-border flex-col bg-muted/20`}>
         <div className="px-3 py-3 border-b border-border">
           <div className="flex items-center gap-2 mb-2">
             <MessageSquare className="w-4 h-4 text-primary" />
@@ -409,7 +411,7 @@ export function ChatPanel({ embedded = false }: { embedded?: boolean }) {
           <div className="px-2 py-2">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground px-2 mb-1">Rooms</p>
             <button
-              onClick={() => setActiveRoom({ id: "general", label: "General" })}
+              onClick={() => { setActiveRoom({ id: "general", label: "General" }); setShowMobileList(false); }}
               className={`w-full text-left flex items-center gap-2 px-2 py-2 rounded text-xs ${
                 activeRoom.id === "general" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               }`}
@@ -433,7 +435,7 @@ export function ChatPanel({ embedded = false }: { embedded?: boolean }) {
                 return (
                   <button
                     key={u.id}
-                    onClick={() => openDm(u)}
+                    onClick={() => { openDm(u); setShowMobileList(false); }}
                     className={`w-full text-left flex items-center gap-2 px-2 py-2 rounded ${
                       isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted"
                     }`}
@@ -465,10 +467,19 @@ export function ChatPanel({ embedded = false }: { embedded?: boolean }) {
       </aside>
 
       {/* Right: thread */}
-      <section className="flex-1 flex flex-col min-w-0">
+      <section className={`${showMobileList ? "hidden" : "flex"} md:flex flex-1 flex-col min-w-0`}>
         {/* Header */}
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0 gap-2">
           <div className="flex items-center gap-2 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 md:hidden flex-shrink-0"
+              onClick={() => setShowMobileList(true)}
+              data-testid="button-chat-back-to-list"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
             {isDm ? (
               <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold">
                 {activeRoom.label.slice(0, 2).toUpperCase()}

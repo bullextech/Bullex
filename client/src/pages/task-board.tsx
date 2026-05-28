@@ -366,7 +366,7 @@ function TaskListView() {
         </button>
       </div>
 
-      <div className="px-6 py-3 border-b border-border bg-background sticky top-[65px] z-10">
+      <div className="px-4 sm:px-6 py-3 border-b border-border bg-background sticky top-[65px] z-10">
         <div className="flex flex-wrap items-center gap-2">
           {(["all", "todo", "in_progress", "review", "done"] as const).map(s => (
             <button
@@ -394,7 +394,7 @@ function TaskListView() {
         <NewTaskForm onClose={() => setShowNew(false)} username={username ?? "Admin"} />
       )}
 
-      <div className="px-6 py-5 space-y-3 max-w-4xl">
+      <div className="px-4 sm:px-6 py-5 space-y-3 max-w-4xl">
         {isLoading ? (
           <div className="flex items-center gap-3 py-8 text-muted-foreground text-sm">
             <Loader2 className="w-4 h-4 animate-spin" /> Loading tasks…
@@ -419,7 +419,7 @@ function TaskListView() {
       </div>
 
       {tasks.length > 0 && (
-        <div className="px-6 pb-8">
+        <div className="px-4 sm:px-6 pb-8">
           <div className="max-w-4xl grid grid-cols-4 gap-3">
             {(["todo", "in_progress", "review", "done"] as Status[]).map(s => {
               const st = STATUSES[s];
@@ -729,7 +729,7 @@ export default function TaskBoard() {
           <p className="text-xs text-muted-foreground">Tasks, work allocation, and daily reports in one place</p>
         </div>
       </div>
-      <Tabs defaultValue="tasks" className="px-6 py-4">
+      <Tabs defaultValue="tasks" className="px-4 sm:px-6 py-4">
         <TabsList>
           <TabsTrigger value="tasks" data-testid="tab-tasks">Tasks</TabsTrigger>
           <TabsTrigger value="allocation" data-testid="tab-allocation">Work Allocation</TabsTrigger>

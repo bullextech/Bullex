@@ -381,7 +381,7 @@ export default function Trading() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         <Skeleton className="h-32 rounded-md" />
         <Skeleton className="h-[500px] rounded-md" />
       </div>

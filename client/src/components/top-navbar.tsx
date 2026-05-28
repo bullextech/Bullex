@@ -10,8 +10,10 @@ import {
   Mail,
   LogOut,
   Briefcase,
+  Menu,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useMobileSidebar } from "@/hooks/use-mobile-sidebar";
 
 const publicNavItems = [
   { title: "Home", url: "/", icon: Home },
@@ -25,11 +27,23 @@ const publicNavItems = [
 export function TopNavbar() {
   const [location] = useLocation();
   const { authenticated, username, role, logout } = useAuth();
+  const { toggle: toggleMobileSidebar } = useMobileSidebar();
 
   return (
     <header className="border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-50 flex-shrink-0">
-      <div className="flex items-center h-14 px-4 gap-2">
-        <Link href="/" data-testid="link-home" className="flex items-center gap-2.5 mr-3 flex-shrink-0">
+      <div className="flex items-center h-14 px-3 sm:px-4 gap-1.5 sm:gap-2">
+        {authenticated && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 md:hidden flex-shrink-0"
+            onClick={toggleMobileSidebar}
+            data-testid="button-mobile-menu"
+          >
+            <Menu className="w-4 h-4" />
+          </Button>
+        )}
+        <Link href="/" data-testid="link-home" className="flex items-center gap-2.5 mr-1 sm:mr-3 flex-shrink-0">
           <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
             <Shield className="w-4 h-4 text-primary-foreground" />
           </div>

@@ -338,8 +338,8 @@ export default function KycAdmin() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="grid grid-cols-4 gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                 <div className="bg-white/5 border border-white/10 px-3 py-2.5 rounded text-center" data-testid="stat-total">
                   <div className="text-[10px] text-white/50 uppercase tracking-wider">Total</div>
                   <div className="text-lg font-bold">{applications?.length || 0}</div>
