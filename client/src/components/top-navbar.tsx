@@ -110,7 +110,7 @@ export function TopNavbar() {
             </>
           )}
 
-          <InstallAppButton className="hidden sm:inline-flex" />
+          <InstallAppButton />
           <ThemeToggle />
         </div>
       </div>

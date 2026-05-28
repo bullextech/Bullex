@@ -109,13 +109,12 @@ export function InstallAppButton({ className }: { className?: string }) {
     <>
       <Button
         size="sm"
-        variant="outline"
         onClick={handleClick}
-        className={`h-8 gap-1.5 ${className ?? ""}`}
+        className={`h-8 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground ${className ?? ""}`}
         data-testid="button-install-app"
       >
         <Download className="w-3.5 h-3.5" />
-        <span className="text-xs font-semibold">Install App</span>
+        <span className="text-xs font-semibold hidden xs:inline sm:inline">Install</span>
       </Button>
 
       <Dialog open={showHelp} onOpenChange={setShowHelp}>
