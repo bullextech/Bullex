@@ -96,8 +96,8 @@ export default function Platform() {
           <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mt-1">Commodity Trading Platform</p>
         </div>
 
-        <div className="flex border border-border overflow-hidden bg-background">
-          <div className="w-44 flex-shrink-0 border-r border-border bg-muted/30 flex flex-col">
+        <div className="border border-border overflow-hidden bg-background">
+          <div className="grid grid-cols-3 border-b border-border bg-muted/30">
             {tabs.map((tab, i) => (
               <button
                 key={tab.key}
@@ -108,21 +108,21 @@ export default function Platform() {
                   setClientError("");
                 }}
                 data-testid={tab.testId}
-                className={`flex flex-col items-center justify-center gap-2 py-7 px-3 text-xs font-bold uppercase tracking-wider transition-colors ${
-                  i < tabs.length - 1 ? "border-b border-border" : ""
+                className={`flex items-center justify-center gap-2 py-4 px-3 text-xs font-bold uppercase tracking-wider transition-colors ${
+                  i < tabs.length - 1 ? "border-r border-border" : ""
                 } ${
                   activeTab === tab.key
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
                 }`}
               >
-                <tab.icon className="w-6 h-6" />
-                {tab.label}
+                <tab.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>{tab.label}</span>
               </button>
             ))}
           </div>
 
-          <div className="flex-1 p-8">
+          <div className="p-6 sm:p-8">
             {activeTab === "admin" && (
               <>
                 <div className="flex items-center gap-2 mb-6">
