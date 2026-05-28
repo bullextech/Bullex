@@ -47,3 +47,9 @@ id = "3Fvya6PnNsRNSQTyjrXjY"
 uri = "file://attached_assets/bullex-logo.png"
 type = "image"
 title = "Bullex Logo — Click to Download"
+
+[[outputs]]
+id = "vrwgcESAZd0jMA22NVQZX"
+uri = "file://client/public/bullex-logo-transparent.png"
+type = "image"
+title = "Bullex Logo (transparent background)"
