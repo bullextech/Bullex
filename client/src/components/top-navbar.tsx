@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useMobileSidebar } from "@/hooks/use-mobile-sidebar";
+import { InstallAppButton } from "@/components/install-app-button";
 
 const publicNavItems = [
   { title: "Home", url: "/", icon: Home },
@@ -109,6 +110,7 @@ export function TopNavbar() {
             </>
           )}
 
+          <InstallAppButton className="hidden sm:inline-flex" />
           <ThemeToggle />
         </div>
       </div>
