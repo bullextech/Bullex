@@ -3,12 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Shield, Loader2, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useClientAuth } from "@/hooks/use-client-auth";
 
-const ROLES = ["Buyer", "Seller", "Compliance", "Banking", "Admin"] as const;
+const ROLES = ["Admin", "Team", "Client"] as const;
 type Role = typeof ROLES[number];
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login: staffLogin } = useAuth();
+  const { login: clientLogin } = useClientAuth();
   const [role, setRole] = useState<Role>("Admin");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -23,9 +25,23 @@ export default function Login() {
       return;
     }
     setLoading(true);
-    const result = await login(username, password);
+    let result: { success: boolean; error?: string };
+    if (role === "Client") {
+      result = await clientLogin(username, password);
+      if (result.success && typeof window !== "undefined") {
+        window.location.assign("/client-portal");
+      }
+    } else {
+      result = await staffLogin(username, password);
+    }
     setLoading(false);
     if (!result.success) setError(result.error || "Login failed");
+  };
+
+  const helper: Record<Role, string> = {
+    Admin: "Administrator access to all platform modules.",
+    Team: "Approved team members — access limited to assigned modules.",
+    Client: "Approved KYC participants — view your trades and documents.",
   };
 
   return (
@@ -53,18 +69,18 @@ export default function Login() {
           {/* Role selector */}
           <div className="mb-5">
             <label className="block text-[11px] text-slate-400 mb-2">Login as:</label>
-            <div className="grid grid-cols-5 gap-1 p-1 bg-[#0a1628] border border-white/10 rounded-md">
+            <div className="grid grid-cols-3 gap-1 p-1 bg-[#0a1628] border border-white/10 rounded-md">
               {ROLES.map((r) => {
                 const active = r === role;
                 return (
                   <button
                     key={r}
                     type="button"
-                    onClick={() => setRole(r)}
+                    onClick={() => { setRole(r); setError(""); }}
                     data-testid={`tab-role-${r.toLowerCase()}`}
-                    className={`px-1 py-1.5 text-[11px] sm:text-xs rounded transition-colors text-center truncate ${
+                    className={`px-2 py-2 text-xs sm:text-sm rounded transition-colors text-center ${
                       active
-                        ? "bg-primary text-primary-foreground font-semibold"
+                        ? "bg-primary text-primary-foreground font-semibold shadow-sm"
                         : "text-slate-300 hover:bg-white/5"
                     }`}
                   >
@@ -73,6 +89,7 @@ export default function Login() {
                 );
               })}
             </div>
+            <p className="text-[11px] text-slate-500 mt-2">{helper[role]}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
