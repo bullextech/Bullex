@@ -1740,7 +1740,7 @@ export async function registerRoutes(
     return safe;
   }
 
-  app.get("/api/kyc", async (_req, res) => {
+  app.get("/api/kyc", requireAuth, async (_req, res) => {
     try {
       const result = await storage.getKycApplications();
       res.json(result.map(sanitizeKyc));
@@ -2831,6 +2831,13 @@ export async function registerRoutes(
       }
       const result = await storage.createKycApplication(data);
 
+      // Link any documents that were uploaded during the public registration flow.
+      // documentIds is an optional array of KYC document IDs to associate with this application.
+      const documentIds = Array.isArray(req.body.documentIds) ? req.body.documentIds : [];
+      if (documentIds.length > 0) {
+        await storage.linkKycDocumentsToApplication(result.id, documentIds);
+      }
+
       // Mandatory sanctions / PEP screening for every KYC application.
       // Runs in background so it doesn't delay the response or block submission on Yahoo/OpenSanctions latency.
       runSanctionsScreening(result.id, "system:auto")
@@ -2886,7 +2893,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trades", async (_req, res) => {
+  app.get("/api/trades", requireAuth, async (_req, res) => {
     try {
       const result = await storage.getTrades();
       res.json(result);
@@ -3722,7 +3729,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/kyc-documents", async (req, res) => {
+  app.get("/api/kyc-documents", requireAuth, async (req, res) => {
     try {
       const { documentType } = req.query;
       const result = await storage.getKycDocuments(documentType as string | undefined);
@@ -3732,7 +3739,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/kyc/:id/documents", async (req, res) => {
+  app.get("/api/kyc/:id/documents", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const result = await storage.getKycDocumentsByApplicationId(id);
@@ -3742,7 +3749,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/kyc/:id/link-documents", async (req, res) => {
+  app.patch("/api/kyc/:id/link-documents", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { documentIds } = req.body;
@@ -3775,6 +3782,13 @@ export async function registerRoutes(
         fs.unlinkSync(file.path);
         return res.status(400).json({ message: "Invalid document type" });
       }
+      // Uploading directly to an existing application requires authentication.
+      // Unauthenticated callers (public KYC registration) must leave kycApplicationId empty;
+      // documents are linked to the newly-created application server-side on submission.
+      if (kycApplicationId && !(req.session?.authenticated)) {
+        fs.unlinkSync(file.path);
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const doc = await storage.createKycDocument({
         kycApplicationId: kycApplicationId || null,
         documentType,
@@ -3789,7 +3803,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/kyc-documents/:id/download", async (req, res) => {
+  app.get("/api/kyc-documents/:id/download", requireAuth, async (req, res) => {
     try {
       const docs = await storage.getKycDocuments();
       const doc = docs.find((d) => d.id === req.params.id);
@@ -3826,7 +3840,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trade-documents", async (_req, res) => {
+  app.get("/api/trade-documents", requireAuth, async (_req, res) => {
     try {
       const result = await storage.getAllTradeDocuments();
       res.json(result);
@@ -3835,7 +3849,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trades/:tradeId/files", async (req, res) => {
+  app.get("/api/trades/:tradeId/files", requireAuth, async (req, res) => {
     try {
       const result = await storage.getTradeDocuments(req.params.tradeId);
       res.json(result);
@@ -3844,7 +3858,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/trades/:tradeId/files/upload", tradeUpload.single("file"), async (req, res) => {
+  app.post("/api/trades/:tradeId/files/upload", requireAuth, tradeUpload.single("file"), async (req, res) => {
     try {
       const file = req.file;
       if (!file) {
@@ -3877,7 +3891,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trade-documents/:id/view", async (req, res) => {
+  app.get("/api/trade-documents/:id/view", requireAuth, async (req, res) => {
     try {
       const doc = await storage.getTradeDocumentById(req.params.id);
       if (!doc) {
@@ -3895,7 +3909,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trade-documents/:id/download", async (req, res) => {
+  app.get("/api/trade-documents/:id/download", requireAuth, async (req, res) => {
     try {
       const doc = await storage.getTradeDocumentById(req.params.id);
       if (!doc) {
@@ -3913,7 +3927,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/trade-documents/:id", async (req, res) => {
+  app.delete("/api/trade-documents/:id", requireAuth, async (req, res) => {
     try {
       const doc = await storage.getTradeDocumentById(req.params.id);
       if (!doc) {

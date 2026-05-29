@@ -188,13 +188,9 @@ export default function KYC() {
 
   const submitKyc = useMutation({
     mutationFn: async (data: typeof form) => {
-      const res = await apiRequest("POST", "/api/kyc", data);
+      const payload = uploadedDocIds.length > 0 ? { ...data, documentIds: uploadedDocIds } : data;
+      const res = await apiRequest("POST", "/api/kyc", payload);
       const created = await res.json();
-      if (uploadedDocIds.length > 0 && created.id) {
-        await apiRequest("PATCH", `/api/kyc/${created.id}/link-documents`, {
-          documentIds: uploadedDocIds,
-        });
-      }
       return created;
     },
     onSuccess: () => {
