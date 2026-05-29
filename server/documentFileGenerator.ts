@@ -25,6 +25,18 @@ if (!fs.existsSync(docsDir)) {
   fs.mkdirSync(docsDir, { recursive: true });
 }
 
+function assertSafeDocId(docId: string): void {
+  if (typeof docId !== "string" || !/^[A-Za-z0-9_-]+$/.test(docId)) {
+    throw new Error("Invalid document id");
+  }
+}
+
+function isInsideDocsDir(targetPath: string): boolean {
+  const resolved = path.resolve(targetPath);
+  const root = path.resolve(docsDir);
+  return resolved === root || resolved.startsWith(root + path.sep);
+}
+
 function sanitizeUnicode(text: string): string {
   return text
     .replace(/═/g, "=")
@@ -2629,6 +2641,7 @@ function buildFooterParagraphs(submittedBy?: string, agentCode?: string): Paragr
 }
 
 export async function generateDocx(docId: string, title: string, content: string, submittedBy?: string, agentCode?: string): Promise<string> {
+  assertSafeDocId(docId);
   let children: (Paragraph | Table)[];
 
   if (isDealRecapContent(content)) {
@@ -2755,6 +2768,7 @@ function buildGenericDocx(content: string): (Paragraph | Table)[] {
 }
 
 export async function generatePdf(docId: string, title: string, content: string, submittedBy?: string, agentCode?: string): Promise<string> {
+  assertSafeDocId(docId);
   return new Promise((resolve, reject) => {
     const fileName = `${docId}.pdf`;
     const filePath = path.join(docsDir, fileName);
@@ -3079,7 +3093,10 @@ function buildGenericPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: n
 }
 
 export function getDocFilePath(filePath: string): string | null {
-  if (filePath && fs.existsSync(filePath)) return filePath;
+  if (!filePath || typeof filePath !== "string") return null;
+  if (!isInsideDocsDir(filePath)) return null;
+  const resolved = path.resolve(filePath);
+  if (fs.existsSync(resolved)) return resolved;
   return null;
 }
 
@@ -3329,6 +3346,7 @@ export async function regenerateWithSignatures(
   sellerSignedIp?: string,
   agentCode?: string,
 ): Promise<{ docxPath: string; pdfPath: string }> {
+  assertSafeDocId(docId);
   let docxChildren: (Paragraph | Table)[];
   if (isDealRecapContent(content)) {
     docxChildren = buildDealRecapDocx(content);

@@ -1,6 +1,16 @@
 import fs from "fs";
 import path from "path";
 
+function esc(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 interface EmailAttachment {
   filename: string;
   content: string;
@@ -80,9 +90,9 @@ export async function sendKycConfirmationEmail(
 ): Promise<boolean> {
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">KYC Application Submitted Successfully</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${signatoryName},</p>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(signatoryName)},</p>
     <p style="color: #475569; line-height: 1.6;">
-      Thank you for submitting the KYC application for <strong>${companyName}</strong> on the Bullex Trading Platform.
+      Thank you for submitting the KYC application for <strong>${esc(companyName)}</strong> on the Bullex Trading Platform.
     </p>
     <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="color: #166534; margin: 0; font-weight: 600;">Application Status: Submitted</p>
@@ -119,12 +129,12 @@ export async function sendKycSubmittedAdminEmail(
     </div>
     <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
       <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Company Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${companyName}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Person</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${contactName}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${contactEmail}</td></tr>
-      ${businessType ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Business Type</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${businessType}</td></tr>` : ""}
-      ${countryOfOperation ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Country of Operation</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${countryOfOperation}</td></tr>` : ""}
-      <tr><td style="color: #64748b; padding: 8px 12px;">Submitted At</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${submittedAt}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Company Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(companyName)}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Person</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(contactName)}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(contactEmail)}</td></tr>
+      ${businessType ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Business Type</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(businessType)}</td></tr>` : ""}
+      ${countryOfOperation ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Country of Operation</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(countryOfOperation)}</td></tr>` : ""}
+      <tr><td style="color: #64748b; padding: 8px 12px;">Submitted At</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${esc(submittedAt)}</td></tr>
     </table>
     <p style="color: #475569; line-height: 1.6;">
       Log in to the admin panel at <a href="mailto:team@bullex.tech" style="color: #2563eb;">Bullex Admin</a> to take action on this application.
@@ -160,16 +170,16 @@ export async function sendKycActionAdminCopyEmail(
     </div>
     <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
       <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Company Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${companyName}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Person</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${contactName}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${contactEmail}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Company Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(companyName)}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Person</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(contactName)}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(contactEmail)}</td></tr>
       <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Action Taken</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${actionLabel}</td></tr>
       <tr><td style="color: #64748b; padding: 8px 12px;">Date</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td></tr>
     </table>
     ${reviewNotes ? `
     <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="color: #1e40af; margin: 0; font-weight: 600;">Review Notes</p>
-      <p style="color: #1d4ed8; margin: 8px 0 0; font-size: 14px;">${reviewNotes}</p>
+      <p style="color: #1d4ed8; margin: 8px 0 0; font-size: 14px;">${esc(reviewNotes)}</p>
     </div>
     ` : ""}
     <p style="color: #94a3b8; font-size: 12px; margin: 16px 0 0;">This is an automated audit copy sent to the admin account.</p>
@@ -191,8 +201,8 @@ export async function sendKycApprovalEmail(
     ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Participant ID</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">${escapeHtml(participantId)}</td></tr>`
     : "";
   const detailsRows = [
-    category ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Category</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${category}</td></tr>` : "",
-    products ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Products</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${products}</td></tr>` : "",
+    category ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Category</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(category)}</td></tr>` : "",
+    products ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Products</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(products)}</td></tr>` : "",
   ].filter(Boolean).join("");
 
   const credentialsBlock = (clientUsername && clientPassword) ? `
@@ -202,8 +212,8 @@ export async function sendKycApprovalEmail(
         You can now access the Client Portal to view your trades and documents.
       </p>
       <table style="width: 100%; border-collapse: collapse; margin: 12px 0 0; font-size: 14px;">
-        <tr><td style="color: #64748b; padding: 6px 0; width: 100px;">Username:</td><td style="color: #1e293b; font-weight: 600;">${clientUsername}</td></tr>
-        <tr><td style="color: #64748b; padding: 6px 0; width: 100px;">Password:</td><td style="color: #1e293b; font-weight: 600;">${clientPassword}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0; width: 100px;">Username:</td><td style="color: #1e293b; font-weight: 600;">${esc(clientUsername)}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0; width: 100px;">Password:</td><td style="color: #1e293b; font-weight: 600;">${esc(clientPassword)}</td></tr>
       </table>
       <p style="color: #64748b; margin: 12px 0 0; font-size: 12px;">
         Please keep these credentials secure and do not share them with unauthorized persons.
@@ -213,9 +223,9 @@ export async function sendKycApprovalEmail(
 
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">KYC Application Approved</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${signatoryName},</p>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(signatoryName)},</p>
     <p style="color: #475569; line-height: 1.6;">
-      We are pleased to inform you that the KYC application for <strong>${companyName}</strong> has been reviewed and <strong>approved</strong> by our compliance team.
+      We are pleased to inform you that the KYC application for <strong>${esc(companyName)}</strong> has been reviewed and <strong>approved</strong> by our compliance team.
     </p>
     <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="color: #166534; margin: 0; font-weight: 600;">Application Status: Approved</p>
@@ -225,7 +235,7 @@ export async function sendKycApprovalEmail(
     </div>
     ${(detailsRows || participantIdRow) ? `
     <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Company</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${companyName}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Company</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(companyName)}</td></tr>
       ${participantIdRow}
       ${detailsRows}
     </table>
@@ -251,14 +261,14 @@ export async function sendKycRejectionEmail(
 ): Promise<boolean> {
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">KYC Application Rejected</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${signatoryName},</p>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(signatoryName)},</p>
     <p style="color: #475569; line-height: 1.6;">
-      We regret to inform you that the KYC application for <strong>${companyName}</strong> has been reviewed and <strong>rejected</strong> by our compliance team.
+      We regret to inform you that the KYC application for <strong>${esc(companyName)}</strong> has been reviewed and <strong>rejected</strong> by our compliance team.
     </p>
     ${reviewNotes ? `
     <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="color: #991b1b; margin: 0; font-weight: 600;">Reason for Rejection</p>
-      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">${reviewNotes}</p>
+      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">${esc(reviewNotes)}</p>
     </div>
     ` : `
     <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
@@ -293,14 +303,14 @@ export async function sendChangeRequestApprovedEmail(
   };
 
   const changesRows = Object.entries(changedFields)
-    .map(([key, value]) => `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${fieldLabels[key] || key}</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${value}</td></tr>`)
+    .map(([key, value]) => `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${esc(fieldLabels[key] || key)}</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(value)}</td></tr>`)
     .join("");
 
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">KYC Change Request Approved</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${contactName},</p>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(contactName)},</p>
     <p style="color: #475569; line-height: 1.6;">
-      The change request for <strong>${companyName}</strong> has been reviewed and <strong>approved</strong> by our compliance team. The following updates have been applied to your KYC record:
+      The change request for <strong>${esc(companyName)}</strong> has been reviewed and <strong>approved</strong> by our compliance team. The following updates have been applied to your KYC record:
     </p>
     <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
       <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Updated Value</th></tr>
@@ -309,7 +319,7 @@ export async function sendChangeRequestApprovedEmail(
     ${adminNotes ? `
     <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="color: #1e40af; margin: 0; font-weight: 600;">Admin Notes</p>
-      <p style="color: #1d4ed8; margin: 8px 0 0; font-size: 14px;">${adminNotes}</p>
+      <p style="color: #1d4ed8; margin: 8px 0 0; font-size: 14px;">${esc(adminNotes)}</p>
     </div>
     ` : ""}
     <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
@@ -343,14 +353,14 @@ export async function sendChangeRequestRejectedEmail(
   };
 
   const changesRows = Object.entries(changedFields)
-    .map(([key, value]) => `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${fieldLabels[key] || key}</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${value}</td></tr>`)
+    .map(([key, value]) => `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${esc(fieldLabels[key] || key)}</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${esc(value)}</td></tr>`)
     .join("");
 
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">KYC Change Request Rejected</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${contactName},</p>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(contactName)},</p>
     <p style="color: #475569; line-height: 1.6;">
-      The change request for <strong>${companyName}</strong> has been reviewed and <strong>rejected</strong> by our compliance team. The following proposed changes were not applied:
+      The change request for <strong>${esc(companyName)}</strong> has been reviewed and <strong>rejected</strong> by our compliance team. The following proposed changes were not applied:
     </p>
     <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
       <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Proposed Value</th></tr>
@@ -359,7 +369,7 @@ export async function sendChangeRequestRejectedEmail(
     ${adminNotes ? `
     <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="color: #991b1b; margin: 0; font-weight: 600;">Reason for Rejection</p>
-      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">${adminNotes}</p>
+      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">${esc(adminNotes)}</p>
     </div>
     ` : ""}
     <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
@@ -394,17 +404,17 @@ export async function sendJobApplicationToHR(
         <th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th>
         <th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th>
       </tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Full Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${fullName}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${email}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Phone Number</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${phone || "—"}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Address</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${address || "—"}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px;">Role Applied For</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${roleTitle}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Full Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(fullName)}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(email)}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Phone Number</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(phone || "—")}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Address</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(address || "—")}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px;">Role Applied For</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${esc(roleTitle)}</td></tr>
     </table>
     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="color: #1e293b; margin: 0 0 8px; font-weight: 600;">About the Applicant</p>
-      <p style="color: #475569; margin: 0; line-height: 1.7; font-size: 14px; white-space: pre-wrap;">${aboutYourself || "(No description provided)"}</p>
+      <p style="color: #475569; margin: 0; line-height: 1.7; font-size: 14px; white-space: pre-wrap;">${esc(aboutYourself || "(No description provided)")}</p>
     </div>
-    ${attachmentFilename ? `<p style="color: #475569; font-size: 13px;">A document (<strong>${attachmentFilename}</strong>) has been attached to this email.</p>` : ""}
+    ${attachmentFilename ? `<p style="color: #475569; font-size: 13px;">A document (<strong>${esc(attachmentFilename)}</strong>) has been attached to this email.</p>` : ""}
     <p style="color: #94a3b8; font-size: 12px; margin: 16px 0 0;">Submitted: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
   `;
   const attachments = attachmentBase64 && attachmentFilename
@@ -420,13 +430,13 @@ export async function sendJobApplicationAcknowledgement(
 ): Promise<boolean> {
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">Application Received – Thank You</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${fullName},</p>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(fullName)},</p>
     <p style="color: #475569; line-height: 1.6;">
       Thank you for your interest in joining <strong>Bullex Commodity Trading Platform</strong>. We have received your application for the following position:
     </p>
     <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="color: #1e40af; margin: 0; font-weight: 600;">Position Applied For</p>
-      <p style="color: #1d4ed8; margin: 8px 0 0; font-size: 16px; font-weight: 600;">${roleTitle}</p>
+      <p style="color: #1d4ed8; margin: 8px 0 0; font-size: 16px; font-weight: 600;">${esc(roleTitle)}</p>
     </div>
     <p style="color: #475569; line-height: 1.6;">
       Our HR team will carefully review your application and all submitted documents. If your profile matches our requirements, we will be in touch to discuss next steps.
@@ -470,14 +480,14 @@ export async function sendSignaturePendingEmail(
 
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">Document Awaiting Your Review</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${recipientName},</p>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(recipientName)},</p>
     <p style="color: #475569; line-height: 1.6;">
       A trade document has been sent to you for review and acceptance via the Bullex Trading Platform:
     </p>
     <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-        <tr><td style="color: #64748b; padding: 6px 0; width: 120px;">Document Type:</td><td style="color: #1e293b; font-weight: 600;">${fullType} (${docType})</td></tr>
-        <tr><td style="color: #64748b; padding: 6px 0;">Title:</td><td style="color: #1e293b; font-weight: 600;">${docTitle}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0; width: 120px;">Document Type:</td><td style="color: #1e293b; font-weight: 600;">${esc(fullType)} (${esc(docType)})</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Title:</td><td style="color: #1e293b; font-weight: 600;">${esc(docTitle)}</td></tr>
         <tr><td style="color: #64748b; padding: 6px 0;">Date Sent:</td><td style="color: #1e293b; font-weight: 600;">${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</td></tr>
       </table>
     </div>
@@ -518,21 +528,21 @@ export async function sendAmendmentRequestedEmail(
 
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">Amendment Requested</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${recipientName},</p>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(recipientName)},</p>
     <p style="color: #475569; line-height: 1.6;">
       An amendment has been requested for the following trade document on the Bullex Trading Platform:
     </p>
     <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-        <tr><td style="color: #64748b; padding: 6px 0; width: 120px;">Document Type:</td><td style="color: #1e293b; font-weight: 600;">${fullType} (${docType})</td></tr>
-        <tr><td style="color: #64748b; padding: 6px 0;">Title:</td><td style="color: #1e293b; font-weight: 600;">${docTitle}</td></tr>
-        <tr><td style="color: #64748b; padding: 6px 0;">Requested By:</td><td style="color: #1e293b; font-weight: 600;">${requestedBy}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0; width: 120px;">Document Type:</td><td style="color: #1e293b; font-weight: 600;">${esc(fullType)} (${esc(docType)})</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Title:</td><td style="color: #1e293b; font-weight: 600;">${esc(docTitle)}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Requested By:</td><td style="color: #1e293b; font-weight: 600;">${esc(requestedBy)}</td></tr>
         <tr><td style="color: #64748b; padding: 6px 0;">Date:</td><td style="color: #1e293b; font-weight: 600;">${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</td></tr>
       </table>
     </div>
     <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="color: #991b1b; margin: 0; font-weight: 600;">Amendment Notes</p>
-      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">${amendmentNotes}</p>
+      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">${esc(amendmentNotes)}</p>
     </div>
     <p style="color: #475569; line-height: 1.6;">
       Please review the requested changes and amend the document accordingly. Once amended, the document can be resent for approval.
@@ -579,15 +589,15 @@ export async function sendDocumentEmail(
 
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">Trade Document Issued</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${recipientName},</p>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(recipientName)},</p>
     <p style="color: #475569; line-height: 1.6;">
       Please find attached the following trade document issued via the Bullex Trading Platform:
     </p>
     <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-        <tr><td style="color: #64748b; padding: 6px 0; width: 120px;">Document Type:</td><td style="color: #1e293b; font-weight: 600;">${fullType} (${docType})</td></tr>
-        <tr><td style="color: #64748b; padding: 6px 0;">Title:</td><td style="color: #1e293b; font-weight: 600;">${docTitle}</td></tr>
-        <tr><td style="color: #64748b; padding: 6px 0;">Your Role:</td><td style="color: #1e293b; font-weight: 600;">${role}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0; width: 120px;">Document Type:</td><td style="color: #1e293b; font-weight: 600;">${esc(fullType)} (${esc(docType)})</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Title:</td><td style="color: #1e293b; font-weight: 600;">${esc(docTitle)}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Your Role:</td><td style="color: #1e293b; font-weight: 600;">${esc(role)}</td></tr>
         <tr><td style="color: #64748b; padding: 6px 0;">Date Issued:</td><td style="color: #1e293b; font-weight: 600;">${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</td></tr>
       </table>
     </div>
@@ -620,13 +630,13 @@ export async function sendKycOnboardingInviteEmail(
       Please click the button below to begin your application. You will be asked to provide your company details, beneficial ownership information, and supporting documentation.
     </p>
     <div style="text-align: center; margin: 32px 0;">
-      <a href="${kycUrl}" style="display: inline-block; background: #dc2626; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 700; font-size: 15px; letter-spacing: 0.05em;">
+      <a href="${esc(kycUrl)}" style="display: inline-block; background: #dc2626; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 700; font-size: 15px; letter-spacing: 0.05em;">
         START KYC APPLICATION
       </a>
     </div>
     <p style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
       Or copy and paste this link into your browser:<br/>
-      <a href="${kycUrl}" style="color: #2563eb; word-break: break-all;">${kycUrl}</a>
+      <a href="${esc(kycUrl)}" style="color: #2563eb; word-break: break-all;">${esc(kycUrl)}</a>
     </p>
     <p style="color: #475569; line-height: 1.6;">
       If you have any questions about the process, please contact our team at
@@ -644,9 +654,9 @@ export async function sendRegistrationApprovalEmail(
 ): Promise<boolean> {
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">Registration Approved</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${fullName},</p>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(fullName)},</p>
     <p style="color: #475569; line-height: 1.6;">
-      We are pleased to inform you that your registration as a <strong>${roleType}</strong> for <strong>${companyName}</strong> has been reviewed and <strong>approved</strong> by our team.
+      We are pleased to inform you that your registration as a <strong>${esc(roleType)}</strong> for <strong>${esc(companyName)}</strong> has been reviewed and <strong>approved</strong> by our team.
     </p>
     <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="color: #166534; margin: 0; font-weight: 600;">Registration Status: Approved</p>
@@ -671,14 +681,14 @@ export async function sendRegistrationRejectionEmail(
 ): Promise<boolean> {
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">Registration Update</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${fullName},</p>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(fullName)},</p>
     <p style="color: #475569; line-height: 1.6;">
-      Thank you for your interest in the Bullex Commodity Trading Platform. After reviewing your registration as a <strong>${roleType}</strong> for <strong>${companyName}</strong>, we are unable to proceed at this time.
+      Thank you for your interest in the Bullex Commodity Trading Platform. After reviewing your registration as a <strong>${esc(roleType)}</strong> for <strong>${esc(companyName)}</strong>, we are unable to proceed at this time.
     </p>
     ${reviewNotes ? `
     <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="color: #991b1b; margin: 0; font-weight: 600;">Reason</p>
-      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">${reviewNotes}</p>
+      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">${esc(reviewNotes)}</p>
     </div>
     ` : `
     <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
@@ -702,9 +712,9 @@ export async function sendRegistrationConfirmationEmail(
 ): Promise<boolean> {
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">Registration Received</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${fullName},</p>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(fullName)},</p>
     <p style="color: #475569; line-height: 1.6;">
-      Thank you for registering with the <strong>Bullex Commodity Trading Platform</strong>. We have received your registration as a <strong>${roleType}</strong> for <strong>${companyName}</strong>.
+      Thank you for registering with the <strong>Bullex Commodity Trading Platform</strong>. We have received your registration as a <strong>${esc(roleType)}</strong> for <strong>${esc(companyName)}</strong>.
     </p>
     <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="color: #166534; margin: 0; font-weight: 600;">Registration Status: Received</p>
@@ -741,15 +751,15 @@ export async function sendRegistrationAdminEmail(
     </div>
     <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
       <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Full Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${fullName}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Company Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${companyName}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${email}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Phone</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${phone}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Country</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${country}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Role Type</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${roleType}</td></tr>
-      ${commodities ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Commodities of Interest</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${commodities}</td></tr>` : ""}
-      ${message ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Message</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${message}</td></tr>` : ""}
-      <tr><td style="color: #64748b; padding: 8px 12px;">Submitted At</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${submittedAt}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Full Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(fullName)}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Company Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(companyName)}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(email)}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Phone</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(phone)}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Country</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(country)}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Role Type</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(roleType)}</td></tr>
+      ${commodities ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Commodities of Interest</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(commodities)}</td></tr>` : ""}
+      ${message ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Message</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${esc(message)}</td></tr>` : ""}
+      <tr><td style="color: #64748b; padding: 8px 12px;">Submitted At</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${esc(submittedAt)}</td></tr>
     </table>
   `;
   return sendEmail(adminEmail, `New Registration – ${companyName} (${roleType})`, emailWrapper(body));
@@ -777,23 +787,23 @@ export async function sendEnquiryCreatedNotification(enquiry: {
     <h2 style="color: #1e293b; margin: 0 0 16px;">New Trade Enquiry Submitted</h2>
     <p style="color: #475569; line-height: 1.6;">A new trade enquiry has been created on the Bullex Trading Platform.</p>
     <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
-      <p style="color: #1d4ed8; margin: 0; font-weight: 600; font-size: 18px;">${enquiry.enquiryRef} — ${sideLabel} ${enquiry.product}</p>
-      ${enquiry.quantity ? `<p style="color: #1e40af; margin: 6px 0 0; font-size: 14px;">${enquiry.quantity} ${enquiry.unit || "MT"}</p>` : ""}
+      <p style="color: #1d4ed8; margin: 0; font-weight: 600; font-size: 18px;">${esc(enquiry.enquiryRef)} — ${sideLabel} ${esc(enquiry.product)}</p>
+      ${enquiry.quantity ? `<p style="color: #1e40af; margin: 6px 0 0; font-size: 14px;">${esc(enquiry.quantity)} ${esc(enquiry.unit || "MT")}</p>` : ""}
     </div>
     <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
       <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Enquiry Ref</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.enquiryRef}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Enquiry Ref</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.enquiryRef)}</td></tr>
       <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Side</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${sideLabel}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Product</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.product}</td></tr>
-      ${enquiry.quantity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Quantity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.quantity} ${enquiry.unit || "MT"}</td></tr>` : ""}
-      ${enquiry.specifications ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Specifications</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${enquiry.specifications}</td></tr>` : ""}
-      ${enquiry.producer ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Producer / Source</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.producer}</td></tr>` : ""}
-      ${enquiry.loadingPort ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Loading Port</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.loadingPort}</td></tr>` : ""}
-      ${enquiry.incoterms ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Incoterms</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.incoterms}</td></tr>` : ""}
-      ${enquiry.validity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Validity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.validity}</td></tr>` : ""}
-      ${enquiry.createdBy ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Created By</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.createdBy}</td></tr>` : ""}
-      ${enquiry.email ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.email}</td></tr>` : ""}
-      ${enquiry.additionalInfo ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Additional Info</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${enquiry.additionalInfo}</td></tr>` : ""}
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Product</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.product)}</td></tr>
+      ${enquiry.quantity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Quantity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.quantity)} ${esc(enquiry.unit || "MT")}</td></tr>` : ""}
+      ${enquiry.specifications ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Specifications</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${esc(enquiry.specifications)}</td></tr>` : ""}
+      ${enquiry.producer ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Producer / Source</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.producer)}</td></tr>` : ""}
+      ${enquiry.loadingPort ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Loading Port</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.loadingPort)}</td></tr>` : ""}
+      ${enquiry.incoterms ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Incoterms</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.incoterms)}</td></tr>` : ""}
+      ${enquiry.validity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Validity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.validity)}</td></tr>` : ""}
+      ${enquiry.createdBy ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Created By</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.createdBy)}</td></tr>` : ""}
+      ${enquiry.email ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Contact Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.email)}</td></tr>` : ""}
+      ${enquiry.additionalInfo ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Additional Info</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">${esc(enquiry.additionalInfo)}</td></tr>` : ""}
       <tr><td style="color: #64748b; padding: 8px 12px;">Submitted At</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${new Date(enquiry.createdAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td></tr>
     </table>
   `;
@@ -833,22 +843,22 @@ export async function sendEnquiryStatusNotification(enquiry: {
     <h2 style="color: #1e293b; margin: 0 0 16px;">Enquiry Status Updated</h2>
     <p style="color: #475569; line-height: 1.6;">The status of a trade enquiry on the Bullex Trading Platform has been updated.</p>
     <div style="background: ${style.bg}; border: 1px solid ${style.border}; border-radius: 8px; padding: 16px; margin: 24px 0;">
-      <p style="color: ${style.text}; margin: 0; font-weight: 700; font-size: 18px;">Status: ${style.label}</p>
-      <p style="color: ${style.text}; margin: 6px 0 0; font-size: 14px;">${enquiry.enquiryRef} — ${sideLabel} ${enquiry.product}${enquiry.quantity ? ` | ${enquiry.quantity} ${enquiry.unit || "MT"}` : ""}</p>
+      <p style="color: ${style.text}; margin: 0; font-weight: 700; font-size: 18px;">Status: ${esc(style.label)}</p>
+      <p style="color: ${style.text}; margin: 6px 0 0; font-size: 14px;">${esc(enquiry.enquiryRef)} — ${sideLabel} ${esc(enquiry.product)}${enquiry.quantity ? ` | ${esc(enquiry.quantity)} ${esc(enquiry.unit || "MT")}` : ""}</p>
       ${tradeNote}
     </div>
     <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
       <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Enquiry Ref</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.enquiryRef}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">New Status</td><td style="color: ${style.text}; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 700;">${style.label}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Enquiry Ref</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.enquiryRef)}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">New Status</td><td style="color: ${style.text}; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 700;">${esc(style.label)}</td></tr>
       <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Side</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${sideLabel}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Product</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.product}</td></tr>
-      ${enquiry.quantity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Quantity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.quantity} ${enquiry.unit || "MT"}</td></tr>` : ""}
-      ${enquiry.loadingPort ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Loading Port</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.loadingPort}</td></tr>` : ""}
-      ${enquiry.incoterms ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Incoterms</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.incoterms}</td></tr>` : ""}
-      ${enquiry.validity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Validity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.validity}</td></tr>` : ""}
-      ${enquiry.createdBy ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Created By</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.createdBy}</td></tr>` : ""}
-      ${enquiry.email ? `<tr><td style="color: #64748b; padding: 8px 12px;">Company Email</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;"><a href="mailto:${enquiry.email}" style="color: #1d4ed8;">${enquiry.email}</a></td></tr>` : ""}
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Product</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.product)}</td></tr>
+      ${enquiry.quantity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Quantity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.quantity)} ${esc(enquiry.unit || "MT")}</td></tr>` : ""}
+      ${enquiry.loadingPort ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Loading Port</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.loadingPort)}</td></tr>` : ""}
+      ${enquiry.incoterms ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Incoterms</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.incoterms)}</td></tr>` : ""}
+      ${enquiry.validity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Validity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.validity)}</td></tr>` : ""}
+      ${enquiry.createdBy ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Created By</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.createdBy)}</td></tr>` : ""}
+      ${enquiry.email ? `<tr><td style="color: #64748b; padding: 8px 12px;">Company Email</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;"><a href="mailto:${esc(enquiry.email)}" style="color: #1d4ed8;">${esc(enquiry.email)}</a></td></tr>` : ""}
     </table>
   `;
   return sendEmail(TRADE_EMAIL, `Enquiry ${style.label} – ${enquiry.enquiryRef} | ${sideLabel} ${enquiry.product}`, emailWrapper(body));
@@ -876,19 +886,19 @@ export async function sendEnquiryClientResponseNotification(enquiry: {
     <h2 style="color: #1e293b; margin: 0 0 16px;">Client Enquiry Response</h2>
     <p style="color: #475569; line-height: 1.6;">A client has responded to a trade enquiry on the Bullex Trading Platform.</p>
     <div style="background: ${highlightColor}; border: 1px solid ${borderColor}; border-radius: 8px; padding: 16px; margin: 24px 0;">
-      <p style="color: ${textColor}; margin: 0; font-weight: 700; font-size: 16px;">${clientCompany} has ${responseLabel} enquiry ${enquiry.enquiryRef}</p>
-      <p style="color: ${textColor}; margin: 6px 0 0; font-size: 14px;">${sideLabel} ${enquiry.product}${enquiry.quantity ? ` — ${enquiry.quantity} ${enquiry.unit || "MT"}` : ""}</p>
+      <p style="color: ${textColor}; margin: 0; font-weight: 700; font-size: 16px;">${esc(clientCompany)} has ${responseLabel} enquiry ${esc(enquiry.enquiryRef)}</p>
+      <p style="color: ${textColor}; margin: 6px 0 0; font-size: 14px;">${sideLabel} ${esc(enquiry.product)}${enquiry.quantity ? ` — ${esc(enquiry.quantity)} ${esc(enquiry.unit || "MT")}` : ""}</p>
       ${accepted ? `<p style="color: ${textColor}; margin: 6px 0 0; font-size: 13px; font-weight: 600;">A new trade has been automatically initiated from this enquiry.</p>` : ""}
     </div>
     <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
       <tr style="background: #f8fafc;"><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th><th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Enquiry Ref</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.enquiryRef}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Product</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.product}</td></tr>
-      ${enquiry.quantity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Quantity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.quantity} ${enquiry.unit || "MT"}</td></tr>` : ""}
-      ${enquiry.loadingPort ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Loading Port</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.loadingPort}</td></tr>` : ""}
-      ${enquiry.incoterms ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Incoterms</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${enquiry.incoterms}</td></tr>` : ""}
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Enquiry Ref</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.enquiryRef)}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Product</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.product)}</td></tr>
+      ${enquiry.quantity ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Quantity</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.quantity)} ${esc(enquiry.unit || "MT")}</td></tr>` : ""}
+      ${enquiry.loadingPort ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Loading Port</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.loadingPort)}</td></tr>` : ""}
+      ${enquiry.incoterms ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Incoterms</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(enquiry.incoterms)}</td></tr>` : ""}
       <tr><td style="color: #64748b; padding: 8px 12px;">Client Response</td><td style="color: ${textColor}; padding: 8px 12px; font-weight: 700;">${responseLabel}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px;">Responded By</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${clientCompany}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px;">Responded By</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${esc(clientCompany)}</td></tr>
     </table>
   `;
   return sendEmail(TRADE_EMAIL, `Enquiry ${responseLabel} – ${enquiry.enquiryRef} by ${clientCompany}`, emailWrapper(body));
@@ -904,31 +914,31 @@ export async function sendTeamKycInvite(
 ): Promise<boolean> {
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">You're Invited to Join Bullfrog Group</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${candidateName || "Candidate"},</p>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(candidateName || "Candidate")},</p>
     <p style="color: #475569; line-height: 1.6;">
       You have been invited by the HR team at <strong>Bullfrog Group</strong> to complete your Staff Onboarding KYC application on the Bullex platform.
     </p>
     ${position || department ? `
     <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 20px 0;">
-      ${position ? `<p style="color: #1d4ed8; margin: 0; font-size: 14px;"><strong>Position:</strong> ${position}</p>` : ""}
-      ${department ? `<p style="color: #1d4ed8; margin: ${position ? "6px" : "0"} 0 0; font-size: 14px;"><strong>Department:</strong> ${department}</p>` : ""}
+      ${position ? `<p style="color: #1d4ed8; margin: 0; font-size: 14px;"><strong>Position:</strong> ${esc(position)}</p>` : ""}
+      ${department ? `<p style="color: #1d4ed8; margin: ${position ? "6px" : "0"} 0 0; font-size: 14px;"><strong>Department:</strong> ${esc(department)}</p>` : ""}
     </div>
     ` : ""}
     ${personalMessage ? `
     <div style="background: #f8fafc; border-left: 4px solid #e2e8f0; padding: 12px 16px; margin: 20px 0;">
-      <p style="color: #475569; margin: 0; font-style: italic; font-size: 14px;">"${personalMessage}"</p>
+      <p style="color: #475569; margin: 0; font-style: italic; font-size: 14px;">"${esc(personalMessage)}"</p>
     </div>
     ` : ""}
     <p style="color: #475569; line-height: 1.6;">
       Please click the button below to access your personalised KYC form. Complete all sections accurately — your application will be reviewed by our admin team, and upon approval, your Bullex login credentials will be sent to you.
     </p>
     <div style="text-align: center; margin: 32px 0;">
-      <a href="${kycUrl}" style="background: #dc2626; color: #ffffff; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 15px; display: inline-block; letter-spacing: 0.5px;">
+      <a href="${esc(kycUrl)}" style="background: #dc2626; color: #ffffff; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 15px; display: inline-block; letter-spacing: 0.5px;">
         Complete Your KYC Application →
       </a>
     </div>
     <p style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
-      Or copy this link: <a href="${kycUrl}" style="color: #2563eb;">${kycUrl}</a>
+      Or copy this link: <a href="${esc(kycUrl)}" style="color: #2563eb;">${esc(kycUrl)}</a>
     </p>
     <div style="background: #fefce8; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; margin: 24px 0;">
       <p style="color: #92400e; margin: 0; font-size: 13px;">
@@ -956,20 +966,20 @@ export async function sendTeamKycAdminNotification(
     <h2 style="color: #1e293b; margin: 0 0 16px;">New Team KYC Application Received</h2>
     <p style="color: #475569; line-height: 1.6;">A new staff onboarding application has been submitted and requires your review.</p>
     <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
-      <p style="color: #1d4ed8; margin: 0; font-weight: 700; font-size: 16px;">${fullName}</p>
-      <p style="color: #3b82f6; margin: 6px 0 0; font-size: 14px;">${applicantEmail}</p>
-      ${position ? `<p style="color: #3b82f6; margin: 4px 0 0; font-size: 13px;">Role: ${position}${department ? ` · ${department}` : ""}</p>` : ""}
+      <p style="color: #1d4ed8; margin: 0; font-weight: 700; font-size: 16px;">${esc(fullName)}</p>
+      <p style="color: #3b82f6; margin: 6px 0 0; font-size: 14px;">${esc(applicantEmail)}</p>
+      ${position ? `<p style="color: #3b82f6; margin: 4px 0 0; font-size: 13px;">Role: ${esc(position)}${department ? ` · ${esc(department)}` : ""}</p>` : ""}
     </div>
     <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
       <tr style="background: #f8fafc;">
         <th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Field</th>
         <th style="text-align: left; color: #64748b; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Details</th>
       </tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Applicant Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${fullName}</td></tr>
-      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${applicantEmail}</td></tr>
-      ${position ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Position Applied</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${position}</td></tr>` : ""}
-      ${department ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Department</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${department}</td></tr>` : ""}
-      <tr><td style="color: #64748b; padding: 8px 12px;">Submitted</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${submittedAt}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Applicant Name</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(fullName)}</td></tr>
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Email</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(applicantEmail)}</td></tr>
+      ${position ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Position Applied</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(position)}</td></tr>` : ""}
+      ${department ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Department</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(department)}</td></tr>` : ""}
+      <tr><td style="color: #64748b; padding: 8px 12px;">Submitted</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${esc(submittedAt)}</td></tr>
     </table>
     <div style="background: #fefce8; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; margin: 16px 0;">
       <p style="color: #92400e; margin: 0; font-size: 13px;">Please log in to the Bullex admin panel, navigate to Team KYC Applications, and review the submission to allocate login credentials upon approval.</p>
@@ -984,7 +994,7 @@ export async function sendTeamKycConfirmation(
 ): Promise<boolean> {
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">Application Received — Thank You</h2>
-    <p style="color: #475569; line-height: 1.6;">Dear ${fullName},</p>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(fullName)},</p>
     <p style="color: #475569; line-height: 1.6;">
       Your employment onboarding application has been successfully submitted to the Bullex Team. Our HR/Admin team will review your details and get back to you shortly.
     </p>
@@ -1080,7 +1090,7 @@ export async function sendTeamMemberPasswordResetLinkEmail(
     <p style="color: #475569; line-height: 1.6;">
       A Bullfrog Group administrator has initiated a password reset for your Bullex Trading Platform account
       (username: <strong>${safeUser}</strong>). Click the secure link below to set a new password of your choice.
-      The link will expire in <strong>${expiryHours} hour${expiryHours === 1 ? "" : "s"}</strong> and can only be used once.
+      The link will expire in <strong>${esc(expiryHours)} hour${expiryHours === 1 ? "" : "s"}</strong> and can only be used once.
     </p>
     <div style="text-align:center;margin:28px 0;">
       <a href="${safeUrl}" style="display:inline-block;padding:12px 28px;background:#990000;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;letter-spacing:0.05em;text-transform:uppercase;border-radius:4px;">

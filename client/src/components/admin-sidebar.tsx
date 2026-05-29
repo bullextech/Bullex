@@ -81,10 +81,11 @@ export function AdminSidebar() {
   const renderLink = (item: { url: string; title: string; icon: any; id?: string }) => {
     const active = location === item.url;
     const showBadge = item.url === "/notifications" && unreadCount > 0;
+    const safeHref = item.url.startsWith("/") ? item.url : "/";
     return (
       <Link
         key={item.url}
-        href={item.url}
+        href={safeHref}
         data-testid={`link-sidebar-${item.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
         className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors w-full ${
           active

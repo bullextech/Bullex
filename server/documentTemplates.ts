@@ -1940,7 +1940,8 @@ Date: _______________`;
 };
 
 export function generateDocumentContent(docType: string, trade?: Trade, buyerDetails?: PartyDetails, sellerDetails?: PartyDetails, productDetails?: ProductDetails): string {
-  const templateFn = templates[docType];
+  if (!Object.prototype.hasOwnProperty.call(templates, docType)) return "";
+  const templateFn = templates[docType as keyof typeof templates];
   if (!templateFn) return "";
   return templateFn(trade, buyerDetails, sellerDetails, productDetails);
 }

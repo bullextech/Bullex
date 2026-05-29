@@ -1724,10 +1724,8 @@ export async function registerRoutes(
       const filePath = doc.pdfPath || doc.docxPath;
       if (!filePath) return res.status(404).json({ message: "No file available" });
 
-      const fs = await import("fs");
-      const path = await import("path");
-      const fullPath = path.default.resolve(filePath);
-      if (!fs.default.existsSync(fullPath)) return res.status(404).json({ message: "File not found" });
+      const fullPath = getDocFilePath(filePath);
+      if (!fullPath) return res.status(404).json({ message: "File not found" });
 
       res.download(fullPath);
     } catch (error) {
