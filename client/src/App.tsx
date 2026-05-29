@@ -42,6 +42,7 @@ import DatabaseBackup from "@/pages/database-backup";
 import TaskBoard from "@/pages/task-board";
 import TeamPortal from "@/pages/team-portal";
 import TeamReset from "@/pages/team-reset";
+import ClientSetup from "@/pages/client-setup";
 import Notifications from "@/pages/notifications";
 import Chat from "@/pages/chat";
 import { ComingSoon } from "@/pages/coming-soon";
@@ -111,7 +112,7 @@ function Router() {
       <Route path="/team">{() => <ProtectedRoute component={TeamMembers} />}</Route>
       <Route path="/team-kyc-admin">{() => <Redirect to="/team" />}</Route>
       <Route path="/trade-enquiries">{() => <ModuleRoute component={TradeEnquiries} moduleId="enquiries" />}</Route>
-      <Route path="/documents">{() => <ProtectedRoute component={DocumentGenerator} />}</Route>
+      <Route path="/documents">{() => <ModuleRoute component={DocumentGenerator} moduleId="doc-templates" />}</Route>
       <Route path="/trading">{() => <ModuleRoute component={Trading} moduleId="trading" />}</Route>
       <Route path="/vault">{() => <ModuleRoute component={Vault} moduleId="vault" />}</Route>
       <Route path="/blockchain">{() => <ModuleRoute component={Blockchain} moduleId="blockchain" />}</Route>
@@ -191,6 +192,7 @@ function App() {
   const [isTeamKyc] = useRoute("/team-kyc");
   const [isRegister] = useRoute("/register");
   const [isTeamReset] = useRoute("/team-reset/:token");
+  const [isClientSetup] = useRoute("/client-setup/:token");
 
   return (
     <ThemeProvider>
@@ -214,6 +216,8 @@ function App() {
                 <Register />
               ) : isTeamReset ? (
                 <TeamReset />
+              ) : isClientSetup ? (
+                <ClientSetup />
               ) : (
                 <AppShell />
               )}

@@ -194,7 +194,7 @@ export async function sendKycApprovalEmail(
   category?: string | null,
   products?: string | null,
   clientUsername?: string | null,
-  clientPassword?: string | null,
+  clientPortalSetupUrl?: string | null,
   participantId?: string | null
 ): Promise<boolean> {
   const participantIdRow = participantId
@@ -205,18 +205,27 @@ export async function sendKycApprovalEmail(
     products ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Products</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(products)}</td></tr>` : "",
   ].filter(Boolean).join("");
 
-  const credentialsBlock = (clientUsername && clientPassword) ? `
+  const credentialsBlock = (clientUsername && clientPortalSetupUrl) ? `
     <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
-      <p style="color: #1e40af; margin: 0; font-weight: 600;">Client Portal Login Credentials</p>
+      <p style="color: #1e40af; margin: 0; font-weight: 600;">Client Portal Access</p>
       <p style="color: #1d4ed8; margin: 8px 0 0; font-size: 14px;">
         You can now access the Client Portal to view your trades and documents.
       </p>
       <table style="width: 100%; border-collapse: collapse; margin: 12px 0 0; font-size: 14px;">
-        <tr><td style="color: #64748b; padding: 6px 0; width: 100px;">Username:</td><td style="color: #1e293b; font-weight: 600;">${esc(clientUsername)}</td></tr>
-        <tr><td style="color: #64748b; padding: 6px 0; width: 100px;">Password:</td><td style="color: #1e293b; font-weight: 600;">${esc(clientPassword)}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0; width: 100px;">Username:</td><td style="color: #1e293b; font-weight: 600;">${escapeHtml(clientUsername)}</td></tr>
       </table>
+      <p style="margin: 16px 0 0;">
+        <a href="${escapeHtml(clientPortalSetupUrl)}" style="display: inline-block; background: #1d4ed8; color: #ffffff; text-decoration: none; padding: 10px 20px; font-weight: 600; font-size: 14px; border-radius: 6px;">Set Your Password &amp; Access Portal</a>
+      </p>
       <p style="color: #64748b; margin: 12px 0 0; font-size: 12px;">
-        Please keep these credentials secure and do not share them with unauthorized persons.
+        This link expires in 72 hours. If it expires, contact <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a> to request a new one.
+      </p>
+    </div>
+  ` : clientUsername ? `
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #1e40af; margin: 0; font-weight: 600;">Client Portal Access</p>
+      <p style="color: #475569; margin: 8px 0 0; font-size: 14px;">
+        Your username is <strong>${escapeHtml(clientUsername)}</strong>. Please contact <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a> to receive your secure login link.
       </p>
     </div>
   ` : "";

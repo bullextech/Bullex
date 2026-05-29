@@ -1,6 +1,7 @@
 import { eq, desc, inArray, and, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
+import bcrypt from "bcryptjs";
 import {
   users,
   kycApplications,
@@ -43,6 +44,8 @@ import {
   type InsertTeamMember,
   teamPasswordResetTokens,
   type TeamPasswordResetToken,
+  clientPasswordSetupTokens,
+  type ClientPasswordSetupToken,
   teamMemberDocuments,
   type TeamMemberDocument,
   type InsertTeamMemberDocument,
@@ -926,6 +929,26 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(teamPasswordResetTokens.memberId, memberId), isNull(teamPasswordResetTokens.usedAt)));
   }
 
+  async createClientPasswordSetupToken(kycId: string, token: string, expiresAt: Date): Promise<ClientPasswordSetupToken> {
+    const [created] = await db.insert(clientPasswordSetupTokens).values({ kycId, token, expiresAt }).returning();
+    return created;
+  }
+
+  async getClientPasswordSetupTokenByToken(token: string): Promise<ClientPasswordSetupToken | undefined> {
+    const [row] = await db.select().from(clientPasswordSetupTokens).where(eq(clientPasswordSetupTokens.token, token));
+    return row;
+  }
+
+  async markClientPasswordSetupTokenUsed(id: string): Promise<void> {
+    await db.update(clientPasswordSetupTokens).set({ usedAt: new Date() }).where(eq(clientPasswordSetupTokens.id, id));
+  }
+
+  async invalidateActiveClientPasswordSetupTokens(kycId: string): Promise<void> {
+    await db.update(clientPasswordSetupTokens)
+      .set({ usedAt: new Date() })
+      .where(and(eq(clientPasswordSetupTokens.kycId, kycId), isNull(clientPasswordSetupTokens.usedAt)));
+  }
+
   async getTeamMemberDocuments(memberId: string): Promise<TeamMemberDocument[]> {
     return db.select().from(teamMemberDocuments).where(eq(teamMemberDocuments.memberId, memberId)).orderBy(desc(teamMemberDocuments.uploadedAt));
   }
@@ -1118,6 +1141,45 @@ export class DatabaseStorage implements IStorage {
   async createChatMessage(msg: InsertChatMessage): Promise<ChatMessage> {
     const [row] = await db.insert(chatMessages).values(msg).returning();
     return row;
+  }
+
+  // One-time migration: hash any plaintext passwords that were stored before bcrypt was introduced.
+  // A bcrypt hash always starts with "$2" so we can detect un-hashed values reliably.
+  async migratePasswordsToHashed(): Promise<{ teamMembers: number; kycClients: number }> {
+    let teamCount = 0;
+    let kycCount = 0;
+
+    const members = await db.select({ id: teamMembers.id, password: teamMembers.password }).from(teamMembers);
+    for (const m of members) {
+      if (m.password && !m.password.startsWith("$2")) {
+        const hashed = await bcrypt.hash(m.password, 12);
+        await db.update(teamMembers).set({ password: hashed }).where(eq(teamMembers.id, m.id));
+        teamCount++;
+      }
+    }
+
+    const clients = await db.select({ id: kycApplications.id, clientPassword: kycApplications.clientPassword })
+      .from(kycApplications);
+    for (const c of clients) {
+      if (c.clientPassword && !c.clientPassword.startsWith("$2")) {
+        const hashed = await bcrypt.hash(c.clientPassword, 12);
+        await db.update(kycApplications).set({ clientPassword: hashed }).where(eq(kycApplications.id, c.id));
+        kycCount++;
+      }
+    }
+
+    // Hash any plaintext teamPassword values in team_kyc_applications.
+    const teamKycRows = await db.select({ id: teamKycApplications.id, teamPassword: teamKycApplications.teamPassword })
+      .from(teamKycApplications);
+    for (const t of teamKycRows) {
+      if (t.teamPassword && !t.teamPassword.startsWith("$2")) {
+        const hashed = await bcrypt.hash(t.teamPassword, 12);
+        await db.update(teamKycApplications).set({ teamPassword: hashed }).where(eq(teamKycApplications.id, t.id));
+        teamCount++;
+      }
+    }
+
+    return { teamMembers: teamCount, kycClients: kycCount };
   }
 }
 

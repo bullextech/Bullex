@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import pg from "pg";
+import bcrypt from "bcryptjs";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -256,6 +257,15 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   res.status(401).json({ message: "Unauthorized" });
 }
 
+function requireModule(moduleId: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.session?.authenticated) return res.status(401).json({ message: "Unauthorized" });
+    if (req.session.role === "admin") return next();
+    if (req.session.role === "team" && (req.session.allowedModules ?? []).includes(moduleId)) return next();
+    return res.status(403).json({ message: "Access denied: module not assigned" });
+  };
+}
+
 function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
   if (req.session && req.session.authenticated && req.session.role === "admin") {
     return next();
@@ -307,10 +317,55 @@ export async function registerRoutes(
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
       secure: true,
-      sameSite: "none",
+      sameSite: "lax",
     },
   });
   app.use(sessionMiddleware);
+
+  // CSRF protection: reject state-changing requests whose Origin does not match this host.
+  // sameSite:"lax" already blocks most cross-site cookie delivery, but this adds a defence-in-depth
+  // layer that catches the remaining edge cases (e.g. older browsers, misconfigured proxies).
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const method = req.method.toUpperCase();
+    if (!["POST", "PUT", "PATCH", "DELETE"].includes(method)) return next();
+    // Allow public non-session-sensitive POSTs (KYC registration, login, password-reset, file uploads).
+    // These are safe because they don't act on behalf of an authenticated session or because they
+    // are the authentication endpoints themselves.
+    // Exact-match bypass list: only truly public, unauthenticated endpoints that can legitimately
+    // originate from different origins (e.g., forms submitted from public pages, external tools).
+    const bypassExact = new Set([
+      "/api/auth/login",
+      "/api/auth/logout",
+      "/api/client/login",
+      "/api/client/logout",
+      "/api/team-kyc",
+      "/api/hr/apply",
+    ]);
+    // Prefix-match bypass for endpoints with dynamic path segments (:token, :id).
+    const bypassPrefix = [
+      "/api/client/setup/",
+      "/api/kyc-form/",
+      "/api/team/reset/",
+      "/api/kyc/submit",
+      "/api/registrations/submit",
+    ];
+    const isBypass =
+      bypassExact.has(req.path) ||
+      bypassPrefix.some((p) => req.path.startsWith(p));
+    if (isBypass) return next();
+    const origin = req.headers["origin"] as string | undefined;
+    if (!origin) return next(); // Non-browser / server-to-server calls have no Origin; allow through.
+    try {
+      const originHost = new URL(origin).host;
+      const serverHost = (req.headers["x-forwarded-host"] as string | undefined) || req.get("host") || "";
+      if (originHost !== serverHost) {
+        return res.status(403).json({ message: "Forbidden: cross-origin request rejected" });
+      }
+    } catch {
+      return res.status(403).json({ message: "Forbidden: invalid Origin header" });
+    }
+    next();
+  });
 
   // Attach WebSocket chat (Bullex Chat: text + WebRTC signaling)
   attachChat(httpServer, sessionMiddleware);
@@ -393,7 +448,7 @@ export async function registerRoutes(
       return;
     }
     const teamMember = await storage.getTeamMemberByUsername(username);
-    if (teamMember && teamMember.password === password) {
+    if (teamMember && await bcrypt.compare(password, teamMember.password)) {
       req.session.regenerate(() => {
         req.session.authenticated = true;
         req.session.username = teamMember.username;
@@ -408,7 +463,7 @@ export async function registerRoutes(
     res.status(401).json({ message: "Invalid username or password" });
   });
 
-  app.get("/api/team/members", requireAuth, async (req, res) => {
+  app.get("/api/team/members", requireAdminAuth, async (req, res) => {
     const members = await storage.getAllTeamMembers();
     res.json(members.map(m => ({ ...m, password: undefined })));
   });
@@ -419,7 +474,8 @@ export async function registerRoutes(
       return res.status(400).json({ message: "username, password, and name are required" });
     }
     try {
-      const member = await storage.createTeamMember({ username, password, name, department: department || null, email: email || null, ...rest });
+      const hashedPassword = await bcrypt.hash(password, 12);
+      const member = await storage.createTeamMember({ username, password: hashedPassword, name, department: department || null, email: email || null, ...rest });
       res.json({ ...member, password: undefined });
     } catch (err: any) {
       if (err.message?.includes("unique")) {
@@ -510,7 +566,8 @@ export async function registerRoutes(
       if (new Date(row.expiresAt).getTime() < Date.now()) return res.status(410).json({ message: "This reset link has expired." });
       const member = await storage.getTeamMemberById(row.memberId);
       if (!member) return res.status(404).json({ message: "Team member not found." });
-      await storage.updateTeamMember(member.id, { password });
+      const hashedPassword = await bcrypt.hash(password, 12);
+      await storage.updateTeamMember(member.id, { password: hashedPassword });
       await storage.markTeamPasswordResetTokenUsed(row.id);
       await storage.invalidateActiveTeamPasswordResetTokens(member.id);
       res.json({ success: true, username: member.username });
@@ -682,7 +739,8 @@ export async function registerRoutes(
 
   app.post("/api/team-kyc", async (req, res) => {
     try {
-      const { fullName, email, ...rest } = req.body;
+      // Explicitly exclude credential fields — they are set only by admin during approval (PATCH).
+      const { fullName, email, teamUsername: _u, teamPassword: _p, ...rest } = req.body;
       if (!fullName || !email) {
         return res.status(400).json({ message: "fullName and email are required" });
       }
@@ -820,17 +878,18 @@ export async function registerRoutes(
       const app = await storage.getTeamKycApplicationById(req.params.id);
       if (!app) return res.status(404).json({ message: "Application not found" });
 
+      const hashedTeamPassword = teamPassword ? await bcrypt.hash(teamPassword, 12) : undefined;
       const updated = await storage.updateTeamKycStatus(
-        req.params.id, status, reviewNotes, teamUsername, teamPassword
+        req.params.id, status, reviewNotes, teamUsername, hashedTeamPassword
       );
 
-      if (status === "approved" && teamUsername && teamPassword) {
+      if (status === "approved" && teamUsername && hashedTeamPassword) {
         try {
           const existing = await storage.getTeamMemberByUsername(teamUsername);
           if (!existing) {
             await storage.createTeamMember({
               username: teamUsername,
-              password: teamPassword,
+              password: hashedTeamPassword,
               allowedModules: Array.isArray(allowedModules) ? allowedModules : [],
               name: app.fullName,
               department: app.department || null,
@@ -1438,6 +1497,45 @@ export async function registerRoutes(
     }
   });
 
+  // Public: verify a client password setup token (no auth)
+  app.get("/api/client/setup/:token", async (req, res) => {
+    try {
+      const row = await storage.getClientPasswordSetupTokenByToken(req.params.token);
+      if (!row) return res.status(404).json({ message: "Invalid setup link." });
+      if (row.usedAt) return res.status(410).json({ message: "This setup link has already been used." });
+      if (new Date(row.expiresAt).getTime() < Date.now()) return res.status(410).json({ message: "This setup link has expired." });
+      const kyc = await storage.getKycApplicationById(row.kycId);
+      if (!kyc || kyc.status !== "approved") return res.status(404).json({ message: "Associated account not found." });
+      res.json({ valid: true, username: kyc.clientUsername, companyName: kyc.companyName, expiresAt: row.expiresAt });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Public: consume a client setup token and set the initial password
+  app.post("/api/client/setup/:token", async (req, res) => {
+    try {
+      const { password } = req.body || {};
+      if (!password || typeof password !== "string" || password.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters." });
+      }
+      const row = await storage.getClientPasswordSetupTokenByToken(req.params.token);
+      if (!row) return res.status(404).json({ message: "Invalid setup link." });
+      if (row.usedAt) return res.status(410).json({ message: "This setup link has already been used." });
+      if (new Date(row.expiresAt).getTime() < Date.now()) return res.status(410).json({ message: "This setup link has expired." });
+      const kyc = await storage.getKycApplicationById(row.kycId);
+      if (!kyc || kyc.status !== "approved" || !kyc.clientUsername) {
+        return res.status(404).json({ message: "Associated account not found." });
+      }
+      const hashedPassword = await bcrypt.hash(password, 12);
+      await storage.updateKycClientCredentials(row.kycId, kyc.clientUsername, hashedPassword);
+      await storage.markClientPasswordSetupTokenUsed(row.id);
+      res.json({ success: true, username: kyc.clientUsername });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.post("/api/client/login", async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -1445,7 +1543,8 @@ export async function registerRoutes(
     }
     try {
       const kyc = await storage.getKycByClientUsername(username);
-      if (!kyc || kyc.clientPassword !== password || kyc.status !== "approved") {
+      const passwordValid = kyc?.clientPassword ? await bcrypt.compare(password, kyc.clientPassword) : false;
+      if (!kyc || !passwordValid || kyc.status !== "approved") {
         return res.status(401).json({ message: "Invalid credentials or account not active" });
       }
       req.session.regenerate(() => {
@@ -1939,7 +2038,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/kyc/:id/status", requireAuth, async (req, res) => {
+  app.patch("/api/kyc/:id/status", requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { status, reviewNotes, category, products, clientUsername, clientPassword } = req.body;
@@ -1972,7 +2071,8 @@ export async function registerRoutes(
       let finalResult = updated;
       if (status === "approved") {
         if (clientUsername && clientPassword) {
-          await storage.updateKycClientCredentials(id, clientUsername, clientPassword);
+          const hashedClientPassword = await bcrypt.hash(clientPassword, 12);
+          await storage.updateKycClientCredentials(id, clientUsername, hashedClientPassword);
         }
         // Allocate a stable, human-readable participant ID on first approval (idempotent).
         // Fail the approval if allocation fails — clients must have a participant ID.
@@ -1991,6 +2091,23 @@ export async function registerRoutes(
           console.error("[blockchain] KYC minting failed:", err.message);
         }
 
+        // Generate a one-time password-setup link instead of transmitting a plaintext password by email.
+        let clientPortalSetupUrl: string | null = null;
+        if (clientUsername) {
+          try {
+            const { randomBytes } = await import("crypto");
+            const setupToken = randomBytes(32).toString("hex");
+            const setupExpiry = new Date(Date.now() + 72 * 60 * 60 * 1000);
+            await storage.invalidateActiveClientPasswordSetupTokens(id);
+            await storage.createClientPasswordSetupToken(id, setupToken, setupExpiry);
+            const proto = req.headers["x-forwarded-proto"] || req.protocol;
+            const host = req.headers["x-forwarded-host"] || req.get("host");
+            clientPortalSetupUrl = `${proto}://${host}/client-setup/${setupToken}`;
+          } catch (err: any) {
+            console.error("[client-setup-token] generation failed:", err.message);
+          }
+        }
+
         const emailTo = updated.signatoryEmail || updated.contactEmail;
         if (emailTo) {
           sendKycApprovalEmail(
@@ -2000,7 +2117,7 @@ export async function registerRoutes(
             category || updated.category,
             products || updated.products,
             clientUsername,
-            clientPassword,
+            clientPortalSetupUrl,
             updated.participantId
           ).catch((err) => console.error("[email] background approval send failed:", err));
         }
@@ -2012,7 +2129,7 @@ export async function registerRoutes(
             category || updated.category,
             products || updated.products,
             clientUsername,
-            clientPassword,
+            clientPortalSetupUrl,
             updated.participantId
           ).catch((err) => console.error("[email] background approval send to filledBy failed:", err));
         }
@@ -2208,7 +2325,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/kyc-change-requests", requireAuth, async (_req, res) => {
+  app.get("/api/kyc-change-requests", requireAdminAuth, async (_req, res) => {
     try {
       const requests = await storage.getKycChangeRequests();
       res.json(requests);
@@ -2902,7 +3019,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/trades", requireAuth, async (req, res) => {
+  app.post("/api/trades", requireModule("trading"), async (req, res) => {
     try {
       const parsed = insertTradeSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -2921,7 +3038,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/trades/:id/status", requireAuth, async (req, res) => {
+  app.patch("/api/trades/:id/status", requireModule("trading"), async (req, res) => {
     try {
       const { id } = req.params;
       const { status } = req.body;
@@ -2960,7 +3077,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/trades/:id/documents", requireAuth, async (req, res) => {
+  app.patch("/api/trades/:id/documents", requireModule("trading"), async (req, res) => {
     try {
       const { id } = req.params;
       const { docKey, checked } = req.body;
@@ -2992,7 +3109,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/documents/next-loi-number", requireAuth, async (req: Request, res: Response) => {
+  app.get("/api/documents/next-loi-number", requireModule("doc-templates"), async (req: Request, res: Response) => {
     try {
       const buyerName = (req.query.buyerName as string || "").trim();
       const prefix = buyerName.substring(0, 3).toUpperCase() || "XXX";
@@ -3008,7 +3125,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/documents", requireAuth, async (req, res) => {
+  app.get("/api/documents", requireModule("doc-templates"), async (req, res) => {
     try {
       console.log(`[GET /api/documents] role=${req.session?.role} username=${req.session?.username}`);
       if (req.session?.role === "team") {
@@ -3026,7 +3143,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/documents/preview", requireAuth, async (req, res) => {
+  app.post("/api/documents/preview", requireModule("doc-templates"), async (req, res) => {
     try {
       const { buyerDetails, sellerDetails, productDetails, docType, tradeRef } = req.body;
       if (!docType) return res.status(400).json({ message: "docType is required" });
@@ -3042,7 +3159,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/documents", requireAuth, async (req, res) => {
+  app.post("/api/documents", requireModule("doc-templates"), async (req, res) => {
     try {
       const { buyerDetails, sellerDetails, productDetails, ...docData } = req.body;
       const parsed = insertDocumentSchema.safeParse(docData);
@@ -3165,7 +3282,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/documents/:id", requireAuth, async (req, res) => {
+  app.get("/api/documents/:id", requireModule("doc-templates"), async (req, res) => {
     try {
       if (req.session?.role === "team") {
         const tmId = await getSessionTeamMemberId(req);
@@ -3184,7 +3301,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/documents/:id", requireAuth, async (req, res) => {
+  app.patch("/api/documents/:id", requireModule("doc-templates"), async (req, res) => {
     try {
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
@@ -3298,7 +3415,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/documents/:id/convert-pdf", requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/documents/:id/convert-pdf", requireModule("doc-templates"), async (req: Request, res: Response) => {
     try {
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
@@ -3359,7 +3476,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/documents/:id/sign", requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/documents/:id/sign", requireModule("doc-templates"), async (req: Request, res: Response) => {
     try {
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
@@ -3424,7 +3541,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/documents/:id/sign/:party", requireAuth, async (req: Request, res: Response) => {
+  app.delete("/api/documents/:id/sign/:party", requireModule("doc-templates"), async (req: Request, res: Response) => {
     try {
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
@@ -3477,7 +3594,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/documents/:id/send", requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/documents/:id/send", requireModule("doc-templates"), async (req: Request, res: Response) => {
     try {
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
@@ -3571,7 +3688,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/documents/:id/respond", requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/documents/:id/respond", requireModule("doc-templates"), async (req: Request, res: Response) => {
     try {
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
@@ -3612,7 +3729,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/documents/:id/create-next", requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/documents/:id/create-next", requireModule("doc-templates"), async (req: Request, res: Response) => {
     try {
       const parentDoc = await storage.getDocumentById(req.params.id);
       if (!parentDoc) return res.status(404).json({ message: "Parent document not found" });
@@ -3955,7 +4072,7 @@ export async function registerRoutes(
   });
 
   // ─── TRADE ENQUIRIES ───
-  app.get("/api/trade-enquiries", requireAuth, async (req: Request, res: Response) => {
+  app.get("/api/trade-enquiries", requireModule("enquiries"), async (req: Request, res: Response) => {
     try {
       if (req.session?.role === "team") {
         const tmId = await getSessionTeamMemberId(req);
@@ -3969,7 +4086,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/trade-enquiries/:id", requireAuth, async (req: Request, res: Response) => {
+  app.get("/api/trade-enquiries/:id", requireModule("enquiries"), async (req: Request, res: Response) => {
     try {
       const enquiry = await storage.getTradeEnquiryById(req.params.id);
       if (!enquiry) return res.status(404).json({ message: "Enquiry not found" });
@@ -3985,7 +4102,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/trade-enquiries", requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/trade-enquiries", requireModule("enquiries"), async (req: Request, res: Response) => {
     try {
       const b = req.body;
       if (!b || typeof b.product !== "string" || !b.product.trim()) {
@@ -4279,7 +4396,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/registrations", requireAuth, async (_req: Request, res: Response) => {
+  app.get("/api/registrations", requireAdminAuth, async (_req: Request, res: Response) => {
     try {
       const regs = await storage.getRegistrations();
       res.json(regs);
@@ -4288,7 +4405,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/registrations/:id/status", requireAuth, async (req: Request, res: Response) => {
+  app.patch("/api/registrations/:id/status", requireAdminAuth, async (req: Request, res: Response) => {
     try {
       const { status, reviewNotes } = req.body;
       if (!status) return res.status(400).json({ message: "Status is required" });
@@ -4335,7 +4452,7 @@ export async function registerRoutes(
   });
 
   // ── Team Task Board ───────────────────────────────────────────────────────────
-  app.get("/api/tasks", requireAuth, async (_req, res) => {
+  app.get("/api/tasks", requireModule("tasks"), async (_req, res) => {
     try {
       const tasks = await storage.getTeamTasks();
       res.json(tasks);
@@ -4344,7 +4461,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/tasks", requireAuth, async (req, res) => {
+  app.post("/api/tasks", requireModule("tasks"), async (req, res) => {
     try {
       const { title, description, priority, status, assignee, dueDate, createdBy } = req.body;
       if (!title) return res.status(400).json({ message: "Title is required" });
@@ -4363,7 +4480,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
+  app.patch("/api/tasks/:id", requireModule("tasks"), async (req, res) => {
     try {
       const prev = await storage.getTeamTaskById(req.params.id);
       const task = await storage.updateTeamTask(req.params.id, req.body);
@@ -4383,7 +4500,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/tasks/:id", requireAuth, async (req, res) => {
+  app.delete("/api/tasks/:id", requireModule("tasks"), async (req, res) => {
     try {
       await storage.deleteTeamTask(req.params.id);
       res.json({ success: true });
@@ -4392,7 +4509,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/tasks/:id/updates", requireAuth, async (req, res) => {
+  app.get("/api/tasks/:id/updates", requireModule("tasks"), async (req, res) => {
     try {
       const updates = await storage.getTaskUpdates(req.params.id);
       res.json(updates);
@@ -4401,7 +4518,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/tasks/:id/updates", requireAuth, async (req, res) => {
+  app.post("/api/tasks/:id/updates", requireModule("tasks"), async (req, res) => {
     try {
       const { author, text } = req.body;
       if (!text) return res.status(400).json({ message: "Text is required" });
