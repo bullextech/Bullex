@@ -38,6 +38,7 @@ import RegistrationsAdmin from "@/pages/registrations-admin";
 import HumanResources from "@/pages/human-resources";
 import TeamMembers from "@/pages/team-members";
 import TeamKYC from "@/pages/team-kyc";
+import InvestorDeck from "@/pages/investor-deck";
 import DatabaseBackup from "@/pages/database-backup";
 import TaskBoard from "@/pages/task-board";
 import TeamPortal from "@/pages/team-portal";
@@ -193,6 +194,7 @@ function App() {
   const [isRegister] = useRoute("/register");
   const [isTeamReset] = useRoute("/team-reset/:token");
   const [isClientSetup] = useRoute("/client-setup/:token");
+  const [isDeck] = useRoute("/deck");
 
   return (
     <ThemeProvider>
@@ -218,6 +220,8 @@ function App() {
                 <TeamReset />
               ) : isClientSetup ? (
                 <ClientSetup />
+              ) : isDeck ? (
+                <InvestorDeck />
               ) : (
                 <AppShell />
               )}

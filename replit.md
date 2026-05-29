@@ -130,6 +130,7 @@ Approved Participants section with category & products badges
 ## Standalone Routes (outside app shell)
 - `/kyc-register` - Standalone client KYC registration (no sidebar/nav)
 - `/client-portal` - Client portal with own auth system (no sidebar/nav)
+- `/deck` - Investor deck: full-screen 13-slide presentation (client/src/pages/investor-deck.tsx). "Ledger" concept (each slide framed as a blockchain BLOCK NN/13). Dark institutional navy theme (#0a1628) with burgundy/blue/gold accents. Keyboard nav (arrows/space/Home/End, F=fullscreen, P=print), click zones, dot nav, framer-motion transitions. "Save PDF" button triggers print; hidden print-only container renders all slides stacked at 1280x720 page size. Content: Cover, Problem, Solution, How It Works, Platform modules, Commodities, Tokenisation (BFG-20), Revenue model, Market opportunity, Why Now, Use of Funds, The Ask, Contact.
 
 ## Project Structure
 ```
