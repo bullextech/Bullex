@@ -334,14 +334,18 @@ export async function registerRoutes(
         out.push({ id: `team:${t.username}`, name: t.name || t.username, role: "team", subtitle: t.department || t.position || "Team Member" });
       }
     } catch {}
-    try {
-      const kycRows = await storage.getKycApplications();
-      for (const k of kycRows) {
-        if (k.status === "approved" && k.clientUsername) {
-          out.push({ id: `client:${k.id}`, name: k.companyName, role: "client", subtitle: k.contactName || "Client" });
+    // Clients must only see Bullex staff (admin + team), never other clients.
+    // Only admin and team members may see the full client directory.
+    if (me.role === "admin" || me.role === "team") {
+      try {
+        const kycRows = await storage.getKycApplications();
+        for (const k of kycRows) {
+          if (k.status === "approved" && k.clientUsername) {
+            out.push({ id: `client:${k.id}`, name: k.companyName, role: "client", subtitle: k.contactName || "Client" });
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
     res.json(out.filter((u) => u.id !== me.id));
   });
 

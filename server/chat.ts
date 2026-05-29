@@ -7,12 +7,9 @@ function isAllowedOrigin(origin: string | undefined, hostHeader: string | undefi
   if (!origin) return true; // non-browser clients / same-origin without Origin header
   try {
     const u = new URL(origin);
-    // Same host as the request → allow
+    // Only allow the exact same host as the server request (same-origin)
     if (hostHeader && u.host === hostHeader) return true;
-    // Replit-hosted dev/prod domains
-    if (u.hostname.endsWith(".replit.dev")) return true;
-    if (u.hostname.endsWith(".replit.app")) return true;
-    if (u.hostname.endsWith(".repl.co")) return true;
+    // Allow localhost for local development
     if (u.hostname === "localhost" || u.hostname === "127.0.0.1") return true;
     return false;
   } catch {
