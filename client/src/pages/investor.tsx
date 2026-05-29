@@ -306,6 +306,17 @@ export default function Investor() {
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </Link>
+              <a href="/deck" target="_blank" rel="noopener noreferrer">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="font-medium border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
+                  data-testid="button-investor-deck"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  View Investor Deck
+                </Button>
+              </a>
               <Link href="/contact">
                 <Button
                   variant="outline"
