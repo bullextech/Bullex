@@ -155,8 +155,10 @@ function MobileSidebarSheet() {
 function AppShell() {
   const { authenticated } = useAuth();
   return (
-    <div className="flex flex-col h-screen w-full">
-      <TopNavbar />
+    <div className="flex flex-col app-shell w-full safe-x">
+      <div className="safe-top bg-background/95 flex-shrink-0">
+        <TopNavbar />
+      </div>
       <div className="flex flex-1 overflow-hidden">
         {authenticated && (
           <>
@@ -170,7 +172,7 @@ function AppShell() {
           <div className="flex-1 overflow-hidden">
             <Router />
           </div>
-          <footer className="border-t border-border bg-muted/30 px-4 py-2 text-center flex-shrink-0">
+          <footer className="border-t border-border bg-muted/30 px-4 py-2 text-center flex-shrink-0 safe-bottom">
             <p className="text-[10px] text-muted-foreground font-bold" data-testid="text-global-footer">
               Bullex is a proprietary platform of Bullfrog Group.
             </p>
