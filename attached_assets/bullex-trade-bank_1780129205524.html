@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bullex Trade Bank</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --white:#ffffff;
+  --off:#F7F6F3;
+  --off2:#EEEDE8;
+  --off3:#E4E2DB;
+  --border:#DDDBD3;
+  --border2:#C8C5BC;
+  --text:#1A1916;
+  --muted:#6B6860;
+  --hint:#A09D95;
+  --gold:#B8882A;
+  --gold-bg:#FDF5E6;
+  --gold-mid:#E6B84A;
+  --gold-dk:#7A5A18;
+  --teal:#1A7F5E;
+  --teal-bg:#EAF6F1;
+  --teal-dk:#0E5240;
+  --coral:#C24B2A;
+  --coral-bg:#FBF0EC;
+  --blue:#2A6AB8;
+  --blue-bg:#EBF2FB;
+  --amber:#B87028;
+  --amber-bg:#FDF2E4;
+  --sidebar-w:240px;
+  --topbar-h:58px;
+  --radius:8px;
+  --radius-lg:12px;
+  --shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 12px rgba(0,0,0,0.04);
+  --shadow-md:0 2px 8px rgba(0,0,0,0.09),0 8px 24px rgba(0,0,0,0.06);
+}
+html,body{height:100%;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:var(--off);overflow:hidden}
+
+/* ── TOPBAR ── */
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);background:var(--white);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;z-index:100;box-shadow:0 1px 0 var(--border)}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;min-width:var(--sidebar-w);padding-right:24px;border-right:1px solid var(--border)}
+.logo-mark{width:34px;height:34px;border-radius:9px;background:var(--text);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-mark span{font-family:'DM Serif Display',serif;font-size:18px;color:var(--gold-mid);letter-spacing:-0.02em}
+.logo-text{display:flex;flex-direction:column;line-height:1.1}
+.logo-name{font-size:14px;font-weight:600;color:var(--text);letter-spacing:0.02em}
+.logo-sub{font-size:9px;color:var(--hint);letter-spacing:0.1em;text-transform:uppercase}
+.topbar-center{flex:1;display:flex;align-items:center;gap:8px;max-width:420px}
+.search-wrap{position:relative;flex:1}
+.search-wrap input{width:100%;padding:7px 12px 7px 34px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--off);color:var(--text);outline:none;transition:all 0.15s}
+.search-wrap input:focus{border-color:var(--border2);background:var(--white);box-shadow:0 0 0 3px rgba(184,136,42,0.1)}
+.search-wrap i{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--hint)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:6px}
+.icon-btn{width:34px;height:34px;border:1px solid var(--border);border-radius:var(--radius);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:14px;transition:all 0.15s;position:relative}
+.icon-btn:hover{background:var(--off);border-color:var(--border2);color:var(--text)}
+.notif-badge{position:absolute;top:6px;right:6px;width:7px;height:7px;background:var(--coral);border-radius:50%;border:1.5px solid var(--white)}
+.avatar-btn{width:34px;height:34px;border-radius:50%;background:var(--text);color:var(--gold-mid);font-size:12px;font-weight:600;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
+
+/* ── SIDEBAR ── */
+.sidebar{position:fixed;top:var(--topbar-h);left:0;bottom:0;width:var(--sidebar-w);background:var(--white);border-right:1px solid var(--border);overflow-y:auto;z-index:90;padding:16px 0 24px}
+.sidebar::-webkit-scrollbar{width:4px}
+.sidebar::-webkit-scrollbar-track{background:transparent}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.nav-section{padding:8px 16px 4px;font-size:10px;font-weight:600;color:var(--hint);letter-spacing:0.1em;text-transform:uppercase;margin-top:8px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:400;color:var(--muted);border-left:2px solid transparent;transition:all 0.12s;border-radius:0;text-decoration:none}
+.nav-item:hover{background:var(--off);color:var(--text)}
+.nav-item.active{color:var(--gold);border-left-color:var(--gold);background:var(--gold-bg);font-weight:500}
+.nav-item i{width:16px;text-align:center;font-size:14px;flex-shrink:0}
+.nav-item .nav-badge{margin-left:auto;font-size:10px;background:var(--coral-bg);color:var(--coral);padding:1px 7px;border-radius:10px;font-weight:500}
+.nav-item .nav-badge.green{background:var(--teal-bg);color:var(--teal)}
+
+/* ── MAIN ── */
+.main{position:fixed;top:var(--topbar-h);left:var(--sidebar-w);right:0;bottom:0;overflow-y:auto;background:var(--off)}
+.main::-webkit-scrollbar{width:6px}
+.main::-webkit-scrollbar-track{background:transparent}
+.main::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.page{display:none;padding:24px;animation:fadeIn 0.2s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── SHARED COMPONENTS ── */
+.page-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+.page-hdr-left h1{font-family:'DM Serif Display',serif;font-size:22px;font-weight:400;color:var(--text);letter-spacing:-0.01em}
+.page-hdr-left p{font-size:13px;color:var(--muted);margin-top:2px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;border:1px solid transparent;text-decoration:none}
+.btn-primary{background:var(--text);color:var(--gold-mid);border-color:var(--text)}
+.btn-primary:hover{background:#2e2c28}
+.btn-gold{background:var(--gold);color:var(--white);border-color:var(--gold)}
+.btn-gold:hover{background:var(--gold-dk)}
+.btn-outline{background:var(--white);color:var(--text);border-color:var(--border)}
+.btn-outline:hover{border-color:var(--border2);background:var(--off)}
+.btn-sm{padding:5px 12px;font-size:12px}
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow)}
+.card-pad{padding:18px 20px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.section-title{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px}
+
+/* STATUS BADGES */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.badge-approved{background:var(--teal-bg);color:var(--teal-dk)}.badge-approved::before{background:var(--teal)}
+.badge-review{background:var(--amber-bg);color:var(--amber)}.badge-review::before{background:var(--amber)}
+.badge-risk{background:var(--coral-bg);color:var(--coral)}.badge-risk::before{background:var(--coral)}
+.badge-processing{background:var(--blue-bg);color:var(--blue)}.badge-processing::before{background:var(--blue)}
+.badge-pending{background:var(--off2);color:var(--muted)}.badge-pending::before{background:var(--hint)}
+
+/* KPI CARDS */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.kpi-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow)}
+.kpi-label{font-size:11px;color:var(--muted);font-weight:500;letter-spacing:0.03em;margin-bottom:6px}
+.kpi-val{font-size:26px;font-weight:300;color:var(--text);letter-spacing:-0.02em;font-family:'DM Serif Display',serif}
+.kpi-val.gold{color:var(--gold)}
+.kpi-val.teal{color:var(--teal)}
+.kpi-val.coral{color:var(--coral)}
+.kpi-change{font-size:11px;margin-top:4px;display:flex;align-items:center;gap:4px}
+.kpi-change.up{color:var(--teal)}.kpi-change.down{color:var(--coral)}
+
+/* TABLES */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:0.07em;text-transform:uppercase;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);background:var(--off);white-space:nowrap}
+td{padding:11px 14px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--off)}
+.tbl-name{display:flex;align-items:center;gap:10px}
+.avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
+.tbl-sub{font-size:11px;color:var(--hint);margin-top:1px}
+.rating{font-weight:600;color:var(--gold)}
+
+/* PROGRESS BARS */
+.prog-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.prog-label{font-size:12px;color:var(--muted);min-width:130px}
+.prog-track{flex:1;height:5px;background:var(--off2);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width 0.6s ease}
+.prog-val{font-size:12px;font-weight:500;min-width:36px;text-align:right;color:var(--text)}
+
+/* ──────────────────────────────────────────
+   PAGE 1: DASHBOARD
+──────────────────────────────────────────── */
+.dash-widgets{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.trade-row-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px}
+.trade-row-item:last-child{border-bottom:none}
+.trade-id{font-weight:600;font-size:12px;min-width:72px;font-family:'DM Serif Display',serif;color:var(--gold-dk)}
+.trade-comm{flex:1;color:var(--muted)}
+.trade-amt{font-size:12px;font-weight:500;min-width:80px;text-align:right}
+.world-map-ph{background:var(--off);border-radius:var(--radius);padding:20px;text-align:center;min-height:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px dashed var(--border2)}
+.alerts-list .alert-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);align-items:flex-start}
+.alerts-list .alert-item:last-child{border-bottom:none}
+.alert-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.alert-text{font-size:13px;line-height:1.4}
+.alert-time{font-size:11px;color:var(--hint);margin-top:2px}
+.sparkline{display:flex;align-items:flex-end;gap:3px;height:40px;margin-top:8px}
+.spark-bar{flex:1;border-radius:2px 2px 0 0;background:var(--gold-bg);min-width:6px;transition:height 0.4s ease}
+.spark-bar:hover{background:var(--gold-mid)}
+
+/* ──────────────────────────────────────────
+   PAGE 2: TRADE SUBMISSION WIZARD
+──────────────────────────────────────────── */
+.wizard-layout{display:grid;grid-template-columns:220px 1fr;gap:20px}
+.wizard-steps{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;height:fit-content;box-shadow:var(--shadow)}
+.ws-item{display:flex;align-items:flex-start;gap:12px;padding:10px 0;position:relative}
+.ws-item:not(:last-child)::after{content:'';position:absolute;left:14px;top:32px;bottom:0;width:1px;background:var(--border)}
+.ws-num{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--hint);flex-shrink:0;background:var(--white);z-index:1}
+.ws-num.done{background:var(--teal);border-color:var(--teal);color:var(--white)}
+.ws-num.active{background:var(--text);border-color:var(--text);color:var(--gold-mid)}
+.ws-label{font-size:12px;font-weight:500;color:var(--muted);padding-top:5px}
+.ws-label.active{color:var(--text)}
+.wizard-form{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow)}
+.form-section{margin-bottom:20px}
+.form-section-title{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.field-row{display:grid;gap:12px;margin-bottom:12px}
+.field-row.cols-2{grid-template-columns:1fr 1fr}
+.field-row.cols-3{grid-template-columns:1fr 1fr 1fr}
+.field-label{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;letter-spacing:0.03em;display:block}
+.field-wrap input,.field-wrap select,.field-wrap textarea{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);background:var(--white);outline:none;transition:all 0.15s}
+.field-wrap input:focus,.field-wrap select:focus,.field-wrap textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(184,136,42,0.1)}
+.field-wrap textarea{min-height:80px;resize:vertical}
+.field-wrap select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B6860' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.form-actions{display:flex;justify-content:space-between;align-items:center;padding-top:16px;border-top:1px solid var(--border);margin-top:4px}
+.participant-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.p-chip{display:inline-flex;align-items:center;gap:6px;background:var(--off);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:12px}
+.p-chip i{color:var(--muted);font-size:11px;cursor:pointer}
+.p-chip i:hover{color:var(--coral)}
+.finance-summary{background:var(--off);border-radius:var(--radius);padding:14px;margin-top:12px}
+.fs-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--border)}
+.fs-row:last-child{border-bottom:none;font-weight:600;font-size:14px;padding-top:8px}
+
+/* ──────────────────────────────────────────
+   PAGE 3: RISK ENGINE
+──────────────────────────────────────────── */
+.risk-header-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow);margin-bottom:16px;display:flex;gap:20px;align-items:flex-start}
+.risk-score-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0}
+.risk-dial{width:90px;height:90px;position:relative}
+.risk-dial svg{width:100%;height:100%}
+.risk-score-label{font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase}
+.risk-meta{flex:1}
+.risk-meta h2{font-family:'DM Serif Display',serif;font-size:18px;font-weight:400;margin-bottom:4px}
+.risk-meta p{font-size:12px;color:var(--muted);margin-bottom:10px}
+.risk-tags{display:flex;flex-wrap:wrap;gap:6px}
+.risk-tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid}
+.risk-tag.ok{background:var(--teal-bg);color:var(--teal-dk);border-color:#9FE1CB}
+.risk-tag.warn{background:var(--amber-bg);color:var(--amber);border-color:#FAC775}
+.risk-tag.bad{background:var(--coral-bg);color:var(--coral);border-color:#F5C4B3}
+.risk-grid-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.risk-col-full{grid-column:span 2}
+.timeline{padding-left:20px;position:relative}
+.timeline::before{content:'';position:absolute;left:7px;top:8px;bottom:8px;width:1px;background:var(--border)}
+.tl-item{position:relative;margin-bottom:14px}
+.tl-dot{position:absolute;left:-20px;top:3px;width:10px;height:10px;border-radius:50%;border:2px solid var(--border);background:var(--white)}
+.tl-dot.done{background:var(--teal);border-color:var(--teal)}
+.tl-dot.active{background:var(--gold);border-color:var(--gold)}
+.tl-dot.pending{background:var(--white);border-color:var(--border2)}
+.tl-time{font-size:10px;color:var(--hint);margin-bottom:2px}
+.tl-text{font-size:12px;color:var(--text);line-height:1.4}
+.finance-struct-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.finance-struct-row:last-child{border-bottom:none}
+.finance-struct-row .key{color:var(--muted)}
+.finance-struct-row .val{font-weight:500}
+.gauge-dial-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center}
+
+/* ──────────────────────────────────────────
+   PAGE 4: PARTICIPANTS
+──────────────────────────────────────────── */
+.filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.filter-chip{font-size:12px;padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:var(--white);color:var(--muted);cursor:pointer;transition:all 0.12s;font-family:'DM Sans',sans-serif}
+.filter-chip:hover{border-color:var(--border2);color:var(--text)}
+.filter-chip.active{background:var(--text);color:var(--gold-mid);border-color:var(--text);font-weight:500}
+.part-card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+.part-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow);cursor:pointer;transition:all 0.15s}
+.part-card:hover{border-color:var(--gold);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.part-card-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.part-avatar{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+.part-name{font-size:14px;font-weight:600;line-height:1.2}
+.part-role-tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;margin-top:4px;font-weight:500}
+.part-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;border-top:1px solid var(--border);padding-top:12px}
+.part-stat-label{font-size:10px;color:var(--hint);margin-bottom:2px}
+.part-stat-val{font-size:14px;font-weight:600;font-family:'DM Serif Display',serif}
+
+/* ──────────────────────────────────────────
+   PAGE 5: ANALYTICS
+──────────────────────────────────────────── */
+.an-chart-bar{display:flex;align-items:flex-end;gap:6px;height:120px;padding:0 4px}
+.an-bar-group{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.an-bar{width:100%;border-radius:3px 3px 0 0;transition:all 0.5s ease;cursor:pointer;min-height:4px}
+.an-bar:hover{filter:brightness(0.9)}
+.an-bar-label{font-size:10px;color:var(--hint);text-align:center;white-space:nowrap}
+.donut-wrap{display:flex;gap:16px;align-items:center}
+.donut-legend{flex:1}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.legend-pct{margin-left:auto;font-weight:600;font-size:12px}
+.heat-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.heat-cell{aspect-ratio:1;border-radius:3px;cursor:pointer;transition:opacity 0.15s}
+.heat-cell:hover{opacity:0.7}
+
+/* ──────────────────────────────────────────
+   PAGE 6: DOCUMENTS
+──────────────────────────────────────────── */
+.doc-layout{display:grid;grid-template-columns:1fr 320px;gap:16px}
+.doc-toolbar{display:flex;gap:8px;margin-bottom:14px;align-items:center}
+.doc-search{flex:1;position:relative}
+.doc-search input{width:100%;padding:7px 12px 7px 32px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;background:var(--white)}
+.doc-search input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(184,136,42,0.1)}
+.doc-search i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--hint);font-size:13px}
+.doc-list .doc-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s}
+.doc-row:last-child{border-bottom:none}
+.doc-row:hover{background:var(--off)}
+.doc-row.selected{background:var(--gold-bg);border-left:2px solid var(--gold)}
+.doc-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.doc-icon.pdf{background:#FBEAF0;color:#993556}
+.doc-icon.xls{background:var(--teal-bg);color:var(--teal-dk)}
+.doc-icon.img{background:var(--blue-bg);color:var(--blue)}
+.doc-icon.txt{background:var(--off2);color:var(--muted)}
+.doc-name{font-size:13px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.doc-meta{font-size:11px;color:var(--hint);white-space:nowrap}
+.doc-preview{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow);height:fit-content}
+.doc-preview-ph{background:var(--off);border-radius:var(--radius);padding:30px;text-align:center;margin-bottom:14px}
+.doc-actions{display:flex;gap:6px;flex-wrap:wrap}
+.upload-zone{border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:28px;text-align:center;margin-bottom:14px;cursor:pointer;transition:all 0.15s}
+.upload-zone:hover{border-color:var(--gold);background:var(--gold-bg)}
+.upload-zone i{font-size:28px;color:var(--hint);margin-bottom:8px;display:block}
+
+/* ──────────────────────────────────────────
+   PAGE 7: NOTIFICATIONS
+──────────────────────────────────────────── */
+.notif-layout{display:grid;grid-template-columns:1fr 300px;gap:16px}
+.notif-filters{margin-bottom:14px;display:flex;gap:6px}
+.notif-item{display:flex;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border);transition:background 0.1s;cursor:pointer;align-items:flex-start}
+.notif-item:last-child{border-bottom:none}
+.notif-item:hover{background:var(--off)}
+.notif-item.unread{background:var(--gold-bg)}
+.notif-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;margin-top:2px}
+.notif-content{flex:1}
+.notif-title{font-size:13px;font-weight:500;margin-bottom:3px}
+.notif-body{font-size:12px;color:var(--muted);line-height:1.4}
+.notif-time{font-size:11px;color:var(--hint);margin-top:4px}
+.notif-unread-dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex-shrink:0;margin-top:6px}
+.summary-stat{text-align:center;padding:12px;background:var(--off);border-radius:var(--radius);flex:1}
+.summary-stat .val{font-size:22px;font-weight:400;font-family:'DM Serif Display',serif;color:var(--text)}
+.summary-stat .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px}
+.summary-row{display:flex;gap:8px;margin-bottom:14px}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <a class="logo" href="#" onclick="navigate('dashboard');return false;">
+    <div class="logo-mark"><span>B</span></div>
+    <div class="logo-text">
+      <span class="logo-name">BULLEX</span>
+      <span class="logo-sub">Trade Bank</span>
+    </div>
+  </a>
+  <div class="topbar-center">
+    <div class="search-wrap">
+      <i class="fa-regular fa-magnifying-glass"></i>
+      <input type="text" placeholder="Search trades, participants, documents…">
+    </div>
+  </div>
+  <div class="topbar-right">
+    <button class="icon-btn" onclick="navigate('notifications')" title="Notifications">
+      <i class="fa-regular fa-bell"></i>
+      <span class="notif-badge"></span>
+    </button>
+    <button class="icon-btn" title="Messages"><i class="fa-regular fa-envelope"></i></button>
+    <button class="icon-btn" title="Help"><i class="fa-regular fa-circle-question"></i></button>
+    <button class="avatar-btn" title="Profile">AK</button>
+  </div>
+</header>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="nav-section">Main</div>
+  <a class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard');return false;" href="#">
+    <i class="fa-regular fa-grid-2"></i> Dashboard
+  </a>
+  <a class="nav-item" id="nav-submit" onclick="navigate('submit');return false;" href="#">
+    <i class="fa-regular fa-file-plus"></i> New Trade
+  </a>
+  <a class="nav-item" id="nav-risk" onclick="navigate('risk');return false;" href="#">
+    <i class="fa-regular fa-shield-halved"></i> Risk Engine
+    <span class="nav-badge">9</span>
+  </a>
+  <div class="nav-section">Operations</div>
+  <a class="nav-item" id="nav-participants" onclick="navigate('participants');return false;" href="#">
+    <i class="fa-regular fa-users"></i> Participants
+  </a>
+  <a class="nav-item" id="nav-analytics" onclick="navigate('analytics');return false;" href="#">
+    <i class="fa-regular fa-chart-mixed"></i> Analytics
+  </a>
+  <a class="nav-item" id="nav-documents" onclick="navigate('documents');return false;" href="#">
+    <i class="fa-regular fa-folder-open"></i> Documents
+    <span class="nav-badge green">3</span>
+  </a>
+  <a class="nav-item" id="nav-notifications" onclick="navigate('notifications');return false;" href="#">
+    <i class="fa-regular fa-bell"></i> Notifications
+    <span class="nav-badge">7</span>
+  </a>
+  <div class="nav-section">Finance</div>
+  <a class="nav-item" href="#">
+    <i class="fa-regular fa-file-contract"></i> Letters of Credit
+  </a>
+  <a class="nav-item" href="#">
+    <i class="fa-regular fa-shield-check"></i> Guarantees
+  </a>
+  <a class="nav-item" href="#">
+    <i class="fa-regular fa-arrows-rotate"></i> Forfaiting
+  </a>
+  <div class="nav-section">Account</div>
+  <a class="nav-item" href="#">
+    <i class="fa-regular fa-gear"></i> Settings
+  </a>
+  <a class="nav-item" href="#">
+    <i class="fa-regular fa-circle-question"></i> Support
+  </a>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- ── PAGE: DASHBOARD ── -->
+<div class="page active" id="page-dashboard">
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <h1>Portfolio Overview</h1>
+      <p>Wednesday, 28 May 2026 &nbsp;·&nbsp; Active monitoring across 134 trades</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline btn-sm"><i class="fa-regular fa-arrow-down-to-bracket"></i> Export</button>
+      <button class="btn btn-primary btn-sm" onclick="navigate('submit')"><i class="fa-regular fa-plus"></i> New Trade</button>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Total Finance Volume</div>
+      <div class="kpi-val gold">$48.2M</div>
+      <div class="kpi-change up"><i class="fa-solid fa-arrow-trend-up" style="font-size:10px"></i> 12% this quarter</div>
+      <div class="sparkline" id="spark1"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Active Trades</div>
+      <div class="kpi-val teal">134</div>
+      <div class="kpi-change up"><i class="fa-solid fa-arrow-trend-up" style="font-size:10px"></i> 8 new this week</div>
+      <div class="sparkline" id="spark2"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Approval Rate</div>
+      <div class="kpi-val">76%</div>
+      <div class="kpi-change up"><i class="fa-solid fa-arrow-trend-up" style="font-size:10px"></i> +3pts vs last month</div>
+      <div class="sparkline" id="spark3"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">At-Risk Trades</div>
+      <div class="kpi-val coral">9</div>
+      <div class="kpi-change down"><i class="fa-solid fa-arrow-trend-up" style="font-size:10px"></i> 2 flagged today</div>
+      <div class="sparkline" id="spark4"></div>
+    </div>
+  </div>
+
+  <div class="dash-widgets">
+    <div class="card card-pad">
+      <div class="section-title">Recent Trade Activity</div>
+      <div class="trade-row-item">
+        <span class="trade-id">TRD-2841</span>
+        <span class="trade-comm">Cocoa Beans — Ghana → Netherlands</span>
+        <span class="trade-amt">$1.2M</span>
+        <span class="badge badge-approved">Approved</span>
+      </div>
+      <div class="trade-row-item">
+        <span class="trade-id">TRD-2840</span>
+        <span class="trade-comm">Soybeans — Brazil → China</span>
+        <span class="trade-amt">$3.4M</span>
+        <span class="badge badge-review">Under Review</span>
+      </div>
+      <div class="trade-row-item">
+        <span class="trade-id">TRD-2839</span>
+        <span class="trade-comm">Crude Oil — Nigeria → Germany</span>
+        <span class="trade-amt">$8.7M</span>
+        <span class="badge badge-processing">Processing</span>
+      </div>
+      <div class="trade-row-item">
+        <span class="trade-id">TRD-2838</span>
+        <span class="trade-comm">Cotton — India → Turkey</span>
+        <span class="trade-amt">$0.9M</span>
+        <span class="badge badge-approved">Approved</span>
+      </div>
+      <div class="trade-row-item">
+        <span class="trade-id">TRD-2837</span>
+        <span class="trade-comm">Palm Oil — Malaysia → Pakistan</span>
+        <span class="trade-amt">$2.1M</span>
+        <span class="badge badge-risk">Risk Flag</span>
+      </div>
+      <div class="trade-row-item">
+        <span class="trade-id">TRD-2836</span>
+        <span class="trade-comm">Coffee — Ethiopia → Italy</span>
+        <span class="trade-amt">$1.6M</span>
+        <span class="badge badge-approved">Approved</span>
+      </div>
+    </div>
+
+    <div class="card card-pad">
+      <div class="section-title">Live Alerts</div>
+      <div class="alerts-list">
+        <div class="alert-item">
+          <div class="alert-dot" style="background:var(--coral)"></div>
+          <div>
+            <div class="alert-text">TRD-2837 — Price volatility alert on Palm Oil (MY). Spot price -6.2% in 48h.</div>
+            <div class="alert-time">14:32 · Risk Engine</div>
+          </div>
+        </div>
+        <div class="alert-item">
+          <div class="alert-dot" style="background:var(--amber)"></div>
+          <div>
+            <div class="alert-text">TRD-2840 — Counterparty KYC renewal due within 7 days.</div>
+            <div class="alert-time">12:10 · Compliance</div>
+          </div>
+        </div>
+        <div class="alert-item">
+          <div class="alert-dot" style="background:var(--teal)"></div>
+          <div>
+            <div class="alert-text">TRD-2841 — Bill of lading received and validated. Ready for LC release.</div>
+            <div class="alert-time">10:04 · Documents</div>
+          </div>
+        </div>
+        <div class="alert-item">
+          <div class="alert-dot" style="background:var(--blue)"></div>
+          <div>
+            <div class="alert-text">SGS Ghana QA report uploaded for TRD-2841. Quality grade: A.</div>
+            <div class="alert-time">09:18 · QA Agency</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card-pad">
+      <div class="section-title">Risk Distribution</div>
+      <div class="prog-row">
+        <span class="prog-label">Low Risk (0–35)</span>
+        <div class="prog-track"><div class="prog-fill" style="width:43%;background:var(--teal)"></div></div>
+        <span class="prog-val">58</span>
+      </div>
+      <div class="prog-row">
+        <span class="prog-label">Medium Risk (36–65)</span>
+        <div class="prog-track"><div class="prog-fill" style="width:50%;background:var(--gold)"></div></div>
+        <span class="prog-val">67</span>
+      </div>
+      <div class="prog-row">
+        <span class="prog-label">High Risk (66–100)</span>
+        <div class="prog-track"><div class="prog-fill" style="width:7%;background:var(--coral)"></div></div>
+        <span class="prog-val">9</span>
+      </div>
+      <div style="margin-top:16px">
+        <div class="section-title">Commodity Exposure</div>
+        <div class="prog-row"><span class="prog-label">Crude Oil</span><div class="prog-track"><div class="prog-fill" style="width:70%;background:var(--gold)"></div></div><span class="prog-val">$18.2M</span></div>
+        <div class="prog-row"><span class="prog-label">Soybeans</span><div class="prog-track"><div class="prog-fill" style="width:55%;background:#5DCAA5"></div></div><span class="prog-val">$14.1M</span></div>
+        <div class="prog-row"><span class="prog-label">Cocoa</span><div class="prog-track"><div class="prog-fill" style="width:38%;background:#85B7EB"></div></div><span class="prog-val">$9.8M</span></div>
+        <div class="prog-row"><span class="prog-label">Other</span><div class="prog-track"><div class="prog-fill" style="width:24%;background:var(--off3)"></div></div><span class="prog-val">$6.1M</span></div>
+      </div>
+    </div>
+
+    <div class="card card-pad">
+      <div class="section-title">Active Participants</div>
+      <div class="grid-3" style="gap:8px">
+        <div style="background:var(--off);border-radius:var(--radius);padding:12px;text-align:center">
+          <div style="font-size:20px;color:var(--gold);margin-bottom:4px"><i class="fa-regular fa-building-columns"></i></div>
+          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif">42</div>
+          <div style="font-size:10px;color:var(--muted)">Traders</div>
+        </div>
+        <div style="background:var(--off);border-radius:var(--radius);padding:12px;text-align:center">
+          <div style="font-size:20px;color:var(--teal);margin-bottom:4px"><i class="fa-regular fa-industry"></i></div>
+          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif">18</div>
+          <div style="font-size:10px;color:var(--muted)">Producers</div>
+        </div>
+        <div style="background:var(--off);border-radius:var(--radius);padding:12px;text-align:center">
+          <div style="font-size:20px;color:var(--blue);margin-bottom:4px"><i class="fa-regular fa-truck"></i></div>
+          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif">11</div>
+          <div style="font-size:10px;color:var(--muted)">Logistics</div>
+        </div>
+        <div style="background:var(--off);border-radius:var(--radius);padding:12px;text-align:center">
+          <div style="font-size:20px;color:var(--amber);margin-bottom:4px"><i class="fa-regular fa-handshake"></i></div>
+          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif">9</div>
+          <div style="font-size:10px;color:var(--muted)">Brokers</div>
+        </div>
+        <div style="background:var(--off);border-radius:var(--radius);padding:12px;text-align:center">
+          <div style="font-size:20px;color:var(--coral);margin-bottom:4px"><i class="fa-regular fa-flask"></i></div>
+          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif">7</div>
+          <div style="font-size:10px;color:var(--muted)">QA Agencies</div>
+        </div>
+        <div style="background:var(--off);border-radius:var(--radius);padding:12px;text-align:center">
+          <div style="font-size:20px;color:var(--muted);margin-bottom:4px"><i class="fa-regular fa-vault"></i></div>
+          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif">5</div>
+          <div style="font-size:10px;color:var(--muted)">Collateral</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PAGE: TRADE SUBMISSION ── -->
+<div class="page" id="page-submit">
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <h1>New Trade Application</h1>
+      <p>Complete all sections to initiate trade finance evaluation</p>
+    </div>
+    <button class="btn btn-outline btn-sm"><i class="fa-regular fa-floppy-disk"></i> Save Draft</button>
+  </div>
+  <div class="wizard-layout">
+    <div class="wizard-steps">
+      <div class="ws-item">
+        <div class="ws-num done"><i class="fa-solid fa-check" style="font-size:10px"></i></div>
+        <div class="ws-label">Role & Identity</div>
+      </div>
+      <div class="ws-item">
+        <div class="ws-num active">2</div>
+        <div class="ws-label active">Trade Information</div>
+      </div>
+      <div class="ws-item">
+        <div class="ws-num">3</div>
+        <div class="ws-label">Finance Request</div>
+      </div>
+      <div class="ws-item">
+        <div class="ws-num">4</div>
+        <div class="ws-label">Participants</div>
+      </div>
+      <div class="ws-item">
+        <div class="ws-num">5</div>
+        <div class="ws-label">Documents</div>
+      </div>
+      <div class="ws-item">
+        <div class="ws-num">6</div>
+        <div class="ws-label">Review & Submit</div>
+      </div>
+    </div>
+    <div class="wizard-form">
+      <div class="form-section">
+        <div class="form-section-title">Commodity Details</div>
+        <div class="field-row cols-3">
+          <div class="field-wrap">
+            <label class="field-label">Commodity Type</label>
+            <select><option>Cocoa Beans</option><option>Crude Oil</option><option>Soybeans</option><option>Cotton</option><option>Palm Oil</option><option>Coffee</option><option>Wheat</option><option>Natural Gas</option></select>
+          </div>
+          <div class="field-wrap">
+            <label class="field-label">Volume (Metric Tons)</label>
+            <input type="number" value="2400" placeholder="0">
+          </div>
+          <div class="field-wrap">
+            <label class="field-label">Quality Grade</label>
+            <select><option>Grade A (Premium)</option><option>Grade B (Standard)</option><option>Grade C (Below standard)</option></select>
+          </div>
+        </div>
+        <div class="field-row cols-2">
+          <div class="field-wrap">
+            <label class="field-label">Origin Country</label>
+            <select><option>Ghana</option><option>Nigeria</option><option>Brazil</option><option>India</option><option>Malaysia</option><option>Ethiopia</option><option>Indonesia</option></select>
+          </div>
+          <div class="field-wrap">
+            <label class="field-label">Destination Country</label>
+            <select><option>Netherlands</option><option>Germany</option><option>China</option><option>Turkey</option><option>Pakistan</option><option>Italy</option><option>United States</option></select>
+          </div>
+        </div>
+        <div class="field-row cols-2">
+          <div class="field-wrap">
+            <label class="field-label">Incoterms</label>
+            <select><option>CIF (Cost, Insurance, Freight)</option><option>FOB (Free on Board)</option><option>CFR (Cost & Freight)</option><option>EXW (Ex Works)</option><option>DDP (Delivered Duty Paid)</option></select>
+          </div>
+          <div class="field-wrap">
+            <label class="field-label">Shipment Date</label>
+            <input type="date" value="2026-06-15">
+          </div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Finance Request</div>
+        <div class="field-row cols-3">
+          <div class="field-wrap">
+            <label class="field-label">Finance Instrument</label>
+            <select><option>Letter of Credit (LC)</option><option>Invoice Financing</option><option>Forfaiting</option><option>Bank Guarantee</option><option>Supply Chain Finance</option></select>
+          </div>
+          <div class="field-wrap">
+            <label class="field-label">Amount (USD)</label>
+            <input type="text" value="$1,200,000" placeholder="$0">
+          </div>
+          <div class="field-wrap">
+            <label class="field-label">Tenor (Days)</label>
+            <input type="number" value="90" placeholder="e.g. 90">
+          </div>
+        </div>
+        <div class="finance-summary">
+          <div class="fs-row"><span style="color:var(--muted)">Requested amount</span><span>USD 1,200,000</span></div>
+          <div class="fs-row"><span style="color:var(--muted)">Estimated fee (1.8%)</span><span>USD 21,600</span></div>
+          <div class="fs-row"><span style="color:var(--muted)">Tenor</span><span>90 days</span></div>
+          <div class="fs-row"><span style="color:var(--muted)">Net finance disbursement</span><span style="color:var(--teal)">USD 1,178,400</span></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Trade Participants</div>
+        <div class="field-row cols-2">
+          <div class="field-wrap">
+            <label class="field-label">Seller / Supplier</label>
+            <input type="text" value="Ashanti Cocoa Cooperative" placeholder="Company name">
+          </div>
+          <div class="field-wrap">
+            <label class="field-label">Buyer</label>
+            <input type="text" value="Van Houten Trading BV" placeholder="Company name">
+          </div>
+        </div>
+        <label class="field-label">Supporting Participants</label>
+        <div class="participant-chips">
+          <span class="p-chip"><i class="fa-regular fa-truck"></i> Maersk Logistics <i class="fa-regular fa-xmark"></i></span>
+          <span class="p-chip"><i class="fa-regular fa-flask"></i> SGS Ghana QA <i class="fa-regular fa-xmark"></i></span>
+          <span class="p-chip"><i class="fa-regular fa-vault"></i> SafeStore Collateral <i class="fa-regular fa-xmark"></i></span>
+          <button class="btn btn-outline btn-sm" style="border-style:dashed"><i class="fa-regular fa-plus"></i> Add participant</button>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Trade Description</div>
+        <div class="field-wrap">
+          <textarea>2,400 MT grade-A cocoa beans purchased from certified cooperative in Ashanti region. CIF Rotterdam. Buyer: Van Houten Trading BV. Contract no. VH-2841-GH. Shipment via Tema Port on or before 15 June 2026. Quality certificate required from SGS Ghana prior to LC release.</textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-outline"><i class="fa-regular fa-arrow-left"></i> Previous</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline">Save & continue later</button>
+          <button class="btn btn-primary" onclick="navigate('risk')">Continue to Risk Review <i class="fa-regular fa-arrow-right"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PAGE: RISK ENGINE ── -->
+<div class="page" id="page-risk">
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <h1>Risk Evaluation Engine</h1>
+      <p>AI-driven risk assessment, mitigation tracking &amp; financing structure</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline btn-sm"><i class="fa-regular fa-print"></i> Risk Report</button>
+      <button class="btn btn-primary btn-sm"><i class="fa-regular fa-check"></i> Approve Conditional</button>
+    </div>
+  </div>
+
+  <div class="risk-header-card">
+    <div class="risk-score-wrap">
+      <div class="risk-dial">
+        <svg viewBox="0 0 90 90">
+          <circle cx="45" cy="45" r="36" fill="none" stroke="#EEEDE8" stroke-width="8"/>
+          <circle cx="45" cy="45" r="36" fill="none" stroke="#B8882A" stroke-width="8"
+            stroke-dasharray="141.4" stroke-dashoffset="51" stroke-linecap="round"
+            transform="rotate(-90 45 45)"/>
+          <text x="45" y="42" text-anchor="middle" font-family="'DM Serif Display',serif" font-size="20" fill="#1A1916">62</text>
+          <text x="45" y="54" text-anchor="middle" font-family="'DM Sans',sans-serif" font-size="7" fill="#6B6860">MODERATE</text>
+        </svg>
+      </div>
+      <div class="risk-score-label">Risk Score</div>
+    </div>
+    <div class="risk-meta">
+      <h2>TRD-2841 — Cocoa Beans, Ghana → Netherlands</h2>
+      <p>$1,200,000 · Letter of Credit · 90-day tenor · Submitted 28 May 2026 · AgroSource Ltd</p>
+      <div class="risk-tags">
+        <span class="risk-tag ok"><i class="fa-regular fa-check"></i> Verified KYC</span>
+        <span class="risk-tag ok"><i class="fa-regular fa-check"></i> Certified origin</span>
+        <span class="risk-tag ok"><i class="fa-regular fa-check"></i> Cargo lien approved</span>
+        <span class="risk-tag warn"><i class="fa-regular fa-triangle-exclamation"></i> FX exposure</span>
+        <span class="risk-tag warn"><i class="fa-regular fa-triangle-exclamation"></i> Seasonal volatility</span>
+        <span class="risk-tag bad"><i class="fa-regular fa-xmark"></i> Insurance pending</span>
+      </div>
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Recommendation</div>
+      <span class="badge badge-review" style="font-size:12px;padding:5px 14px">Conditional Approval</span>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px">Credit Committee</div>
+      <div style="font-size:12px;font-weight:500">Pending sign-off</div>
+    </div>
+  </div>
+
+  <div class="risk-grid-layout">
+    <div class="card card-pad">
+      <div class="section-title">Risk Dimensions</div>
+      <div class="prog-row"><span class="prog-label">Counterparty risk</span><div class="prog-track"><div class="prog-fill" style="width:35%;background:var(--teal)"></div></div><span class="prog-val" style="color:var(--teal)">35</span></div>
+      <div class="prog-row"><span class="prog-label">Country / political</span><div class="prog-track"><div class="prog-fill" style="width:48%;background:var(--gold)"></div></div><span class="prog-val" style="color:var(--gold)">48</span></div>
+      <div class="prog-row"><span class="prog-label">Commodity price</span><div class="prog-track"><div class="prog-fill" style="width:72%;background:var(--coral)"></div></div><span class="prog-val" style="color:var(--coral)">72</span></div>
+      <div class="prog-row"><span class="prog-label">FX / currency</span><div class="prog-track"><div class="prog-fill" style="width:61%;background:var(--gold)"></div></div><span class="prog-val" style="color:var(--gold)">61</span></div>
+      <div class="prog-row"><span class="prog-label">Logistics / transit</span><div class="prog-track"><div class="prog-fill" style="width:28%;background:var(--teal)"></div></div><span class="prog-val" style="color:var(--teal)">28</span></div>
+      <div class="prog-row"><span class="prog-label">Quality / compliance</span><div class="prog-track"><div class="prog-fill" style="width:40%;background:var(--teal)"></div></div><span class="prog-val" style="color:var(--teal)">40</span></div>
+      <div class="prog-row"><span class="prog-label">Documentation</span><div class="prog-track"><div class="prog-fill" style="width:22%;background:var(--teal)"></div></div><span class="prog-val" style="color:var(--teal)">22</span></div>
+      <div class="prog-row"><span class="prog-label">Collateral coverage</span><div class="prog-track"><div class="prog-fill" style="width:15%;background:var(--teal)"></div></div><span class="prog-val" style="color:var(--teal)">15</span></div>
+    </div>
+
+    <div class="card card-pad">
+      <div class="section-title">Mitigation Timeline</div>
+      <div class="timeline">
+        <div class="tl-item"><div class="tl-dot done"></div><div class="tl-time">28 May · 09:14</div><div class="tl-text">KYC verification passed — buyer &amp; seller</div></div>
+        <div class="tl-item"><div class="tl-dot done"></div><div class="tl-time">28 May · 10:02</div><div class="tl-text">Quality report requested from SGS Ghana</div></div>
+        <div class="tl-item"><div class="tl-dot done"></div><div class="tl-time">28 May · 11:30</div><div class="tl-text">Collateral manager assigned — 115% cargo lien approved</div></div>
+        <div class="tl-item"><div class="tl-dot active"></div><div class="tl-time">28 May · 14:00</div><div class="tl-text">FX hedge instrument recommended — awaiting trader confirmation</div></div>
+        <div class="tl-item"><div class="tl-dot pending"></div><div class="tl-time">Pending</div><div class="tl-text">Price protection clause to be added to LC terms</div></div>
+        <div class="tl-item"><div class="tl-dot pending"></div><div class="tl-time">Pending</div><div class="tl-text">Cargo insurance confirmation from Maersk Logistics</div></div>
+        <div class="tl-item"><div class="tl-dot pending"></div><div class="tl-time">Pending</div><div class="tl-text">Final credit committee sign-off</div></div>
+      </div>
+    </div>
+
+    <div class="card card-pad">
+      <div class="section-title">Finance Structure</div>
+      <div class="finance-struct-row"><span class="key">Facility type</span><span class="val">Documentary Letter of Credit</span></div>
+      <div class="finance-struct-row"><span class="key">Requested amount</span><span class="val">USD 1,200,000</span></div>
+      <div class="finance-struct-row"><span class="key">Tenor</span><span class="val">90 days</span></div>
+      <div class="finance-struct-row"><span class="key">Pricing</span><span class="val">SOFR + 3.2%</span></div>
+      <div class="finance-struct-row"><span class="key">Collateral coverage</span><span class="val" style="color:var(--teal)">115% — Cargo lien</span></div>
+      <div class="finance-struct-row"><span class="key">Shipment insurance</span><span class="val" style="color:var(--amber)">Pending confirmation</span></div>
+      <div class="finance-struct-row"><span class="key">FX hedge</span><span class="val" style="color:var(--amber)">Recommended (GHS/USD)</span></div>
+      <div class="finance-struct-row"><span class="key">LC issuing bank</span><span class="val">Standard Bank Ghana</span></div>
+      <div class="finance-struct-row"><span class="key">Confirming bank</span><span class="val">ING Bank Netherlands</span></div>
+      <div class="finance-struct-row"><span class="key">Status</span><span class="badge badge-review">Conditional</span></div>
+    </div>
+
+    <div class="card card-pad">
+      <div class="section-title">Involved Parties</div>
+      <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Applicant (Trader)</div>
+        <div style="font-size:14px;font-weight:600">AgroSource Ltd</div>
+        <div style="font-size:11px;color:var(--hint)">SME · Accra, Ghana · 4 prior trades · B+ rated</div>
+      </div>
+      <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Supplier / Producer</div>
+        <div style="font-size:14px;font-weight:600">Ashanti Cocoa Cooperative</div>
+        <div style="font-size:11px;color:var(--hint)">Certified origin · 28 verified shipments · A rated</div>
+      </div>
+      <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Buyer</div>
+        <div style="font-size:14px;font-weight:600">Van Houten Trading BV</div>
+        <div style="font-size:11px;color:var(--hint)">Netherlands · 38 prior trades · A+ rated</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Supporting Parties</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          <span class="risk-tag ok"><i class="fa-regular fa-truck"></i> Maersk Logistics</span>
+          <span class="risk-tag ok"><i class="fa-regular fa-flask"></i> SGS Ghana QA</span>
+          <span class="risk-tag warn"><i class="fa-regular fa-vault"></i> SafeStore Collateral</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PAGE: PARTICIPANTS ── -->
+<div class="page" id="page-participants">
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <h1>Platform Participants</h1>
+      <p>92 active participants across 8 roles and 24 countries</p>
+    </div>
+    <button class="btn btn-primary btn-sm"><i class="fa-regular fa-user-plus"></i> Onboard Participant</button>
+  </div>
+  <div class="filter-row">
+    <button class="filter-chip active" onclick="filterPart(this,'all')">All Participants</button>
+    <button class="filter-chip" onclick="filterPart(this,'trader')">Traders &amp; SMEs</button>
+    <button class="filter-chip" onclick="filterPart(this,'producer')">Producers</button>
+    <button class="filter-chip" onclick="filterPart(this,'broker')">Brokers</button>
+    <button class="filter-chip" onclick="filterPart(this,'logistics')">Logistics</button>
+    <button class="filter-chip" onclick="filterPart(this,'qa')">QA Agencies</button>
+    <button class="filter-chip" onclick="filterPart(this,'collateral')">Collateral Managers</button>
+    <button class="filter-chip" onclick="filterPart(this,'soe')">State Enterprises</button>
+  </div>
+  <div class="tbl-wrap card" style="margin-bottom:16px">
+    <table>
+      <thead>
+        <tr>
+          <th>Participant</th>
+          <th>Role</th>
+          <th>Country</th>
+          <th>Rating</th>
+          <th>Active Trades</th>
+          <th>Completed</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="part-tbody">
+        <tr data-role="trader"><td><div class="tbl-name"><div class="avatar" style="background:#E1F5EE;color:#0F6E56">AS</div><div><div>AgroSource Ltd</div><div class="tbl-sub">SME Trader · Accra</div></div></div></td><td><span class="badge badge-processing">Trader</span></td><td>Ghana</td><td class="rating">B+</td><td>4</td><td>12</td><td><span class="badge badge-approved">Active</span></td><td><button class="btn btn-outline btn-sm">View</button></td></tr>
+        <tr data-role="producer"><td><div class="tbl-name"><div class="avatar" style="background:#FAEEDA;color:#633806">AC</div><div><div>Ashanti Cocoa Coop</div><div class="tbl-sub">Commodity Producer</div></div></div></td><td><span class="badge badge-review">Producer</span></td><td>Ghana</td><td class="rating">A</td><td>0</td><td>28</td><td><span class="badge badge-approved">Active</span></td><td><button class="btn btn-outline btn-sm">View</button></td></tr>
+        <tr data-role="trader"><td><div class="tbl-name"><div class="avatar" style="background:#E6F1FB;color:#042C53">VH</div><div><div>Van Houten Trading BV</div><div class="tbl-sub">Trading House</div></div></div></td><td><span class="badge badge-processing">Trader</span></td><td>Netherlands</td><td class="rating">A+</td><td>3</td><td>38</td><td><span class="badge badge-approved">Active</span></td><td><button class="btn btn-outline btn-sm">View</button></td></tr>
+        <tr data-role="logistics"><td><div class="tbl-name"><div class="avatar" style="background:#EEEDFE;color:#3C3489">ML</div><div><div>Maersk Logistics</div><div class="tbl-sub">Freight Forwarder</div></div></div></td><td><span class="badge badge-approved">Logistics</span></td><td>Denmark</td><td class="rating">AA</td><td>9</td><td>104</td><td><span class="badge badge-approved">Active</span></td><td><button class="btn btn-outline btn-sm">View</button></td></tr>
+        <tr data-role="qa"><td><div class="tbl-name"><div class="avatar" style="background:#FAECE7;color:#4A1B0C">SG</div><div><div>SGS Ghana QA</div><div class="tbl-sub">Quality Inspector</div></div></div></td><td><span class="badge badge-risk">QA Agency</span></td><td>Ghana</td><td class="rating">A</td><td>6</td><td>52</td><td><span class="badge badge-approved">Active</span></td><td><button class="btn btn-outline btn-sm">View</button></td></tr>
+        <tr data-role="collateral"><td><div class="tbl-name"><div class="avatar" style="background:#EAF3DE;color:#27500A">SS</div><div><div>SafeStore Collateral</div><div class="tbl-sub">Collateral Manager</div></div></div></td><td><span class="badge badge-approved">Collateral</span></td><td>Switzerland</td><td class="rating">AAA</td><td>4</td><td>67</td><td><span class="badge badge-approved">Active</span></td><td><button class="btn btn-outline btn-sm">View</button></td></tr>
+        <tr data-role="broker"><td><div class="tbl-name"><div class="avatar" style="background:#FBEAF0;color:#4B1528">TG</div><div><div>TradeGlobe LLC</div><div class="tbl-sub">Trade Broker</div></div></div></td><td><span class="badge badge-review">Broker</span></td><td>UAE</td><td class="rating">B</td><td>2</td><td>19</td><td><span class="badge badge-review">Review</span></td><td><button class="btn btn-outline btn-sm">View</button></td></tr>
+        <tr data-role="soe"><td><div class="tbl-name"><div class="avatar" style="background:#E4E2DB;color:#1A1916">NC</div><div><div>NNPC Trading Ltd</div><div class="tbl-sub">State Enterprise</div></div></div></td><td><span class="badge badge-pending">SOE</span></td><td>Nigeria</td><td class="rating">AA-</td><td>7</td><td>44</td><td><span class="badge badge-approved">Active</span></td><td><button class="btn btn-outline btn-sm">View</button></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── PAGE: ANALYTICS ── -->
+<div class="page" id="page-analytics">
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <h1>Analytics &amp; Reports</h1>
+      <p>Year-to-date platform performance · January – May 2026</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <select style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--white);color:var(--text)">
+        <option>YTD 2026</option><option>Q1 2026</option><option>Q4 2025</option><option>Full Year 2025</option>
+      </select>
+      <button class="btn btn-outline btn-sm"><i class="fa-regular fa-arrow-down-to-bracket"></i> Export PDF</button>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">YTD Finance Volume</div><div class="kpi-val gold">$184M</div><div class="kpi-change up"><i class="fa-solid fa-arrow-trend-up" style="font-size:10px"></i> 22% vs 2025</div></div>
+    <div class="kpi-card"><div class="kpi-label">Trades Facilitated</div><div class="kpi-val teal">612</div><div class="kpi-change up"><i class="fa-solid fa-arrow-trend-up" style="font-size:10px"></i> 18% vs 2025</div></div>
+    <div class="kpi-card"><div class="kpi-label">Default Rate</div><div class="kpi-val">1.4%</div><div class="kpi-change up"><i class="fa-solid fa-arrow-trend-down" style="font-size:10px"></i> −0.3pts improvement</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg. Risk Score</div><div class="kpi-val coral">54</div><div class="kpi-change down"><i class="fa-solid fa-arrow-trend-up" style="font-size:10px"></i> +4pts (watch)</div></div>
+  </div>
+
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card card-pad">
+      <div class="section-title">Monthly Finance Volume (USD M)</div>
+      <div class="an-chart-bar" id="monthly-chart"></div>
+    </div>
+    <div class="card card-pad">
+      <div class="section-title">Finance by Instrument</div>
+      <div class="donut-wrap">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="36" fill="none" stroke="#EEEDE8" stroke-width="14"/>
+          <circle cx="50" cy="50" r="36" fill="none" stroke="#B8882A" stroke-width="14" stroke-dasharray="101 125" stroke-dashoffset="0" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="36" fill="none" stroke="#1A7F5E" stroke-width="14" stroke-dasharray="58 168" stroke-dashoffset="-101" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="36" fill="none" stroke="#2A6AB8" stroke-width="14" stroke-dasharray="38 188" stroke-dashoffset="-159" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="36" fill="none" stroke="#C8C5BC" stroke-width="14" stroke-dasharray="29 197" stroke-dashoffset="-197" transform="rotate(-90 50 50)"/>
+        </svg>
+        <div class="donut-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--gold)"></div>Letters of Credit<span class="legend-pct">46%</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div>Invoice Financing<span class="legend-pct">26%</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Forfaiting<span class="legend-pct">17%</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--border2)"></div>Bank Guarantee<span class="legend-pct">11%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card card-pad">
+      <div class="section-title">Finance by Commodity</div>
+      <div class="prog-row"><span class="prog-label">Crude Oil</span><div class="prog-track"><div class="prog-fill" style="width:74%;background:var(--gold)"></div></div><span class="prog-val">$52M</span></div>
+      <div class="prog-row"><span class="prog-label">Soybeans</span><div class="prog-track"><div class="prog-fill" style="width:58%;background:var(--teal)"></div></div><span class="prog-val">$41M</span></div>
+      <div class="prog-row"><span class="prog-label">Cocoa Beans</span><div class="prog-track"><div class="prog-fill" style="width:42%;background:#85B7EB"></div></div><span class="prog-val">$29M</span></div>
+      <div class="prog-row"><span class="prog-label">Cotton</span><div class="prog-track"><div class="prog-fill" style="width:31%;background:#9FE1CB"></div></div><span class="prog-val">$22M</span></div>
+      <div class="prog-row"><span class="prog-label">Palm Oil</span><div class="prog-track"><div class="prog-fill" style="width:23%;background:#FAC775"></div></div><span class="prog-val">$16M</span></div>
+      <div class="prog-row"><span class="prog-label">Other</span><div class="prog-track"><div class="prog-fill" style="width:34%;background:var(--off3)"></div></div><span class="prog-val">$24M</span></div>
+    </div>
+    <div class="card card-pad">
+      <div class="section-title">Risk Mitigation Outcomes</div>
+      <div class="prog-row"><span class="prog-label">Fully mitigated</span><div class="prog-track"><div class="prog-fill" style="width:55%;background:var(--teal)"></div></div><span class="prog-val">55%</span></div>
+      <div class="prog-row"><span class="prog-label">Partially mitigated</span><div class="prog-track"><div class="prog-fill" style="width:30%;background:var(--gold)"></div></div><span class="prog-val">30%</span></div>
+      <div class="prog-row"><span class="prog-label">Residual risk accepted</span><div class="prog-track"><div class="prog-fill" style="width:10%;background:var(--coral)"></div></div><span class="prog-val">10%</span></div>
+      <div class="prog-row"><span class="prog-label">Trade declined</span><div class="prog-track"><div class="prog-fill" style="width:5%;background:#F7C1C1"></div></div><span class="prog-val">5%</span></div>
+      <div style="margin-top:14px">
+        <div class="section-title">Top Origin Countries</div>
+        <div class="prog-row"><span class="prog-label">Nigeria</span><div class="prog-track"><div class="prog-fill" style="width:68%;background:var(--gold)"></div></div><span class="prog-val">148</span></div>
+        <div class="prog-row"><span class="prog-label">Brazil</span><div class="prog-track"><div class="prog-fill" style="width:52%;background:var(--teal)"></div></div><span class="prog-val">114</span></div>
+        <div class="prog-row"><span class="prog-label">Ghana</span><div class="prog-track"><div class="prog-fill" style="width:44%;background:#85B7EB"></div></div><span class="prog-val">96</span></div>
+        <div class="prog-row"><span class="prog-label">India</span><div class="prog-track"><div class="prog-fill" style="width:35%;background:#9FE1CB"></div></div><span class="prog-val">76</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PAGE: DOCUMENTS ── -->
+<div class="page" id="page-documents">
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <h1>Document Management</h1>
+      <p>Central repository for all trade finance documents</p>
+    </div>
+    <button class="btn btn-primary btn-sm"><i class="fa-regular fa-arrow-up-from-bracket"></i> Upload Document</button>
+  </div>
+  <div class="doc-layout">
+    <div>
+      <div class="doc-toolbar">
+        <div class="doc-search">
+          <i class="fa-regular fa-magnifying-glass"></i>
+          <input type="text" placeholder="Search documents…">
+        </div>
+        <select style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--white)">
+          <option>All Types</option><option>Letters of Credit</option><option>Bills of Lading</option><option>QA Reports</option><option>Contracts</option>
+        </select>
+        <select style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--white)">
+          <option>All Trades</option><option>TRD-2841</option><option>TRD-2840</option><option>TRD-2839</option>
+        </select>
+      </div>
+      <div class="card doc-list">
+        <div class="doc-row selected" onclick="selectDoc(this)"><div class="doc-icon pdf"><i class="fa-regular fa-file-pdf"></i></div><div style="flex:1;overflow:hidden"><div class="doc-name">TRD-2841 — Letter of Credit (Draft)</div><div style="font-size:11px;color:var(--hint)">TRD-2841 · PDF · 2.4 MB · 28 May 2026</div></div><span class="badge badge-review">Draft</span></div>
+        <div class="doc-row" onclick="selectDoc(this)"><div class="doc-icon pdf"><i class="fa-regular fa-file-pdf"></i></div><div style="flex:1;overflow:hidden"><div class="doc-name">TRD-2841 — SGS Quality Report</div><div style="font-size:11px;color:var(--hint)">TRD-2841 · PDF · 1.1 MB · 28 May 2026</div></div><span class="badge badge-approved">Verified</span></div>
+        <div class="doc-row" onclick="selectDoc(this)"><div class="doc-icon txt"><i class="fa-regular fa-file-lines"></i></div><div style="flex:1;overflow:hidden"><div class="doc-name">TRD-2841 — Sale &amp; Purchase Contract</div><div style="font-size:11px;color:var(--hint)">TRD-2841 · DOCX · 0.8 MB · 27 May 2026</div></div><span class="badge badge-approved">Signed</span></div>
+        <div class="doc-row" onclick="selectDoc(this)"><div class="doc-icon xls"><i class="fa-regular fa-file-excel"></i></div><div style="flex:1;overflow:hidden"><div class="doc-name">TRD-2840 — Proforma Invoice</div><div style="font-size:11px;color:var(--hint)">TRD-2840 · XLSX · 0.3 MB · 26 May 2026</div></div><span class="badge badge-review">Pending</span></div>
+        <div class="doc-row" onclick="selectDoc(this)"><div class="doc-icon pdf"><i class="fa-regular fa-file-pdf"></i></div><div style="flex:1;overflow:hidden"><div class="doc-name">TRD-2839 — Bill of Lading</div><div style="font-size:11px;color:var(--hint)">TRD-2839 · PDF · 3.2 MB · 25 May 2026</div></div><span class="badge badge-approved">Verified</span></div>
+        <div class="doc-row" onclick="selectDoc(this)"><div class="doc-icon img"><i class="fa-regular fa-file-image"></i></div><div style="flex:1;overflow:hidden"><div class="doc-name">TRD-2839 — Cargo Inspection Photos</div><div style="font-size:11px;color:var(--hint)">TRD-2839 · ZIP · 14.7 MB · 24 May 2026</div></div><span class="badge badge-approved">Verified</span></div>
+        <div class="doc-row" onclick="selectDoc(this)"><div class="doc-icon pdf"><i class="fa-regular fa-file-pdf"></i></div><div style="flex:1;overflow:hidden"><div class="doc-name">TRD-2838 — Insurance Certificate</div><div style="font-size:11px;color:var(--hint)">TRD-2838 · PDF · 0.6 MB · 23 May 2026</div></div><span class="badge badge-risk">Expired</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="upload-zone">
+        <i class="fa-regular fa-cloud-arrow-up"></i>
+        <div style="font-weight:500;margin-bottom:4px">Drop files to upload</div>
+        <div style="font-size:12px;color:var(--muted)">PDF, DOCX, XLSX, JPG — max 50 MB</div>
+      </div>
+      <div class="doc-preview">
+        <div class="section-title">Document Preview</div>
+        <div class="doc-preview-ph">
+          <i class="fa-regular fa-file-pdf" style="font-size:32px;color:var(--coral);margin-bottom:8px;display:block"></i>
+          <div style="font-size:13px;font-weight:500">TRD-2841 — Letter of Credit</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Draft · 2.4 MB · PDF</div>
+        </div>
+        <div style="font-size:12px;margin-bottom:12px">
+          <div class="finance-struct-row"><span class="key">Trade</span><span class="val">TRD-2841</span></div>
+          <div class="finance-struct-row"><span class="key">Document type</span><span class="val">Letter of Credit</span></div>
+          <div class="finance-struct-row"><span class="key">Uploaded by</span><span class="val">AgroSource Ltd</span></div>
+          <div class="finance-struct-row"><span class="key">Date</span><span class="val">28 May 2026</span></div>
+          <div class="finance-struct-row"><span class="key">Status</span><span class="badge badge-review">Draft</span></div>
+        </div>
+        <div class="doc-actions">
+          <button class="btn btn-outline btn-sm"><i class="fa-regular fa-eye"></i> Preview</button>
+          <button class="btn btn-outline btn-sm"><i class="fa-regular fa-arrow-down-to-bracket"></i> Download</button>
+          <button class="btn btn-primary btn-sm"><i class="fa-regular fa-check"></i> Verify</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PAGE: NOTIFICATIONS ── -->
+<div class="page" id="page-notifications">
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <h1>Notifications &amp; Alerts</h1>
+      <p>7 unread notifications across all trades and participants</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline btn-sm">Mark all read</button>
+      <button class="btn btn-outline btn-sm"><i class="fa-regular fa-gear"></i> Preferences</button>
+    </div>
+  </div>
+  <div class="notif-layout">
+    <div>
+      <div class="notif-filters">
+        <button class="filter-chip active">All</button>
+        <button class="filter-chip">Risk Alerts</button>
+        <button class="filter-chip">Trade Updates</button>
+        <button class="filter-chip">Documents</button>
+        <button class="filter-chip">Compliance</button>
+      </div>
+      <div class="card">
+        <div class="notif-item unread">
+          <div class="notif-icon" style="background:var(--coral-bg);color:var(--coral)"><i class="fa-regular fa-triangle-exclamation"></i></div>
+          <div class="notif-content">
+            <div class="notif-title">Price Volatility Alert — TRD-2837</div>
+            <div class="notif-body">Palm Oil spot price has dropped 6.2% in the last 48 hours. Commodity risk score elevated to 78. Immediate review recommended.</div>
+            <div class="notif-time">14:32 today · Risk Engine</div>
+          </div>
+          <div class="notif-unread-dot"></div>
+        </div>
+        <div class="notif-item unread">
+          <div class="notif-icon" style="background:var(--amber-bg);color:var(--amber)"><i class="fa-regular fa-clock"></i></div>
+          <div class="notif-content">
+            <div class="notif-title">KYC Renewal Due — Van Houten Trading BV</div>
+            <div class="notif-body">Counterparty KYC documents for TRD-2840 expire in 7 days. Renewal required to maintain trade eligibility.</div>
+            <div class="notif-time">12:10 today · Compliance</div>
+          </div>
+          <div class="notif-unread-dot"></div>
+        </div>
+        <div class="notif-item unread">
+          <div class="notif-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fa-regular fa-file-check"></i></div>
+          <div class="notif-content">
+            <div class="notif-title">Bill of Lading Received — TRD-2841</div>
+            <div class="notif-body">Original bill of lading uploaded and validated by Maersk Logistics. Trade is now eligible for LC release pending final approval.</div>
+            <div class="notif-time">10:04 today · Documents</div>
+          </div>
+          <div class="notif-unread-dot"></div>
+        </div>
+        <div class="notif-item unread">
+          <div class="notif-icon" style="background:var(--blue-bg);color:var(--blue)"><i class="fa-regular fa-flask"></i></div>
+          <div class="notif-content">
+            <div class="notif-title">QA Report Verified — TRD-2841</div>
+            <div class="notif-body">SGS Ghana has uploaded and signed the quality inspection report. Cocoa grade: A (Premium). Moisture content: 7.2%. All parameters within LC specifications.</div>
+            <div class="notif-time">09:18 today · QA Agency</div>
+          </div>
+          <div class="notif-unread-dot"></div>
+        </div>
+        <div class="notif-item">
+          <div class="notif-icon" style="background:var(--gold-bg);color:var(--gold)"><i class="fa-regular fa-shield-check"></i></div>
+          <div class="notif-content">
+            <div class="notif-title">Trade Approved — TRD-2838</div>
+            <div class="notif-body">Cotton trade TRD-2838 (India → Turkey) has been approved by the credit committee. LC issuance authorised for USD 900,000.</div>
+            <div class="notif-time">Yesterday · 16:44 · Credit Committee</div>
+          </div>
+        </div>
+        <div class="notif-item">
+          <div class="notif-icon" style="background:var(--off2);color:var(--muted)"><i class="fa-regular fa-user-check"></i></div>
+          <div class="notif-content">
+            <div class="notif-title">New Participant Onboarded</div>
+            <div class="notif-body">CertiFreight GmbH (Germany) has completed onboarding as a logistics provider. Now available for trade assignments.</div>
+            <div class="notif-time">Yesterday · 11:20 · Onboarding</div>
+          </div>
+        </div>
+        <div class="notif-item">
+          <div class="notif-icon" style="background:var(--coral-bg);color:var(--coral)"><i class="fa-regular fa-certificate"></i></div>
+          <div class="notif-content">
+            <div class="notif-title">Insurance Certificate Expired — TRD-2838</div>
+            <div class="notif-body">The cargo insurance certificate for TRD-2838 expired on 25 May 2026. A renewed certificate must be submitted within 48 hours to avoid trade suspension.</div>
+            <div class="notif-time">26 May · 08:00 · Compliance</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card card-pad" style="margin-bottom:14px">
+        <div class="section-title">Notification Summary</div>
+        <div class="summary-row">
+          <div class="summary-stat"><div class="val" style="color:var(--coral)">3</div><div class="lbl">Risk Alerts</div></div>
+          <div class="summary-stat"><div class="val" style="color:var(--amber)">2</div><div class="lbl">Compliance</div></div>
+          <div class="summary-stat"><div class="val" style="color:var(--teal)">2</div><div class="lbl">Documents</div></div>
+        </div>
+      </div>
+      <div class="card card-pad">
+        <div class="section-title">Alert Preferences</div>
+        <div style="font-size:12px">
+          <div class="finance-struct-row"><span class="key">Risk score change &gt;10</span><span style="color:var(--teal)"><i class="fa-regular fa-check"></i> On</span></div>
+          <div class="finance-struct-row"><span class="key">Document uploads</span><span style="color:var(--teal)"><i class="fa-regular fa-check"></i> On</span></div>
+          <div class="finance-struct-row"><span class="key">Trade status changes</span><span style="color:var(--teal)"><i class="fa-regular fa-check"></i> On</span></div>
+          <div class="finance-struct-row"><span class="key">KYC / compliance</span><span style="color:var(--teal)"><i class="fa-regular fa-check"></i> On</span></div>
+          <div class="finance-struct-row"><span class="key">Price alerts</span><span style="color:var(--teal)"><i class="fa-regular fa-check"></i> On</span></div>
+          <div class="finance-struct-row"><span class="key">Email digest</span><span style="color:var(--muted)">Daily</span></div>
+        </div>
+        <button class="btn btn-outline btn-sm" style="margin-top:12px;width:100%"><i class="fa-regular fa-gear"></i> Edit preferences</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// Navigation
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pg = document.getElementById('page-' + page);
+  const nav = document.getElementById('nav-' + page);
+  if (pg) pg.classList.add('active');
+  if (nav) nav.classList.add('active');
+}
+
+// Sparklines
+function makeSparkline(id, data, color) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const max = Math.max(...data);
+  data.forEach(v => {
+    const bar = document.createElement('div');
+    bar.className = 'spark-bar';
+    bar.style.height = Math.round((v / max) * 36) + 'px';
+    bar.style.background = color;
+    el.appendChild(bar);
+  });
+}
+makeSparkline('spark1',[28,32,30,36,38,40,44,42,46,48],'#E6B84A');
+makeSparkline('spark2',[80,88,92,95,100,108,112,118,126,134],'#9FE1CB');
+makeSparkline('spark3',[68,70,72,71,73,74,74,75,75,76],'#DDDBD3');
+makeSparkline('spark4',[5,4,6,5,7,8,7,9,9,9],'#F5C4B3');
+
+// Monthly bar chart
+const monthlyData = [
+  {m:'Jan',v:28},{m:'Feb',v:32},{m:'Mar',v:30},{m:'Apr',v:38},{m:'May',v:42}
+];
+const chartEl = document.getElementById('monthly-chart');
+if (chartEl) {
+  const maxV = Math.max(...monthlyData.map(d=>d.v));
+  monthlyData.forEach(d => {
+    const grp = document.createElement('div');
+    grp.className = 'an-bar-group';
+    const bar = document.createElement('div');
+    bar.className = 'an-bar';
+    bar.style.height = Math.round((d.v / maxV) * 108) + 'px';
+    bar.style.background = 'var(--gold)';
+    bar.title = '$' + d.v + 'M';
+    const lbl = document.createElement('div');
+    lbl.className = 'an-bar-label';
+    lbl.textContent = d.m;
+    grp.appendChild(bar);
+    grp.appendChild(lbl);
+    chartEl.appendChild(grp);
+  });
+}
+
+// Participant filter
+function filterPart(el, role) {
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('#part-tbody tr').forEach(r => {
+    r.style.display = (role === 'all' || r.dataset.role === role) ? '' : 'none';
+  });
+}
+
+// Document select
+function selectDoc(el) {
+  document.querySelectorAll('.doc-row').forEach(r => r.classList.remove('selected'));
+  el.classList.add('selected');
+}
+</script>
+</body>
+</html>

@@ -39,6 +39,7 @@ import HumanResources from "@/pages/human-resources";
 import TeamMembers from "@/pages/team-members";
 import TeamKYC from "@/pages/team-kyc";
 import InvestorDeck from "@/pages/investor-deck";
+import TradeBank from "@/pages/trade-bank";
 import DatabaseBackup from "@/pages/database-backup";
 import TaskBoard from "@/pages/task-board";
 import TeamPortal from "@/pages/team-portal";
@@ -195,6 +196,7 @@ function App() {
   const [isTeamReset] = useRoute("/team-reset/:token");
   const [isClientSetup] = useRoute("/client-setup/:token");
   const [isDeck] = useRoute("/deck");
+  const [isTradeBank] = useRoute("/trade-bank");
 
   return (
     <ThemeProvider>
@@ -222,6 +224,8 @@ function App() {
                 <ClientSetup />
               ) : isDeck ? (
                 <InvestorDeck />
+              ) : isTradeBank ? (
+                <TradeBank />
               ) : (
                 <AppShell />
               )}
