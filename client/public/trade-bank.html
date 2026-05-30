@@ -614,11 +614,18 @@ tr:hover td{background:var(--off)}
         <div class="field-row cols-3">
           <div class="field-wrap">
             <label class="field-label">Commodity Type</label>
-            <select><option>Cocoa Beans</option><option>Crude Oil</option><option>Soybeans</option><option>Cotton</option><option>Palm Oil</option><option>Coffee</option><option>Wheat</option><option>Natural Gas</option></select>
+            <select id="nt-commodity">
+              <option value="">Select commodity…</option>
+              <optgroup label="Minerals"><option>Iron Ore</option><option>Bauxite</option><option>Manganese Ore</option></optgroup>
+              <optgroup label="Metals"><option>Copper Cathode</option><option>Copper Concentrate</option><option>Aluminium Ingots</option></optgroup>
+              <optgroup label="Energy Products"><option>Gasoil 10ppm</option><option>Gasoil 50ppm</option><option>LHC (Low Hydrocarbon)</option><option>HSFO (High Sulphur Fuel Oil)</option><option>HSGO (High Sulphur Gas Oil 20000ppm)</option></optgroup>
+              <optgroup label="Petrochemicals"><option>Petcoke – Anode Grade</option><option>Petcoke – Fuel Grade</option></optgroup>
+              <optgroup label="Fertilizers"><option>NPK</option><option>Sulphur – Granular</option><option>Sulphur – Lumps</option></optgroup>
+            </select>
           </div>
           <div class="field-wrap">
             <label class="field-label">Volume (Metric Tons)</label>
-            <input type="number" value="2400" placeholder="0">
+            <input type="number" placeholder="0">
           </div>
           <div class="field-wrap">
             <label class="field-label">Quality Grade</label>
@@ -628,21 +635,21 @@ tr:hover td{background:var(--off)}
         <div class="field-row cols-2">
           <div class="field-wrap">
             <label class="field-label">Origin Country</label>
-            <select><option>Ghana</option><option>Nigeria</option><option>Brazil</option><option>India</option><option>Malaysia</option><option>Ethiopia</option><option>Indonesia</option></select>
+            <input type="text" placeholder="e.g., Guinea">
           </div>
           <div class="field-wrap">
             <label class="field-label">Destination Country</label>
-            <select><option>Netherlands</option><option>Germany</option><option>China</option><option>Turkey</option><option>Pakistan</option><option>Italy</option><option>United States</option></select>
+            <input type="text" placeholder="e.g., China">
           </div>
         </div>
         <div class="field-row cols-2">
           <div class="field-wrap">
             <label class="field-label">Incoterms</label>
-            <select><option>CIF (Cost, Insurance, Freight)</option><option>FOB (Free on Board)</option><option>CFR (Cost & Freight)</option><option>EXW (Ex Works)</option><option>DDP (Delivered Duty Paid)</option></select>
+            <select><option>CIF (Cost, Insurance, Freight)</option><option>FOB (Free on Board)</option><option>CFR (Cost &amp; Freight)</option><option>DAP (Delivered At Place)</option></select>
           </div>
           <div class="field-wrap">
             <label class="field-label">Shipment Date</label>
-            <input type="date" value="2026-06-15">
+            <input type="date">
           </div>
         </div>
       </div>
@@ -655,18 +662,18 @@ tr:hover td{background:var(--off)}
           </div>
           <div class="field-wrap">
             <label class="field-label">Amount (USD)</label>
-            <input type="text" value="$1,200,000" placeholder="$0">
+            <input type="text" placeholder="$0">
           </div>
           <div class="field-wrap">
             <label class="field-label">Tenor (Days)</label>
-            <input type="number" value="90" placeholder="e.g. 90">
+            <input type="number" placeholder="e.g. 90">
           </div>
         </div>
         <div class="finance-summary">
-          <div class="fs-row"><span style="color:var(--muted)">Requested amount</span><span>USD 1,200,000</span></div>
-          <div class="fs-row"><span style="color:var(--muted)">Estimated fee (1.8%)</span><span>USD 21,600</span></div>
-          <div class="fs-row"><span style="color:var(--muted)">Tenor</span><span>90 days</span></div>
-          <div class="fs-row"><span style="color:var(--muted)">Net finance disbursement</span><span style="color:var(--teal)">USD 1,178,400</span></div>
+          <div class="fs-row"><span style="color:var(--muted)">Requested amount</span><span>—</span></div>
+          <div class="fs-row"><span style="color:var(--muted)">Estimated fee (1.8%)</span><span>—</span></div>
+          <div class="fs-row"><span style="color:var(--muted)">Tenor</span><span>—</span></div>
+          <div class="fs-row"><span style="color:var(--muted)">Net finance disbursement</span><span style="color:var(--teal)">—</span></div>
         </div>
       </div>
       <div class="form-section">
@@ -674,25 +681,22 @@ tr:hover td{background:var(--off)}
         <div class="field-row cols-2">
           <div class="field-wrap">
             <label class="field-label">Seller / Supplier</label>
-            <input type="text" value="Ashanti Cocoa Cooperative" placeholder="Company name">
+            <select id="nt-seller"><option value="">Select seller…</option></select>
           </div>
           <div class="field-wrap">
             <label class="field-label">Buyer</label>
-            <input type="text" value="Van Houten Trading BV" placeholder="Company name">
+            <select id="nt-buyer"><option value="">Select buyer…</option></select>
           </div>
         </div>
         <label class="field-label">Supporting Participants</label>
         <div class="participant-chips">
-          <span class="p-chip"><i class="fa-regular fa-truck"></i> Maersk Logistics <i class="fa-regular fa-xmark"></i></span>
-          <span class="p-chip"><i class="fa-regular fa-flask"></i> SGS Ghana QA <i class="fa-regular fa-xmark"></i></span>
-          <span class="p-chip"><i class="fa-regular fa-vault"></i> SafeStore Collateral <i class="fa-regular fa-xmark"></i></span>
           <button class="btn btn-outline btn-sm" style="border-style:dashed"><i class="fa-regular fa-plus"></i> Add participant</button>
         </div>
       </div>
       <div class="form-section">
         <div class="form-section-title">Trade Description</div>
         <div class="field-wrap">
-          <textarea>2,400 MT grade-A cocoa beans purchased from certified cooperative in Ashanti region. CIF Rotterdam. Buyer: Van Houten Trading BV. Contract no. VH-2841-GH. Shipment via Tema Port on or before 15 June 2026. Quality certificate required from SGS Ghana prior to LC release.</textarea>
+          <textarea placeholder="Describe the trade — commodity, quantity, route, incoterms, and key conditions…"></textarea>
         </div>
       </div>
       <div class="form-actions">
@@ -1144,6 +1148,15 @@ function selectDoc(el) {
     c.innerHTML=list.map(function(n){return '<div class="notif-item'+(n.unread?' unread':'')+'"><div class="notif-icon" style="background:'+esc(n.iconBg)+';color:'+esc(n.iconColor)+'"><i class="fa-regular '+esc(n.faIcon)+'"></i></div><div class="notif-content"><div class="notif-title">'+esc(n.title)+'</div><div class="notif-body">'+esc(n.body)+'</div><div class="notif-time">'+esc(n.time)+' · '+esc(n.source)+'</div></div>'+(n.unread?'<div class="notif-unread-dot"></div>':'')+'</div>';}).join('');
   }
 
+  function renderParties(list){
+    var names=['Bullfrog Group'].concat((list||[]).map(function(p){return p.name;}).filter(Boolean));
+    [['nt-buyer','Select buyer…'],['nt-seller','Select seller…']].forEach(function(pair){
+      var sel=document.getElementById(pair[0]); if(!sel) return;
+      var current=sel.value;
+      sel.innerHTML='<option value="">'+esc(pair[1])+'</option>'+names.map(function(n){return '<option'+(n===current?' selected':'')+'>'+esc(n)+'</option>';}).join('');
+    });
+  }
+
   function renderUser(u){
     var el=document.getElementById('tb-avatar'); if(!el) return;
     el.textContent=(u&&u.initials)?u.initials:'AK';
@@ -1167,7 +1180,7 @@ function selectDoc(el) {
       if(p.recentTrades) renderTrades(p.recentTrades);
       if(p.shipments) renderShipments(p.shipments);
       if(p.shipmentStats){ setText('ship-total',p.shipmentStats.total); setText('ship-active',p.shipmentStats.active); setText('ship-delivered',p.shipmentStats.delivered); setText('ship-value',p.shipmentStats.value); setText('risk-sub','Live shipment details across '+p.shipmentStats.total+' trade'+(p.shipmentStats.total===1?'':'s')+' in the system'); }
-      if(p.participants) renderParticipants(p.participants);
+      if(p.participants){ renderParticipants(p.participants); renderParties(p.participants); }
       if(p.documents) renderDocs(p.documents);
       if(p.notifications){ renderAlerts(p.notifications); renderNotifs(p.notifications); }
       if(p.counts){ setText('ap-trader',p.counts.trader); setText('ap-producer',p.counts.producer); setText('ap-logistics',p.counts.logistics); setText('ap-broker',p.counts.broker); setText('ap-qa',p.counts.qa); setText('ap-collateral',p.counts.collateral); }
