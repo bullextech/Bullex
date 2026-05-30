@@ -710,115 +710,42 @@ tr:hover td{background:var(--off)}
 <div class="page" id="page-risk">
   <div class="page-hdr">
     <div class="page-hdr-left">
-      <h1>Risk Evaluation Engine</h1>
-      <p>AI-driven risk assessment, mitigation tracking &amp; financing structure</p>
+      <h1>Shipment Risk &amp; Tracking</h1>
+      <p id="risk-sub">Live shipment details across all trades in the system</p>
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-outline btn-sm"><i class="fa-regular fa-print"></i> Risk Report</button>
-      <button class="btn btn-primary btn-sm"><i class="fa-regular fa-check"></i> Approve Conditional</button>
     </div>
   </div>
 
-  <div class="risk-header-card">
-    <div class="risk-score-wrap">
-      <div class="risk-dial">
-        <svg viewBox="0 0 90 90">
-          <circle cx="45" cy="45" r="36" fill="none" stroke="#ededed" stroke-width="8"/>
-          <circle cx="45" cy="45" r="36" fill="none" stroke="#990000" stroke-width="8"
-            stroke-dasharray="141.4" stroke-dashoffset="51" stroke-linecap="round"
-            transform="rotate(-90 45 45)"/>
-          <text x="45" y="42" text-anchor="middle" font-family="'DM Serif Display',serif" font-size="20" fill="#1A1916">62</text>
-          <text x="45" y="54" text-anchor="middle" font-family="'DM Sans',sans-serif" font-size="7" fill="#6B6860">MODERATE</text>
-        </svg>
-      </div>
-      <div class="risk-score-label">Risk Score</div>
-    </div>
-    <div class="risk-meta">
-      <h2>TRD-2841 — Cocoa Beans, Ghana → Netherlands</h2>
-      <p>$1,200,000 · Letter of Credit · 90-day tenor · Submitted 28 May 2026 · AgroSource Ltd</p>
-      <div class="risk-tags">
-        <span class="risk-tag ok"><i class="fa-regular fa-check"></i> Verified KYC</span>
-        <span class="risk-tag ok"><i class="fa-regular fa-check"></i> Certified origin</span>
-        <span class="risk-tag ok"><i class="fa-regular fa-check"></i> Cargo lien approved</span>
-        <span class="risk-tag warn"><i class="fa-regular fa-triangle-exclamation"></i> FX exposure</span>
-        <span class="risk-tag warn"><i class="fa-regular fa-triangle-exclamation"></i> Seasonal volatility</span>
-        <span class="risk-tag bad"><i class="fa-regular fa-xmark"></i> Insurance pending</span>
-      </div>
-    </div>
-    <div style="text-align:right;flex-shrink:0">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Recommendation</div>
-      <span class="badge badge-review" style="font-size:12px;padding:5px 14px">Conditional Approval</span>
-      <div style="font-size:11px;color:var(--muted);margin-top:10px">Credit Committee</div>
-      <div style="font-size:12px;font-weight:500">Pending sign-off</div>
-    </div>
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">Total Shipments</div><div class="kpi-val gold" id="ship-total">—</div><div style="font-size:11px;color:var(--muted);margin-top:4px">All trades on platform</div></div>
+    <div class="kpi-card"><div class="kpi-label">In Transit / Active</div><div class="kpi-val teal" id="ship-active">—</div><div style="font-size:11px;color:var(--muted);margin-top:4px">Currently in progress</div></div>
+    <div class="kpi-card"><div class="kpi-label">Delivered</div><div class="kpi-val" id="ship-delivered">—</div><div style="font-size:11px;color:var(--muted);margin-top:4px">Completed shipments</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Cargo Value</div><div class="kpi-val coral" id="ship-value">—</div><div style="font-size:11px;color:var(--muted);margin-top:4px">Aggregate consignment value</div></div>
   </div>
 
-  <div class="risk-grid-layout">
-    <div class="card card-pad">
-      <div class="section-title">Risk Dimensions</div>
-      <div class="prog-row"><span class="prog-label">Counterparty risk</span><div class="prog-track"><div class="prog-fill" style="width:35%;background:var(--teal)"></div></div><span class="prog-val" style="color:var(--teal)">35</span></div>
-      <div class="prog-row"><span class="prog-label">Country / political</span><div class="prog-track"><div class="prog-fill" style="width:48%;background:var(--gold)"></div></div><span class="prog-val" style="color:var(--gold)">48</span></div>
-      <div class="prog-row"><span class="prog-label">Commodity price</span><div class="prog-track"><div class="prog-fill" style="width:72%;background:var(--coral)"></div></div><span class="prog-val" style="color:var(--coral)">72</span></div>
-      <div class="prog-row"><span class="prog-label">FX / currency</span><div class="prog-track"><div class="prog-fill" style="width:61%;background:var(--gold)"></div></div><span class="prog-val" style="color:var(--gold)">61</span></div>
-      <div class="prog-row"><span class="prog-label">Logistics / transit</span><div class="prog-track"><div class="prog-fill" style="width:28%;background:var(--teal)"></div></div><span class="prog-val" style="color:var(--teal)">28</span></div>
-      <div class="prog-row"><span class="prog-label">Quality / compliance</span><div class="prog-track"><div class="prog-fill" style="width:40%;background:var(--teal)"></div></div><span class="prog-val" style="color:var(--teal)">40</span></div>
-      <div class="prog-row"><span class="prog-label">Documentation</span><div class="prog-track"><div class="prog-fill" style="width:22%;background:var(--teal)"></div></div><span class="prog-val" style="color:var(--teal)">22</span></div>
-      <div class="prog-row"><span class="prog-label">Collateral coverage</span><div class="prog-track"><div class="prog-fill" style="width:15%;background:var(--teal)"></div></div><span class="prog-val" style="color:var(--teal)">15</span></div>
-    </div>
-
-    <div class="card card-pad">
-      <div class="section-title">Mitigation Timeline</div>
-      <div class="timeline">
-        <div class="tl-item"><div class="tl-dot done"></div><div class="tl-time">28 May · 09:14</div><div class="tl-text">KYC verification passed — buyer &amp; seller</div></div>
-        <div class="tl-item"><div class="tl-dot done"></div><div class="tl-time">28 May · 10:02</div><div class="tl-text">Quality report requested from SGS Ghana</div></div>
-        <div class="tl-item"><div class="tl-dot done"></div><div class="tl-time">28 May · 11:30</div><div class="tl-text">Collateral manager assigned — 115% cargo lien approved</div></div>
-        <div class="tl-item"><div class="tl-dot active"></div><div class="tl-time">28 May · 14:00</div><div class="tl-text">FX hedge instrument recommended — awaiting trader confirmation</div></div>
-        <div class="tl-item"><div class="tl-dot pending"></div><div class="tl-time">Pending</div><div class="tl-text">Price protection clause to be added to LC terms</div></div>
-        <div class="tl-item"><div class="tl-dot pending"></div><div class="tl-time">Pending</div><div class="tl-text">Cargo insurance confirmation from Maersk Logistics</div></div>
-        <div class="tl-item"><div class="tl-dot pending"></div><div class="tl-time">Pending</div><div class="tl-text">Final credit committee sign-off</div></div>
-      </div>
-    </div>
-
-    <div class="card card-pad">
-      <div class="section-title">Finance Structure</div>
-      <div class="finance-struct-row"><span class="key">Facility type</span><span class="val">Documentary Letter of Credit</span></div>
-      <div class="finance-struct-row"><span class="key">Requested amount</span><span class="val">USD 1,200,000</span></div>
-      <div class="finance-struct-row"><span class="key">Tenor</span><span class="val">90 days</span></div>
-      <div class="finance-struct-row"><span class="key">Pricing</span><span class="val">SOFR + 3.2%</span></div>
-      <div class="finance-struct-row"><span class="key">Collateral coverage</span><span class="val" style="color:var(--teal)">115% — Cargo lien</span></div>
-      <div class="finance-struct-row"><span class="key">Shipment insurance</span><span class="val" style="color:var(--amber)">Pending confirmation</span></div>
-      <div class="finance-struct-row"><span class="key">FX hedge</span><span class="val" style="color:var(--amber)">Recommended (GHS/USD)</span></div>
-      <div class="finance-struct-row"><span class="key">LC issuing bank</span><span class="val">Standard Bank Ghana</span></div>
-      <div class="finance-struct-row"><span class="key">Confirming bank</span><span class="val">ING Bank Netherlands</span></div>
-      <div class="finance-struct-row"><span class="key">Status</span><span class="badge badge-review">Conditional</span></div>
-    </div>
-
-    <div class="card card-pad">
-      <div class="section-title">Involved Parties</div>
-      <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Applicant (Trader)</div>
-        <div style="font-size:14px;font-weight:600">AgroSource Ltd</div>
-        <div style="font-size:11px;color:var(--hint)">SME · Accra, Ghana · 4 prior trades · B+ rated</div>
-      </div>
-      <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Supplier / Producer</div>
-        <div style="font-size:14px;font-weight:600">Ashanti Cocoa Cooperative</div>
-        <div style="font-size:11px;color:var(--hint)">Certified origin · 28 verified shipments · A rated</div>
-      </div>
-      <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Buyer</div>
-        <div style="font-size:14px;font-weight:600">Van Houten Trading BV</div>
-        <div style="font-size:11px;color:var(--hint)">Netherlands · 38 prior trades · A+ rated</div>
-      </div>
-      <div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Supporting Parties</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px">
-          <span class="risk-tag ok"><i class="fa-regular fa-truck"></i> Maersk Logistics</span>
-          <span class="risk-tag ok"><i class="fa-regular fa-flask"></i> SGS Ghana QA</span>
-          <span class="risk-tag warn"><i class="fa-regular fa-vault"></i> SafeStore Collateral</span>
-        </div>
-      </div>
-    </div>
+  <div class="tbl-wrap card" style="margin-bottom:16px">
+    <table>
+      <thead>
+        <tr>
+          <th>Shipment Ref</th>
+          <th>Commodity</th>
+          <th>Route</th>
+          <th>Quantity</th>
+          <th>Incoterm</th>
+          <th>Value</th>
+          <th>Buyer / Seller</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="ship-tbody">
+        <tr><td><span class="trade-id">TRD-2841</span></td><td><div>Cocoa Beans</div><div class="tbl-sub">Soft Commodities</div></td><td>Ghana → Netherlands</td><td>500 MT</td><td>CIF</td><td>$1.2M</td><td><div>Van Houten Trading BV</div><div class="tbl-sub">Ashanti Cocoa Coop</div></td><td><span class="badge badge-processing">Execution</span></td></tr>
+        <tr><td><span class="trade-id">TRD-2840</span></td><td><div>Crude Oil</div><div class="tbl-sub">Energy</div></td><td>Nigeria → India</td><td>50,000 MT</td><td>FOB</td><td>$4.2M</td><td><div>Reliance Industries</div><div class="tbl-sub">NNPC Trading Ltd</div></td><td><span class="badge badge-processing">Deal</span></td></tr>
+        <tr><td><span class="trade-id">TRD-2839</span></td><td><div>Soybeans</div><div class="tbl-sub">Agriculture</div></td><td>Brazil → China</td><td>25,000 MT</td><td>CFR</td><td>$8.1M</td><td><div>Sinograin</div><div class="tbl-sub">Cargill SA</div></td><td><span class="badge badge-approved">Completed</span></td></tr>
+        <tr><td><span class="trade-id">TRD-2838</span></td><td><div>Cotton</div><div class="tbl-sub">Soft Commodities</div></td><td>India → Bangladesh</td><td>1,200 MT</td><td>CIF</td><td>$2.4M</td><td><div>Beximco Ltd</div><div class="tbl-sub">Vardhman Textiles</div></td><td><span class="badge badge-review">Pre-Deal</span></td></tr>
+      </tbody>
+    </table>
   </div>
 </div>
 
@@ -1217,6 +1144,12 @@ function selectDoc(el) {
     c.innerHTML=list.map(function(n){return '<div class="notif-item'+(n.unread?' unread':'')+'"><div class="notif-icon" style="background:'+esc(n.iconBg)+';color:'+esc(n.iconColor)+'"><i class="fa-regular '+esc(n.faIcon)+'"></i></div><div class="notif-content"><div class="notif-title">'+esc(n.title)+'</div><div class="notif-body">'+esc(n.body)+'</div><div class="notif-time">'+esc(n.time)+' · '+esc(n.source)+'</div></div>'+(n.unread?'<div class="notif-unread-dot"></div>':'')+'</div>';}).join('');
   }
 
+  function renderShipments(list){
+    var tb=document.getElementById('ship-tbody'); if(!tb) return;
+    if(!list.length){ tb.innerHTML='<tr><td colspan="8" style="color:var(--muted);padding:16px">No shipments in the system yet.</td></tr>'; return; }
+    tb.innerHTML=list.map(function(s){return '<tr><td><span class="trade-id">'+esc(s.ref)+'</span></td><td><div>'+esc(s.commodity)+'</div><div class="tbl-sub">'+esc(s.category)+'</div></td><td>'+esc(s.route)+'</td><td>'+esc(s.qty)+'</td><td>'+esc(s.incoterm)+'</td><td>'+esc(s.value)+'</td><td><div>'+esc(s.buyer)+'</div><div class="tbl-sub">'+esc(s.seller)+'</div></td><td>'+badge(s.badge,s.status)+'</td></tr>';}).join('');
+  }
+
   window.addEventListener('message', function(ev){
     /* Only accept data from our embedding parent window. */
     if(ev.source!==window.parent) return;
@@ -1225,6 +1158,8 @@ function selectDoc(el) {
     try{
       if(p.kpis){ setText('kpi-volume',p.kpis.financeVolume); setText('kpi-active',p.kpis.activeTrades); setText('kpi-approval',p.kpis.approvalRate); setText('kpi-atrisk',p.kpis.atRisk); }
       if(p.recentTrades) renderTrades(p.recentTrades);
+      if(p.shipments) renderShipments(p.shipments);
+      if(p.shipmentStats){ setText('ship-total',p.shipmentStats.total); setText('ship-active',p.shipmentStats.active); setText('ship-delivered',p.shipmentStats.delivered); setText('ship-value',p.shipmentStats.value); setText('risk-sub','Live shipment details across '+p.shipmentStats.total+' trade'+(p.shipmentStats.total===1?'':'s')+' in the system'); }
       if(p.participants) renderParticipants(p.participants);
       if(p.documents) renderDocs(p.documents);
       if(p.notifications){ renderAlerts(p.notifications); renderNotifs(p.notifications); }

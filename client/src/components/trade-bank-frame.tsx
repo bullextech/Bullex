@@ -126,6 +126,32 @@ export function TradeBankFrame({ className }: TradeBankFrameProps) {
       };
     });
 
+    const delivered = T.filter((t) =>
+      ["final_payment", "completed", "closed"].includes((t.status || "").toLowerCase()),
+    ).length;
+    const shipments = [...T].sort(byDate).map((t) => {
+      const b = tradeBadge(t.status || "");
+      return {
+        ref: t.tradeRef,
+        commodity: t.commodity,
+        category: t.commodityCategory || "",
+        route: `${t.origin || "?"} → ${t.destination || "?"}`,
+        qty: `${num(t.quantity).toLocaleString()} ${t.unit || "MT"}`,
+        incoterm: t.incoterm || "—",
+        value: money(num(t.totalValue)),
+        buyer: t.buyerName || "—",
+        seller: t.sellerName || "—",
+        badge: b.cls,
+        status: b.label,
+      };
+    });
+    const shipmentStats = {
+      total: T.length,
+      active: activeTrades,
+      delivered,
+      value: money(financeVolume),
+    };
+
     const matchTrades = (name: string) =>
       T.filter((t) =>
         [t.buyerName, t.sellerName].some((n) => (n || "").trim().toLowerCase() === (name || "").trim().toLowerCase()),
@@ -189,6 +215,8 @@ export function TradeBankFrame({ className }: TradeBankFrameProps) {
     return {
       kpis: { financeVolume: money(financeVolume), activeTrades, approvalRate: `${approvalRate}%`, atRisk },
       recentTrades,
+      shipments,
+      shipmentStats,
       participants,
       counts,
       documents,
