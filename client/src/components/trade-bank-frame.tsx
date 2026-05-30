@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useClientAuth } from "@/hooks/use-client-auth";
 import type {
   Trade,
   KycApplication,
@@ -18,6 +19,11 @@ const money = (n: number) =>
   n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${Math.round(n)}`;
 const initials = (name: string) =>
   (name || "").trim().split(/\s+/).slice(0, 2).map((w) => w[0] || "").join("").toUpperCase() || "—";
+const avatarInitials = (s: string) => {
+  const parts = (s || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return (s || "").trim().slice(0, 2).toUpperCase() || "—";
+};
 const titleCase = (s: string) =>
   (s || "").replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 const fmtDate = (d: unknown) => {
@@ -83,9 +89,26 @@ interface TradeBankFrameProps {
 }
 
 export function TradeBankFrame({ className }: TradeBankFrameProps) {
-  const { authenticated, role } = useAuth();
+  const { authenticated, role, username, name } = useAuth();
+  const client = useClientAuth();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
+
+  const user = useMemo(() => {
+    if (authenticated && (role === "admin" || role === "team")) {
+      const display = name || username || (role === "admin" ? "Admin" : "Team");
+      return {
+        name: display,
+        initials: avatarInitials(display),
+        role: role === "admin" ? "Administrator" : "Team Member",
+      };
+    }
+    if (client.authenticated) {
+      const display = client.companyName || client.username || "Client";
+      return { name: display, initials: avatarInitials(display), role: "Client" };
+    }
+    return null;
+  }, [authenticated, role, username, name, client.authenticated, client.companyName, client.username]);
 
   const { data: trades } = useQuery<Trade[]>({ queryKey: ["/api/trades"], enabled: authenticated });
   const { data: kyc } = useQuery<KycApplication[]>({ queryKey: ["/api/kyc"], enabled: authenticated });
@@ -240,10 +263,10 @@ export function TradeBankFrame({ className }: TradeBankFrameProps) {
   }, []);
 
   useEffect(() => {
-    if (ready && payload && iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage({ source: "bullex-parent", payload }, "*");
-    }
-  }, [ready, payload]);
+    if (!ready || !iframeRef.current?.contentWindow) return;
+    const msg: Record<string, unknown> = { ...(payload || {}), user: user ?? null };
+    iframeRef.current.contentWindow.postMessage({ source: "bullex-parent", payload: msg }, "*");
+  }, [ready, payload, user]);
 
   return (
     <iframe

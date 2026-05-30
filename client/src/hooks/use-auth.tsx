@@ -5,6 +5,7 @@ import { queryClient } from "@/lib/queryClient";
 interface AuthState {
   authenticated: boolean;
   username: string | null;
+  name: string | null;
   role: string | null;
   allowedModules: string[] | null;
   loading: boolean;
@@ -15,6 +16,7 @@ interface AuthState {
 const AuthContext = createContext<AuthState>({
   authenticated: false,
   username: null,
+  name: null,
   role: null,
   allowedModules: null,
   loading: true,
@@ -25,6 +27,7 @@ const AuthContext = createContext<AuthState>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authenticated, setAuthenticated] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
+  const [name, setName] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [allowedModules, setAllowedModules] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.authenticated && (data.role === "admin" || data.role === "team")) {
           setAuthenticated(true);
           setUsername(data.username || null);
+          setName(data.name || data.username || null);
           setRole(data.role || null);
           setAllowedModules(data.role === "team" ? (data.allowedModules ?? []) : null);
         }
@@ -55,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.ok && data.authenticated && (data.role === "admin" || data.role === "team")) {
         setAuthenticated(true);
         setUsername(data.username);
+        setName(data.name || data.username);
         setRole(data.role);
         setAllowedModules(data.role === "team" ? (data.allowedModules ?? []) : null);
         queryClient.clear();
@@ -73,13 +78,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetch("/api/auth/logout", { method: "POST" });
     setAuthenticated(false);
     setUsername(null);
+    setName(null);
     setRole(null);
     setAllowedModules(null);
     queryClient.clear();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ authenticated, username, role, allowedModules, loading, login, logout }}>
+    <AuthContext.Provider value={{ authenticated, username, name, role, allowedModules, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

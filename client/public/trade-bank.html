@@ -337,7 +337,7 @@ tr:hover td{background:var(--off)}
     </button>
     <button class="icon-btn" title="Messages"><i class="fa-regular fa-envelope"></i></button>
     <button class="icon-btn" title="Help"><i class="fa-regular fa-circle-question"></i></button>
-    <button class="avatar-btn" title="Profile">AK</button>
+    <button class="avatar-btn" id="tb-avatar" title="Profile">AK</button>
   </div>
 </header>
 
@@ -1144,6 +1144,12 @@ function selectDoc(el) {
     c.innerHTML=list.map(function(n){return '<div class="notif-item'+(n.unread?' unread':'')+'"><div class="notif-icon" style="background:'+esc(n.iconBg)+';color:'+esc(n.iconColor)+'"><i class="fa-regular '+esc(n.faIcon)+'"></i></div><div class="notif-content"><div class="notif-title">'+esc(n.title)+'</div><div class="notif-body">'+esc(n.body)+'</div><div class="notif-time">'+esc(n.time)+' · '+esc(n.source)+'</div></div>'+(n.unread?'<div class="notif-unread-dot"></div>':'')+'</div>';}).join('');
   }
 
+  function renderUser(u){
+    var el=document.getElementById('tb-avatar'); if(!el) return;
+    el.textContent=(u&&u.initials)?u.initials:'AK';
+    el.title=(u&&u.name)?(u.name+(u.role?' · '+u.role:'')):'Profile';
+  }
+
   function renderShipments(list){
     var tb=document.getElementById('ship-tbody'); if(!tb) return;
     if(!list.length){ tb.innerHTML='<tr><td colspan="8" style="color:var(--muted);padding:16px">No shipments in the system yet.</td></tr>'; return; }
@@ -1156,6 +1162,7 @@ function selectDoc(el) {
     var d=ev.data; if(!d || d.source!=='bullex-parent' || !d.payload) return;
     var p=d.payload;
     try{
+      if('user' in p) renderUser(p.user);
       if(p.kpis){ setText('kpi-volume',p.kpis.financeVolume); setText('kpi-active',p.kpis.activeTrades); setText('kpi-approval',p.kpis.approvalRate); setText('kpi-atrisk',p.kpis.atRisk); }
       if(p.recentTrades) renderTrades(p.recentTrades);
       if(p.shipments) renderShipments(p.shipments);
