@@ -217,6 +217,7 @@ export default function DocumentGenerator() {
   const [signDocId, setSignDocId] = useState<string | null>(null);
   const [signerName, setSignerName] = useState("");
   const [tfrData, setTfrData] = useState<Record<string, string>>({});
+  const [tfrLinkedRecapId, setTfrLinkedRecapId] = useState("");
   const setTfr = (key: string, val: string) => setTfrData((prev) => ({ ...prev, [key]: val }));
   const tfrText = (key: string, label: string, placeholder = "", textarea = false) => (
     <div className="space-y-1.5" key={key}>
@@ -380,6 +381,46 @@ export default function DocumentGenerator() {
     toast({ title: "Fields auto-filled", description: `Loaded from BL: ${blDoc.title}` });
   };
 
+  const fillTfrFromRecap = (recapDoc: Doc) => {
+    const content = recapDoc.content || "";
+    const lines = content.split("\n");
+    const clean = (s: string) => {
+      const t = (s || "").trim();
+      return /^[_\-—\s]*$/.test(t) ? "" : t;
+    };
+    const rows: Record<string, string> = {};
+    for (const line of lines) {
+      let idx = line.indexOf("│");
+      if (idx === -1) idx = line.indexOf("|");
+      if (idx === -1) continue;
+      const label = line.substring(0, idx).trim();
+      const value = clean(line.substring(idx + 1));
+      if (label && value && !rows[label]) rows[label] = value;
+    }
+    const extractAfter = (prefix: string) => {
+      const line = lines.find(l => l.includes(prefix));
+      return line ? clean(line.substring(line.indexOf(prefix) + prefix.length)) : "";
+    };
+    const updates: Record<string, string> = {};
+    const set = (k: string, v: string) => { if (v) updates[k] = v; };
+    set("reference", rows["Contract Reference"]);
+    set("seller", rows["Seller"]);
+    set("buyer", rows["Buyer"]);
+    set("product", rows["Commodity"]);
+    set("commodity", rows["Commodity"]);
+    set("origin", rows["Country of Origin"]);
+    set("specifications", rows["Quality / Specification"]);
+    set("deliveryTerms", rows["Delivery Basis"]);
+    set("quantity", rows["Contractual Quantity"]);
+    set("contractValue", rows["Contract Price & Currency"]);
+    set("paymentInstrument", rows["Payment Terms"]);
+    const pod = extractAfter("Port of Discharge (POD):");
+    if (pod) { set("destination", pod); set("dischargePort", pod); }
+    set("loadingPort", rows["Country of Origin"]);
+    setTfrData((prev) => ({ ...prev, ...updates }));
+    toast({ title: "Fields auto-filled", description: `Loaded from Deal Recap: ${recapDoc.title}` });
+  };
+
   const fillCiFromLc = (lcDoc: Doc) => {
     const content = lcDoc.content || "";
     const lines = content.split("\n");
@@ -538,6 +579,7 @@ export default function DocumentGenerator() {
     setCiLinkedLcId(""); setCiInvoiceNo(""); setCiVessel(""); setCiVoyage(""); setCiBlNo(""); setCiBlDate("");
     setCiLcNo(""); setCiLcBank(""); setCiTolerance("+/- 10%"); setCiTotalAmount("");
     setTfrData({});
+    setTfrLinkedRecapId("");
     setReviewContent(null);
   };
 
@@ -1133,6 +1175,26 @@ export default function DocumentGenerator() {
                         Generate {next}
                       </Button>
                     ) : null; })()}
+                    {doc.docType === "DEAL_RECAP" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-primary hover:text-primary/80"
+                        onClick={() => {
+                          const tfrType = docTypes.find(t => t.value === "TFR");
+                          if (!tfrType) return;
+                          setSelectedType(tfrType);
+                          setTitle(`TFR - ${doc.title}`);
+                          setTfrLinkedRecapId(doc.id);
+                          fillTfrFromRecap(doc);
+                        }}
+                        title="Prepare Transaction Feasibility Report"
+                        data-testid={`button-prepare-tfr-${doc.id}`}
+                      >
+                        <ListChecks className="w-3.5 h-3.5 mr-1" />
+                        Prepare TFR
+                      </Button>
+                    )}
                     {doc.docxPath && (
                       <Button
                         variant="ghost"
@@ -2576,6 +2638,30 @@ export default function DocumentGenerator() {
               <div className="space-y-2">
                 <Label>Document Title *</Label>
                 <Input placeholder="Enter TFR document title" value={title} onChange={(e) => setTitle(e.target.value)} data-testid="input-doc-title-tfr" />
+              </div>
+
+              <div className="border rounded-md overflow-hidden">
+                <div className="grid grid-cols-[160px_1fr] border-b">
+                  <div className="p-2 border-r text-xs font-medium text-muted-foreground flex items-center gap-1"><Send className="w-3 h-3" /> Source Deal Recap</div>
+                  <div className="p-1">
+                    {docs && docs.filter(d => d.docType === "DEAL_RECAP").length > 0 ? (
+                      <Select value={tfrLinkedRecapId} onValueChange={(val) => {
+                        setTfrLinkedRecapId(val);
+                        const recapDoc = docs?.find(d => d.id === val);
+                        if (recapDoc) fillTfrFromRecap(recapDoc);
+                      }}>
+                        <SelectTrigger className="h-8 text-xs" data-testid="select-tfr-recap"><SelectValue placeholder="Select Deal Recap to copy details from..." /></SelectTrigger>
+                        <SelectContent>
+                          {docs?.filter(d => d.docType === "DEAL_RECAP").map(d => (
+                            <SelectItem key={d.id} value={d.id}>{d.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="text-xs text-muted-foreground p-1">No Deal Recap documents found — fill fields manually below</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <Accordion type="multiple" defaultValue={["exec"]} className="w-full">
