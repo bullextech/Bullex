@@ -366,17 +366,16 @@ export default function Trading() {
   const activeTrades = trades?.filter((t) => t.status !== "final_payment").length || 0;
   const chainValid = blocks?.every((b) => b.verified) ?? true;
 
-  function isStageMandatoryComplete(trade: Trade, stageKey: string): boolean {
+  function isStageMandatoryComplete(stageKey: string, uploadedKeys: Set<string>): boolean {
     const stage = stageDefinitions.find((s) => s.key === stageKey);
     if (!stage) return false;
-    const docs = (trade.stageDocuments as Record<string, boolean>) || {};
-    return stage.documents.filter((d) => d.mandatory).every((d) => docs[d.key] === true);
+    return stage.documents.filter((d) => d.mandatory).every((d) => uploadedKeys.has(d.key));
   }
 
-  function canAdvance(trade: Trade): boolean {
+  function canAdvance(trade: Trade, uploadedKeys: Set<string>): boolean {
     const currentIdx = statusFlow.indexOf(trade.status);
     if (currentIdx >= statusFlow.length - 1) return false;
-    return isStageMandatoryComplete(trade, trade.status);
+    return isStageMandatoryComplete(trade.status, uploadedKeys);
   }
 
   if (isLoading) {
@@ -751,12 +750,15 @@ export default function Trading() {
                           <div className="space-y-4">
                             {stageDefinitions.map((stage, stageIdx) => {
                               const Icon = stage.icon;
+                              const uploadedKeys = new Set((tradeFiles || []).map((f) => f.documentKey));
+                              const isDocComplete = (doc: { key: string; mandatory: boolean }) =>
+                                doc.mandatory ? uploadedKeys.has(doc.key) : docs[doc.key] === true;
                               const isComplete = stageIdx < currentStageIdx;
                               const isCurrent = stageIdx === currentStageIdx;
                               const isFuture = stageIdx > currentStageIdx;
                               const mandatoryDocs = stage.documents.filter((d) => d.mandatory);
-                              const mandatoryComplete = mandatoryDocs.every((d) => docs[d.key] === true);
-                              const completedDocs = stage.documents.filter((d) => docs[d.key] === true).length;
+                              const mandatoryComplete = mandatoryDocs.every((d) => uploadedKeys.has(d.key));
+                              const completedDocs = stage.documents.filter(isDocComplete).length;
 
                               return (
                                 <div
@@ -794,7 +796,7 @@ export default function Trading() {
                                         <Button
                                           size="sm"
                                           className="rounded-none text-xs h-8"
-                                          disabled={!canAdvance(trade) || updateStatus.isPending}
+                                          disabled={!canAdvance(trade, uploadedKeys) || updateStatus.isPending}
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             const nextStatus = statusFlow[currentStageIdx + 1];
@@ -831,8 +833,8 @@ export default function Trading() {
 
                                   <div className="space-y-1 mt-2">
                                     {stage.documents.map((doc) => {
-                                      const isChecked = docs[doc.key] === true;
                                       const docFiles = tradeFiles?.filter((f) => f.documentKey === doc.key) || [];
+                                      const isChecked = doc.mandatory ? docFiles.length > 0 : docs[doc.key] === true;
                                       const isUploadingThis = uploadingKey === `${trade.id}-${doc.key}`;
                                       const refKey = `${trade.id}-${doc.key}`;
                                       return (
@@ -840,10 +842,16 @@ export default function Trading() {
                                           <div className="flex items-center gap-2 p-2">
                                             <button
                                               type="button"
-                                              className="flex-shrink-0"
+                                              className="flex-shrink-0 disabled:cursor-not-allowed"
+                                              disabled={doc.mandatory}
+                                              title={doc.mandatory ? "Mandatory — upload a file to confirm" : "Toggle confirmation"}
                                               onClick={(e) => {
                                                 e.preventDefault();
                                                 e.stopPropagation();
+                                                if (doc.mandatory) {
+                                                  toast({ title: "Upload Required", description: `${doc.label} is mandatory — upload a file to confirm it.` });
+                                                  return;
+                                                }
                                                 toggleDocument.mutate({ id: trade.id, docKey: doc.key, checked: !isChecked });
                                               }}
                                               data-testid={`checkbox-${trade.id}-${doc.key}`}

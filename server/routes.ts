@@ -242,6 +242,8 @@ const stageMandatoryDocs: Record<string, string[]> = {
   final_payment: [],
 };
 
+const allMandatoryDocKeys = new Set(Object.values(stageMandatoryDocs).flat());
+
 const allValidDocKeys = new Set([
   "kyc_registration", "loi", "fco", "icpo_deal_recap",
   "spa", "cpa", "lc_draft", "lc_copy", "performance_guarantee",
@@ -3055,11 +3057,12 @@ export async function registerRoutes(
       if (nextIdx !== currentIdx + 1) {
         return res.status(409).json({ message: `Cannot transition from ${trade.status} to ${status}. Next valid status: ${statusFlow[currentIdx + 1] || "none"}` });
       }
-      const docs = (trade.stageDocuments as Record<string, boolean>) || {};
       const mandatoryForCurrentStage = stageMandatoryDocs[trade.status] || [];
-      const missingDocs = mandatoryForCurrentStage.filter((d) => docs[d] !== true);
+      const tradeFiles = await storage.getTradeDocuments(id);
+      const uploadedKeys = new Set(tradeFiles.map((f) => f.documentKey));
+      const missingDocs = mandatoryForCurrentStage.filter((d) => !uploadedKeys.has(d));
       if (missingDocs.length > 0) {
-        return res.status(409).json({ message: `Mandatory documents not confirmed for ${trade.status}: ${missingDocs.join(", ")}` });
+        return res.status(409).json({ message: `Mandatory documents must be uploaded for ${trade.status} before advancing: ${missingDocs.join(", ")}` });
       }
 
       if (trade.status === "pre_deal" && status === "deal") {
@@ -3086,6 +3089,9 @@ export async function registerRoutes(
       }
       if (!allValidDocKeys.has(docKey)) {
         return res.status(400).json({ message: `Invalid document key: ${docKey}` });
+      }
+      if (checked && allMandatoryDocKeys.has(docKey)) {
+        return res.status(409).json({ message: "Mandatory documents must be satisfied by uploading a file, not by manual confirmation." });
       }
       const trade = await storage.getTradeById(id);
       if (!trade) {
