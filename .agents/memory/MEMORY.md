@@ -1,0 +1,1 @@
+- [Doc generator templates](doc-generator-templates.md) — adding a doc type: wire builder into all 4 dispatch points; content is parsed by heuristics; restart_workflow if output is empty after template edit.

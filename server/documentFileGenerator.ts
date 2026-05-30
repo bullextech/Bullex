@@ -410,6 +410,219 @@ function isDealRecapContent(content: string): boolean {
   return content.includes("RECAP") && content.includes("CHAPTER I") && content.includes("ANNEX I");
 }
 
+function isTfrContent(content: string): boolean {
+  return content.includes("TRANSACTION FEASIBILITY REPORT") && content.includes("OVERALL FEASIBILITY CONCLUSION");
+}
+
+function buildTfrDocx(content: string): (Paragraph | Table)[] {
+  const lines = sanitizeUnicode(content).split("\n");
+  const children: (Paragraph | Table)[] = [];
+
+  let kvBuf: [string, string][] = [];
+  let tblBuf: string[][] = [];
+
+  const flushKv = () => {
+    if (kvBuf.length === 0) return;
+    children.push(new Table({
+      rows: kvBuf.map(([label, val]) => new TableRow({
+        children: [makeDocxCell(label, true, 3400), makeDocxCell(val, false, 6600)],
+      })),
+      width: { size: 10000, type: WidthType.DXA },
+    }));
+    kvBuf = [];
+  };
+
+  const flushTbl = () => {
+    if (tblBuf.length === 0) return;
+    children.push(new Table({
+      rows: tblBuf.map((cells, idx) => new TableRow({
+        children: [
+          makeDocxCell(cells[0] || "", idx === 0, 6600, idx === 0 ? headerShading : undefined),
+          makeDocxCell(cells[1] || "", idx === 0, 3400, idx === 0 ? headerShading : undefined),
+        ],
+      })),
+      width: { size: 10000, type: WidthType.DXA },
+    }));
+    tblBuf = [];
+  };
+
+  const flushAll = () => { flushKv(); flushTbl(); };
+
+  let titleDone = false;
+  for (const raw of lines) {
+    const line = raw.trim();
+
+    if (!line) {
+      flushAll();
+      children.push(new Paragraph({ spacing: { before: 40, after: 40 } }));
+      continue;
+    }
+
+    if (!titleDone && line === "TRANSACTION FEASIBILITY REPORT") {
+      flushAll();
+      titleDone = true;
+      children.push(new Paragraph({
+        children: [new TextRun({ text: line, bold: true, size: 30, font: "Calibri" })],
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 100, after: 200 },
+      }));
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(line)) {
+      flushAll();
+      children.push(new Paragraph({
+        children: [new TextRun({ text: line, bold: true, size: 24, font: "Calibri" })],
+        spacing: { before: 300, after: 150 },
+        shading: { type: ShadingType.SOLID, color: "E8E8E8", fill: "E8E8E8" },
+      }));
+      continue;
+    }
+
+    if (line.includes("|")) {
+      flushKv();
+      tblBuf.push(line.split("|").map(c => c.trim()));
+      continue;
+    }
+
+    const kvMatch = line.match(/^([^:]{1,45}):\s+(.+)$/);
+    if (kvMatch) {
+      flushTbl();
+      kvBuf.push([kvMatch[1].trim(), kvMatch[2].trim()]);
+      continue;
+    }
+
+    if (line.includes("[X]") || line.includes("[ ]")) {
+      flushAll();
+      children.push(new Paragraph({
+        children: [new TextRun({ text: line, size: 20, font: "Calibri" })],
+        spacing: { before: 40, after: 40 },
+      }));
+      continue;
+    }
+
+    if (line.endsWith(":")) {
+      flushAll();
+      children.push(new Paragraph({
+        children: [new TextRun({ text: line.replace(/:$/, ""), bold: true, size: 22, font: "Calibri" })],
+        spacing: { before: 160, after: 60 },
+      }));
+      continue;
+    }
+
+    flushAll();
+    children.push(new Paragraph({
+      children: [new TextRun({ text: line, size: 20, font: "Calibri" })],
+      spacing: { before: 40, after: 40 },
+    }));
+  }
+  flushAll();
+  return children;
+}
+
+function buildTfrPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: number, pageWidth: number) {
+  const lines = sanitizeUnicode(content).split("\n");
+
+  let kvBuf: [string, string][] = [];
+  let tblBuf: [string, string][] = [];
+
+  const flushKv = () => {
+    if (kvBuf.length === 0) return;
+    const col1W = Math.floor(pageWidth * 0.4);
+    const col2W = pageWidth - col1W;
+    const padding = 5;
+    for (const [label, val] of kvBuf) {
+      const h1 = doc.font("Helvetica-Bold").fontSize(9).heightOfString(label, { width: col1W - padding * 2 });
+      const h2 = doc.font("Helvetica").fontSize(9).heightOfString(val || " ", { width: col2W - padding * 2 });
+      const rowH = Math.max(h1, h2) + padding * 2 + 2;
+      pdfCheckPage(doc, rowH);
+      const y = doc.y;
+      doc.rect(leftMargin, y, col1W, rowH).stroke("#999999");
+      doc.rect(leftMargin + col1W, y, col2W, rowH).stroke("#999999");
+      doc.fillColor("#000000");
+      doc.font("Helvetica-Bold").fontSize(9).text(label, leftMargin + padding, y + padding, { width: col1W - padding * 2 });
+      doc.font("Helvetica").fontSize(9).text(val || "", leftMargin + col1W + padding, y + padding, { width: col2W - padding * 2 });
+      doc.x = leftMargin;
+      doc.y = y + rowH;
+    }
+    kvBuf = [];
+    doc.moveDown(0.3);
+  };
+
+  const flushTbl = () => {
+    if (tblBuf.length === 0) return;
+    drawPdf2ColTable(doc, tblBuf, leftMargin, pageWidth);
+    tblBuf = [];
+    doc.x = leftMargin;
+    doc.moveDown(0.3);
+  };
+
+  const flushAll = () => { flushKv(); flushTbl(); };
+
+  let titleDone = false;
+  for (const raw of lines) {
+    const line = raw.trim();
+
+    if (!line) { flushAll(); doc.moveDown(0.2); continue; }
+
+    if (!titleDone && line === "TRANSACTION FEASIBILITY REPORT") {
+      flushAll();
+      titleDone = true;
+      doc.font("Helvetica-Bold").fontSize(15).text(line, leftMargin, doc.y, { width: pageWidth, align: "center" });
+      doc.moveDown(0.5);
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(line)) {
+      flushAll();
+      pdfCheckPage(doc, 40);
+      doc.moveDown(0.4);
+      const y = doc.y;
+      const h = doc.font("Helvetica-Bold").fontSize(12).heightOfString(line, { width: pageWidth - 8 });
+      doc.rect(leftMargin, y - 2, pageWidth, h + 6).fill("#E8E8E8");
+      doc.fillColor("#000000").font("Helvetica-Bold").fontSize(12).text(line, leftMargin + 4, y + 1, { width: pageWidth - 8 });
+      doc.x = leftMargin;
+      doc.moveDown(0.4);
+      continue;
+    }
+
+    if (line.includes("|")) {
+      flushKv();
+      const cells = line.split("|").map(c => c.trim());
+      tblBuf.push([cells[0] || "", cells[1] || ""]);
+      continue;
+    }
+
+    const kvMatch = line.match(/^([^:]{1,45}):\s+(.+)$/);
+    if (kvMatch) {
+      flushTbl();
+      kvBuf.push([kvMatch[1].trim(), kvMatch[2].trim()]);
+      continue;
+    }
+
+    if (line.includes("[X]") || line.includes("[ ]")) {
+      flushAll();
+      doc.font("Helvetica").fontSize(9.5).text(line, leftMargin, doc.y, { width: pageWidth, lineGap: 2 });
+      doc.moveDown(0.2);
+      continue;
+    }
+
+    if (line.endsWith(":")) {
+      flushAll();
+      pdfCheckPage(doc, 24);
+      doc.moveDown(0.2);
+      doc.font("Helvetica-Bold").fontSize(10.5).text(line.replace(/:$/, ""), leftMargin, doc.y, { width: pageWidth });
+      doc.moveDown(0.15);
+      continue;
+    }
+
+    flushAll();
+    doc.font("Helvetica").fontSize(9).text(line, leftMargin, doc.y, { width: pageWidth, lineGap: 2 });
+    if (doc.y > 740) doc.addPage();
+  }
+  flushAll();
+}
+
 function isLoiContent(content: string): boolean {
   return content.includes("PURCHASE LETTER OF INTENT") && content.includes("Issued to Seller") && content.includes("Sr. No.");
 }
@@ -2644,7 +2857,9 @@ export async function generateDocx(docId: string, title: string, content: string
   assertSafeDocId(docId);
   let children: (Paragraph | Table)[];
 
-  if (isDealRecapContent(content)) {
+  if (isTfrContent(content)) {
+    children = buildTfrDocx(content);
+  } else if (isDealRecapContent(content)) {
     children = buildDealRecapDocx(content);
   } else if (isLoiContent(content)) {
     children = buildLoiDocx(content);
@@ -2779,7 +2994,9 @@ export async function generatePdf(docId: string, title: string, content: string,
     const pageWidth = 495;
     const leftMargin = 50;
 
-    if (isDealRecapContent(content)) {
+    if (isTfrContent(content)) {
+      buildTfrPdf(doc, content, leftMargin, pageWidth);
+    } else if (isDealRecapContent(content)) {
       buildDealRecapPdf(doc, content, leftMargin, pageWidth);
     } else if (isLoiContent(content)) {
       buildLoiPdf(doc, content, leftMargin, pageWidth);
@@ -3348,7 +3565,9 @@ export async function regenerateWithSignatures(
 ): Promise<{ docxPath: string; pdfPath: string }> {
   assertSafeDocId(docId);
   let docxChildren: (Paragraph | Table)[];
-  if (isDealRecapContent(content)) {
+  if (isTfrContent(content)) {
+    docxChildren = buildTfrDocx(content);
+  } else if (isDealRecapContent(content)) {
     docxChildren = buildDealRecapDocx(content);
   } else if (isLoiContent(content)) {
     docxChildren = buildLoiDocx(content);
@@ -3383,7 +3602,9 @@ export async function regenerateWithSignatures(
     const pageWidth = 495;
     const leftMargin = 50;
 
-    if (isDealRecapContent(content)) {
+    if (isTfrContent(content)) {
+      buildTfrPdf(pdfDoc, content, leftMargin, pageWidth);
+    } else if (isDealRecapContent(content)) {
       buildDealRecapPdf(pdfDoc, content, leftMargin, pageWidth);
     } else if (isLoiContent(content)) {
       buildLoiPdf(pdfDoc, content, leftMargin, pageWidth);

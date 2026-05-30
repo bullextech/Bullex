@@ -88,6 +88,8 @@ export interface ProductDetails {
   agentAccountNumber?: string;
   agentIban?: string;
   agentSwift?: string;
+  // Transaction Feasibility Report — flexible key/value map of all TFR fields
+  tfrData?: Record<string, string>;
 }
 
 const today = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
@@ -163,6 +165,256 @@ SWIFT/BIC: ${v(seller?.swift)}`;
 }
 
 const templates: Record<string, (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => string> = {
+
+  TFR: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const t = product?.tfrData || {};
+    const g = (key: string, fb = "____") => {
+      const val = t[key];
+      return (val !== undefined && String(val).trim()) ? String(val).trim() : fb;
+    };
+    const cb = (selected: string | undefined, options: string[]) =>
+      options.map(o => `${selected && selected === o ? "[X]" : "[ ]"} ${o}`).join("    ");
+
+    const sellerName = g("seller", seller?.name || trade?.sellerName || "____");
+    const buyerName = g("buyer", buyer?.name || trade?.buyerName || "____");
+    const product_ = g("product", trade?.commodity || "____");
+    const origin = g("origin", trade?.origin || "____");
+    const destination = g("destination", trade?.destination || "____");
+    const quantity = g("quantity", trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : "____");
+    const contractValue = g("contractValue", trade ? `${trade.currency} ${trade.totalValue.toLocaleString()}` : "____");
+    const deliveryTerms = g("deliveryTerms", trade?.incoterm || "____");
+
+    return `TRANSACTION FEASIBILITY REPORT
+
+Date: ${today()}
+Reference: ${trade?.tradeRef || g("reference")}
+
+1. EXECUTIVE SUMMARY
+
+Transaction Overview:
+Product: ${product_}
+Origin: ${origin}
+Destination: ${destination}
+Seller: ${sellerName}
+Buyer: ${buyerName}
+Quantity: ${quantity}
+Contract Value: ${contractValue}
+Delivery Terms (Incoterms): ${deliveryTerms}
+Payment Instrument: ${g("paymentInstrument")}
+Transaction Duration: ${g("transactionDuration")}
+
+Objective:
+${g("objective", "To assess the commercial, financial, operational, legal, and banking feasibility of the proposed transaction and determine its suitability for execution and financing.")}
+
+2. PARTIES TO THE TRANSACTION
+
+Seller:
+Company Name: ${sellerName}
+
+Buyer:
+Company Name: ${buyerName}
+
+Intermediaries (if any):
+Brokers: ${g("brokers")}
+Mandates: ${g("mandates")}
+Consultants: ${g("consultants")}
+Logistics Providers: ${g("logisticsProviders")}
+
+3. PRODUCT FEASIBILITY
+
+Product Description:
+Commodity: ${g("commodity", product_)}
+Specifications: ${g("specifications")}
+
+Supply Availability:
+Production Capacity: ${g("productionCapacity")}
+Historical Export Records: ${g("historicalExportRecords")}
+Availability of Quantity: ${g("availabilityOfQuantity")}
+Seasonal Risks: ${g("seasonalRisks")}
+
+Quality Assurance:
+Quality Analysis: ${g("qualityAnalysis")}
+Certificate of Origin: ${g("certificateOfOrigin")}
+Quality Certificates: ${g("qualityCertificates")}
+
+Conclusion:
+${cb(t.productConclusion, ["Feasible", "Conditionally Feasible", "Not Feasible"])}
+
+4. MARKET ANALYSIS
+
+Market Demand:
+Current Demand Trends: ${g("currentDemandTrends")}
+Import Statistics: ${g("importStatistics")}
+End User Demand: ${g("endUserDemand")}
+
+Price Analysis:
+Current Market Price: ${g("currentMarketPrice")}
+Historical Trend: ${g("historicalTrend")}
+Price Volatility: ${g("priceVolatility")}
+
+Competitive Position:
+Comparable Suppliers: ${g("comparableSuppliers")}
+Market Advantages: ${g("marketAdvantages")}
+
+Conclusion:
+${cb(t.marketConclusion, ["Strong Market Demand", "Moderate Market Demand", "Weak Market Demand"])}
+
+5. FINANCIAL FEASIBILITY
+
+Transaction Economics:
+Particulars | Amount (USD)
+Purchase Cost | ${g("purchaseCost", "—")}
+Freight Cost | ${g("freightCost", "—")}
+Insurance | ${g("insurance", "—")}
+Inspection Cost | ${g("inspectionCost", "—")}
+Banking Cost | ${g("bankingCost", "—")}
+Operational Cost | ${g("operationalCost", "—")}
+Total Cost | ${g("totalCost", "—")}
+Sale Revenue | ${g("saleRevenue", "—")}
+Gross Profit | ${g("grossProfit", "—")}
+Net Profit | ${g("netProfit", "—")}
+
+Return Analysis:
+Gross Margin (Gross Profit / Revenue x 100): ${g("grossMargin")}
+Return on Investment (Net Profit / Investment x 100): ${g("returnOnInvestment")}
+
+Breakeven Analysis:
+${g("breakevenAnalysis", "Assessment of minimum profitable sale price.")}
+
+Conclusion:
+${cb(t.financialConclusion, ["Financially Attractive", "Marginally Viable", "Not Attractive"])}
+
+6. TRADE FINANCE FEASIBILITY
+
+Proposed Banking Structure:
+Possible Instruments: ${g("proposedInstruments", "Letter of Credit (LC), Standby Letter of Credit (SBLC), Documentary Collection, Bank Guarantee, Performance Bond, Back-to-Back LC, Deferred Payment LC")}
+
+Banking Assessment:
+Buyer Bank Rating: ${g("buyerBankRating")}
+Seller Bank Rating: ${g("sellerBankRating")}
+Seller Bank Compliance Status: ${g("sellerBankCompliance")}
+
+Financing Requirement:
+Working Capital Required: ${g("workingCapitalRequired")}
+Financing Period: ${g("financingPeriod")}
+Expected Yield: ${g("expectedYield")}
+
+Conclusion:
+${cb(t.financeConclusion, ["Bankable", "Bankable with Conditions", "Not Bankable"])}
+
+7. LOGISTICS FEASIBILITY
+
+Transportation:
+Loading Port: ${g("loadingPort", origin)}
+Discharge Port: ${g("dischargePort", destination)}
+Shipping Route: ${g("shippingRoute")}
+Transit Time: ${g("transitTime")}
+
+Infrastructure Assessment:
+Port Capacity: ${g("portCapacity")}
+Vessel Availability: ${g("vesselAvailability")}
+Storage Facilities: ${g("storageFacilities")}
+Inland Transportation: ${g("inlandTransportation")}
+
+Risks:
+Congestion: ${g("congestion")}
+Weather: ${g("weather")}
+Political Disruptions: ${g("politicalDisruptions")}
+Sanctions: ${g("logisticsSanctions")}
+
+Conclusion:
+${cb(t.logisticsConclusion, ["Logistically Feasible", "Requires Mitigation", "Not Feasible"])}
+
+8. LEGAL & COMPLIANCE REVIEW
+
+Corporate Due Diligence:
+Corporate Registration: ${g("corporateRegistration")}
+Beneficial Ownership: ${g("beneficialOwnership")}
+Trade Licenses: ${g("tradeLicenses")}
+Authority of Signatories: ${g("authorityOfSignatories")}
+
+AML/KYC Review:
+Sanctions Screening: ${g("sanctionsScreening")}
+PEP Screening: ${g("pepScreening")}
+Adverse Media Search: ${g("adverseMediaSearch")}
+Ultimate Beneficial Owner Verification: ${g("uboVerification")}
+
+Contract Review:
+SPA: ${g("reviewSpa")}
+Performance Bond: ${g("reviewPerformanceBond")}
+LC Terms: ${g("reviewLcTerms")}
+Arbitration Clauses: ${g("reviewArbitration")}
+
+Conclusion:
+${cb(t.complianceConclusion, ["Compliant", "Additional Review Required", "High Risk"])}
+
+9. RISK ASSESSMENT
+
+Commercial Risks:
+Supplier Default: ${g("supplierDefault")}
+Buyer Default: ${g("buyerDefault")}
+Quality Disputes: ${g("qualityDisputes")}
+
+Financial Risks:
+Currency Risk: ${g("currencyRisk")}
+Payment Risk: ${g("paymentRisk")}
+Funding Risk: ${g("fundingRisk")}
+
+Political Risks:
+Export Restrictions: ${g("exportRestrictions")}
+Sanctions: ${g("riskSanctions")}
+Government Intervention: ${g("governmentIntervention")}
+
+Operational Risks:
+Shipment Delay: ${g("shipmentDelay")}
+Documentation Errors: ${g("documentationErrors")}
+Force Majeure: ${g("forceMajeure")}
+
+Risk Rating:
+Risk Category | Rating
+Commercial | ${g("commercialRating", "—")}
+Financial | ${g("financialRating", "—")}
+Operational | ${g("operationalRating", "—")}
+Political | ${g("politicalRating", "—")}
+Compliance | ${g("complianceRating", "—")}
+
+Overall Risk Rating:
+${cb(t.overallRisk, ["Low", "Medium", "High"])}
+
+10. SECURITY STRUCTURE
+
+Available Security:
+Corporate Guarantee: ${g("corporateGuarantee")}
+Personal Guarantee: ${g("personalGuarantee")}
+Post-Dated Cheques: ${g("postDatedCheques")}
+Performance Bond: ${g("securityPerformanceBond")}
+SBLC: ${g("sblc")}
+Bank Guarantee: ${g("bankGuarantee")}
+Escrow Arrangement: ${g("escrowArrangement")}
+
+Adequacy Assessment:
+${cb(t.securityAdequacy, ["Adequate", "Partially Adequate", "Inadequate"])}
+
+11. OVERALL FEASIBILITY CONCLUSION
+
+Final Assessment:
+Commercial Feasibility: ${cb(t.commercialFeasibility, ["Yes", "No"])}
+Financial Feasibility: ${cb(t.financialFeasibilityFinal, ["Yes", "No"])}
+Banking Feasibility: ${cb(t.bankingFeasibility, ["Yes", "No"])}
+Operational Feasibility: ${cb(t.operationalFeasibility, ["Yes", "No"])}
+Compliance Feasibility: ${cb(t.complianceFeasibilityFinal, ["Yes", "No"])}
+
+Recommendation:
+${cb(t.recommendation, ["Proceed Immediately", "Proceed Subject to Conditions", "Re-Structure Transaction", "Do Not Proceed"])}
+
+Conditions Precedent (if applicable):
+${g("conditionsPrecedent", "—")}
+
+Prepared By: ${g("preparedBy")}
+Date: ${g("preparedDate", today())}
+Approved By: ${g("approvedBy")}
+`;
+  },
 
   SCO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
     const cur = product?.currency || trade?.currency || "USD";

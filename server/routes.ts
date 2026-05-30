@@ -100,6 +100,17 @@ const ADMIN_CHECKLISTS: Record<string, string[]> = {
     "Annexure A (IMFPA) and Annexure B (NCNDA) attached",
     "Signatory blocks for Principal and Agent complete",
   ],
+  TFR: [
+    "Buyer and Seller verified against KYC / company records",
+    "Product, quantity, contract value and Incoterms consistent",
+    "Financial economics and profit figures reviewed",
+    "Trade finance / banking structure assessed",
+    "Logistics route and infrastructure feasibility confirmed",
+    "Legal, AML/KYC and sanctions screening completed",
+    "Risk ratings and security structure reviewed",
+    "Overall feasibility conclusion and recommendation set",
+    "Prepared By and Approved By signatories complete",
+  ],
 };
 async function resolveAgentCode(opts: {
   buyerEmail?: string | null;
