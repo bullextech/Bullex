@@ -40,6 +40,7 @@ import TeamMembers from "@/pages/team-members";
 import TeamKYC from "@/pages/team-kyc";
 import InvestorDeck from "@/pages/investor-deck";
 import TradeBank from "@/pages/trade-bank";
+import Banking from "@/pages/banking";
 import DatabaseBackup from "@/pages/database-backup";
 import TaskBoard from "@/pages/task-board";
 import TeamPortal from "@/pages/team-portal";
@@ -52,7 +53,6 @@ import { ComingSoon } from "@/pages/coming-soon";
 const Analytics = () => <ComingSoon title="Analytics" description="Trading performance, KYC throughput and operational analytics will appear here." />;
 const Shipments = () => <ComingSoon title="Shipments" description="Vessel scheduling, cargo loading, ETA tracking and discharge events." />;
 const QaReports = () => <ComingSoon title="QA Reports" description="Sampling, quality, moisture and weight inspection reports from independent agencies." />;
-const Banking = () => <ComingSoon title="Banking & LC" description="Letters of credit, payment instructions, bank guarantees and remittance tracking." />;
 const LivePrices = () => <ComingSoon title="Live Prices" description="Live commodity price feeds for metals, energy and fertilizers." />;
 
 // Always requires login; admins get full access, team members get all modules unrestricted by this gate

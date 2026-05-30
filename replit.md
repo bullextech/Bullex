@@ -127,6 +127,9 @@ Home, Admin, Enquiries, Products, Platform, Client Portal, Investor, Contact
 Client KYC Registration link (/kyc-register) with Copy + Share buttons
 Approved Participants section with category & products badges
 
+## Banking & LC (/banking) [PROTECTED — module "banking"]
+The admin "Banking & LC" page embeds the live Bullex Trade Bank dashboard inside the admin app shell (sidebar + topnav remain). It renders a header (title "Banking & LC" + "Open Full Trade Bank" link to `/trade-bank`) above the shared `<TradeBankFrame/>` component. The live-data + postMessage logic is extracted into `client/src/components/trade-bank-frame.tsx` and reused by both `/banking` (embedded) and `/trade-bank` (full-screen standalone). Same security model as the standalone page: sandboxed iframe without `allow-same-origin`, strict sender-window validation on both sides, HTML-escaped payload. Replaced the previous "Coming Soon" placeholder.
+
 ## Standalone Routes (outside app shell)
 - `/kyc-register` - Standalone client KYC registration (no sidebar/nav)
 - `/client-portal` - Client portal with own auth system (no sidebar/nav)
