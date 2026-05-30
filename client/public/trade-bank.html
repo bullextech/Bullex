@@ -396,7 +396,7 @@ tr:hover td{background:var(--off)}
   <div class="page-hdr">
     <div class="page-hdr-left">
       <h1>Portfolio Overview</h1>
-      <p>Wednesday, 28 May 2026 &nbsp;·&nbsp; Active monitoring across 134 trades</p>
+      <p id="dash-sub">Wednesday, 28 May 2026 &nbsp;·&nbsp; Active monitoring across 134 trades</p>
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-outline btn-sm"><i class="fa-regular fa-arrow-down-to-bracket"></i> Export</button>
@@ -407,25 +407,25 @@ tr:hover td{background:var(--off)}
   <div class="kpi-grid">
     <div class="kpi-card">
       <div class="kpi-label">Total Finance Volume</div>
-      <div class="kpi-val gold">$48.2M</div>
+      <div class="kpi-val gold" id="kpi-volume">$48.2M</div>
       <div class="kpi-change up"><i class="fa-solid fa-arrow-trend-up" style="font-size:10px"></i> 12% this quarter</div>
       <div class="sparkline" id="spark1"></div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Active Trades</div>
-      <div class="kpi-val teal">134</div>
+      <div class="kpi-val teal" id="kpi-active">134</div>
       <div class="kpi-change up"><i class="fa-solid fa-arrow-trend-up" style="font-size:10px"></i> 8 new this week</div>
       <div class="sparkline" id="spark2"></div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Approval Rate</div>
-      <div class="kpi-val">76%</div>
+      <div class="kpi-val" id="kpi-approval">76%</div>
       <div class="kpi-change up"><i class="fa-solid fa-arrow-trend-up" style="font-size:10px"></i> +3pts vs last month</div>
       <div class="sparkline" id="spark3"></div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">At-Risk Trades</div>
-      <div class="kpi-val coral">9</div>
+      <div class="kpi-val coral" id="kpi-atrisk">9</div>
       <div class="kpi-change down"><i class="fa-solid fa-arrow-trend-up" style="font-size:10px"></i> 2 flagged today</div>
       <div class="sparkline" id="spark4"></div>
     </div>
@@ -434,6 +434,7 @@ tr:hover td{background:var(--off)}
   <div class="dash-widgets">
     <div class="card card-pad">
       <div class="section-title">Recent Trade Activity</div>
+      <div id="recent-trades">
       <div class="trade-row-item">
         <span class="trade-id">TRD-2841</span>
         <span class="trade-comm">Cocoa Beans — Ghana → Netherlands</span>
@@ -470,11 +471,12 @@ tr:hover td{background:var(--off)}
         <span class="trade-amt">$1.6M</span>
         <span class="badge badge-approved">Approved</span>
       </div>
+      </div>
     </div>
 
     <div class="card card-pad">
       <div class="section-title">Live Alerts</div>
-      <div class="alerts-list">
+      <div class="alerts-list" id="alerts-list">
         <div class="alert-item">
           <div class="alert-dot" style="background:var(--coral)"></div>
           <div>
@@ -537,32 +539,32 @@ tr:hover td{background:var(--off)}
       <div class="grid-3" style="gap:8px">
         <div style="background:var(--off);border-radius:var(--radius);padding:12px;text-align:center">
           <div style="font-size:20px;color:var(--gold);margin-bottom:4px"><i class="fa-regular fa-building-columns"></i></div>
-          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif">42</div>
+          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif" id="ap-trader">42</div>
           <div style="font-size:10px;color:var(--muted)">Traders</div>
         </div>
         <div style="background:var(--off);border-radius:var(--radius);padding:12px;text-align:center">
           <div style="font-size:20px;color:var(--teal);margin-bottom:4px"><i class="fa-regular fa-industry"></i></div>
-          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif">18</div>
+          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif" id="ap-producer">18</div>
           <div style="font-size:10px;color:var(--muted)">Producers</div>
         </div>
         <div style="background:var(--off);border-radius:var(--radius);padding:12px;text-align:center">
           <div style="font-size:20px;color:var(--blue);margin-bottom:4px"><i class="fa-regular fa-truck"></i></div>
-          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif">11</div>
+          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif" id="ap-logistics">11</div>
           <div style="font-size:10px;color:var(--muted)">Logistics</div>
         </div>
         <div style="background:var(--off);border-radius:var(--radius);padding:12px;text-align:center">
           <div style="font-size:20px;color:var(--amber);margin-bottom:4px"><i class="fa-regular fa-handshake"></i></div>
-          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif">9</div>
+          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif" id="ap-broker">9</div>
           <div style="font-size:10px;color:var(--muted)">Brokers</div>
         </div>
         <div style="background:var(--off);border-radius:var(--radius);padding:12px;text-align:center">
           <div style="font-size:20px;color:var(--coral);margin-bottom:4px"><i class="fa-regular fa-flask"></i></div>
-          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif">7</div>
+          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif" id="ap-qa">7</div>
           <div style="font-size:10px;color:var(--muted)">QA Agencies</div>
         </div>
         <div style="background:var(--off);border-radius:var(--radius);padding:12px;text-align:center">
           <div style="font-size:20px;color:var(--muted);margin-bottom:4px"><i class="fa-regular fa-vault"></i></div>
-          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif">5</div>
+          <div style="font-size:18px;font-weight:400;font-family:'DM Serif Display',serif" id="ap-collateral">5</div>
           <div style="font-size:10px;color:var(--muted)">Collateral</div>
         </div>
       </div>
@@ -825,7 +827,7 @@ tr:hover td{background:var(--off)}
   <div class="page-hdr">
     <div class="page-hdr-left">
       <h1>Platform Participants</h1>
-      <p>92 active participants across 8 roles and 24 countries</p>
+      <p id="part-sub">92 active participants across 8 roles and 24 countries</p>
     </div>
     <button class="btn btn-primary btn-sm"><i class="fa-regular fa-user-plus"></i> Onboard Participant</button>
   </div>
@@ -964,7 +966,7 @@ tr:hover td{background:var(--off)}
           <option>All Trades</option><option>TRD-2841</option><option>TRD-2840</option><option>TRD-2839</option>
         </select>
       </div>
-      <div class="card doc-list">
+      <div class="card doc-list" id="doc-list">
         <div class="doc-row selected" onclick="selectDoc(this)"><div class="doc-icon pdf"><i class="fa-regular fa-file-pdf"></i></div><div style="flex:1;overflow:hidden"><div class="doc-name">TRD-2841 — Letter of Credit (Draft)</div><div style="font-size:11px;color:var(--hint)">TRD-2841 · PDF · 2.4 MB · 28 May 2026</div></div><span class="badge badge-review">Draft</span></div>
         <div class="doc-row" onclick="selectDoc(this)"><div class="doc-icon pdf"><i class="fa-regular fa-file-pdf"></i></div><div style="flex:1;overflow:hidden"><div class="doc-name">TRD-2841 — SGS Quality Report</div><div style="font-size:11px;color:var(--hint)">TRD-2841 · PDF · 1.1 MB · 28 May 2026</div></div><span class="badge badge-approved">Verified</span></div>
         <div class="doc-row" onclick="selectDoc(this)"><div class="doc-icon txt"><i class="fa-regular fa-file-lines"></i></div><div style="flex:1;overflow:hidden"><div class="doc-name">TRD-2841 — Sale &amp; Purchase Contract</div><div style="font-size:11px;color:var(--hint)">TRD-2841 · DOCX · 0.8 MB · 27 May 2026</div></div><span class="badge badge-approved">Signed</span></div>
@@ -1009,7 +1011,7 @@ tr:hover td{background:var(--off)}
   <div class="page-hdr">
     <div class="page-hdr-left">
       <h1>Notifications &amp; Alerts</h1>
-      <p>7 unread notifications across all trades and participants</p>
+      <p id="notif-sub">7 unread notifications across all trades and participants</p>
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-outline btn-sm">Mark all read</button>
@@ -1025,7 +1027,7 @@ tr:hover td{background:var(--off)}
         <button class="filter-chip">Documents</button>
         <button class="filter-chip">Compliance</button>
       </div>
-      <div class="card">
+      <div class="card" id="notif-list">
         <div class="notif-item unread">
           <div class="notif-icon" style="background:var(--coral-bg);color:var(--coral)"><i class="fa-regular fa-triangle-exclamation"></i></div>
           <div class="notif-content">
@@ -1182,6 +1184,62 @@ function selectDoc(el) {
   document.querySelectorAll('.doc-row').forEach(r => r.classList.remove('selected'));
   el.classList.add('selected');
 }
+
+/* ── LIVE DATA INJECTION (from authenticated parent via postMessage) ── */
+(function(){
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
+  function setText(id,v){var el=document.getElementById(id); if(el && v!=null) el.textContent=v;}
+  function badge(cls,label){return '<span class="badge badge-'+esc(cls)+'">'+esc(label)+'</span>';}
+
+  function renderTrades(list){
+    var c=document.getElementById('recent-trades'); if(!c) return;
+    if(!list.length){ c.innerHTML='<div class="trade-row-item" style="color:var(--muted)">No trades yet.</div>'; return; }
+    c.innerHTML=list.map(function(t){return '<div class="trade-row-item"><span class="trade-id">'+esc(t.ref)+'</span><span class="trade-comm">'+esc(t.comm)+'</span><span class="trade-amt">'+esc(t.amt)+'</span>'+badge(t.badge,t.status)+'</div>';}).join('');
+  }
+  function renderParticipants(list){
+    var tb=document.getElementById('part-tbody'); if(!tb) return;
+    if(!list.length){ tb.innerHTML='<tr><td colspan="8" style="color:var(--muted);padding:16px">No approved participants yet.</td></tr>'; return; }
+    tb.innerHTML=list.map(function(p){return '<tr data-role="'+esc(p.roleGroup)+'"><td><div class="tbl-name"><div class="avatar" style="background:var(--gold-bg);color:var(--gold)">'+esc(p.initials)+'</div><div><div>'+esc(p.name)+'</div><div class="tbl-sub">'+esc(p.role)+'</div></div></div></td><td>'+badge("processing",p.role)+'</td><td>'+esc(p.country)+'</td><td class="rating">'+esc(p.rating)+'</td><td>'+esc(p.active)+'</td><td>'+esc(p.completed)+'</td><td>'+badge("approved",p.status)+'</td><td><button class="btn btn-outline btn-sm">View</button></td></tr>';}).join('');
+  }
+  function renderDocs(list){
+    var c=document.getElementById('doc-list'); if(!c) return;
+    if(!list.length){ c.innerHTML='<div class="doc-row" style="color:var(--muted)">No documents yet.</div>'; return; }
+    c.innerHTML=list.map(function(d){return '<div class="doc-row" onclick="selectDoc(this)"><div class="doc-icon '+esc(d.iconClass)+'"><i class="fa-regular '+esc(d.faIcon)+'"></i></div><div style="flex:1;overflow:hidden"><div class="doc-name">'+esc(d.name)+'</div><div style="font-size:11px;color:var(--hint)">'+esc(d.ref)+' · '+esc(d.ext)+' · '+esc(d.date)+'</div></div>'+badge(d.badge,d.status)+'</div>';}).join('');
+  }
+  function renderAlerts(list){
+    var c=document.getElementById('alerts-list'); if(!c) return;
+    if(!list.length){ c.innerHTML='<div class="alert-item" style="color:var(--muted)">No alerts.</div>'; return; }
+    c.innerHTML=list.slice(0,4).map(function(n){return '<div class="alert-item"><div class="alert-dot" style="background:'+esc(n.dot)+'"></div><div><div class="alert-text">'+esc(n.title)+'</div><div class="alert-time">'+esc(n.time)+' · '+esc(n.source)+'</div></div></div>';}).join('');
+  }
+  function renderNotifs(list){
+    var c=document.getElementById('notif-list'); if(!c) return;
+    if(!list.length){ c.innerHTML='<div class="notif-item" style="color:var(--muted)">No notifications.</div>'; return; }
+    c.innerHTML=list.map(function(n){return '<div class="notif-item'+(n.unread?' unread':'')+'"><div class="notif-icon" style="background:'+esc(n.iconBg)+';color:'+esc(n.iconColor)+'"><i class="fa-regular '+esc(n.faIcon)+'"></i></div><div class="notif-content"><div class="notif-title">'+esc(n.title)+'</div><div class="notif-body">'+esc(n.body)+'</div><div class="notif-time">'+esc(n.time)+' · '+esc(n.source)+'</div></div>'+(n.unread?'<div class="notif-unread-dot"></div>':'')+'</div>';}).join('');
+  }
+
+  window.addEventListener('message', function(ev){
+    /* Only accept data from our embedding parent window. */
+    if(ev.source!==window.parent) return;
+    var d=ev.data; if(!d || d.source!=='bullex-parent' || !d.payload) return;
+    var p=d.payload;
+    try{
+      if(p.kpis){ setText('kpi-volume',p.kpis.financeVolume); setText('kpi-active',p.kpis.activeTrades); setText('kpi-approval',p.kpis.approvalRate); setText('kpi-atrisk',p.kpis.atRisk); }
+      if(p.recentTrades) renderTrades(p.recentTrades);
+      if(p.participants) renderParticipants(p.participants);
+      if(p.documents) renderDocs(p.documents);
+      if(p.notifications){ renderAlerts(p.notifications); renderNotifs(p.notifications); }
+      if(p.counts){ setText('ap-trader',p.counts.trader); setText('ap-producer',p.counts.producer); setText('ap-logistics',p.counts.logistics); setText('ap-broker',p.counts.broker); setText('ap-qa',p.counts.qa); setText('ap-collateral',p.counts.collateral); }
+      if(p.totals){
+        if(p.totals.trades!=null) setText('dash-sub','Active monitoring across '+p.totals.trades+' trade'+(p.totals.trades===1?'':'s'));
+        if(p.totals.participants!=null) setText('part-sub',p.totals.participants+' approved participant'+(p.totals.participants===1?'':'s'));
+        if(p.totals.unread!=null) setText('notif-sub',p.totals.unread+' unread notification'+(p.totals.unread===1?'':'s'));
+      }
+    }catch(e){ /* keep demo content on error */ }
+  });
+
+  /* Let the parent know the listener is attached, in case it posted before load completed. */
+  try{ if(window.parent && window.parent!==window) window.parent.postMessage({source:'bullex-iframe',ready:true},'*'); }catch(e){}
+})();
 </script>
 </body>
 </html>
