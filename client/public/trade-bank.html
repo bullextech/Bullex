@@ -527,10 +527,12 @@ tr:hover td{background:var(--off)}
       </div>
       <div style="margin-top:16px">
         <div class="section-title">Commodity Exposure</div>
-        <div class="prog-row"><span class="prog-label">Crude Oil</span><div class="prog-track"><div class="prog-fill" style="width:70%;background:var(--gold)"></div></div><span class="prog-val">$18.2M</span></div>
-        <div class="prog-row"><span class="prog-label">Soybeans</span><div class="prog-track"><div class="prog-fill" style="width:55%;background:#5DCAA5"></div></div><span class="prog-val">$14.1M</span></div>
-        <div class="prog-row"><span class="prog-label">Cocoa</span><div class="prog-track"><div class="prog-fill" style="width:38%;background:#85B7EB"></div></div><span class="prog-val">$9.8M</span></div>
-        <div class="prog-row"><span class="prog-label">Other</span><div class="prog-track"><div class="prog-fill" style="width:24%;background:var(--off3)"></div></div><span class="prog-val">$6.1M</span></div>
+        <div id="comm-exposure">
+          <div class="prog-row"><span class="prog-label">Crude Oil</span><div class="prog-track"><div class="prog-fill" style="width:70%;background:var(--gold)"></div></div><span class="prog-val">$18.2M</span></div>
+          <div class="prog-row"><span class="prog-label">Soybeans</span><div class="prog-track"><div class="prog-fill" style="width:55%;background:#5DCAA5"></div></div><span class="prog-val">$14.1M</span></div>
+          <div class="prog-row"><span class="prog-label">Cocoa</span><div class="prog-track"><div class="prog-fill" style="width:38%;background:#85B7EB"></div></div><span class="prog-val">$9.8M</span></div>
+          <div class="prog-row"><span class="prog-label">Other</span><div class="prog-track"><div class="prog-fill" style="width:24%;background:var(--off3)"></div></div><span class="prog-val">$6.1M</span></div>
+        </div>
       </div>
     </div>
 
@@ -1148,6 +1150,14 @@ function selectDoc(el) {
     c.innerHTML=list.map(function(n){return '<div class="notif-item'+(n.unread?' unread':'')+'"><div class="notif-icon" style="background:'+esc(n.iconBg)+';color:'+esc(n.iconColor)+'"><i class="fa-regular '+esc(n.faIcon)+'"></i></div><div class="notif-content"><div class="notif-title">'+esc(n.title)+'</div><div class="notif-body">'+esc(n.body)+'</div><div class="notif-time">'+esc(n.time)+' · '+esc(n.source)+'</div></div>'+(n.unread?'<div class="notif-unread-dot"></div>':'')+'</div>';}).join('');
   }
 
+  function renderCommExposure(list){
+    var c=document.getElementById('comm-exposure'); if(!c) return;
+    if(!list || !list.length){ c.innerHTML='<div class="prog-row"><span class="prog-label" style="color:var(--muted)">No trades yet</span></div>'; return; }
+    c.innerHTML=list.map(function(it){
+      return '<div class="prog-row"><span class="prog-label">'+esc(it.label)+'</span><div class="prog-track"><div class="prog-fill" style="width:'+(Number(it.pct)||0)+'%;background:'+esc(it.color)+'"></div></div><span class="prog-val">'+esc(it.value)+'</span></div>';
+    }).join('');
+  }
+
   function renderParties(list){
     var names=['Bullfrog Group'].concat((list||[]).map(function(p){return p.name;}).filter(Boolean));
     [['nt-buyer','Select buyer…'],['nt-seller','Select seller…']].forEach(function(pair){
@@ -1181,6 +1191,7 @@ function selectDoc(el) {
       if(p.shipments) renderShipments(p.shipments);
       if(p.shipmentStats){ setText('ship-total',p.shipmentStats.total); setText('ship-active',p.shipmentStats.active); setText('ship-delivered',p.shipmentStats.delivered); setText('ship-value',p.shipmentStats.value); setText('risk-sub','Live shipment details across '+p.shipmentStats.total+' trade'+(p.shipmentStats.total===1?'':'s')+' in the system'); }
       if(p.participants){ renderParticipants(p.participants); renderParties(p.participants); }
+      if(p.commodityExposure) renderCommExposure(p.commodityExposure);
       if(p.documents) renderDocs(p.documents);
       if(p.notifications){ renderAlerts(p.notifications); renderNotifs(p.notifications); }
       if(p.counts){ setText('ap-trader',p.counts.trader); setText('ap-producer',p.counts.producer); setText('ap-logistics',p.counts.logistics); setText('ap-broker',p.counts.broker); setText('ap-qa',p.counts.qa); setText('ap-collateral',p.counts.collateral); }

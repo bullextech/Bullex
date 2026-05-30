@@ -201,6 +201,27 @@ export function TradeBankFrame({ className }: TradeBankFrameProps) {
       if (g in counts) counts[g]++;
     });
 
+    const commByValue = new Map<string, number>();
+    T.forEach((t) => {
+      const c = (t.commodity || "").trim() || "Unspecified";
+      commByValue.set(c, (commByValue.get(c) || 0) + num(t.totalValue));
+    });
+    const sortedComm = Array.from(commByValue.entries()).sort((a, b) => b[1] - a[1]);
+    const topComm = sortedComm.slice(0, 4);
+    const otherTotal = sortedComm.slice(4).reduce((a, [, v]) => a + v, 0);
+    const maxComm = topComm.length ? topComm[0][1] : 0;
+    const commPalette = ["var(--gold)", "#5DCAA5", "#85B7EB", "var(--amber)", "var(--off3)"];
+    const pctOf = (v: number) => (maxComm ? Math.min(100, Math.max(4, Math.round((v / maxComm) * 100))) : 0);
+    const commodityExposure = topComm.map(([label, v], i) => ({
+      label,
+      value: money(v),
+      pct: pctOf(v),
+      color: commPalette[i % commPalette.length],
+    }));
+    if (otherTotal > 0) {
+      commodityExposure.push({ label: "Other", value: money(otherTotal), pct: pctOf(otherTotal), color: "var(--off3)" });
+    }
+
     const documents = [...D].sort(byDate).slice(0, 8).map((d) => {
       const ext = d.pdfPath ? "PDF" : d.docxPath ? "DOCX" : "—";
       const icon = ext === "PDF" ? { c: "pdf", i: "fa-file-pdf" } : { c: "txt", i: "fa-file-lines" };
@@ -242,6 +263,7 @@ export function TradeBankFrame({ className }: TradeBankFrameProps) {
       shipmentStats,
       participants,
       counts,
+      commodityExposure,
       documents,
       notifications,
       totals: {
