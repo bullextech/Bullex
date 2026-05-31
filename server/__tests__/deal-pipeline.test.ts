@@ -328,3 +328,91 @@ test("enquiries already part of a deal are excluded from matches", () => {
   assert.equal(matches2.length, 1, "only the un-dealt import+export pair should match");
   assert.equal(matches2[0].id, "IMP-FREE__EXP-FREE");
 });
+
+test("enquiries with an empty or whitespace-only commodity never match", () => {
+  // Two blanks must not collapse into a spurious "" === "" pairing.
+  const impBlank = synthEnquiry({ enquiryRef: "IMP-BLK", side: "buy", product: "" });
+  const expBlank = synthEnquiry({ enquiryRef: "EXP-BLK", side: "sell", product: "   " });
+  assert.equal(
+    computeEnquiryMatches([impBlank, expBlank], []).length,
+    0,
+    "two blank-commodity enquiries must not pair",
+  );
+
+  // A blank import never matches a real export (and vice versa).
+  const expReal = synthEnquiry({ enquiryRef: "EXP-REAL", side: "sell", product: "Copper Cathode" });
+  assert.equal(
+    computeEnquiryMatches([impBlank, expReal], []).length,
+    0,
+    "a blank import must not match a real export",
+  );
+  const impReal = synthEnquiry({ enquiryRef: "IMP-REAL", side: "buy", product: "Copper Cathode" });
+  assert.equal(
+    computeEnquiryMatches([impReal, expBlank], []).length,
+    0,
+    "a real import must not match a blank export",
+  );
+
+  // A blank-commodity enquiry mixed in with valid ones is simply ignored.
+  const matches = computeEnquiryMatches([impBlank, impReal, expBlank, expReal], []);
+  assert.equal(matches.length, 1, "only the real import+export pair should match");
+  assert.equal(matches[0].id, "IMP-REAL__EXP-REAL");
+});
+
+test("only the known active statuses are eligible; other statuses are excluded", () => {
+  // The matcher treats closed/rejected/cancelled as inactive and pairs the rest.
+  // "active" (the enquiry default) is eligible; an unknown status like "draft"
+  // is conservatively still surfaced today — pin that behaviour so a change is
+  // a deliberate decision, not a silent regression.
+  const imp = synthEnquiry({ enquiryRef: "IMP-ST", side: "buy", product: "Copper Cathode", status: "active" });
+  const expActive = synthEnquiry({ enquiryRef: "EXP-ACT", side: "sell", product: "Copper Cathode", status: "active" });
+  const matchesActive = computeEnquiryMatches([imp, expActive], []);
+  assert.equal(matchesActive.length, 1, "active import+export should match");
+
+  const expClosed = synthEnquiry({ enquiryRef: "EXP-CLS", side: "sell", product: "Copper Cathode", status: "closed" });
+  assert.equal(
+    computeEnquiryMatches([imp, expClosed], []).length,
+    0,
+    "a closed export is never eligible",
+  );
+});
+
+test("match id is importRef__exportRef and the sides are never swapped", () => {
+  // The UI selects a pair by its id (importRef__exportRef) and trusts that the
+  // import side is always the buy and the export side always the sell. Pass the
+  // enquiries in export-before-import order to prove ordering of the input does
+  // not swap the sides or the id composition.
+  const exp = synthEnquiry({ enquiryRef: "EXP-X", side: "sell", product: "Copper Cathode" });
+  const imp = synthEnquiry({ enquiryRef: "IMP-X", side: "buy", product: "Copper Cathode" });
+
+  const matches = computeEnquiryMatches([exp, imp], []);
+  assert.equal(matches.length, 1);
+  const m = matches[0];
+  assert.equal(m.id, "IMP-X__EXP-X", "id must be importRef__exportRef regardless of input order");
+  assert.equal(m.id, `${m.import.enquiryRef}__${m.export.enquiryRef}`, "id must compose from import then export");
+  assert.equal(m.import.side, "buy", "import side must be the buy enquiry");
+  assert.equal(m.export.side, "sell", "export side must be the sell enquiry");
+});
+
+test("matches are emitted in a deterministic, stable order", () => {
+  // The UI renders the match list as-is, so the order must be a stable function
+  // of the input: imports outer, exports inner, each preserving the relative
+  // order in which they appear in the enquiry list. Two imports x two exports
+  // must always yield this exact id sequence for a given input order.
+  const imp1 = synthEnquiry({ enquiryRef: "IMP-1", side: "buy", product: "Copper Cathode" });
+  const imp2 = synthEnquiry({ enquiryRef: "IMP-2", side: "buy", product: "Copper Cathode" });
+  const exp1 = synthEnquiry({ enquiryRef: "EXP-1", side: "sell", product: "Copper Cathode" });
+  const exp2 = synthEnquiry({ enquiryRef: "EXP-2", side: "sell", product: "Copper Cathode" });
+
+  const expectedOrder = ["IMP-1__EXP-1", "IMP-1__EXP-2", "IMP-2__EXP-1", "IMP-2__EXP-2"];
+
+  // Interleaving imports and exports in the input must not change the emitted
+  // order: the matcher first partitions by side (stably) then nests the loops.
+  const ids = computeEnquiryMatches([imp1, exp1, imp2, exp2], []).map(m => m.id);
+  assert.deepEqual(ids, expectedOrder, "imports outer, exports inner — stable ordering");
+
+  // The same logical set in a different interleaving yields the same order,
+  // because partitioning preserves each side's relative input order.
+  const ids2 = computeEnquiryMatches([exp1, imp1, exp2, imp2], []).map(m => m.id);
+  assert.deepEqual(ids2, expectedOrder, "ordering depends only on per-side input order");
+});

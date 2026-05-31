@@ -450,9 +450,13 @@ export async function createDealFromEnquiries(
 export type EnquiryMatch = { id: string; import: TradeEnquiry; export: TradeEnquiry };
 
 // Two enquiries match when they reference the same commodity, ignoring case and
-// surrounding whitespace.
+// surrounding whitespace. An enquiry with a missing/blank commodity never
+// matches anything (a blank product is not a real commodity to pair on).
 export function enquiryProductsMatch(a: TradeEnquiry, b: TradeEnquiry): boolean {
-  return (a.product || "").trim().toLowerCase() === (b.product || "").trim().toLowerCase();
+  const pa = (a.product || "").trim().toLowerCase();
+  const pb = (b.product || "").trim().toLowerCase();
+  if (!pa || !pb) return false;
+  return pa === pb;
 }
 
 // Compute the same-commodity Import (buy) <-> Export (sell) pairings that admins
