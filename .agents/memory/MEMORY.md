@@ -2,3 +2,4 @@
 - [Auth testing over curl](testing-auth-curl.md) — secure cookies don't persist over plain-HTTP curl; verify protected routes via browser/preview, not curl.
 - [Server integration testing](pipeline-testing.md) — no test framework; use node:test via `tsx --test`, test exported service fns (not HTTP), real dev DB with after() cleanup.
 - [Pure helpers for shared-DB tests](pipeline-testing.md) — extract DB-free logic (e.g. enquiry matcher) into a pure exported fn + thin storage wrapper; test the pure fn so exact-count asserts aren't polluted by other dev-DB rows.
+- [Enquiry board inclusivity](enquiry-board-inclusivity.md) — /api/enquiry-board uses a terminal-status denylist, NOT the strict matchable allowlist; aligning it empties the board for "accepted" enquiries.

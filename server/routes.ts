@@ -277,121 +277,178 @@ function dealRecapNumberFor(buyerName: string, sellerName: string, serialSeed: n
   return `${b3}/${s3}-${ddmm}-${String(serialSeed).padStart(3, "0")}`;
 }
 
+// Ordered cascade stages. Used to advance a deal's stage monotonically so a
+// resumed/retried cascade never regresses an already-advanced deal.
+const DEAL_STAGE_ORDER = ["matched", "documents_issued", "recaps_issued", "tfr_pending", "trade_formed"];
+function stageRank(stage: string | null | undefined): number {
+  const i = DEAL_STAGE_ORDER.indexOf(stage || "matched");
+  return i === -1 ? 0 : i;
+}
+
 // Runs the full automatic document cascade for a deal:
 //   LOI (import) + SCO (export) -> Deal Recap Import + Deal Recap Export -> TFR
 // All intermediate docs are auto-accepted; the TFR is left pending admin approval.
+//
+// Idempotent / retry-safe: every step is create-if-missing keyed off the deal's
+// stored doc ids, so re-running after a partial failure resumes from where it
+// stopped without duplicating documents. Stage only ever advances forward, and a
+// previously-recorded cascadeError is cleared once the cascade completes.
 export async function runDealCascade(deal: Deal, importEnq: TradeEnquiry, exportEnq: TradeEnquiry): Promise<Deal> {
   const imp = partiesFromEnquiry(importEnq);
   const exp = partiesFromEnquiry(exportEnq);
+  let current = deal;
+
+  const advanceStage = async (target: string) => {
+    if (stageRank(current.stage) < stageRank(target)) {
+      current = await storage.updateDeal(current.id, { stage: target });
+    }
+  };
 
   // 1. LOI for the Import (buy) side — buyer issues a Purchase LOI to the supplier.
-  const loi = await createPipelineDoc({
-    docType: "LOI",
-    title: `LOI - ${deal.dealRef}`,
-    buyer: imp.buyer,
-    seller: imp.seller,
-    product: imp.product,
-    enquiryRef: importEnq.enquiryRef,
-    status: "accepted",
-    autoAccept: true,
-  });
-
-  // 2. SCO for the Export (sell) side — seller issues a Soft Corporate Offer to the buyer.
-  const sco = await createPipelineDoc({
-    docType: "SCO",
-    title: `SCO - ${deal.dealRef}`,
-    buyer: exp.buyer,
-    seller: exp.seller,
-    product: exp.product,
-    enquiryRef: exportEnq.enquiryRef,
-    status: "accepted",
-    autoAccept: true,
-  });
-
-  await storage.updateDeal(deal.id, { loiDocId: loi.id, scoDocId: sco.id, stage: "documents_issued" });
-
-  // 3. Deal Recap (Import) — derived from the LOI.
-  const importRecapNum = dealRecapNumberFor(imp.buyer.name || "", imp.seller.name || "", 1);
-  const dealRecapImport = await createPipelineDoc({
-    docType: "DEAL_RECAP",
-    title: `Deal Recap (Import) - ${importRecapNum}`,
-    buyer: imp.buyer,
-    seller: imp.seller,
-    product: { ...imp.product, dealRecapNumber: importRecapNum },
-    enquiryRef: importEnq.enquiryRef,
-    parentDocId: loi.id,
-    dealRecapNumber: importRecapNum,
-    status: "accepted",
-    autoAccept: true,
-  });
-
-  // 4. Deal Recap (Export) — derived from the SCO.
-  const exportRecapNum = dealRecapNumberFor(exp.buyer.name || "", exp.seller.name || "", 2);
-  const dealRecapExport = await createPipelineDoc({
-    docType: "DEAL_RECAP",
-    title: `Deal Recap (Export) - ${exportRecapNum}`,
-    buyer: exp.buyer,
-    seller: exp.seller,
-    product: { ...exp.product, dealRecapNumber: exportRecapNum },
-    enquiryRef: exportEnq.enquiryRef,
-    parentDocId: sco.id,
-    dealRecapNumber: exportRecapNum,
-    status: "accepted",
-    autoAccept: true,
-  });
-
-  await storage.updateDeal(deal.id, {
-    dealRecapImportDocId: dealRecapImport.id,
-    dealRecapExportDocId: dealRecapExport.id,
-    stage: "recaps_issued",
-  });
-
-  // 5. Single TFR consolidating BOTH recaps (import = purchase side, export = sale side).
-  const qty = toNumber(importEnq.quantity) || toNumber(exportEnq.quantity);
-  const purchasePrice = toNumber(importEnq.price);
-  const salePrice = toNumber(exportEnq.price);
-  const cur = importEnq.currency || exportEnq.currency || "USD";
-  const purchaseCost = purchasePrice * qty;
-  const saleRevenue = salePrice * qty;
-  const grossProfit = saleRevenue - purchaseCost;
-  const fmt = (n: number) => `${cur} ${n.toLocaleString()}`;
-
-  const tfrData: Record<string, string> = {
-    reference: deal.dealRef,
-    seller: imp.seller.name || "",            // origin supplier (purchase side)
-    buyer: exp.buyer.name || "",              // final customer (sale side)
-    product: deal.commodity,
-    commodity: deal.commodity,
-    origin: imp.product.origin || "",
-    destination: exp.product.dischargePort || exp.product.origin || "",
-    quantity: importEnq.quantity ? `${importEnq.quantity} ${importEnq.unit || "MT"}`.trim() : "",
-    specifications: imp.product.qualitySpecs || exp.product.qualitySpecs || "",
-    deliveryTerms: imp.product.incoterm || "",
-    paymentInstrument: imp.product.paymentTerms || "",
-    loadingPort: imp.product.loadingPort || imp.product.origin || "",
-    dischargePort: exp.product.dischargePort || "",
-    contractValue: saleRevenue ? fmt(saleRevenue) : "",
-  };
-  if (purchaseCost) tfrData.purchaseCost = fmt(purchaseCost);
-  if (saleRevenue) tfrData.saleRevenue = fmt(saleRevenue);
-  if (purchaseCost && saleRevenue) {
-    tfrData.grossProfit = fmt(grossProfit);
-    tfrData.grossMargin = saleRevenue ? `${((grossProfit / saleRevenue) * 100).toFixed(1)}%` : "";
+  if (!current.loiDocId) {
+    const loi = await createPipelineDoc({
+      docType: "LOI",
+      title: `LOI - ${current.dealRef}`,
+      buyer: imp.buyer,
+      seller: imp.seller,
+      product: imp.product,
+      enquiryRef: importEnq.enquiryRef,
+      status: "accepted",
+      autoAccept: true,
+    });
+    current = await storage.updateDeal(current.id, { loiDocId: loi.id });
   }
 
-  const tfr = await createPipelineDoc({
-    docType: "TFR",
-    title: `TFR - ${deal.dealRef}`,
-    buyer: { name: exp.buyer.name },
-    seller: { name: imp.seller.name },
-    product: { tfrData },
-    enquiryRef: importEnq.enquiryRef,
-    parentDocId: dealRecapImport.id,
-    status: "pending_review",
-    autoAccept: false,
-  });
+  // 2. SCO for the Export (sell) side — seller issues a Soft Corporate Offer to the buyer.
+  if (!current.scoDocId) {
+    const sco = await createPipelineDoc({
+      docType: "SCO",
+      title: `SCO - ${current.dealRef}`,
+      buyer: exp.buyer,
+      seller: exp.seller,
+      product: exp.product,
+      enquiryRef: exportEnq.enquiryRef,
+      status: "accepted",
+      autoAccept: true,
+    });
+    current = await storage.updateDeal(current.id, { scoDocId: sco.id });
+  }
+  await advanceStage("documents_issued");
 
-  return await storage.updateDeal(deal.id, { tfrDocId: tfr.id, stage: "tfr_pending" });
+  // 3. Deal Recap (Import) — derived from the LOI.
+  if (!current.dealRecapImportDocId) {
+    const importRecapNum = dealRecapNumberFor(imp.buyer.name || "", imp.seller.name || "", 1);
+    const dealRecapImport = await createPipelineDoc({
+      docType: "DEAL_RECAP",
+      title: `Deal Recap (Import) - ${importRecapNum}`,
+      buyer: imp.buyer,
+      seller: imp.seller,
+      product: { ...imp.product, dealRecapNumber: importRecapNum },
+      enquiryRef: importEnq.enquiryRef,
+      parentDocId: current.loiDocId,
+      dealRecapNumber: importRecapNum,
+      status: "accepted",
+      autoAccept: true,
+    });
+    current = await storage.updateDeal(current.id, { dealRecapImportDocId: dealRecapImport.id });
+  }
+
+  // 4. Deal Recap (Export) — derived from the SCO.
+  if (!current.dealRecapExportDocId) {
+    const exportRecapNum = dealRecapNumberFor(exp.buyer.name || "", exp.seller.name || "", 2);
+    const dealRecapExport = await createPipelineDoc({
+      docType: "DEAL_RECAP",
+      title: `Deal Recap (Export) - ${exportRecapNum}`,
+      buyer: exp.buyer,
+      seller: exp.seller,
+      product: { ...exp.product, dealRecapNumber: exportRecapNum },
+      enquiryRef: exportEnq.enquiryRef,
+      parentDocId: current.scoDocId,
+      dealRecapNumber: exportRecapNum,
+      status: "accepted",
+      autoAccept: true,
+    });
+    current = await storage.updateDeal(current.id, { dealRecapExportDocId: dealRecapExport.id });
+  }
+  await advanceStage("recaps_issued");
+
+  // 5. Single TFR consolidating BOTH recaps (import = purchase side, export = sale side).
+  if (!current.tfrDocId) {
+    const qty = toNumber(importEnq.quantity) || toNumber(exportEnq.quantity);
+    const purchasePrice = toNumber(importEnq.price);
+    const salePrice = toNumber(exportEnq.price);
+    const cur = importEnq.currency || exportEnq.currency || "USD";
+    const purchaseCost = purchasePrice * qty;
+    const saleRevenue = salePrice * qty;
+    const grossProfit = saleRevenue - purchaseCost;
+    const fmt = (n: number) => `${cur} ${n.toLocaleString()}`;
+
+    const tfrData: Record<string, string> = {
+      reference: current.dealRef,
+      seller: imp.seller.name || "",            // origin supplier (purchase side)
+      buyer: exp.buyer.name || "",              // final customer (sale side)
+      product: current.commodity,
+      commodity: current.commodity,
+      origin: imp.product.origin || "",
+      destination: exp.product.dischargePort || exp.product.origin || "",
+      quantity: importEnq.quantity ? `${importEnq.quantity} ${importEnq.unit || "MT"}`.trim() : "",
+      specifications: imp.product.qualitySpecs || exp.product.qualitySpecs || "",
+      deliveryTerms: imp.product.incoterm || "",
+      paymentInstrument: imp.product.paymentTerms || "",
+      loadingPort: imp.product.loadingPort || imp.product.origin || "",
+      dischargePort: exp.product.dischargePort || "",
+      contractValue: saleRevenue ? fmt(saleRevenue) : "",
+    };
+    if (purchaseCost) tfrData.purchaseCost = fmt(purchaseCost);
+    if (saleRevenue) tfrData.saleRevenue = fmt(saleRevenue);
+    if (purchaseCost && saleRevenue) {
+      tfrData.grossProfit = fmt(grossProfit);
+      tfrData.grossMargin = saleRevenue ? `${((grossProfit / saleRevenue) * 100).toFixed(1)}%` : "";
+    }
+
+    const tfr = await createPipelineDoc({
+      docType: "TFR",
+      title: `TFR - ${current.dealRef}`,
+      buyer: { name: exp.buyer.name },
+      seller: { name: imp.seller.name },
+      product: { tfrData },
+      enquiryRef: importEnq.enquiryRef,
+      parentDocId: current.dealRecapImportDocId,
+      status: "pending_review",
+      autoAccept: false,
+    });
+    current = await storage.updateDeal(current.id, { tfrDocId: tfr.id });
+  }
+  await advanceStage("tfr_pending");
+
+  // Cascade completed cleanly — clear any error recorded by a previous attempt.
+  if (current.cascadeError) {
+    current = await storage.updateDeal(current.id, { cascadeError: null });
+  }
+  return current;
+}
+
+// Re-run the cascade for an existing deal (admin retry after a partial failure).
+// Reloads the deal + its linked enquiries and relies on runDealCascade's
+// create-if-missing behaviour to fill in only the missing documents.
+export async function resumeDealCascade(dealId: string): Promise<PipelineResult<Deal>> {
+  const deal = await storage.getDealById(dealId);
+  if (!deal) return { ok: false, status: 404, message: "Deal not found" };
+  if (stageRank(deal.stage) >= stageRank("trade_formed")) {
+    return { ok: false, status: 409, message: "Deal already has a formed trade; nothing to resume" };
+  }
+  const enquiries = await storage.getTradeEnquiries();
+  const importEnq = enquiries.find(e => e.enquiryRef === deal.importEnquiryRef);
+  const exportEnq = enquiries.find(e => e.enquiryRef === deal.exportEnquiryRef);
+  if (!importEnq || !exportEnq) return { ok: false, status: 404, message: "Linked enquiries not found" };
+  try {
+    const value = await runDealCascade(deal, importEnq, exportEnq);
+    return { ok: true, value };
+  } catch (cascadeErr: any) {
+    console.error("[deals] Cascade resume failed:", cascadeErr);
+    const value = await storage.updateDeal(deal.id, { cascadeError: cascadeErr?.message || "Cascade failed" });
+    return { ok: true, value };
+  }
 }
 
 // Result wrapper so this logic can be unit/integration tested independently of
@@ -4637,6 +4694,10 @@ export async function registerRoutes(
       const existingDeals = await storage.getDeals();
       const used = new Set<string>();
       for (const d of existingDeals) { used.add(d.importEnquiryRef); used.add(d.exportEnquiryRef); }
+      // The board is an inclusive listing of every non-terminal enquiry not yet in
+      // a deal (so admins always see their live enquiries). The stricter
+      // allowlist is applied where it matters — to the *suggested* match pairs
+      // (computeEnquiryMatches) — not to what is displayed here.
       const inactive = new Set(["closed", "rejected", "cancelled"]);
       const active = enquiries.filter(e => !used.has(e.enquiryRef) && !inactive.has(e.status));
 
@@ -4707,6 +4768,18 @@ export async function registerRoutes(
   app.post("/api/deals/:id/approve-tfr", requireAdminAuth, async (req: Request, res: Response) => {
     try {
       const result = await approveTfrForDeal(req.params.id);
+      if (!result.ok) return res.status(result.status).json({ message: result.message });
+      res.json(result.value);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Retry/resume a deal's document cascade after a partial failure. Idempotent:
+  // only the missing documents are created (see runDealCascade).
+  app.post("/api/deals/:id/resume-cascade", requireAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const result = await resumeDealCascade(req.params.id);
       if (!result.ok) return res.status(result.status).json({ message: result.message });
       res.json(result.value);
     } catch (error: any) {

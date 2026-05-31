@@ -17,7 +17,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { storage, pool } from "../storage";
-import { createDealFromEnquiries, approveTfrForDeal, computeEnquiryMatches } from "../routes";
+import { createDealFromEnquiries, approveTfrForDeal, computeEnquiryMatches, runDealCascade, resumeDealCascade } from "../routes";
 import type { TradeEnquiry } from "@shared/schema";
 
 // Build a synthetic enquiry exercising only the fields the matcher reads
@@ -146,6 +146,82 @@ test("creating a deal runs the full document cascade and leaves the TFR pending"
   assert.equal(tfr!.docType, "TFR");
   assert.equal(tfr!.status, "pending_review", "TFR should be pending admin review");
   assert.notEqual(tfr!.recipientResponse, "accepted", "TFR must not be auto-accepted");
+});
+
+test("a partial cascade failure can be resumed without duplicating documents", async () => {
+  const imp = await makeImport("R");
+  const exp = await makeExport("R");
+
+  // Simulate a partial failure: create the deal row directly (no cascade) and run
+  // the cascade only far enough to issue the LOI + SCO, then abort. This mirrors a
+  // crash after the first documents were generated but before the recaps/TFR.
+  const partial = await storage.createDeal({
+    dealRef: `DEAL-TEST-${RUN}-R`,
+    importEnquiryRef: imp.enquiryRef,
+    exportEnquiryRef: exp.enquiryRef,
+    commodity: imp.product,
+  } as any);
+  createdDealIds.push(partial.id);
+
+  // First pass produces the full cascade; capture the doc ids.
+  const firstPass = await runDealCascade(partial, imp, exp);
+  assert.equal(firstPass.stage, "tfr_pending");
+  const firstDocIds = {
+    loi: firstPass.loiDocId,
+    sco: firstPass.scoDocId,
+    recapImport: firstPass.dealRecapImportDocId,
+    recapExport: firstPass.dealRecapExportDocId,
+    tfr: firstPass.tfrDocId,
+  };
+  for (const [k, v] of Object.entries(firstDocIds)) assert.ok(v, `${k} should be generated`);
+
+  const docCountBefore = (await storage.getDocuments()).length;
+
+  // Resume: every document already exists, so create-if-missing must produce NONE.
+  const resumed = await resumeDealCascade(partial.id);
+  assert.equal(resumed.ok, true, "resume should succeed");
+  if (!resumed.ok) return;
+
+  // The doc ids are unchanged — no duplicates were created.
+  assert.equal(resumed.value.loiDocId, firstDocIds.loi);
+  assert.equal(resumed.value.scoDocId, firstDocIds.sco);
+  assert.equal(resumed.value.dealRecapImportDocId, firstDocIds.recapImport);
+  assert.equal(resumed.value.dealRecapExportDocId, firstDocIds.recapExport);
+  assert.equal(resumed.value.tfrDocId, firstDocIds.tfr);
+  assert.equal(resumed.value.stage, "tfr_pending", "stage should not regress");
+
+  const docCountAfter = (await storage.getDocuments()).length;
+  assert.equal(docCountAfter, docCountBefore, "resuming a complete cascade creates no new documents");
+});
+
+test("resuming a deal missing only its TFR generates just the TFR", async () => {
+  const imp = await makeImport("S");
+  const exp = await makeExport("S");
+
+  // Create a deal that already has LOI/SCO/recaps but no TFR (a failure right
+  // before the final step), to prove resume fills exactly the missing document.
+  const created = await createDealFromEnquiries(imp.enquiryRef, exp.enquiryRef);
+  assert.equal(created.ok, true);
+  if (!created.ok) return;
+  createdDealIds.push(created.value.id);
+  const dealId = created.value.id;
+
+  // Wipe just the TFR to simulate the pre-TFR partial state.
+  const tfrId = created.value.tfrDocId!;
+  await pool.query(`DELETE FROM documents WHERE id = $1`, [tfrId]);
+  await storage.updateDeal(dealId, { tfrDocId: null, stage: "recaps_issued" });
+
+  const docCountBefore = (await storage.getDocuments()).length;
+  const resumed = await resumeDealCascade(dealId);
+  assert.equal(resumed.ok, true);
+  if (!resumed.ok) return;
+
+  assert.ok(resumed.value.tfrDocId, "a new TFR should be generated");
+  assert.notEqual(resumed.value.tfrDocId, tfrId, "the new TFR is a fresh document");
+  assert.equal(resumed.value.stage, "tfr_pending", "deal should advance back to tfr_pending");
+  // The recaps/LOI/SCO are untouched, so exactly one new document (the TFR) exists.
+  const docCountAfter = (await storage.getDocuments()).length;
+  assert.equal(docCountAfter, docCountBefore + 1, "exactly one new document (the TFR) should be created");
 });
 
 test("approving the TFR forms exactly one trade + block and advances the deal", async () => {
