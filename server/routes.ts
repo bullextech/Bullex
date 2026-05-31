@@ -280,7 +280,7 @@ function dealRecapNumberFor(buyerName: string, sellerName: string, serialSeed: n
 // Runs the full automatic document cascade for a deal:
 //   LOI (import) + SCO (export) -> Deal Recap Import + Deal Recap Export -> TFR
 // All intermediate docs are auto-accepted; the TFR is left pending admin approval.
-async function runDealCascade(deal: Deal, importEnq: TradeEnquiry, exportEnq: TradeEnquiry): Promise<Deal> {
+export async function runDealCascade(deal: Deal, importEnq: TradeEnquiry, exportEnq: TradeEnquiry): Promise<Deal> {
   const imp = partiesFromEnquiry(importEnq);
   const exp = partiesFromEnquiry(exportEnq);
 
@@ -392,6 +392,121 @@ async function runDealCascade(deal: Deal, importEnq: TradeEnquiry, exportEnq: Tr
   });
 
   return await storage.updateDeal(deal.id, { tfrDocId: tfr.id, stage: "tfr_pending" });
+}
+
+// Result wrapper so this logic can be unit/integration tested independently of
+// the HTTP layer while the route handler maps {ok,status,message} onto a response.
+type PipelineResult<T> = { ok: true; value: T } | { ok: false; status: number; message: string };
+
+// Create a deal from a matched Import/Export enquiry pair and run the document
+// cascade. Enforces side/commodity validity and prevents an enquiry that already
+// belongs to a deal from being reused (both via an explicit check and the DB
+// unique constraint that wins concurrent races).
+export async function createDealFromEnquiries(
+  importEnquiryRef: string,
+  exportEnquiryRef: string,
+): Promise<PipelineResult<Deal>> {
+  if (!importEnquiryRef || !exportEnquiryRef) {
+    return { ok: false, status: 400, message: "importEnquiryRef and exportEnquiryRef are required" };
+  }
+  const enquiries = await storage.getTradeEnquiries();
+  const importEnq = enquiries.find(e => e.enquiryRef === importEnquiryRef);
+  const exportEnq = enquiries.find(e => e.enquiryRef === exportEnquiryRef);
+  if (!importEnq || !exportEnq) return { ok: false, status: 404, message: "Enquiry not found" };
+  if (importEnq.side !== "buy") return { ok: false, status: 400, message: "importEnquiryRef must be an Import (buy) enquiry" };
+  if (exportEnq.side !== "sell") return { ok: false, status: 400, message: "exportEnquiryRef must be an Export (sell) enquiry" };
+  if ((importEnq.product || "").trim().toLowerCase() !== (exportEnq.product || "").trim().toLowerCase()) {
+    return { ok: false, status: 400, message: "Import and Export enquiries must be for the same commodity" };
+  }
+  const existingDeals = await storage.getDeals();
+  const used = new Set<string>();
+  for (const d of existingDeals) { used.add(d.importEnquiryRef); used.add(d.exportEnquiryRef); }
+  if (used.has(importEnquiryRef) || used.has(exportEnquiryRef)) {
+    return { ok: false, status: 409, message: "One or both enquiries are already part of a deal" };
+  }
+
+  const year = new Date().getFullYear();
+  const dealRef = `DEAL-${year}-${Math.random().toString(16).slice(2, 6).toUpperCase()}`;
+  let deal: Deal;
+  try {
+    deal = await storage.createDeal({ dealRef, importEnquiryRef, exportEnquiryRef, commodity: importEnq.product });
+  } catch (insertErr: any) {
+    // Unique constraint on import/export enquiry refs — a concurrent request won the race.
+    if (insertErr?.code === "23505") {
+      return { ok: false, status: 409, message: "One or both enquiries are already part of a deal" };
+    }
+    throw insertErr;
+  }
+  try {
+    deal = await runDealCascade(deal, importEnq, exportEnq);
+  } catch (cascadeErr: any) {
+    console.error("[deals] Cascade failed:", cascadeErr);
+    deal = await storage.updateDeal(deal.id, { cascadeError: cascadeErr?.message || "Cascade failed" });
+  }
+  return { ok: true, value: deal };
+}
+
+// Approve a deal's TFR: form exactly one trade in the Deal Desk and mint a
+// blockchain block. Uses claimDealForTfrApproval to atomically claim the deal so
+// concurrent approvals cannot double-form a trade.
+export async function approveTfrForDeal(
+  dealId: string,
+): Promise<PipelineResult<Deal & { createdTradeRef: string }>> {
+  const existing = await storage.getDealById(dealId);
+  if (!existing) return { ok: false, status: 404, message: "Deal not found" };
+  if (existing.tradeRef) return { ok: false, status: 400, message: "Trade already formed for this deal" };
+  if (existing.stage !== "tfr_pending" || !existing.tfrDocId) {
+    return { ok: false, status: 400, message: "TFR is not ready for approval" };
+  }
+
+  // Atomically claim the deal so concurrent approvals cannot both form a trade.
+  const deal = await storage.claimDealForTfrApproval(dealId);
+  if (!deal) return { ok: false, status: 409, message: "This deal is already being approved or has been formed" };
+
+  const enquiries = await storage.getTradeEnquiries();
+  const importEnq = enquiries.find(e => e.enquiryRef === deal.importEnquiryRef);
+  const exportEnq = enquiries.find(e => e.enquiryRef === deal.exportEnquiryRef);
+  if (!importEnq || !exportEnq) return { ok: false, status: 404, message: "Linked enquiries not found" };
+
+  const qty = toNumber(importEnq.quantity) || toNumber(exportEnq.quantity);
+  const salePrice = toNumber(exportEnq.price) || toNumber(importEnq.price);
+  const buyerName = exportEnq.buyerName || exportEnq.createdBy || "TBD";
+  const sellerName = importEnq.sellerName || importEnq.producer || "Bullfrog Group";
+
+  const trade = await storage.createPreDealTrade({
+    commodity: deal.commodity,
+    commodityCategory: commodityCategoryFor(deal.commodity),
+    quantity: qty,
+    unit: importEnq.unit || exportEnq.unit || "MT",
+    pricePerUnit: salePrice,
+    totalValue: salePrice * qty,
+    currency: exportEnq.currency || importEnq.currency || "USD",
+    buyerName,
+    sellerName,
+    origin: importEnq.origin || importEnq.loadingPort || "TBD",
+    destination: exportEnq.dischargePort || "TBD",
+    incoterm: exportEnq.incoterms || importEnq.incoterms || "FOB",
+    enquiryRef: `${deal.importEnquiryRef} / ${deal.exportEnquiryRef}`,
+    specifications: importEnq.specifications || exportEnq.specifications || "",
+  });
+
+  // Mint a blockchain block while keeping the trade in pre_deal for the Deal Desk.
+  const minted = await storage.mintTradeBlock(trade.id, "pre_deal", generateTradeHash, mineBlock, GENESIS_HASH);
+
+  await storage.updateDocument(deal.tfrDocId, {
+    status: "accepted",
+    recipientResponse: "accepted",
+    recipientRespondedAt: new Date(),
+    tradeRef: minted.tradeRef,
+  } as any);
+
+  // Mark both linked enquiries as accepted and tied to the new trade.
+  await storage.updateTradeEnquiryStatus(importEnq.id, "accepted", minted.tradeRef);
+  await storage.updateTradeEnquiryStatus(exportEnq.id, "accepted", minted.tradeRef);
+
+  const updated = await storage.updateDeal(deal.id, { tradeRef: minted.tradeRef, stage: "trade_formed" });
+  console.log(`[deals] TFR approved for ${deal.dealRef} -> formed trade ${minted.tradeRef}`);
+  return { ok: true, value: { ...updated, createdTradeRef: minted.tradeRef } };
 }
 
 declare module "express-session" {
@@ -4453,44 +4568,9 @@ export async function registerRoutes(
   app.post("/api/deals", requireAdminAuth, async (req: Request, res: Response) => {
     try {
       const { importEnquiryRef, exportEnquiryRef } = req.body || {};
-      if (!importEnquiryRef || !exportEnquiryRef) {
-        return res.status(400).json({ message: "importEnquiryRef and exportEnquiryRef are required" });
-      }
-      const enquiries = await storage.getTradeEnquiries();
-      const importEnq = enquiries.find(e => e.enquiryRef === importEnquiryRef);
-      const exportEnq = enquiries.find(e => e.enquiryRef === exportEnquiryRef);
-      if (!importEnq || !exportEnq) return res.status(404).json({ message: "Enquiry not found" });
-      if (importEnq.side !== "buy") return res.status(400).json({ message: "importEnquiryRef must be an Import (buy) enquiry" });
-      if (exportEnq.side !== "sell") return res.status(400).json({ message: "exportEnquiryRef must be an Export (sell) enquiry" });
-      if ((importEnq.product || "").trim().toLowerCase() !== (exportEnq.product || "").trim().toLowerCase()) {
-        return res.status(400).json({ message: "Import and Export enquiries must be for the same commodity" });
-      }
-      const existingDeals = await storage.getDeals();
-      const used = new Set<string>();
-      for (const d of existingDeals) { used.add(d.importEnquiryRef); used.add(d.exportEnquiryRef); }
-      if (used.has(importEnquiryRef) || used.has(exportEnquiryRef)) {
-        return res.status(409).json({ message: "One or both enquiries are already part of a deal" });
-      }
-
-      const year = new Date().getFullYear();
-      const dealRef = `DEAL-${year}-${Math.random().toString(16).slice(2, 6).toUpperCase()}`;
-      let deal: Deal;
-      try {
-        deal = await storage.createDeal({ dealRef, importEnquiryRef, exportEnquiryRef, commodity: importEnq.product });
-      } catch (insertErr: any) {
-        // Unique constraint on import/export enquiry refs — a concurrent request won the race.
-        if (insertErr?.code === "23505") {
-          return res.status(409).json({ message: "One or both enquiries are already part of a deal" });
-        }
-        throw insertErr;
-      }
-      try {
-        deal = await runDealCascade(deal, importEnq, exportEnq);
-      } catch (cascadeErr: any) {
-        console.error("[deals] Cascade failed:", cascadeErr);
-        deal = await storage.updateDeal(deal.id, { cascadeError: cascadeErr?.message || "Cascade failed" });
-      }
-      res.json(deal);
+      const result = await createDealFromEnquiries(importEnquiryRef, exportEnquiryRef);
+      if (!result.ok) return res.status(result.status).json({ message: result.message });
+      res.json(result.value);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -4499,61 +4579,9 @@ export async function registerRoutes(
   // Approve the TFR -> form the trade in the Deal Desk and mint a blockchain block.
   app.post("/api/deals/:id/approve-tfr", requireAdminAuth, async (req: Request, res: Response) => {
     try {
-      const existing = await storage.getDealById(req.params.id);
-      if (!existing) return res.status(404).json({ message: "Deal not found" });
-      if (existing.tradeRef) return res.status(400).json({ message: "Trade already formed for this deal" });
-      if (existing.stage !== "tfr_pending" || !existing.tfrDocId) {
-        return res.status(400).json({ message: "TFR is not ready for approval" });
-      }
-
-      // Atomically claim the deal so concurrent approvals cannot both form a trade.
-      const deal = await storage.claimDealForTfrApproval(req.params.id);
-      if (!deal) return res.status(409).json({ message: "This deal is already being approved or has been formed" });
-
-      const enquiries = await storage.getTradeEnquiries();
-      const importEnq = enquiries.find(e => e.enquiryRef === deal.importEnquiryRef);
-      const exportEnq = enquiries.find(e => e.enquiryRef === deal.exportEnquiryRef);
-      if (!importEnq || !exportEnq) return res.status(404).json({ message: "Linked enquiries not found" });
-
-      const qty = toNumber(importEnq.quantity) || toNumber(exportEnq.quantity);
-      const salePrice = toNumber(exportEnq.price) || toNumber(importEnq.price);
-      const buyerName = exportEnq.buyerName || exportEnq.createdBy || "TBD";
-      const sellerName = importEnq.sellerName || importEnq.producer || "Bullfrog Group";
-
-      const trade = await storage.createPreDealTrade({
-        commodity: deal.commodity,
-        commodityCategory: commodityCategoryFor(deal.commodity),
-        quantity: qty,
-        unit: importEnq.unit || exportEnq.unit || "MT",
-        pricePerUnit: salePrice,
-        totalValue: salePrice * qty,
-        currency: exportEnq.currency || importEnq.currency || "USD",
-        buyerName,
-        sellerName,
-        origin: importEnq.origin || importEnq.loadingPort || "TBD",
-        destination: exportEnq.dischargePort || "TBD",
-        incoterm: exportEnq.incoterms || importEnq.incoterms || "FOB",
-        enquiryRef: `${deal.importEnquiryRef} / ${deal.exportEnquiryRef}`,
-        specifications: importEnq.specifications || exportEnq.specifications || "",
-      });
-
-      // Mint a blockchain block while keeping the trade in pre_deal for the Deal Desk.
-      const minted = await storage.mintTradeBlock(trade.id, "pre_deal", generateTradeHash, mineBlock, GENESIS_HASH);
-
-      await storage.updateDocument(deal.tfrDocId, {
-        status: "accepted",
-        recipientResponse: "accepted",
-        recipientRespondedAt: new Date(),
-        tradeRef: minted.tradeRef,
-      } as any);
-
-      // Mark both linked enquiries as accepted and tied to the new trade.
-      await storage.updateTradeEnquiryStatus(importEnq.id, "accepted", minted.tradeRef);
-      await storage.updateTradeEnquiryStatus(exportEnq.id, "accepted", minted.tradeRef);
-
-      const updated = await storage.updateDeal(deal.id, { tradeRef: minted.tradeRef, stage: "trade_formed" });
-      console.log(`[deals] TFR approved for ${deal.dealRef} -> formed trade ${minted.tradeRef}`);
-      res.json({ ...updated, createdTradeRef: minted.tradeRef });
+      const result = await approveTfrForDeal(req.params.id);
+      if (!result.ok) return res.status(result.status).json({ message: result.message });
+      res.json(result.value);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
