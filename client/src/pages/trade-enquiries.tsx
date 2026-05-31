@@ -141,6 +141,8 @@ export default function TradeEnquiries() {
         setPendingFiles([]);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/trade-enquiries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-board"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-table"] });
       setForm({ ...emptyForm });
       setSpecRows(emptySpecRows);
       setShowForm(false);
@@ -161,6 +163,8 @@ export default function TradeEnquiries() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/trade-enquiries"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trades"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-board"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-table"] });
       if (data?.createdTradeRef) {
         sessionStorage.setItem("highlightTradeRef", data.createdTradeRef);
         toast({
@@ -180,6 +184,8 @@ export default function TradeEnquiries() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trade-enquiries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-board"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-table"] });
       setViewEnquiry(null);
       toast({ title: "Enquiry deleted" });
     },

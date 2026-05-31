@@ -445,6 +445,8 @@ function NewEnquiryDialog() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/team/me/enquiries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-board"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-table"] });
       toast({ title: "Enquiry submitted" });
       reset();
       setOpen(false);

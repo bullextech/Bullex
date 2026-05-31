@@ -158,6 +158,8 @@ export default function KycAdmin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/enquiry-change-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trade-enquiries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-board"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-table"] });
       queryClient.invalidateQueries({ queryKey: ["/api/blocks"] });
     },
   });
