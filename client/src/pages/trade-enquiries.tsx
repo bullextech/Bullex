@@ -19,36 +19,32 @@ import {
   Copy, Link2, ExternalLink, TrendingUp, Activity, XCircle,
 } from "lucide-react";
 import type { TradeEnquiry, TradeEnquiryDocument, Trade } from "@shared/schema";
+import { enquiryStatusBucket, ENQUIRY_STATUS_LABELS, isEnquiryStatusActive, isEnquiryStatusPending, isEnquiryStatusAccepted, isEnquiryStatusTerminal } from "@shared/schema";
 
 const UNIT_OPTIONS = ["MT", "KG", "LBS", "BBL", "GAL", "LTR", "OZ", "TON"];
 const CURRENCY_OPTIONS = ["USD", "EUR", "GBP", "AED", "CNY"];
 const INCOTERM_OPTIONS = ["FOB", "CIF", "CFR", "EXW", "FCA", "CPT", "CIP", "DAP", "DPU", "DDP"];
 
 
-const STATUS_COLORS: Record<string, string> = {
-  active: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  open: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  under_review: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  quoted: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+// Badge colours keyed by the shared status bucket (pending/accepted/rejected/closed).
+const STATUS_BUCKET_COLORS: Record<string, string> = {
+  pending: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   accepted: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   rejected: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
   closed: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
-  cancelled: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  active: "Pending",
-  open: "Pending",
-  under_review: "Pending",
-  quoted: "Pending",
-  accepted: "Accepted",
-  rejected: "Rejected",
-  closed: "Closed",
-  cancelled: "Closed",
-};
+function statusColor(status: string) {
+  return STATUS_BUCKET_COLORS[enquiryStatusBucket(status)];
+}
 
-function isActive(status: string) {
-  return status !== "closed" && status !== "cancelled" && status !== "rejected";
+function statusLabel(status: string) {
+  return ENQUIRY_STATUS_LABELS[enquiryStatusBucket(status)];
+}
+
+// Pending = active and not yet accepted (the "actionable" set in the UI).
+function isPending(status: string) {
+  return isEnquiryStatusPending(status);
 }
 
 
@@ -126,9 +122,9 @@ export default function TradeEnquiries() {
   const activeTrades = trades.filter((t) => t.status !== "final_payment").length;
   const totalTradeVolume = trades.reduce((s, t) => s + (Number(t.totalValue) || 0), 0);
 
-  const enqPending = enquiries.filter((e) => isActive(e.status) && e.status !== "accepted").length;
-  const enqAccepted = enquiries.filter((e) => e.status === "accepted").length;
-  const enqClosed = enquiries.filter((e) => e.status === "rejected" || e.status === "closed" || e.status === "cancelled").length;
+  const enqPending = enquiries.filter((e) => isPending(e.status)).length;
+  const enqAccepted = enquiries.filter((e) => isEnquiryStatusAccepted(e.status)).length;
+  const enqClosed = enquiries.filter((e) => isEnquiryStatusTerminal(e.status)).length;
 
   const createMutation = useMutation({
     mutationFn: async (data: EnquiryForm & { specifications: string }) => {
@@ -209,7 +205,7 @@ export default function TradeEnquiries() {
           e.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
           e.enquiryRef.toLowerCase().includes(searchTerm.toLowerCase()) ||
           (e.sellerName || e.producer || "").toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === "all" || (statusFilter === "active" ? isActive(e.status) && e.status !== "accepted" : e.status === statusFilter);
+        const matchesStatus = statusFilter === "all" || (statusFilter === "active" ? isPending(e.status) : e.status === statusFilter);
         const matchesSide = sideFilter === "all" || e.side === sideFilter;
         return matchesSearch && matchesStatus && matchesSide;
       });
@@ -765,7 +761,7 @@ function EnquiryCard({ enquiry, onView, onStatusChange, onDelete }: {
                 {enquiry.side === "sell" ? "EXPORT" : "IMPORT"}
               </Badge>
               <span className="font-mono text-xs text-muted-foreground" data-testid={`text-ref-${enquiry.id}`}>{enquiry.enquiryRef}</span>
-              <Badge className={`text-[10px] ${STATUS_COLORS[enquiry.status]}`} data-testid={`badge-status-${enquiry.id}`}>{STATUS_LABELS[enquiry.status]}</Badge>
+              <Badge className={`text-[10px] ${statusColor(enquiry.status)}`} data-testid={`badge-status-${enquiry.id}`}>{statusLabel(enquiry.status)}</Badge>
               {enquiry.clientResponse && (
                 <Badge className={`text-[10px] font-bold ${enquiry.clientResponse === "accepted" ? "bg-emerald-600 text-white" : "bg-orange-600 text-white"}`} data-testid={`badge-client-response-${enquiry.id}`}>
                   {enquiry.clientResponse === "accepted" ? "CLIENT ACCEPTED" : "CLIENT REJECTED"}
@@ -780,7 +776,7 @@ function EnquiryCard({ enquiry, onView, onStatusChange, onDelete }: {
               {enquiry.incoterms && <span className="flex items-center gap-1"><Info className="w-3.5 h-3.5" /> {enquiry.incoterms}</span>}
               {enquiry.price && <span className="flex items-center gap-1 font-medium text-foreground">{enquiry.currency || "USD"} {enquiry.price}</span>}
               {enquiry.validity && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {enquiry.validity}</span>}
-              {validity.label && isActive(enquiry.status) && (
+              {validity.label && isEnquiryStatusActive(enquiry.status) && (
                 <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${validity.color}`} data-testid={`badge-validity-${enquiry.id}`}>
                   <Clock className="w-3 h-3" />{validity.label}
                 </span>
@@ -789,13 +785,13 @@ function EnquiryCard({ enquiry, onView, onStatusChange, onDelete }: {
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <Button variant="outline" size="sm" onClick={onView} data-testid={`button-view-${enquiry.id}`}><Eye className="w-3.5 h-3.5 mr-1" /> View</Button>
-            {isActive(enquiry.status) && enquiry.status !== "accepted" && (
+            {isPending(enquiry.status) && (
               <>
                 <Button size="sm" className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white" onClick={() => onStatusChange("accepted")} data-testid={`button-accept-${enquiry.id}`}>Accept</Button>
                 <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={() => onStatusChange("rejected")} data-testid={`button-reject-${enquiry.id}`}>Reject</Button>
               </>
             )}
-            {enquiry.status === "accepted" && (
+            {isEnquiryStatusAccepted(enquiry.status) && (
               <Button size="sm" className="h-8 text-xs bg-primary hover:bg-primary/90 text-white" onClick={goToTrade} data-testid={`link-trading-${enquiry.id}`}>
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> View Trade <ArrowRight className="w-3 h-3 ml-1" />
               </Button>
@@ -876,7 +872,7 @@ function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
               <Badge className={`font-bold ${enquiry.side === "sell" ? "bg-red-600 text-white" : "bg-green-600 text-white"}`} data-testid="badge-detail-side">
                 {enquiry.side === "sell" ? "EXPORT (SELL)" : "IMPORT (BUY)"}
               </Badge>
-              <Badge className={STATUS_COLORS[enquiry.status]} data-testid="badge-detail-status">{STATUS_LABELS[enquiry.status]}</Badge>
+              <Badge className={statusColor(enquiry.status)} data-testid="badge-detail-status">{statusLabel(enquiry.status)}</Badge>
             </div>
           </DialogTitle>
         </DialogHeader>
@@ -1035,13 +1031,13 @@ function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
           </div>
 
           <div className="flex items-center gap-2 pt-2 border-t">
-            {isActive(enquiry.status) && enquiry.status !== "accepted" && (
+            {isPending(enquiry.status) && (
               <>
                 <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => onStatusChange("accepted")} data-testid="button-detail-accept">Accept</Button>
                 <Button size="sm" variant="destructive" onClick={() => onStatusChange("rejected")} data-testid="button-detail-reject">Reject</Button>
               </>
             )}
-            {enquiry.status === "accepted" && (
+            {isEnquiryStatusAccepted(enquiry.status) && (
               <>
                 <Button size="sm" className="bg-primary hover:bg-primary/90 text-white" onClick={goToTrade} data-testid="link-detail-trading">
                   <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Go to Trading <ArrowRight className="w-3.5 h-3.5 ml-1" />

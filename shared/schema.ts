@@ -260,6 +260,60 @@ export const tradeEnquiries = pgTable("trade_enquiries", {
   submittedByTeamMemberId: varchar("submitted_by_team_member_id"),
 });
 
+// --- Trade enquiry status: single source of truth ---
+// All enquiry status values, grouped by meaning. Adding or renaming a status
+// here updates the server matcher and every frontend badge/filter/counter that
+// reads from these helpers, so they can never drift out of sync.
+//
+//   pending  — open / actionable; eligible to be paired into a deal. All
+//              rendered as "Pending" in the UI.
+//   accepted — already committed to a deal; no longer pairable.
+//   terminal — closed / cancelled / rejected; no longer actionable.
+export const ENQUIRY_STATUS_PENDING = ["active", "open", "under_review", "quoted"] as const;
+export const ENQUIRY_STATUS_ACCEPTED = ["accepted"] as const;
+export const ENQUIRY_STATUS_TERMINAL = ["closed", "cancelled", "rejected"] as const;
+
+export const ENQUIRY_STATUSES = [
+  ...ENQUIRY_STATUS_PENDING,
+  ...ENQUIRY_STATUS_ACCEPTED,
+  ...ENQUIRY_STATUS_TERMINAL,
+] as const;
+export type EnquiryStatus = (typeof ENQUIRY_STATUSES)[number];
+
+const ENQUIRY_PENDING_SET = new Set<string>(ENQUIRY_STATUS_PENDING);
+const ENQUIRY_TERMINAL_SET = new Set<string>(ENQUIRY_STATUS_TERMINAL);
+
+// Pending = open/actionable and eligible to be surfaced as a pairing candidate.
+export function isEnquiryStatusPending(status: string): boolean {
+  return ENQUIRY_PENDING_SET.has(status);
+}
+export function isEnquiryStatusAccepted(status: string): boolean {
+  return status === "accepted";
+}
+export function isEnquiryStatusTerminal(status: string): boolean {
+  return ENQUIRY_TERMINAL_SET.has(status);
+}
+// Active = not terminal (i.e. pending or accepted).
+export function isEnquiryStatusActive(status: string): boolean {
+  return !ENQUIRY_TERMINAL_SET.has(status);
+}
+
+// Bucket a raw status into the four display groups used for labels/colours.
+export type EnquiryStatusBucket = "pending" | "accepted" | "rejected" | "closed";
+export function enquiryStatusBucket(status: string): EnquiryStatusBucket {
+  if (isEnquiryStatusPending(status)) return "pending";
+  if (status === "accepted") return "accepted";
+  if (status === "rejected") return "rejected";
+  return "closed"; // closed / cancelled / unknown
+}
+
+export const ENQUIRY_STATUS_LABELS: Record<EnquiryStatusBucket, string> = {
+  pending: "Pending",
+  accepted: "Accepted",
+  rejected: "Rejected",
+  closed: "Closed",
+};
+
 export const enquiryChangeRequests = pgTable("enquiry_change_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   enquiryId: varchar("enquiry_id").notNull(),

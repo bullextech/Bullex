@@ -62,6 +62,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import type { KycApplication, Trade, Block, Document, KycDocument, KycChangeRequest, TeamKycApplication, TeamMember, TradeEnquiry, EnquiryChangeRequest } from "@shared/schema";
+import { enquiryStatusBucket, isEnquiryStatusPending, isEnquiryStatusAccepted } from "@shared/schema";
 import { useAmendMode } from "@/hooks/use-amend-mode";
 import { AmendDialog, type AmendSection } from "@/components/amend-dialog";
 import { Pencil } from "lucide-react";
@@ -428,23 +429,27 @@ export default function KycAdmin() {
 
         {false && (() => {
           const allEnq = enquiries || [];
-          const enqActive = allEnq.filter((e) => e.status === "active").length;
-          const enqAccepted = allEnq.filter((e) => e.status === "accepted").length;
-          const enqClosed = allEnq.filter((e) => e.status === "closed").length;
-          const enqRejected = allEnq.filter((e) => e.status === "rejected").length;
+          const enqActive = allEnq.filter((e) => isEnquiryStatusPending(e.status)).length;
+          const enqAccepted = allEnq.filter((e) => isEnquiryStatusAccepted(e.status)).length;
+          const enqClosed = allEnq.filter((e) => enquiryStatusBucket(e.status) === "closed").length;
+          const enqRejected = allEnq.filter((e) => enquiryStatusBucket(e.status) === "rejected").length;
           const recentEnq = [...allEnq]
             .sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime())
             .slice(0, 6);
-          const enqStatusClass = (s: string) =>
-            s === "accepted"
+          const enqStatusClass = (s: string) => {
+            const bucket = enquiryStatusBucket(s);
+            return bucket === "accepted"
               ? "bg-emerald-600/10 border-emerald-600/20 text-emerald-700"
-              : s === "rejected"
+              : bucket === "rejected"
               ? "bg-red-600/10 border-red-600/20 text-red-700"
-              : s === "closed"
+              : bucket === "closed"
               ? "bg-slate-500/10 border-slate-500/20 text-slate-700 dark:text-slate-300"
               : "bg-blue-600/10 border-blue-600/20 text-blue-700";
-          const EnqIcon = (s: string) =>
-            s === "accepted" ? CheckCircle2 : s === "rejected" ? XCircle : s === "closed" ? AlertCircle : Clock;
+          };
+          const EnqIcon = (s: string) => {
+            const bucket = enquiryStatusBucket(s);
+            return bucket === "accepted" ? CheckCircle2 : bucket === "rejected" ? XCircle : bucket === "closed" ? AlertCircle : Clock;
+          };
           return (
             <Card className="mb-8" data-testid="card-enquiries-summary">
               <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-3">

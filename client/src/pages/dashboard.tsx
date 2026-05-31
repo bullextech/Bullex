@@ -25,6 +25,7 @@ import type {
   Document,
   TradeEnquiry,
 } from "@shared/schema";
+import { isEnquiryStatusPending } from "@shared/schema";
 
 const LIVE_PRICES: { name: string; price: string; change: number }[] = [
   { name: "WTI Crude", price: "$82.51", change: 1.2 },
@@ -103,13 +104,13 @@ export default function Dashboard() {
 
   const totalVolume = trades?.reduce((s, t) => s + t.totalValue, 0) || 0;
   const activeShipments = trades?.filter((t) => t.status === "execution").length || 0;
-  const activeEnquiries = enquiries?.filter((e) => e.status === "active" || e.status === "open").length || 0;
+  const activeEnquiries = enquiries?.filter((e) => isEnquiryStatusPending(e.status)).length || 0;
   const letterOfCredit = docs?.filter((d) => ["POP", "POF", "BCL", "LOI"].includes((d.documentType || "").toUpperCase())).length || 0;
 
   const recentDeals = (trades || []).slice(0, 5);
   const recentKyc = (kycs || []).slice(0, 5);
   const pendingKyc = kycs?.filter((k) => k.status === "pending") || [];
-  const pendingEnq = enquiries?.filter((e) => e.status === "open" || e.status === "active") || [];
+  const pendingEnq = enquiries?.filter((e) => isEnquiryStatusPending(e.status)) || [];
   const pendingActions = [
     ...pendingKyc.slice(0, 3).map((k) => ({ id: `kyc-${k.id}`, label: `KYC review: ${k.companyName}`, href: "/kyc-admin" })),
     ...pendingEnq.slice(0, 3).map((e) => ({ id: `enq-${e.id}`, label: `Enquiry ${e.enquiryRef} · ${e.product}`, href: "/trade-enquiries" })),

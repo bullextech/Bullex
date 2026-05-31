@@ -9,7 +9,7 @@ import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
 import { getTableColumns } from "drizzle-orm";
-import { insertTradeSchema, insertKycSchema, insertDocumentSchema, insertPotentialClientSchema, kycApplications, type Trade, type Deal, type TradeEnquiry, type Document } from "@shared/schema";
+import { insertTradeSchema, insertKycSchema, insertDocumentSchema, insertPotentialClientSchema, kycApplications, ENQUIRY_STATUS_PENDING, isEnquiryStatusPending, type Trade, type Deal, type TradeEnquiry, type Document } from "@shared/schema";
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent, type PartyDetails } from "./documentTemplates";
 import { seedDatabase } from "./seed";
@@ -459,27 +459,17 @@ export function enquiryProductsMatch(a: TradeEnquiry, b: TradeEnquiry): boolean 
   return pa === pb;
 }
 
-// Single source of truth for which enquiry statuses are eligible for pairing.
-// This is an ALLOWLIST, not a denylist: a status must be listed here to be
-// surfaced in admin pairings. We deliberately use an allowlist so a newly
-// introduced status (e.g. a hypothetical "draft") can never silently start
-// appearing in pairings — adding it here is an explicit, reviewable decision.
-//
-// These are the "open/pending" statuses (all rendered as "Pending" in the
-// enquiries UI). Excluded by design:
+// Which enquiry statuses are eligible for pairing. These are exactly the
+// "pending" statuses from the shared single source of truth in @shared/schema
+// (an ALLOWLIST, not a denylist): a status must be in that pending group to be
+// surfaced in admin pairings, so a newly introduced status can never silently
+// start appearing in pairings. Excluded by design:
 //   - "accepted" — already committed to a deal; pairing it again is wrong
 //   - "closed" / "cancelled" / "rejected" — terminal, no longer actionable
-export const MATCHABLE_ENQUIRY_STATUSES = new Set([
-  "active",
-  "open",
-  "under_review",
-  "quoted",
-]);
+export const MATCHABLE_ENQUIRY_STATUSES = new Set<string>(ENQUIRY_STATUS_PENDING);
 
 // Whether an enquiry in the given status may be surfaced as a pairing candidate.
-export function isEnquiryStatusMatchable(status: string): boolean {
-  return MATCHABLE_ENQUIRY_STATUSES.has(status);
-}
+export const isEnquiryStatusMatchable = isEnquiryStatusPending;
 
 // Fields an enquiry amendment (change request) is permitted to alter. Anything
 // outside this allowlist is silently dropped so an amendment can't touch
