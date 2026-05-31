@@ -4556,6 +4556,33 @@ export async function registerRoutes(
     }
   });
 
+  // Product-grouped matching board: every active enquiry organised by product and
+  // split into Import (buy) / Export (sell), so the system can surface where a
+  // counterpart exists. Excludes enquiries already tied to a deal or inactive.
+  app.get("/api/enquiry-board", requireModule("deals"), async (_req: Request, res: Response) => {
+    try {
+      const enquiries = await storage.getTradeEnquiries();
+      const existingDeals = await storage.getDeals();
+      const used = new Set<string>();
+      for (const d of existingDeals) { used.add(d.importEnquiryRef); used.add(d.exportEnquiryRef); }
+      const inactive = new Set(["closed", "rejected", "cancelled"]);
+      const active = enquiries.filter(e => !used.has(e.enquiryRef) && !inactive.has(e.status));
+
+      const groups = new Map<string, { product: string; imports: TradeEnquiry[]; exports: TradeEnquiry[] }>();
+      for (const e of active) {
+        const key = (e.product || "").trim().toLowerCase();
+        if (!key) continue;
+        if (!groups.has(key)) groups.set(key, { product: (e.product || "").trim(), imports: [], exports: [] });
+        const g = groups.get(key)!;
+        if (e.side === "buy") g.imports.push(e); else if (e.side === "sell") g.exports.push(e);
+      }
+      const board = Array.from(groups.values()).sort((a, b) => a.product.localeCompare(b.product));
+      res.json(board);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/deals", requireModule("deals"), async (_req: Request, res: Response) => {
     try {
       res.json(await storage.getDeals());

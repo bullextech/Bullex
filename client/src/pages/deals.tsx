@@ -15,16 +15,20 @@ import {
   Download,
   AlertTriangle,
   PackageSearch,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Clock,
 } from "lucide-react";
 import type { Deal, TradeEnquiry, Document } from "@shared/schema";
 
-type Match = { id: string; import: TradeEnquiry; export: TradeEnquiry };
+type ProductGroup = { product: string; imports: TradeEnquiry[]; exports: TradeEnquiry[] };
 
 const STAGE_LABELS: Record<string, string> = {
   matched: "Matched",
   documents_issued: "LOI + SCO issued",
   recaps_issued: "Deal Recaps issued",
   tfr_pending: "TFR pending approval",
+  trade_forming: "Trade forming",
   trade_formed: "Trade formed",
 };
 
@@ -33,14 +37,15 @@ const STAGE_COLORS: Record<string, string> = {
   documents_issued: "bg-blue-600 text-white",
   recaps_issued: "bg-indigo-600 text-white",
   tfr_pending: "bg-amber-500 text-white",
+  trade_forming: "bg-amber-600 text-white",
   trade_formed: "bg-green-600 text-white",
 };
 
 export default function Deals() {
   const { toast } = useToast();
-  const [startingId, setStartingId] = useState<string | null>(null);
+  const [startingPair, setStartingPair] = useState<string | null>(null);
 
-  const { data: matches, isLoading: matchesLoading } = useQuery<Match[]>({ queryKey: ["/api/enquiry-matches"] });
+  const { data: board, isLoading: boardLoading } = useQuery<ProductGroup[]>({ queryKey: ["/api/enquiry-board"] });
   const { data: deals, isLoading: dealsLoading } = useQuery<Deal[]>({ queryKey: ["/api/deals"] });
   const { data: documents } = useQuery<Document[]>({ queryKey: ["/api/documents"] });
 
@@ -50,16 +55,23 @@ export default function Deals() {
     return m;
   }, [documents]);
 
+  const totals = useMemo(() => {
+    let imports = 0, exports = 0, matchable = 0;
+    (board ?? []).forEach(g => {
+      imports += g.imports.length;
+      exports += g.exports.length;
+      if (g.imports.length > 0 && g.exports.length > 0) matchable += 1;
+    });
+    return { imports, exports, matchable, products: board?.length ?? 0 };
+  }, [board]);
+
   const startDeal = useMutation({
-    mutationFn: async (match: Match) =>
-      apiRequest("POST", "/api/deals", {
-        importEnquiryRef: match.import.enquiryRef,
-        exportEnquiryRef: match.export.enquiryRef,
-      }),
+    mutationFn: async ({ importRef, exportRef }: { importRef: string; exportRef: string }) =>
+      apiRequest("POST", "/api/deals", { importEnquiryRef: importRef, exportEnquiryRef: exportRef }),
     onSuccess: async (res) => {
       const deal = await res.json();
       queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-board"] });
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       if (deal?.cascadeError) {
         toast({ title: "Deal created with errors", description: deal.cascadeError, variant: "destructive" });
@@ -68,7 +80,7 @@ export default function Deals() {
       }
     },
     onError: (e: any) => toast({ title: "Could not start deal", description: e.message, variant: "destructive" }),
-    onSettled: () => setStartingId(null),
+    onSettled: () => setStartingPair(null),
   });
 
   const approveTfr = useMutation({
@@ -77,7 +89,7 @@ export default function Deals() {
       const data = await res.json();
       queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trades"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-board"] });
       toast({ title: "TFR approved", description: `Trade ${data?.createdTradeRef} formed in the Deal Desk.` });
     },
     onError: (e: any) => toast({ title: "Approval failed", description: e.message, variant: "destructive" }),
@@ -102,6 +114,32 @@ export default function Deals() {
     );
   };
 
+  const EnquiryRow = ({ e, side }: { e: TradeEnquiry; side: "import" | "export" }) => {
+    const party = side === "import"
+      ? (e.buyerName || e.createdBy || "—")
+      : (e.sellerName || e.producer || e.createdBy || "—");
+    return (
+      <div className="rounded border p-2 bg-background" data-testid={`enquiry-${side}-${e.id}`}>
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono text-[11px] text-muted-foreground">{e.enquiryRef}</span>
+          {e.validity && <span className="text-[10px] text-muted-foreground">valid {e.validity}</span>}
+        </div>
+        <div className="text-sm font-medium mt-0.5 truncate" title={party}>{party}</div>
+        <div className="text-xs text-muted-foreground">
+          {(e.quantity || "—")} {e.unit || ""}{e.price ? ` · ${e.price} ${e.currency || ""}` : ""}
+        </div>
+        {(e.loadingPort || e.dischargePort || e.origin) && (
+          <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+            {side === "import"
+              ? `${e.origin || e.loadingPort || "—"}`
+              : `${e.dischargePort || e.loadingPort || "—"}`}
+            {e.incoterms ? ` · ${e.incoterms}` : ""}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="p-6 space-y-8 max-w-6xl mx-auto">
       <div className="flex items-center gap-3">
@@ -110,66 +148,121 @@ export default function Deals() {
         </div>
         <div>
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">Deal Pipeline</h1>
-          <p className="text-sm text-muted-foreground">Match Import and Export enquiries, then let the document cascade run automatically.</p>
+          <p className="text-sm text-muted-foreground">Enquiries grouped by product into Import and Export — start a deal where both sides exist.</p>
         </div>
       </div>
 
-      {/* Suggested matches */}
+      {/* Summary tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card><CardContent className="p-4">
+          <div className="text-xs text-muted-foreground">Products</div>
+          <div className="text-2xl font-bold" data-testid="stat-products">{totals.products}</div>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <div className="text-xs text-muted-foreground flex items-center gap-1"><ArrowDownToLine className="w-3 h-3 text-green-600" /> Imports (Buy)</div>
+          <div className="text-2xl font-bold" data-testid="stat-imports">{totals.imports}</div>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <div className="text-xs text-muted-foreground flex items-center gap-1"><ArrowUpFromLine className="w-3 h-3 text-red-600" /> Exports (Sell)</div>
+          <div className="text-2xl font-bold" data-testid="stat-exports">{totals.exports}</div>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <div className="text-xs text-muted-foreground flex items-center gap-1"><GitMerge className="w-3 h-3 text-primary" /> Matchable</div>
+          <div className="text-2xl font-bold" data-testid="stat-matchable">{totals.matchable}</div>
+        </CardContent></Card>
+      </div>
+
+      {/* Product matching board */}
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <PackageSearch className="w-4 h-4 text-muted-foreground" />
-          <h2 className="text-lg font-semibold">Suggested Matches</h2>
-          {!matchesLoading && <Badge variant="outline" data-testid="badge-match-count">{matches?.length ?? 0}</Badge>}
+          <h2 className="text-lg font-semibold">Enquiry Matching Board</h2>
         </div>
 
-        {matchesLoading ? (
-          <div className="grid gap-3 md:grid-cols-2">
-            <Skeleton className="h-40" /><Skeleton className="h-40" />
-          </div>
-        ) : (matches?.length ?? 0) === 0 ? (
-          <Card><CardContent className="py-10 text-center text-sm text-muted-foreground" data-testid="text-no-matches">
-            No compatible Import/Export pairs available. Create matching enquiries (same commodity) to form a deal.
+        {boardLoading ? (
+          <div className="space-y-3"><Skeleton className="h-48" /><Skeleton className="h-48" /></div>
+        ) : (board?.length ?? 0) === 0 ? (
+          <Card><CardContent className="py-10 text-center text-sm text-muted-foreground" data-testid="text-no-enquiries">
+            No active enquiries. Create Import (Buy) and Export (Sell) enquiries for the same product to form a deal.
           </CardContent></Card>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {matches!.map(m => (
-              <Card key={m.id} data-testid={`card-match-${m.id}`}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center justify-between">
-                    <span>{m.import.product}</span>
-                    <Badge variant="outline">{m.import.product}</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2 text-xs">
-                    <div className="flex-1 rounded border p-2 bg-green-600/5 border-green-600/30">
-                      <Badge className="bg-green-600 text-white text-[10px] mb-1">IMPORT (BUY)</Badge>
-                      <div className="font-mono text-[11px] text-muted-foreground">{m.import.enquiryRef}</div>
-                      <div className="mt-1">{m.import.buyerName || m.import.createdBy || "—"}</div>
-                      <div className="text-muted-foreground">{m.import.quantity} {m.import.unit} · {m.import.price || "—"}</div>
+          <div className="space-y-4">
+            {board!.map(group => {
+              const matchable = group.imports.length > 0 && group.exports.length > 0;
+              return (
+                <Card key={group.product} data-testid={`card-product-${group.product}`}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center justify-between flex-wrap gap-2">
+                      <span className="flex items-center gap-2">
+                        <PackageSearch className="w-4 h-4 text-muted-foreground" />
+                        {group.product}
+                      </span>
+                      {matchable ? (
+                        <Badge className="bg-primary text-primary-foreground" data-testid={`badge-matchable-${group.product}`}>
+                          <GitMerge className="w-3 h-3 mr-1" /> Matchable
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground" data-testid={`badge-awaiting-${group.product}`}>
+                          <Clock className="w-3 h-3 mr-1" />
+                          {group.imports.length === 0 ? "Awaiting import" : "Awaiting export"}
+                        </Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {/* Imports column */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-green-600 text-white text-[10px]">IMPORT (BUY)</Badge>
+                          <span className="text-xs text-muted-foreground">{group.imports.length}</span>
+                        </div>
+                        {group.imports.length === 0 ? (
+                          <div className="text-xs text-muted-foreground italic py-2">No import enquiries</div>
+                        ) : group.imports.map(e => <EnquiryRow key={e.id} e={e} side="import" />)}
+                      </div>
+                      {/* Exports column */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-red-600 text-white text-[10px]">EXPORT (SELL)</Badge>
+                          <span className="text-xs text-muted-foreground">{group.exports.length}</span>
+                        </div>
+                        {group.exports.length === 0 ? (
+                          <div className="text-xs text-muted-foreground italic py-2">No export enquiries</div>
+                        ) : group.exports.map(e => <EnquiryRow key={e.id} e={e} side="export" />)}
+                      </div>
                     </div>
-                    <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <div className="flex-1 rounded border p-2 bg-red-600/5 border-red-600/30">
-                      <Badge className="bg-red-600 text-white text-[10px] mb-1">EXPORT (SELL)</Badge>
-                      <div className="font-mono text-[11px] text-muted-foreground">{m.export.enquiryRef}</div>
-                      <div className="mt-1">{m.export.sellerName || m.export.createdBy || "—"}</div>
-                      <div className="text-muted-foreground">{m.export.quantity} {m.export.unit} · {m.export.price || "—"}</div>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    disabled={startDeal.isPending}
-                    onClick={() => { setStartingId(m.id); startDeal.mutate(m); }}
-                    data-testid={`button-start-deal-${m.id}`}
-                  >
-                    {startDeal.isPending && startingId === m.id
-                      ? (<><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Starting…</>)
-                      : (<><GitMerge className="w-4 h-4 mr-1" /> Start Deal</>)}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+
+                    {matchable && (
+                      <div className="border-t pt-3 space-y-2">
+                        <div className="text-xs font-medium text-muted-foreground">Suggested matches</div>
+                        {group.imports.flatMap(imp => group.exports.map(exp => {
+                          const pairId = `${imp.enquiryRef}__${exp.enquiryRef}`;
+                          return (
+                            <div key={pairId} className="flex items-center gap-2 flex-wrap rounded border bg-muted/30 p-2" data-testid={`pair-${pairId}`}>
+                              <span className="font-mono text-[11px] text-green-700 dark:text-green-400">{imp.enquiryRef}</span>
+                              <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                              <span className="font-mono text-[11px] text-red-700 dark:text-red-400">{exp.enquiryRef}</span>
+                              <Button
+                                size="sm"
+                                className="ml-auto h-7"
+                                disabled={startDeal.isPending}
+                                onClick={() => { setStartingPair(pairId); startDeal.mutate({ importRef: imp.enquiryRef, exportRef: exp.enquiryRef }); }}
+                                data-testid={`button-start-deal-${pairId}`}
+                              >
+                                {startDeal.isPending && startingPair === pairId
+                                  ? (<><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> Starting…</>)
+                                  : (<><GitMerge className="w-3.5 h-3.5 mr-1" /> Start Deal</>)}
+                              </Button>
+                            </div>
+                          );
+                        }))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </section>
@@ -186,7 +279,7 @@ export default function Deals() {
           <Skeleton className="h-40" />
         ) : (deals?.length ?? 0) === 0 ? (
           <Card><CardContent className="py-10 text-center text-sm text-muted-foreground" data-testid="text-no-deals">
-            No deals yet. Start one from a suggested match above.
+            No deals yet. Start one from a matchable product above.
           </CardContent></Card>
         ) : (
           <div className="space-y-3">
