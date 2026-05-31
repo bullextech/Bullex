@@ -359,21 +359,49 @@ test("enquiries with an empty or whitespace-only commodity never match", () => {
   assert.equal(matches[0].id, "IMP-REAL__EXP-REAL");
 });
 
-test("only the known active statuses are eligible; other statuses are excluded", () => {
-  // The matcher treats closed/rejected/cancelled as inactive and pairs the rest.
-  // "active" (the enquiry default) is eligible; an unknown status like "draft"
-  // is conservatively still surfaced today — pin that behaviour so a change is
-  // a deliberate decision, not a silent regression.
+test("only allowlisted statuses are eligible; unknown statuses are excluded", () => {
+  // The matcher uses an explicit allowlist (MATCHABLE_ENQUIRY_STATUSES): only
+  // the open/pending statuses (active/open/under_review/quoted) are eligible.
+  // Everything else — terminal statuses AND any unknown/future status like a
+  // hypothetical "draft" — is excluded by default, so a new status can never
+  // silently appear in pairings.
   const imp = synthEnquiry({ enquiryRef: "IMP-ST", side: "buy", product: "Copper Cathode", status: "active" });
-  const expActive = synthEnquiry({ enquiryRef: "EXP-ACT", side: "sell", product: "Copper Cathode", status: "active" });
-  const matchesActive = computeEnquiryMatches([imp, expActive], []);
-  assert.equal(matchesActive.length, 1, "active import+export should match");
 
-  const expClosed = synthEnquiry({ enquiryRef: "EXP-CLS", side: "sell", product: "Copper Cathode", status: "closed" });
+  // Every allowlisted status pairs with an active import.
+  for (const status of ["active", "open", "under_review", "quoted"]) {
+    const exp = synthEnquiry({ enquiryRef: `EXP-${status}`, side: "sell", product: "Copper Cathode", status });
+    assert.equal(
+      computeEnquiryMatches([imp, exp], []).length,
+      1,
+      `an export with allowlisted status "${status}" should match`,
+    );
+  }
+
+  // Terminal statuses and "accepted" are not on the allowlist.
+  for (const status of ["closed", "rejected", "cancelled", "accepted"]) {
+    const exp = synthEnquiry({ enquiryRef: `EXP-${status}`, side: "sell", product: "Copper Cathode", status });
+    assert.equal(
+      computeEnquiryMatches([imp, exp], []).length,
+      0,
+      `an export with non-allowlisted status "${status}" is never eligible`,
+    );
+  }
+
+  // An unknown/future status is excluded by default (allowlist, not denylist).
+  const expDraft = synthEnquiry({ enquiryRef: "EXP-DRAFT", side: "sell", product: "Copper Cathode", status: "draft" });
   assert.equal(
-    computeEnquiryMatches([imp, expClosed], []).length,
+    computeEnquiryMatches([imp, expDraft], []).length,
     0,
-    "a closed export is never eligible",
+    'an unknown status like "draft" must not be surfaced unless explicitly allowlisted',
+  );
+
+  // An import with an unknown status is excluded too.
+  const impDraft = synthEnquiry({ enquiryRef: "IMP-DRAFT", side: "buy", product: "Copper Cathode", status: "draft" });
+  const expActive = synthEnquiry({ enquiryRef: "EXP-ACT", side: "sell", product: "Copper Cathode", status: "active" });
+  assert.equal(
+    computeEnquiryMatches([impDraft, expActive], []).length,
+    0,
+    "an import with an unknown status yields no matches",
   );
 });
 

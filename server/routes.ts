@@ -459,18 +459,40 @@ export function enquiryProductsMatch(a: TradeEnquiry, b: TradeEnquiry): boolean 
   return pa === pb;
 }
 
+// Single source of truth for which enquiry statuses are eligible for pairing.
+// This is an ALLOWLIST, not a denylist: a status must be listed here to be
+// surfaced in admin pairings. We deliberately use an allowlist so a newly
+// introduced status (e.g. a hypothetical "draft") can never silently start
+// appearing in pairings — adding it here is an explicit, reviewable decision.
+//
+// These are the "open/pending" statuses (all rendered as "Pending" in the
+// enquiries UI). Excluded by design:
+//   - "accepted" — already committed to a deal; pairing it again is wrong
+//   - "closed" / "cancelled" / "rejected" — terminal, no longer actionable
+export const MATCHABLE_ENQUIRY_STATUSES = new Set([
+  "active",
+  "open",
+  "under_review",
+  "quoted",
+]);
+
+// Whether an enquiry in the given status may be surfaced as a pairing candidate.
+export function isEnquiryStatusMatchable(status: string): boolean {
+  return MATCHABLE_ENQUIRY_STATUSES.has(status);
+}
+
 // Compute the same-commodity Import (buy) <-> Export (sell) pairings that admins
-// see before forming a deal. Enquiries that are inactive (closed/rejected/
-// cancelled) or already committed to a deal are excluded. Extracted from the
-// GET /api/enquiry-matches handler so the matching rules can be tested directly.
+// see before forming a deal. Only enquiries whose status is in the
+// MATCHABLE_ENQUIRY_STATUSES allowlist and that are not already committed to a
+// deal are considered. Extracted from the GET /api/enquiry-matches handler so
+// the matching rules can be tested directly.
 export function computeEnquiryMatches(
   enquiries: TradeEnquiry[],
   existingDeals: Array<{ importEnquiryRef: string; exportEnquiryRef: string }>,
 ): EnquiryMatch[] {
   const used = new Set<string>();
   for (const d of existingDeals) { used.add(d.importEnquiryRef); used.add(d.exportEnquiryRef); }
-  const inactive = new Set(["closed", "rejected", "cancelled"]);
-  const active = enquiries.filter(e => !used.has(e.enquiryRef) && !inactive.has(e.status));
+  const active = enquiries.filter(e => !used.has(e.enquiryRef) && isEnquiryStatusMatchable(e.status));
   const imports = active.filter(e => e.side === "buy");
   const exportsList = active.filter(e => e.side === "sell");
   const matches: EnquiryMatch[] = [];
