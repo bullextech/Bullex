@@ -9,7 +9,7 @@ import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
 import { getTableColumns } from "drizzle-orm";
-import { insertTradeSchema, insertKycSchema, insertDocumentSchema, insertPotentialClientSchema, kycApplications, ENQUIRY_STATUS_PENDING, isEnquiryStatusPending, type Trade, type Deal, type TradeEnquiry, type Document } from "@shared/schema";
+import { insertTradeSchema, insertKycSchema, insertDocumentSchema, insertPotentialClientSchema, kycApplications, ENQUIRY_STATUS_PENDING, isEnquiryStatusPending, isAssignableEnquiryStatus, type Trade, type Deal, type TradeEnquiry, type Document } from "@shared/schema";
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent, type PartyDetails } from "./documentTemplates";
 import { seedDatabase } from "./seed";
@@ -4659,8 +4659,9 @@ export async function registerRoutes(
   app.patch("/api/trade-enquiries/:id/status", requireAdminAuth, async (req: Request, res: Response) => {
     try {
       const { status } = req.body;
-      const valid = ["active", "closed", "accepted", "rejected"];
-      if (!valid.includes(status)) return res.status(400).json({ message: "Invalid status" });
+      if (typeof status !== "string" || !isAssignableEnquiryStatus(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
       const existing = await storage.getTradeEnquiryById(req.params.id);
       if (!existing) return res.status(404).json({ message: "Enquiry not found" });
       // Note: accepting an enquiry no longer auto-creates a trade. Trades are only

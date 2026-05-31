@@ -314,6 +314,27 @@ export const ENQUIRY_STATUS_LABELS: Record<EnquiryStatusBucket, string> = {
   closed: "Closed",
 };
 
+// Statuses an admin may manually assign via PATCH /api/trade-enquiries/:id/status.
+// This is a deliberate, curated subset of ENQUIRY_STATUSES — the canonical
+// pending state ("active") plus the committed ("accepted") and terminal
+// ("rejected"/"closed") outcomes an admin acts on directly. The other pending
+// variants (open/under_review/quoted) and "cancelled" are produced by automated
+// flows, not manual overrides, so they are intentionally not assignable here.
+// The `satisfies` constraint ties every entry back to a real status value, so
+// renaming/removing one in the shared definition fails the build instead of
+// silently letting this allowlist drift out of sync.
+export const ENQUIRY_ASSIGNABLE_STATUSES = [
+  "active",
+  "accepted",
+  "rejected",
+  "closed",
+] as const satisfies readonly EnquiryStatus[];
+
+const ENQUIRY_ASSIGNABLE_SET = new Set<string>(ENQUIRY_ASSIGNABLE_STATUSES);
+export function isAssignableEnquiryStatus(status: string): boolean {
+  return ENQUIRY_ASSIGNABLE_SET.has(status);
+}
+
 export const enquiryChangeRequests = pgTable("enquiry_change_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   enquiryId: varchar("enquiry_id").notNull(),
