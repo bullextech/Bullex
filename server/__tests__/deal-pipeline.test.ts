@@ -17,8 +17,21 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { storage, pool } from "../storage";
-import { createDealFromEnquiries, approveTfrForDeal } from "../routes";
+import { createDealFromEnquiries, approveTfrForDeal, computeEnquiryMatches } from "../routes";
 import type { TradeEnquiry } from "@shared/schema";
+
+// Build a synthetic enquiry exercising only the fields the matcher reads
+// (enquiryRef, side, product, status). The matcher is pure, so these tests need
+// no database and assert exact, deterministic results free of other dev-DB rows.
+function synthEnquiry(over: Partial<TradeEnquiry>): TradeEnquiry {
+  return {
+    enquiryRef: `REF-${Math.random().toString(36).slice(2, 8)}`,
+    side: "buy",
+    product: "Copper Cathode",
+    status: "active",
+    ...over,
+  } as TradeEnquiry;
+}
 
 const RUN = Date.now().toString(36);
 const PRODUCT = `ZZTEST-${RUN}`;
@@ -241,4 +254,77 @@ test("concurrent TFR approvals cannot double-form a trade", async () => {
   const deal = await storage.getDealById(dealId);
   assert.equal(deal!.stage, "trade_formed");
   assert.ok(deal!.tradeRef);
+});
+
+test("matches pair Import+Export enquiries only when the commodity matches", () => {
+  const imp = synthEnquiry({ enquiryRef: "IMP-1", side: "buy", product: "Copper Cathode" });
+  const expSame = synthEnquiry({ enquiryRef: "EXP-1", side: "sell", product: "Copper Cathode" });
+  const expOther = synthEnquiry({ enquiryRef: "EXP-2", side: "sell", product: "Iron Ore" });
+
+  const matches = computeEnquiryMatches([imp, expSame, expOther], []);
+  assert.equal(matches.length, 1, "only the same-commodity pair should match");
+  assert.equal(matches[0].id, "IMP-1__EXP-1");
+  assert.equal(matches[0].import.enquiryRef, "IMP-1");
+  assert.equal(matches[0].export.enquiryRef, "EXP-1");
+});
+
+test("commodity matching ignores case and surrounding whitespace", () => {
+  const imp = synthEnquiry({ enquiryRef: "IMP-CS", side: "buy", product: "  copper CATHODE " });
+  const exp = synthEnquiry({ enquiryRef: "EXP-CS", side: "sell", product: "Copper Cathode" });
+
+  const matches = computeEnquiryMatches([imp, exp], []);
+  assert.equal(matches.length, 1, "case/space differences should still match");
+  assert.equal(matches[0].id, "IMP-CS__EXP-CS");
+});
+
+test("two imports or two exports never pair with each other", () => {
+  const imp1 = synthEnquiry({ enquiryRef: "IMP-A", side: "buy", product: "Copper Cathode" });
+  const imp2 = synthEnquiry({ enquiryRef: "IMP-B", side: "buy", product: "Copper Cathode" });
+  const exp1 = synthEnquiry({ enquiryRef: "EXP-A", side: "sell", product: "Copper Cathode" });
+  const exp2 = synthEnquiry({ enquiryRef: "EXP-B", side: "sell", product: "Copper Cathode" });
+
+  const matches = computeEnquiryMatches([imp1, imp2, exp1, exp2], []);
+  // 2 imports x 2 exports = 4 buy<->sell pairs; no buy<->buy or sell<->sell.
+  assert.equal(matches.length, 4, "only cross-side pairs are produced");
+  for (const m of matches) {
+    assert.equal(m.import.side, "buy");
+    assert.equal(m.export.side, "sell");
+  }
+});
+
+test("inactive (closed/rejected/cancelled) enquiries are excluded from matches", () => {
+  const imp = synthEnquiry({ enquiryRef: "IMP-INA", side: "buy", product: "Copper Cathode" });
+  const exClosed = synthEnquiry({ enquiryRef: "EXP-CL", side: "sell", product: "Copper Cathode", status: "closed" });
+  const exRejected = synthEnquiry({ enquiryRef: "EXP-RJ", side: "sell", product: "Copper Cathode", status: "rejected" });
+  const exCancelled = synthEnquiry({ enquiryRef: "EXP-CN", side: "sell", product: "Copper Cathode", status: "cancelled" });
+  const exActive = synthEnquiry({ enquiryRef: "EXP-AC", side: "sell", product: "Copper Cathode", status: "active" });
+
+  const matches = computeEnquiryMatches([imp, exClosed, exRejected, exCancelled, exActive], []);
+  assert.equal(matches.length, 1, "only the active export should match");
+  assert.equal(matches[0].export.enquiryRef, "EXP-AC");
+
+  // An inactive import is excluded too.
+  const impClosed = synthEnquiry({ enquiryRef: "IMP-CL", side: "buy", product: "Copper Cathode", status: "closed" });
+  assert.equal(
+    computeEnquiryMatches([impClosed, exActive], []).length,
+    0,
+    "an inactive import yields no matches",
+  );
+});
+
+test("enquiries already part of a deal are excluded from matches", () => {
+  const imp = synthEnquiry({ enquiryRef: "IMP-D", side: "buy", product: "Copper Cathode" });
+  const expUsed = synthEnquiry({ enquiryRef: "EXP-USED", side: "sell", product: "Copper Cathode" });
+  const expFree = synthEnquiry({ enquiryRef: "EXP-FREE", side: "sell", product: "Copper Cathode" });
+
+  // A deal already pairs IMP-D with EXP-USED, so neither may reappear in matches.
+  const deals = [{ importEnquiryRef: "IMP-D", exportEnquiryRef: "EXP-USED" }];
+  const matches = computeEnquiryMatches([imp, expUsed, expFree], deals);
+  assert.equal(matches.length, 0, "the import is committed to a deal, so no pairs remain");
+
+  // A fresh import can still pair with the free export.
+  const impFree = synthEnquiry({ enquiryRef: "IMP-FREE", side: "buy", product: "Copper Cathode" });
+  const matches2 = computeEnquiryMatches([imp, impFree, expUsed, expFree], deals);
+  assert.equal(matches2.length, 1, "only the un-dealt import+export pair should match");
+  assert.equal(matches2[0].id, "IMP-FREE__EXP-FREE");
 });

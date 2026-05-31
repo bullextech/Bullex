@@ -446,6 +446,47 @@ export async function createDealFromEnquiries(
   return { ok: true, value: deal };
 }
 
+// A proposed Import<->Export pairing surfaced to admins before they form a deal.
+export type EnquiryMatch = { id: string; import: TradeEnquiry; export: TradeEnquiry };
+
+// Two enquiries match when they reference the same commodity, ignoring case and
+// surrounding whitespace.
+export function enquiryProductsMatch(a: TradeEnquiry, b: TradeEnquiry): boolean {
+  return (a.product || "").trim().toLowerCase() === (b.product || "").trim().toLowerCase();
+}
+
+// Compute the same-commodity Import (buy) <-> Export (sell) pairings that admins
+// see before forming a deal. Enquiries that are inactive (closed/rejected/
+// cancelled) or already committed to a deal are excluded. Extracted from the
+// GET /api/enquiry-matches handler so the matching rules can be tested directly.
+export function computeEnquiryMatches(
+  enquiries: TradeEnquiry[],
+  existingDeals: Array<{ importEnquiryRef: string; exportEnquiryRef: string }>,
+): EnquiryMatch[] {
+  const used = new Set<string>();
+  for (const d of existingDeals) { used.add(d.importEnquiryRef); used.add(d.exportEnquiryRef); }
+  const inactive = new Set(["closed", "rejected", "cancelled"]);
+  const active = enquiries.filter(e => !used.has(e.enquiryRef) && !inactive.has(e.status));
+  const imports = active.filter(e => e.side === "buy");
+  const exportsList = active.filter(e => e.side === "sell");
+  const matches: EnquiryMatch[] = [];
+  for (const imp of imports) {
+    for (const exp of exportsList) {
+      if (enquiryProductsMatch(imp, exp)) {
+        matches.push({ id: `${imp.enquiryRef}__${exp.enquiryRef}`, import: imp, export: exp });
+      }
+    }
+  }
+  return matches;
+}
+
+// Fetch enquiries and deals from storage and return the proposed matches.
+export async function findEnquiryMatches(): Promise<EnquiryMatch[]> {
+  const enquiries = await storage.getTradeEnquiries();
+  const existingDeals = await storage.getDeals();
+  return computeEnquiryMatches(enquiries, existingDeals);
+}
+
 // Approve a deal's TFR: form exactly one trade in the Deal Desk and mint a
 // blockchain block. Uses claimDealForTfrApproval to atomically claim the deal so
 // concurrent approvals cannot double-form a trade.
@@ -4534,23 +4575,7 @@ export async function registerRoutes(
   // List compatible Import<->Export enquiry pairs (same commodity, not already in a deal).
   app.get("/api/enquiry-matches", requireModule("deals"), async (_req: Request, res: Response) => {
     try {
-      const enquiries = await storage.getTradeEnquiries();
-      const existingDeals = await storage.getDeals();
-      const used = new Set<string>();
-      for (const d of existingDeals) { used.add(d.importEnquiryRef); used.add(d.exportEnquiryRef); }
-      const inactive = new Set(["closed", "rejected", "cancelled"]);
-      const active = enquiries.filter(e => !used.has(e.enquiryRef) && !inactive.has(e.status));
-      const imports = active.filter(e => e.side === "buy");
-      const exportsList = active.filter(e => e.side === "sell");
-      const matches: Array<{ id: string; import: TradeEnquiry; export: TradeEnquiry }> = [];
-      for (const imp of imports) {
-        for (const exp of exportsList) {
-          if ((imp.product || "").trim().toLowerCase() === (exp.product || "").trim().toLowerCase()) {
-            matches.push({ id: `${imp.enquiryRef}__${exp.enquiryRef}`, import: imp, export: exp });
-          }
-        }
-      }
-      res.json(matches);
+      res.json(await findEnquiryMatches());
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

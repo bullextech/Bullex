@@ -1,3 +1,4 @@
 - [Doc generator templates](doc-generator-templates.md) — adding a doc type: wire builder into all 4 dispatch points; content is parsed by heuristics; restart_workflow if output is empty after template edit.
 - [Auth testing over curl](testing-auth-curl.md) — secure cookies don't persist over plain-HTTP curl; verify protected routes via browser/preview, not curl.
 - [Server integration testing](pipeline-testing.md) — no test framework; use node:test via `tsx --test`, test exported service fns (not HTTP), real dev DB with after() cleanup.
+- [Pure helpers for shared-DB tests](pipeline-testing.md) — extract DB-free logic (e.g. enquiry matcher) into a pure exported fn + thin storage wrapper; test the pure fn so exact-count asserts aren't polluted by other dev-DB rows.
