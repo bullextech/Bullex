@@ -434,12 +434,17 @@ function buildTfrDocx(content: string): (Paragraph | Table)[] {
 
   const flushTbl = () => {
     if (tblBuf.length === 0) return;
+    const ncols = Math.max(2, ...tblBuf.map(r => r.length));
+    const widths = ncols <= 2
+      ? [6600, 3400]
+      : ncols === 3
+        ? [3600, 3200, 3200]
+        : [2800, 2400, 2400, 2400];
     children.push(new Table({
       rows: tblBuf.map((cells, idx) => new TableRow({
-        children: [
-          makeDocxCell(cells[0] || "", idx === 0, 6600, idx === 0 ? headerShading : undefined),
-          makeDocxCell(cells[1] || "", idx === 0, 3400, idx === 0 ? headerShading : undefined),
-        ],
+        children: Array.from({ length: ncols }, (_, c) =>
+          makeDocxCell(cells[c] || "", idx === 0, widths[c], idx === 0 ? headerShading : undefined),
+        ),
       })),
       width: { size: 10000, type: WidthType.DXA },
     }));
@@ -524,7 +529,7 @@ function buildTfrPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
   const lines = sanitizeUnicode(content).split("\n");
 
   let kvBuf: [string, string][] = [];
-  let tblBuf: [string, string][] = [];
+  let tblBuf: string[][] = [];
 
   const flushKv = () => {
     if (kvBuf.length === 0) return;
@@ -551,7 +556,14 @@ function buildTfrPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
 
   const flushTbl = () => {
     if (tblBuf.length === 0) return;
-    drawPdf2ColTable(doc, tblBuf, leftMargin, pageWidth);
+    const ncols = Math.max(2, ...tblBuf.map(r => r.length));
+    if (ncols >= 4) {
+      drawPdf4ColTable(doc, tblBuf.map(r => [r[0] || "", r[1] || "", r[2] || "", r[3] || ""]), leftMargin, pageWidth);
+    } else if (ncols === 3) {
+      drawPdf3ColTable(doc, tblBuf.map(r => [r[0] || "", r[1] || "", r[2] || ""]), leftMargin, pageWidth);
+    } else {
+      drawPdf2ColTable(doc, tblBuf.map(r => [r[0] || "", r[1] || ""]), leftMargin, pageWidth);
+    }
     tblBuf = [];
     doc.x = leftMargin;
     doc.moveDown(0.3);
@@ -588,8 +600,7 @@ function buildTfrPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
 
     if (line.includes("|")) {
       flushKv();
-      const cells = line.split("|").map(c => c.trim());
-      tblBuf.push([cells[0] || "", cells[1] || ""]);
+      tblBuf.push(line.split("|").map(c => c.trim()));
       continue;
     }
 
@@ -3055,6 +3066,47 @@ function drawPdf2ColTable(doc: PDFKit.PDFDocument, rows: [string, string][], lef
     doc.font("Helvetica-Bold").fontSize(fontSize).text(item, left + padding, y + padding, { width: col1W - padding * 2 });
 
     doc.font(isHeader ? "Helvetica-Bold" : "Helvetica").fontSize(fontSize).text(desc || "", left + col1W + padding, y + padding, { width: col2W - padding * 2 });
+
+    doc.x = left;
+    doc.y = y + rowH;
+  }
+}
+
+function drawPdf3ColTable(doc: PDFKit.PDFDocument, rows: [string, string, string][], left: number, totalWidth: number) {
+  const colW = [
+    Math.floor(totalWidth * 0.40),
+    Math.floor(totalWidth * 0.30),
+    totalWidth - Math.floor(totalWidth * 0.40) - Math.floor(totalWidth * 0.30),
+  ];
+  const padding = 5;
+
+  for (let i = 0; i < rows.length; i++) {
+    const cells = rows[i];
+    const isHeader = i === 0;
+    const font = isHeader ? "Helvetica-Bold" : "Helvetica";
+    const fontSize = 9;
+
+    let maxH = 14;
+    for (let c = 0; c < 3; c++) {
+      const h = doc.font(font).fontSize(fontSize).heightOfString(cells[c] || " ", { width: colW[c] - padding * 2 });
+      maxH = Math.max(maxH, h);
+    }
+    const rowH = maxH + padding * 2 + 2;
+
+    pdfCheckPage(doc, rowH);
+    const y = doc.y;
+
+    let x = left;
+    for (let c = 0; c < 3; c++) {
+      if (isHeader) {
+        doc.rect(x, y, colW[c], rowH).fill("#F2F2F2").stroke("#999999");
+      } else {
+        doc.rect(x, y, colW[c], rowH).stroke("#999999");
+      }
+      doc.fillColor("#000000");
+      doc.font(c === 0 ? "Helvetica-Bold" : font).fontSize(fontSize).text(cells[c] || "", x + padding, y + padding, { width: colW[c] - padding * 2 });
+      x += colW[c];
+    }
 
     doc.x = left;
     doc.y = y + rowH;

@@ -385,25 +385,41 @@ export async function runDealCascade(deal: Deal, importEnq: TradeEnquiry, export
 
     const tfrData: Record<string, string> = {
       reference: current.dealRef,
-      seller: imp.seller.name || "",            // origin supplier (purchase side)
-      buyer: exp.buyer.name || "",              // final customer (sale side)
-      product: current.commodity,
-      commodity: current.commodity,
-      origin: imp.product.origin || "",
-      destination: exp.product.dischargePort || exp.product.origin || "",
-      quantity: importEnq.quantity ? `${importEnq.quantity} ${importEnq.unit || "MT"}`.trim() : "",
-      specifications: imp.product.qualitySpecs || exp.product.qualitySpecs || "",
-      deliveryTerms: imp.product.incoterm || "",
-      paymentInstrument: imp.product.paymentTerms || "",
+      // Import column = purchase side (origin supplier); Export column = sale side (final customer).
+      productImport: current.commodity,
+      productExport: current.commodity,
+      originImport: imp.product.origin || "",
+      originExport: exp.product.origin || imp.product.origin || "",
+      destinationImport: imp.product.dischargePort || "",
+      destinationExport: exp.product.dischargePort || exp.product.origin || "",
+      quantityImport: importEnq.quantity ? `${importEnq.quantity} ${importEnq.unit || "MT"}`.trim() : "",
+      quantityExport: exportEnq.quantity ? `${exportEnq.quantity} ${exportEnq.unit || "MT"}`.trim() : "",
+      priceImport: purchasePrice ? fmt(purchasePrice) : "",
+      priceExport: salePrice ? fmt(salePrice) : "",
+      contractValueImport: purchaseCost ? fmt(purchaseCost) : "",
+      contractValueExport: saleRevenue ? fmt(saleRevenue) : "",
+      deliveryTermsImport: imp.product.incoterm || "",
+      deliveryTermsExport: exp.product.incoterm || "",
+      paymentTermsImport: imp.product.paymentTerms || "",
+      paymentTermsExport: exp.product.paymentTerms || "",
+      partyImport: imp.seller.name || "",       // origin supplier (purchase side)
+      partyExport: exp.buyer.name || "",        // final customer (sale side)
       loadingPort: imp.product.loadingPort || imp.product.origin || "",
       dischargePort: exp.product.dischargePort || "",
-      contractValue: saleRevenue ? fmt(saleRevenue) : "",
     };
-    if (purchaseCost) tfrData.purchaseCost = fmt(purchaseCost);
-    if (saleRevenue) tfrData.saleRevenue = fmt(saleRevenue);
+    if (purchaseCost) {
+      tfrData.purchaseCostTotal = fmt(purchaseCost);
+      tfrData.totalImport = fmt(purchaseCost);
+      tfrData.importTotalCost = fmt(purchaseCost);
+    }
+    if (saleRevenue) {
+      tfrData.totalExport = fmt(saleRevenue);
+      tfrData.exportTotalCost = fmt(saleRevenue);
+    }
     if (purchaseCost && saleRevenue) {
-      tfrData.grossProfit = fmt(grossProfit);
-      tfrData.grossMargin = saleRevenue ? `${((grossProfit / saleRevenue) * 100).toFixed(1)}%` : "";
+      tfrData.grossProfitTotal = fmt(grossProfit);
+      tfrData.sumGrossProfit = fmt(grossProfit);
+      tfrData.grossMargin = `${((grossProfit / saleRevenue) * 100).toFixed(1)}%`;
     }
 
     const tfr = await createPipelineDoc({

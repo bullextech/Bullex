@@ -242,6 +242,29 @@ export default function DocumentGenerator() {
       </Select>
     </div>
   );
+  const tfrCell = (key: string, placeholder = "") => (
+    <Input className="h-8 text-sm" placeholder={placeholder} value={tfrData[key] || ""} onChange={(e) => setTfr(key, e.target.value)} data-testid={`input-tfr-${key}`} />
+  );
+  const tfrDualRow = (label: string, importKey: string, exportKey: string) => (
+    <div className="grid grid-cols-[150px_1fr_1fr] gap-2 items-center" key={importKey}>
+      <Label className="text-xs">{label}</Label>
+      {tfrCell(importKey)}
+      {tfrCell(exportKey)}
+    </div>
+  );
+  const tfrTripleRow = (label: string, importKey: string, exportKey: string, totalKey: string) => (
+    <div className="grid grid-cols-[150px_1fr_1fr_1fr] gap-2 items-center" key={importKey}>
+      <Label className="text-xs">{label}</Label>
+      {tfrCell(importKey)}
+      {tfrCell(exportKey)}
+      {tfrCell(totalKey)}
+    </div>
+  );
+  const tfrColHeader = (cols: string[]) => (
+    <div className={`grid gap-2 ${cols.length === 4 ? "grid-cols-[150px_1fr_1fr_1fr]" : "grid-cols-[150px_1fr_1fr]"}`}>
+      {cols.map((c, i) => <span key={i} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{c}</span>)}
+    </div>
+  );
 
   const urlParams = new URLSearchParams(window.location.search);
   const urlTradeRef = urlParams.get("tradeRef");
@@ -403,19 +426,18 @@ export default function DocumentGenerator() {
     };
     const updates: Record<string, string> = {};
     const set = (k: string, v: string) => { if (v) updates[k] = v; };
+    const setDual = (base: string, v: string) => { if (v) { updates[`${base}Import`] = v; updates[`${base}Export`] = v; } };
     set("reference", rows["Contract Reference"]);
-    set("seller", rows["Seller"]);
-    set("buyer", rows["Buyer"]);
-    set("product", rows["Commodity"]);
-    set("commodity", rows["Commodity"]);
-    set("origin", rows["Country of Origin"]);
-    set("specifications", rows["Quality / Specification"]);
-    set("deliveryTerms", rows["Delivery Basis"]);
-    set("quantity", rows["Contractual Quantity"]);
-    set("contractValue", rows["Contract Price & Currency"]);
-    set("paymentInstrument", rows["Payment Terms"]);
+    setDual("product", rows["Commodity"]);
+    setDual("origin", rows["Country of Origin"]);
+    setDual("quantity", rows["Contractual Quantity"]);
+    setDual("contractValue", rows["Contract Price & Currency"]);
+    setDual("deliveryTerms", rows["Delivery Basis"]);
+    setDual("paymentTerms", rows["Payment Terms"]);
+    set("partyImport", rows["Seller"]);
+    set("partyExport", rows["Buyer"]);
     const pod = extractAfter("Port of Discharge (POD):");
-    if (pod) { set("destination", pod); set("dischargePort", pod); }
+    if (pod) { setDual("destination", pod); set("dischargePort", pod); }
     set("loadingPort", rows["Country of Origin"]);
     setTfrData((prev) => ({ ...prev, ...updates }));
     toast({ title: "Fields auto-filled", description: `Loaded from Deal Recap: ${recapDoc.title}` });
@@ -2667,91 +2689,53 @@ export default function DocumentGenerator() {
               <Accordion type="multiple" defaultValue={["exec"]} className="w-full">
                 <AccordionItem value="exec" className="border-b-0">
                   <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">1. Executive Summary</AccordionTrigger>
-                  <AccordionContent className="space-y-3 pb-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      {tfrText("reference", "Reference", "e.g. BFG-2026-0001")}
-                      {tfrText("product", "Product", "e.g. Iron Ore")}
-                      {tfrText("origin", "Origin", "e.g. Guinea")}
-                      {tfrText("destination", "Destination", "e.g. China")}
-                      {tfrText("seller", "Seller", "Seller company name")}
-                      {tfrText("buyer", "Buyer", "Buyer company name")}
-                      {tfrText("quantity", "Quantity", "e.g. 50,000 MT")}
-                      {tfrText("contractValue", "Contract Value", "e.g. USD 5,000,000")}
-                      {tfrText("deliveryTerms", "Delivery Terms (Incoterms)", "e.g. CIF")}
-                      {tfrText("paymentInstrument", "Payment Instrument", "e.g. LC at sight")}
-                      {tfrText("transactionDuration", "Transaction Duration", "e.g. 60 days")}
-                    </div>
-                    {tfrText("objective", "Objective", "Purpose of this feasibility assessment", true)}
+                  <AccordionContent className="space-y-2 pb-3">
+                    {tfrText("reference", "Reference", "e.g. BFG-2026-0001")}
+                    <p className="text-xs font-semibold text-muted-foreground pt-1">Transaction Overview</p>
+                    {tfrColHeader(["", "Import", "Export"])}
+                    {tfrDualRow("Product", "productImport", "productExport")}
+                    {tfrDualRow("Origin", "originImport", "originExport")}
+                    {tfrDualRow("Destination", "destinationImport", "destinationExport")}
+                    {tfrDualRow("Quantity", "quantityImport", "quantityExport")}
+                    {tfrDualRow("Price (per Mt)", "priceImport", "priceExport")}
+                    {tfrDualRow("Contract Value", "contractValueImport", "contractValueExport")}
+                    {tfrDualRow("Delivery Terms", "deliveryTermsImport", "deliveryTermsExport")}
+                    {tfrDualRow("Payment Terms", "paymentTermsImport", "paymentTermsExport")}
+                    {tfrDualRow("Transaction Duration", "durationImport", "durationExport")}
                   </AccordionContent>
                 </AccordionItem>
 
                 <AccordionItem value="parties" className="border-b-0">
                   <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">2. Parties to the Transaction</AccordionTrigger>
-                  <AccordionContent className="space-y-3 pb-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      {tfrText("brokers", "Brokers")}
-                      {tfrText("mandates", "Mandates")}
-                      {tfrText("consultants", "Consultants")}
-                      {tfrText("logisticsProviders", "Logistics Providers")}
-                    </div>
-                    <p className="text-xs text-muted-foreground">Seller and Buyer names are taken from the Executive Summary above.</p>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="product" className="border-b-0">
-                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">3. Product Feasibility</AccordionTrigger>
-                  <AccordionContent className="space-y-3 pb-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      {tfrText("commodity", "Commodity")}
-                      {tfrText("specifications", "Specifications")}
-                      {tfrText("productionCapacity", "Production Capacity")}
-                      {tfrText("historicalExportRecords", "Historical Export Records")}
-                      {tfrText("availabilityOfQuantity", "Availability of Quantity")}
-                      {tfrText("seasonalRisks", "Seasonal Risks")}
-                      {tfrText("qualityAnalysis", "Quality Analysis")}
-                      {tfrText("certificateOfOrigin", "Certificate of Origin")}
-                      {tfrText("qualityCertificates", "Quality Certificates")}
-                    </div>
-                    {tfrChoice("productConclusion", "Conclusion", ["Feasible", "Conditionally Feasible", "Not Feasible"])}
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="market" className="border-b-0">
-                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">4. Market Analysis</AccordionTrigger>
-                  <AccordionContent className="space-y-3 pb-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      {tfrText("currentDemandTrends", "Current Demand Trends")}
-                      {tfrText("importStatistics", "Import Statistics")}
-                      {tfrText("endUserDemand", "End User Demand")}
-                      {tfrText("currentMarketPrice", "Current Market Price")}
-                      {tfrText("historicalTrend", "Historical Trend")}
-                      {tfrText("priceVolatility", "Price Volatility")}
-                      {tfrText("comparableSuppliers", "Comparable Suppliers")}
-                      {tfrText("marketAdvantages", "Market Advantages")}
-                    </div>
-                    {tfrChoice("marketConclusion", "Conclusion", ["Strong Market Demand", "Moderate Market Demand", "Weak Market Demand"])}
+                  <AccordionContent className="space-y-2 pb-3">
+                    {tfrColHeader(["", "Import", "Export"])}
+                    {tfrDualRow("Party", "partyImport", "partyExport")}
+                    {tfrDualRow("Intermediary", "intermediaryImport", "intermediaryExport")}
                   </AccordionContent>
                 </AccordionItem>
 
                 <AccordionItem value="financial" className="border-b-0">
-                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">5. Financial Feasibility</AccordionTrigger>
-                  <AccordionContent className="space-y-3 pb-3">
-                    <p className="text-xs font-semibold text-muted-foreground">Transaction Economics (USD)</p>
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">3. Financial Feasibility</AccordionTrigger>
+                  <AccordionContent className="space-y-2 pb-3">
+                    <p className="text-xs font-semibold text-muted-foreground">Transaction Economics</p>
+                    {tfrColHeader(["Particulars", "Import (USD)", "Export (USD)", "Total (USD)"])}
+                    {tfrTripleRow("Purchase Cost (per mt)", "purchaseCostImport", "purchaseCostExport", "purchaseCostTotal")}
+                    {tfrTripleRow("Freight Cost (per mt)", "freightImport", "freightExport", "freightTotal")}
+                    {tfrTripleRow("Insurance Cost (per mt)", "insuranceImport", "insuranceExport", "insuranceTotal")}
+                    {tfrTripleRow("Inspection Cost (per mt)", "inspectionImport", "inspectionExport", "inspectionTotal")}
+                    {tfrTripleRow("Banking Cost", "bankingImport", "bankingExport", "bankingTotal")}
+                    {tfrTripleRow("Other Cost", "otherImport", "otherExport", "otherTotal")}
+                    {tfrTripleRow("Total", "totalImport", "totalExport", "totalTotal")}
+                    {tfrTripleRow("Gross Profit", "grossProfitImport", "grossProfitExport", "grossProfitTotal")}
+                    {tfrTripleRow("Net Profit", "netProfitImport", "netProfitExport", "netProfitTotal")}
+                    <p className="text-xs font-semibold text-muted-foreground pt-1">Summary</p>
                     <div className="grid grid-cols-2 gap-3">
-                      {tfrText("purchaseCost", "Purchase Cost")}
-                      {tfrText("freightCost", "Freight Cost")}
-                      {tfrText("insurance", "Insurance")}
-                      {tfrText("inspectionCost", "Inspection Cost")}
-                      {tfrText("bankingCost", "Banking Cost")}
-                      {tfrText("operationalCost", "Operational Cost")}
-                      {tfrText("totalCost", "Total Cost")}
-                      {tfrText("saleRevenue", "Sale Revenue")}
-                      {tfrText("grossProfit", "Gross Profit")}
-                      {tfrText("netProfit", "Net Profit")}
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
+                      {tfrText("sumGrossProfit", "Gross Profit")}
+                      {tfrText("sumNetProfit", "Net Profit")}
+                      {tfrText("importTotalCost", "Import Total Cost")}
+                      {tfrText("exportTotalCost", "Export Total Cost")}
                       {tfrText("grossMargin", "Gross Margin")}
-                      {tfrText("returnOnInvestment", "Return on Investment")}
+                      {tfrText("roi", "ROI")}
                     </div>
                     {tfrText("breakevenAnalysis", "Breakeven Analysis", "", true)}
                     {tfrChoice("financialConclusion", "Conclusion", ["Financially Attractive", "Marginally Viable", "Not Attractive"])}
@@ -2761,11 +2745,12 @@ export default function DocumentGenerator() {
                 <AccordionItem value="finance" className="border-b-0">
                   <AccordionTrigger className="text-xs font-bold uppercase tracking-wider text-muted-foreground py-2 hover:no-underline">6. Trade Finance Feasibility</AccordionTrigger>
                   <AccordionContent className="space-y-3 pb-3">
-                    {tfrText("proposedInstruments", "Proposed Instruments", "", true)}
+                    {tfrText("proposedInstruments", "Possible Instruments", "", true)}
                     <div className="grid grid-cols-2 gap-3">
+                      {tfrText("buyerBank", "Buyer Bank")}
                       {tfrText("buyerBankRating", "Buyer Bank Rating")}
+                      {tfrText("sellerBank", "Seller Bank")}
                       {tfrText("sellerBankRating", "Seller Bank Rating")}
-                      {tfrText("sellerBankCompliance", "Seller Bank Compliance Status")}
                       {tfrText("workingCapitalRequired", "Working Capital Required")}
                       {tfrText("financingPeriod", "Financing Period")}
                       {tfrText("expectedYield", "Expected Yield")}
@@ -2875,7 +2860,9 @@ export default function DocumentGenerator() {
                     {tfrText("conditionsPrecedent", "Conditions Precedent (if applicable)", "", true)}
                     <div className="grid grid-cols-2 gap-3">
                       {tfrText("preparedBy", "Prepared By")}
+                      {tfrText("preparedDate", "Prepared Date")}
                       {tfrText("approvedBy", "Approved By")}
+                      {tfrText("approvedDate", "Approved Date")}
                     </div>
                   </AccordionContent>
                 </AccordionItem>

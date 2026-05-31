@@ -172,17 +172,9 @@ const templates: Record<string, (trade?: Trade, buyer?: PartyDetails, seller?: P
       const val = t[key];
       return (val !== undefined && String(val).trim()) ? String(val).trim() : fb;
     };
+    const dv = (key: string) => g(key, "—");
     const cb = (selected: string | undefined, options: string[]) =>
       options.map(o => `${selected && selected === o ? "[X]" : "[ ]"} ${o}`).join("    ");
-
-    const sellerName = g("seller", seller?.name || trade?.sellerName || "____");
-    const buyerName = g("buyer", buyer?.name || trade?.buyerName || "____");
-    const product_ = g("product", trade?.commodity || "____");
-    const origin = g("origin", trade?.origin || "____");
-    const destination = g("destination", trade?.destination || "____");
-    const quantity = g("quantity", trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : "____");
-    const contractValue = g("contractValue", trade ? `${trade.currency} ${trade.totalValue.toLocaleString()}` : "____");
-    const deliveryTerms = g("deliveryTerms", trade?.incoterm || "____");
 
     return `TRANSACTION FEASIBILITY REPORT
 
@@ -191,95 +183,46 @@ Reference: ${trade?.tradeRef || g("reference")}
 
 1. EXECUTIVE SUMMARY
 
-Transaction Overview:
-Product: ${product_}
-Origin: ${origin}
-Destination: ${destination}
-Seller: ${sellerName}
-Buyer: ${buyerName}
-Quantity: ${quantity}
-Contract Value: ${contractValue}
-Delivery Terms (Incoterms): ${deliveryTerms}
-Payment Instrument: ${g("paymentInstrument")}
-Transaction Duration: ${g("transactionDuration")}
-
-Objective:
-${g("objective", "To assess the commercial, financial, operational, legal, and banking feasibility of the proposed transaction and determine its suitability for execution and financing.")}
+Transaction Overview | Import | Export
+Product | ${dv("productImport")} | ${dv("productExport")}
+Origin | ${dv("originImport")} | ${dv("originExport")}
+Destination | ${dv("destinationImport")} | ${dv("destinationExport")}
+Quantity | ${dv("quantityImport")} | ${dv("quantityExport")}
+Price (per Mt) | ${dv("priceImport")} | ${dv("priceExport")}
+Contract Value | ${dv("contractValueImport")} | ${dv("contractValueExport")}
+Delivery Terms (Incoterms) | ${dv("deliveryTermsImport")} | ${dv("deliveryTermsExport")}
+Payment Terms | ${dv("paymentTermsImport")} | ${dv("paymentTermsExport")}
+Transaction Duration | ${dv("durationImport")} | ${dv("durationExport")}
 
 2. PARTIES TO THE TRANSACTION
 
-Seller:
-Company Name: ${sellerName}
+Parties | Import | Export
+Party | ${dv("partyImport")} | ${dv("partyExport")}
+Intermediary | ${dv("intermediaryImport")} | ${dv("intermediaryExport")}
 
-Buyer:
-Company Name: ${buyerName}
-
-Intermediaries (if any):
-Brokers: ${g("brokers")}
-Mandates: ${g("mandates")}
-Consultants: ${g("consultants")}
-Logistics Providers: ${g("logisticsProviders")}
-
-3. PRODUCT FEASIBILITY
-
-Product Description:
-Commodity: ${g("commodity", product_)}
-Specifications: ${g("specifications")}
-
-Supply Availability:
-Production Capacity: ${g("productionCapacity")}
-Historical Export Records: ${g("historicalExportRecords")}
-Availability of Quantity: ${g("availabilityOfQuantity")}
-Seasonal Risks: ${g("seasonalRisks")}
-
-Quality Assurance:
-Quality Analysis: ${g("qualityAnalysis")}
-Certificate of Origin: ${g("certificateOfOrigin")}
-Quality Certificates: ${g("qualityCertificates")}
-
-Conclusion:
-${cb(t.productConclusion, ["Feasible", "Conditionally Feasible", "Not Feasible"])}
-
-4. MARKET ANALYSIS
-
-Market Demand:
-Current Demand Trends: ${g("currentDemandTrends")}
-Import Statistics: ${g("importStatistics")}
-End User Demand: ${g("endUserDemand")}
-
-Price Analysis:
-Current Market Price: ${g("currentMarketPrice")}
-Historical Trend: ${g("historicalTrend")}
-Price Volatility: ${g("priceVolatility")}
-
-Competitive Position:
-Comparable Suppliers: ${g("comparableSuppliers")}
-Market Advantages: ${g("marketAdvantages")}
-
-Conclusion:
-${cb(t.marketConclusion, ["Strong Market Demand", "Moderate Market Demand", "Weak Market Demand"])}
-
-5. FINANCIAL FEASIBILITY
+3. FINANCIAL FEASIBILITY
 
 Transaction Economics:
-Particulars | Amount (USD)
-Purchase Cost | ${g("purchaseCost", "—")}
-Freight Cost | ${g("freightCost", "—")}
-Insurance | ${g("insurance", "—")}
-Inspection Cost | ${g("inspectionCost", "—")}
-Banking Cost | ${g("bankingCost", "—")}
-Operational Cost | ${g("operationalCost", "—")}
-Total Cost | ${g("totalCost", "—")}
-Sale Revenue | ${g("saleRevenue", "—")}
-Gross Profit | ${g("grossProfit", "—")}
-Net Profit | ${g("netProfit", "—")}
+Particulars | Import (USD) | Export (USD) | Total Value (USD)
+Purchase Cost (per mt) | ${dv("purchaseCostImport")} | ${dv("purchaseCostExport")} | ${dv("purchaseCostTotal")}
+Freight Cost (per mt) | ${dv("freightImport")} | ${dv("freightExport")} | ${dv("freightTotal")}
+Insurance Cost (per mt) | ${dv("insuranceImport")} | ${dv("insuranceExport")} | ${dv("insuranceTotal")}
+Inspection Cost (per mt) | ${dv("inspectionImport")} | ${dv("inspectionExport")} | ${dv("inspectionTotal")}
+Banking Cost | ${dv("bankingImport")} | ${dv("bankingExport")} | ${dv("bankingTotal")}
+Other Cost | ${dv("otherImport")} | ${dv("otherExport")} | ${dv("otherTotal")}
+Total | ${dv("totalImport")} | ${dv("totalExport")} | ${dv("totalTotal")}
+Gross Profit | ${dv("grossProfitImport")} | ${dv("grossProfitExport")} | ${dv("grossProfitTotal")}
+Net Profit | ${dv("netProfitImport")} | ${dv("netProfitExport")} | ${dv("netProfitTotal")}
 
-Return Analysis:
-Gross Margin (Gross Profit / Revenue x 100): ${g("grossMargin")}
-Return on Investment (Net Profit / Investment x 100): ${g("returnOnInvestment")}
-
-Breakeven Analysis:
-${g("breakevenAnalysis", "Assessment of minimum profitable sale price.")}
+Summary:
+Particulars | Value
+Gross Profit | ${dv("sumGrossProfit")}
+Net Profit | ${dv("sumNetProfit")}
+Import Total Cost | ${dv("importTotalCost")}
+Export Total Cost | ${dv("exportTotalCost")}
+Gross Margin | ${dv("grossMargin")}
+ROI | ${dv("roi")}
+Breakeven Analysis | ${dv("breakevenAnalysis")}
 
 Conclusion:
 ${cb(t.financialConclusion, ["Financially Attractive", "Marginally Viable", "Not Attractive"])}
@@ -290,9 +233,10 @@ Proposed Banking Structure:
 Possible Instruments: ${g("proposedInstruments", "Letter of Credit (LC), Standby Letter of Credit (SBLC), Documentary Collection, Bank Guarantee, Performance Bond, Back-to-Back LC, Deferred Payment LC")}
 
 Banking Assessment:
+Buyer Bank: ${g("buyerBank")}
 Buyer Bank Rating: ${g("buyerBankRating")}
+Seller Bank: ${g("sellerBank")}
 Seller Bank Rating: ${g("sellerBankRating")}
-Seller Bank Compliance Status: ${g("sellerBankCompliance")}
 
 Financing Requirement:
 Working Capital Required: ${g("workingCapitalRequired")}
@@ -305,8 +249,8 @@ ${cb(t.financeConclusion, ["Bankable", "Bankable with Conditions", "Not Bankable
 7. LOGISTICS FEASIBILITY
 
 Transportation:
-Loading Port: ${g("loadingPort", origin)}
-Discharge Port: ${g("dischargePort", destination)}
+Loading Port: ${g("loadingPort")}
+Discharge Port: ${g("dischargePort")}
 Shipping Route: ${g("shippingRoute")}
 Transit Time: ${g("transitTime")}
 
@@ -372,11 +316,11 @@ Force Majeure: ${g("forceMajeure")}
 
 Risk Rating:
 Risk Category | Rating
-Commercial | ${g("commercialRating", "—")}
-Financial | ${g("financialRating", "—")}
-Operational | ${g("operationalRating", "—")}
-Political | ${g("politicalRating", "—")}
-Compliance | ${g("complianceRating", "—")}
+Commercial | ${dv("commercialRating")}
+Financial | ${dv("financialRating")}
+Operational | ${dv("operationalRating")}
+Political | ${dv("politicalRating")}
+Compliance | ${dv("complianceRating")}
 
 Overall Risk Rating:
 ${cb(t.overallRisk, ["Low", "Medium", "High"])}
@@ -413,6 +357,7 @@ ${g("conditionsPrecedent", "—")}
 Prepared By: ${g("preparedBy")}
 Date: ${g("preparedDate", today())}
 Approved By: ${g("approvedBy")}
+Date: ${g("approvedDate")}
 `;
   },
 
