@@ -390,7 +390,7 @@ export default function TradeEnquiries() {
                 className={form.side === "buy" ? "bg-green-600 hover:bg-green-700 text-white flex-1" : "flex-1"}
                 onClick={() => setForm(p => ({ ...p, side: "buy" }))}
                 data-testid="button-side-buy"
-              >BUY</Button>
+              >IMPORT (BUY)</Button>
               <Button
                 type="button"
                 size="sm"
@@ -398,7 +398,7 @@ export default function TradeEnquiries() {
                 className={form.side === "sell" ? "bg-red-600 hover:bg-red-700 text-white flex-1" : "flex-1"}
                 onClick={() => setForm(p => ({ ...p, side: "sell" }))}
                 data-testid="button-side-sell"
-              >SELL</Button>
+              >EXPORT (SELL)</Button>
             </div>
 
             <Accordion type="multiple" defaultValue={["header", "params", "closing"]} className="w-full">
@@ -666,8 +666,8 @@ export default function TradeEnquiries() {
           <SelectTrigger className="w-28" data-testid="select-side-filter"><SelectValue placeholder="All Types" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="buy">Buy</SelectItem>
-            <SelectItem value="sell">Sell</SelectItem>
+            <SelectItem value="buy">Import (Buy)</SelectItem>
+            <SelectItem value="sell">Export (Sell)</SelectItem>
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -762,7 +762,7 @@ function EnquiryCard({ enquiry, onView, onStatusChange, onDelete }: {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <Badge className={`text-[10px] font-bold ${enquiry.side === "sell" ? "bg-red-600 text-white" : "bg-green-600 text-white"}`} data-testid={`badge-side-${enquiry.id}`}>
-                {enquiry.side === "sell" ? "SELL" : "BUY"}
+                {enquiry.side === "sell" ? "EXPORT" : "IMPORT"}
               </Badge>
               <span className="font-mono text-xs text-muted-foreground" data-testid={`text-ref-${enquiry.id}`}>{enquiry.enquiryRef}</span>
               <Badge className={`text-[10px] ${STATUS_COLORS[enquiry.status]}`} data-testid={`badge-status-${enquiry.id}`}>{STATUS_LABELS[enquiry.status]}</Badge>
@@ -874,7 +874,7 @@ function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
             </div>
             <div className="flex items-center gap-2">
               <Badge className={`font-bold ${enquiry.side === "sell" ? "bg-red-600 text-white" : "bg-green-600 text-white"}`} data-testid="badge-detail-side">
-                {enquiry.side === "sell" ? "SELL" : "BUY"}
+                {enquiry.side === "sell" ? "EXPORT (SELL)" : "IMPORT (BUY)"}
               </Badge>
               <Badge className={STATUS_COLORS[enquiry.status]} data-testid="badge-detail-status">{STATUS_LABELS[enquiry.status]}</Badge>
             </div>

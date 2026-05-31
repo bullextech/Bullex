@@ -9,7 +9,7 @@ import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
 import { getTableColumns } from "drizzle-orm";
-import { insertTradeSchema, insertKycSchema, insertDocumentSchema, insertPotentialClientSchema, kycApplications, type Trade } from "@shared/schema";
+import { insertTradeSchema, insertKycSchema, insertDocumentSchema, insertPotentialClientSchema, kycApplications, type Trade, type Deal, type TradeEnquiry, type Document } from "@shared/schema";
 import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent, type PartyDetails } from "./documentTemplates";
 import { seedDatabase } from "./seed";
@@ -159,6 +159,239 @@ const DEFAULT_CHECKLIST = [
 function buildAdminChecks(docType: string): Array<{ label: string; checked: boolean }> {
   const labels = ADMIN_CHECKLISTS[docType] || DEFAULT_CHECKLIST;
   return labels.map(label => ({ label, checked: false }));
+}
+
+// ============================================================================
+// Automated trade pipeline (deals) — document cascade engine
+// ============================================================================
+
+const COMMODITY_CATEGORY_MAP: Record<string, string> = {
+  "Iron Ore": "minerals", "Bauxite": "minerals", "Manganese Ore": "minerals",
+  "Copper Cathode": "metals", "Copper Concentrate": "metals", "Aluminium Ingots": "metals",
+  "Gasoil 10ppm": "energy", "Gasoil 50ppm": "energy", "LHC": "energy", "HSFO": "energy", "HSGO": "energy",
+  "Petcoke – Anode Grade": "petrochemicals", "Petcoke – Fuel Grade": "petrochemicals",
+  "NPK": "fertilizers", "Sulphur – Granular": "fertilizers", "Sulphur – Lumps": "fertilizers",
+};
+
+function commodityCategoryFor(product?: string): string {
+  return COMMODITY_CATEGORY_MAP[(product || "").trim()] || "minerals";
+}
+
+function extractEmail(...candidates: Array<string | null | undefined>): string | null {
+  for (const c of candidates) {
+    const m = (c || "").match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+    if (m) return m[0];
+  }
+  return null;
+}
+
+function toNumber(s?: string | null): number {
+  return parseFloat(String(s ?? "").replace(/[^\d.]/g, "")) || 0;
+}
+
+// Build PartyDetails/ProductDetails from a trade enquiry. `role` selects whether
+// the enquiry's own party is the buyer (import/buy) or seller (export/sell).
+function partiesFromEnquiry(enq: TradeEnquiry) {
+  const buyer: PartyDetails = {
+    name: enq.buyerName || undefined,
+    address: enq.buyerAddress || undefined,
+    contact: enq.buyerContact || undefined,
+  };
+  const seller: PartyDetails = {
+    name: enq.sellerName || enq.producer || undefined,
+    address: enq.sellerAddress || undefined,
+    contact: enq.sellerContact || undefined,
+  };
+  const product = {
+    commodity: enq.product || undefined,
+    origin: enq.origin || enq.loadingPort || undefined,
+    quantity: enq.quantity ? `${enq.quantity} ${enq.unit || "MT"}`.trim() : undefined,
+    qualitySpecs: enq.specifications || undefined,
+    loadingPort: enq.loadingPort || undefined,
+    dischargePort: enq.dischargePort || undefined,
+    price: enq.price || undefined,
+    currency: enq.currency || "USD",
+    incoterm: enq.incoterms || undefined,
+    laycan: enq.deliveryPeriod || undefined,
+    paymentTerms: enq.paymentTerms || undefined,
+    validity: enq.validity || undefined,
+    refPerson: enq.refPerson || undefined,
+    contractConfirmation: enq.contractConfirmation || undefined,
+    docsForPayment: enq.docsForPayment || undefined,
+    otherTerms: enq.otherTerms || undefined,
+    compliance: enq.compliance || undefined,
+  };
+  return { buyer, seller, product };
+}
+
+// Generate a document for the pipeline cascade: build content, persist, generate
+// DOCX/PDF, and (optionally) mark it auto-accepted so the chain can continue.
+async function createPipelineDoc(opts: {
+  docType: string;
+  title: string;
+  buyer: PartyDetails;
+  seller: PartyDetails;
+  product: any;
+  enquiryRef?: string | null;
+  parentDocId?: string | null;
+  dealRecapNumber?: string | null;
+  status: string;
+  autoAccept: boolean;
+}): Promise<Document> {
+  const content = generateDocumentContent(opts.docType, undefined, opts.buyer, opts.seller, opts.product);
+  const buyerEmail = extractEmail(opts.buyer.contact);
+  const sellerEmail = extractEmail(opts.seller.contact);
+  const created = await storage.createDocument({
+    docType: opts.docType,
+    title: opts.title,
+    content,
+    status: opts.status,
+    adminChecks: buildAdminChecks(opts.docType),
+    enquiryRef: opts.enquiryRef ?? null,
+    parentDocId: opts.parentDocId ?? null,
+    dealRecapNumber: opts.dealRecapNumber ?? null,
+    buyerEmail,
+    sellerEmail,
+    recipientResponse: opts.autoAccept ? "accepted" : null,
+    recipientRespondedAt: opts.autoAccept ? new Date() : null,
+  } as any);
+
+  try {
+    const docxPath = await generateDocx(created.id, created.title, content, "Bullex Admin");
+    let pdfPath: string | undefined;
+    if (opts.docType !== "LOI") {
+      pdfPath = await generatePdf(created.id, created.title, content, "Bullex Admin");
+    }
+    return await storage.updateDocument(created.id, { docxPath, ...(pdfPath ? { pdfPath } : {}) });
+  } catch (fileErr) {
+    console.error(`[deals] File generation failed for ${opts.docType} (doc still created):`, fileErr);
+    return created;
+  }
+}
+
+function dealRecapNumberFor(buyerName: string, sellerName: string, serialSeed: number): string {
+  const b3 = (buyerName || "XXX").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3).padEnd(3, "X");
+  const s3 = (sellerName || "XXX").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3).padEnd(3, "X");
+  const now = new Date();
+  const ddmm = `${String(now.getDate()).padStart(2, "0")}${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return `${b3}/${s3}-${ddmm}-${String(serialSeed).padStart(3, "0")}`;
+}
+
+// Runs the full automatic document cascade for a deal:
+//   LOI (import) + SCO (export) -> Deal Recap Import + Deal Recap Export -> TFR
+// All intermediate docs are auto-accepted; the TFR is left pending admin approval.
+async function runDealCascade(deal: Deal, importEnq: TradeEnquiry, exportEnq: TradeEnquiry): Promise<Deal> {
+  const imp = partiesFromEnquiry(importEnq);
+  const exp = partiesFromEnquiry(exportEnq);
+
+  // 1. LOI for the Import (buy) side — buyer issues a Purchase LOI to the supplier.
+  const loi = await createPipelineDoc({
+    docType: "LOI",
+    title: `LOI - ${deal.dealRef}`,
+    buyer: imp.buyer,
+    seller: imp.seller,
+    product: imp.product,
+    enquiryRef: importEnq.enquiryRef,
+    status: "accepted",
+    autoAccept: true,
+  });
+
+  // 2. SCO for the Export (sell) side — seller issues a Soft Corporate Offer to the buyer.
+  const sco = await createPipelineDoc({
+    docType: "SCO",
+    title: `SCO - ${deal.dealRef}`,
+    buyer: exp.buyer,
+    seller: exp.seller,
+    product: exp.product,
+    enquiryRef: exportEnq.enquiryRef,
+    status: "accepted",
+    autoAccept: true,
+  });
+
+  await storage.updateDeal(deal.id, { loiDocId: loi.id, scoDocId: sco.id, stage: "documents_issued" });
+
+  // 3. Deal Recap (Import) — derived from the LOI.
+  const importRecapNum = dealRecapNumberFor(imp.buyer.name || "", imp.seller.name || "", 1);
+  const dealRecapImport = await createPipelineDoc({
+    docType: "DEAL_RECAP",
+    title: `Deal Recap (Import) - ${importRecapNum}`,
+    buyer: imp.buyer,
+    seller: imp.seller,
+    product: { ...imp.product, dealRecapNumber: importRecapNum },
+    enquiryRef: importEnq.enquiryRef,
+    parentDocId: loi.id,
+    dealRecapNumber: importRecapNum,
+    status: "accepted",
+    autoAccept: true,
+  });
+
+  // 4. Deal Recap (Export) — derived from the SCO.
+  const exportRecapNum = dealRecapNumberFor(exp.buyer.name || "", exp.seller.name || "", 2);
+  const dealRecapExport = await createPipelineDoc({
+    docType: "DEAL_RECAP",
+    title: `Deal Recap (Export) - ${exportRecapNum}`,
+    buyer: exp.buyer,
+    seller: exp.seller,
+    product: { ...exp.product, dealRecapNumber: exportRecapNum },
+    enquiryRef: exportEnq.enquiryRef,
+    parentDocId: sco.id,
+    dealRecapNumber: exportRecapNum,
+    status: "accepted",
+    autoAccept: true,
+  });
+
+  await storage.updateDeal(deal.id, {
+    dealRecapImportDocId: dealRecapImport.id,
+    dealRecapExportDocId: dealRecapExport.id,
+    stage: "recaps_issued",
+  });
+
+  // 5. Single TFR consolidating BOTH recaps (import = purchase side, export = sale side).
+  const qty = toNumber(importEnq.quantity) || toNumber(exportEnq.quantity);
+  const purchasePrice = toNumber(importEnq.price);
+  const salePrice = toNumber(exportEnq.price);
+  const cur = importEnq.currency || exportEnq.currency || "USD";
+  const purchaseCost = purchasePrice * qty;
+  const saleRevenue = salePrice * qty;
+  const grossProfit = saleRevenue - purchaseCost;
+  const fmt = (n: number) => `${cur} ${n.toLocaleString()}`;
+
+  const tfrData: Record<string, string> = {
+    reference: deal.dealRef,
+    seller: imp.seller.name || "",            // origin supplier (purchase side)
+    buyer: exp.buyer.name || "",              // final customer (sale side)
+    product: deal.commodity,
+    commodity: deal.commodity,
+    origin: imp.product.origin || "",
+    destination: exp.product.dischargePort || exp.product.origin || "",
+    quantity: importEnq.quantity ? `${importEnq.quantity} ${importEnq.unit || "MT"}`.trim() : "",
+    specifications: imp.product.qualitySpecs || exp.product.qualitySpecs || "",
+    deliveryTerms: imp.product.incoterm || "",
+    paymentInstrument: imp.product.paymentTerms || "",
+    loadingPort: imp.product.loadingPort || imp.product.origin || "",
+    dischargePort: exp.product.dischargePort || "",
+    contractValue: saleRevenue ? fmt(saleRevenue) : "",
+  };
+  if (purchaseCost) tfrData.purchaseCost = fmt(purchaseCost);
+  if (saleRevenue) tfrData.saleRevenue = fmt(saleRevenue);
+  if (purchaseCost && saleRevenue) {
+    tfrData.grossProfit = fmt(grossProfit);
+    tfrData.grossMargin = saleRevenue ? `${((grossProfit / saleRevenue) * 100).toFixed(1)}%` : "";
+  }
+
+  const tfr = await createPipelineDoc({
+    docType: "TFR",
+    title: `TFR - ${deal.dealRef}`,
+    buyer: { name: exp.buyer.name },
+    seller: { name: imp.seller.name },
+    product: { tfrData },
+    enquiryRef: importEnq.enquiryRef,
+    parentDocId: dealRecapImport.id,
+    status: "pending_review",
+    autoAccept: false,
+  });
+
+  return await storage.updateDeal(deal.id, { tfrDocId: tfr.id, stage: "tfr_pending" });
 }
 
 declare module "express-session" {
@@ -4170,82 +4403,157 @@ export async function registerRoutes(
       if (!valid.includes(status)) return res.status(400).json({ message: "Invalid status" });
       const existing = await storage.getTradeEnquiryById(req.params.id);
       if (!existing) return res.status(404).json({ message: "Enquiry not found" });
-      if (status === "accepted" && existing.status !== "accepted") {
-        try {
-          const categoryMap: Record<string, string> = {
-            "Iron Ore": "minerals", "Bauxite": "minerals", "Manganese Ore": "minerals",
-            "Copper Cathode": "metals", "Copper Concentrate": "metals", "Aluminium Ingots": "metals",
-            "Gasoil 10ppm": "energy", "Gasoil 50ppm": "energy", "LHC": "energy", "HSFO": "energy", "HSGO": "energy",
-            "Petcoke – Anode Grade": "petrochemicals", "Petcoke – Fuel Grade": "petrochemicals",
-            "NPK": "fertilizers", "Sulphur – Granular": "fertilizers", "Sulphur – Lumps": "fertilizers",
-          };
-          const commodityCategory = categoryMap[existing.product] || "minerals";
-
-          const isBuyer = existing.side === "buy";
-          const buyerName = existing.buyerName || (isBuyer ? (existing.createdBy || "TBD") : "TBD");
-          const sellerName = existing.sellerName || (!isBuyer ? (existing.createdBy || "TBD") : "Bullfrog Group");
-          // parse numeric price from enquiry price string e.g. "850" or "850 USD/MT"
-          const parsedPrice = parseFloat((existing.price || "0").replace(/[^\d.]/g, "")) || 0;
-          const qty = parseFloat(existing.quantity || "0") || 0;
-
-          const trade = await storage.createPreDealTrade({
-            commodity: existing.product,
-            commodityCategory,
-            quantity: qty,
-            unit: existing.unit || "MT",
-            pricePerUnit: parsedPrice,
-            totalValue: parsedPrice * qty,
-            currency: existing.currency || "USD",
-            buyerName,
-            sellerName,
-            origin: existing.origin || existing.loadingPort || "TBD",
-            destination: existing.dischargePort || "TBD",
-            incoterm: existing.incoterms || "FOB",
-            enquiryRef: existing.enquiryRef,
-            specifications: existing.specifications || "",
-          });
-
-          const latestBlock = await storage.getLatestBlock();
-          const previousHash = latestBlock ? latestBlock.hash : GENESIS_HASH;
-          const blockNumber = latestBlock ? latestBlock.blockNumber + 1 : 1;
-          const timestamp = new Date().toISOString();
-
-          const enquiryHash = generateEnquiryTradeHash(
-            existing.enquiryRef,
-            existing.product,
-            existing.side,
-            existing.quantity,
-            existing.createdBy || "Admin",
-            timestamp
-          );
-
-          const tradeData = `${existing.enquiryRef}:${existing.product}:TRADE_INITIATED:${trade.tradeRef}:${enquiryHash}`;
-          const { hash: blockHash, nonce } = mineBlock(blockNumber, previousHash, timestamp, tradeData, 2);
-
-          await storage.createBlock({
-            blockNumber,
-            hash: blockHash,
-            previousHash,
-            nonce,
-            tradeCount: 1,
-            verified: true,
-            dataType: "trade",
-            dataId: trade.id,
-            dataSummary: `Trade ${trade.tradeRef} initiated from ${existing.enquiryRef} | ${existing.side.toUpperCase()} ${existing.product}`,
-          });
-
-          console.log(`[trade] Auto-created trade ${trade.tradeRef} from enquiry ${existing.enquiryRef}, blockchain block #${blockNumber}`);
-          const updated = await storage.updateTradeEnquiryStatus(req.params.id, status, trade.tradeRef);
-          sendEnquiryStatusNotification(existing, status).catch(() => {});
-          return res.json({ ...updated, createdTradeRef: trade.tradeRef });
-        } catch (err: any) {
-          console.error("[trade] Auto-create trade failed:", err.message);
-        }
-      }
-
+      // Note: accepting an enquiry no longer auto-creates a trade. Trades are only
+      // formed via the automated deal pipeline once a TFR is approved (POST
+      // /api/deals/:id/approve-tfr).
       const updated = await storage.updateTradeEnquiryStatus(req.params.id, status);
       sendEnquiryStatusNotification(existing, status).catch(() => {});
       res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ===== Automated trade pipeline (deals) =====
+
+  // List compatible Import<->Export enquiry pairs (same commodity, not already in a deal).
+  app.get("/api/enquiry-matches", requireModule("deals"), async (_req: Request, res: Response) => {
+    try {
+      const enquiries = await storage.getTradeEnquiries();
+      const existingDeals = await storage.getDeals();
+      const used = new Set<string>();
+      for (const d of existingDeals) { used.add(d.importEnquiryRef); used.add(d.exportEnquiryRef); }
+      const inactive = new Set(["closed", "rejected", "cancelled"]);
+      const active = enquiries.filter(e => !used.has(e.enquiryRef) && !inactive.has(e.status));
+      const imports = active.filter(e => e.side === "buy");
+      const exportsList = active.filter(e => e.side === "sell");
+      const matches: Array<{ id: string; import: TradeEnquiry; export: TradeEnquiry }> = [];
+      for (const imp of imports) {
+        for (const exp of exportsList) {
+          if ((imp.product || "").trim().toLowerCase() === (exp.product || "").trim().toLowerCase()) {
+            matches.push({ id: `${imp.enquiryRef}__${exp.enquiryRef}`, import: imp, export: exp });
+          }
+        }
+      }
+      res.json(matches);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/deals", requireModule("deals"), async (_req: Request, res: Response) => {
+    try {
+      res.json(await storage.getDeals());
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create a deal from a chosen match and run the automatic document cascade.
+  app.post("/api/deals", requireAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const { importEnquiryRef, exportEnquiryRef } = req.body || {};
+      if (!importEnquiryRef || !exportEnquiryRef) {
+        return res.status(400).json({ message: "importEnquiryRef and exportEnquiryRef are required" });
+      }
+      const enquiries = await storage.getTradeEnquiries();
+      const importEnq = enquiries.find(e => e.enquiryRef === importEnquiryRef);
+      const exportEnq = enquiries.find(e => e.enquiryRef === exportEnquiryRef);
+      if (!importEnq || !exportEnq) return res.status(404).json({ message: "Enquiry not found" });
+      if (importEnq.side !== "buy") return res.status(400).json({ message: "importEnquiryRef must be an Import (buy) enquiry" });
+      if (exportEnq.side !== "sell") return res.status(400).json({ message: "exportEnquiryRef must be an Export (sell) enquiry" });
+      if ((importEnq.product || "").trim().toLowerCase() !== (exportEnq.product || "").trim().toLowerCase()) {
+        return res.status(400).json({ message: "Import and Export enquiries must be for the same commodity" });
+      }
+      const existingDeals = await storage.getDeals();
+      const used = new Set<string>();
+      for (const d of existingDeals) { used.add(d.importEnquiryRef); used.add(d.exportEnquiryRef); }
+      if (used.has(importEnquiryRef) || used.has(exportEnquiryRef)) {
+        return res.status(409).json({ message: "One or both enquiries are already part of a deal" });
+      }
+
+      const year = new Date().getFullYear();
+      const dealRef = `DEAL-${year}-${Math.random().toString(16).slice(2, 6).toUpperCase()}`;
+      let deal: Deal;
+      try {
+        deal = await storage.createDeal({ dealRef, importEnquiryRef, exportEnquiryRef, commodity: importEnq.product });
+      } catch (insertErr: any) {
+        // Unique constraint on import/export enquiry refs — a concurrent request won the race.
+        if (insertErr?.code === "23505") {
+          return res.status(409).json({ message: "One or both enquiries are already part of a deal" });
+        }
+        throw insertErr;
+      }
+      try {
+        deal = await runDealCascade(deal, importEnq, exportEnq);
+      } catch (cascadeErr: any) {
+        console.error("[deals] Cascade failed:", cascadeErr);
+        deal = await storage.updateDeal(deal.id, { cascadeError: cascadeErr?.message || "Cascade failed" });
+      }
+      res.json(deal);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Approve the TFR -> form the trade in the Deal Desk and mint a blockchain block.
+  app.post("/api/deals/:id/approve-tfr", requireAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const existing = await storage.getDealById(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Deal not found" });
+      if (existing.tradeRef) return res.status(400).json({ message: "Trade already formed for this deal" });
+      if (existing.stage !== "tfr_pending" || !existing.tfrDocId) {
+        return res.status(400).json({ message: "TFR is not ready for approval" });
+      }
+
+      // Atomically claim the deal so concurrent approvals cannot both form a trade.
+      const deal = await storage.claimDealForTfrApproval(req.params.id);
+      if (!deal) return res.status(409).json({ message: "This deal is already being approved or has been formed" });
+
+      const enquiries = await storage.getTradeEnquiries();
+      const importEnq = enquiries.find(e => e.enquiryRef === deal.importEnquiryRef);
+      const exportEnq = enquiries.find(e => e.enquiryRef === deal.exportEnquiryRef);
+      if (!importEnq || !exportEnq) return res.status(404).json({ message: "Linked enquiries not found" });
+
+      const qty = toNumber(importEnq.quantity) || toNumber(exportEnq.quantity);
+      const salePrice = toNumber(exportEnq.price) || toNumber(importEnq.price);
+      const buyerName = exportEnq.buyerName || exportEnq.createdBy || "TBD";
+      const sellerName = importEnq.sellerName || importEnq.producer || "Bullfrog Group";
+
+      const trade = await storage.createPreDealTrade({
+        commodity: deal.commodity,
+        commodityCategory: commodityCategoryFor(deal.commodity),
+        quantity: qty,
+        unit: importEnq.unit || exportEnq.unit || "MT",
+        pricePerUnit: salePrice,
+        totalValue: salePrice * qty,
+        currency: exportEnq.currency || importEnq.currency || "USD",
+        buyerName,
+        sellerName,
+        origin: importEnq.origin || importEnq.loadingPort || "TBD",
+        destination: exportEnq.dischargePort || "TBD",
+        incoterm: exportEnq.incoterms || importEnq.incoterms || "FOB",
+        enquiryRef: `${deal.importEnquiryRef} / ${deal.exportEnquiryRef}`,
+        specifications: importEnq.specifications || exportEnq.specifications || "",
+      });
+
+      // Mint a blockchain block while keeping the trade in pre_deal for the Deal Desk.
+      const minted = await storage.mintTradeBlock(trade.id, "pre_deal", generateTradeHash, mineBlock, GENESIS_HASH);
+
+      await storage.updateDocument(deal.tfrDocId, {
+        status: "accepted",
+        recipientResponse: "accepted",
+        recipientRespondedAt: new Date(),
+        tradeRef: minted.tradeRef,
+      } as any);
+
+      // Mark both linked enquiries as accepted and tied to the new trade.
+      await storage.updateTradeEnquiryStatus(importEnq.id, "accepted", minted.tradeRef);
+      await storage.updateTradeEnquiryStatus(exportEnq.id, "accepted", minted.tradeRef);
+
+      const updated = await storage.updateDeal(deal.id, { tradeRef: minted.tradeRef, stage: "trade_formed" });
+      console.log(`[deals] TFR approved for ${deal.dealRef} -> formed trade ${minted.tradeRef}`);
+      res.json({ ...updated, createdTradeRef: minted.tradeRef });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

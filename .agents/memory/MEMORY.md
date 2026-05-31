@@ -1,1 +1,2 @@
 - [Doc generator templates](doc-generator-templates.md) — adding a doc type: wire builder into all 4 dispatch points; content is parsed by heuristics; restart_workflow if output is empty after template edit.
+- [Auth testing over curl](testing-auth-curl.md) — secure cookies don't persist over plain-HTTP curl; verify protected routes via browser/preview, not curl.

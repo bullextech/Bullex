@@ -303,6 +303,43 @@ export const insertTradeEnquiryDocumentSchema = createInsertSchema(tradeEnquiryD
   uploadedAt: true,
 });
 
+// Automated trade pipeline: pairs an Import (buy) enquiry with an Export (sell)
+// enquiry. Picking a match runs an automatic document cascade (LOI + SCO ->
+// Deal Recap Import + Export -> TFR). Admin approval of the TFR forms the trade.
+export const deals = pgTable("deals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dealRef: text("deal_ref").notNull().unique(),
+  importEnquiryRef: text("import_enquiry_ref").notNull().unique(),
+  exportEnquiryRef: text("export_enquiry_ref").notNull().unique(),
+  commodity: text("commodity").notNull(),
+  // matched -> documents_issued -> recaps_issued -> tfr_pending -> trade_formed
+  stage: text("stage").notNull().default("matched"),
+  loiDocId: text("loi_doc_id"),
+  scoDocId: text("sco_doc_id"),
+  dealRecapImportDocId: text("deal_recap_import_doc_id"),
+  dealRecapExportDocId: text("deal_recap_export_doc_id"),
+  tfrDocId: text("tfr_doc_id"),
+  tradeRef: text("trade_ref"),
+  cascadeError: text("cascade_error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertDealSchema = createInsertSchema(deals).omit({
+  id: true,
+  dealRef: true,
+  stage: true,
+  loiDocId: true,
+  scoDocId: true,
+  dealRecapImportDocId: true,
+  dealRecapExportDocId: true,
+  tfrDocId: true,
+  tradeRef: true,
+  cascadeError: true,
+  createdAt: true,
+});
+export type Deal = typeof deals.$inferSelect;
+export type InsertDeal = z.infer<typeof insertDealSchema>;
+
 export const registrations = pgTable("registrations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   fullName: text("full_name").notNull(),

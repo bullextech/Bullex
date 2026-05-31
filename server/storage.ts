@@ -36,6 +36,9 @@ import {
   enquiryChangeRequests,
   type EnquiryChangeRequest,
   type InsertEnquiryChangeRequest,
+  deals,
+  type Deal,
+  type InsertDeal,
   registrations,
   type Registration,
   type InsertRegistration,
@@ -162,6 +165,12 @@ export interface IStorage {
   getTradeEnquiryDocumentById(id: string): Promise<TradeEnquiryDocument | undefined>;
   createTradeEnquiryDocument(doc: InsertTradeEnquiryDocument): Promise<TradeEnquiryDocument>;
   deleteTradeEnquiryDocument(id: string): Promise<TradeEnquiryDocument | undefined>;
+
+  getDeals(): Promise<Deal[]>;
+  getDealById(id: string): Promise<Deal | undefined>;
+  createDeal(deal: InsertDeal & { dealRef: string }): Promise<Deal>;
+  updateDeal(id: string, data: Partial<Deal>): Promise<Deal>;
+  claimDealForTfrApproval(id: string): Promise<Deal | undefined>;
 
   getRegistrations(): Promise<Registration[]>;
   createRegistration(reg: InsertRegistration): Promise<Registration>;
@@ -762,6 +771,37 @@ export class DatabaseStorage implements IStorage {
   async deleteTradeEnquiryDocument(id: string): Promise<TradeEnquiryDocument | undefined> {
     const [deleted] = await db.delete(tradeEnquiryDocuments).where(eq(tradeEnquiryDocuments.id, id)).returning();
     return deleted;
+  }
+
+  async getDeals(): Promise<Deal[]> {
+    return db.select().from(deals).orderBy(desc(deals.createdAt));
+  }
+
+  async getDealById(id: string): Promise<Deal | undefined> {
+    const [deal] = await db.select().from(deals).where(eq(deals.id, id));
+    return deal;
+  }
+
+  async createDeal(deal: InsertDeal & { dealRef: string }): Promise<Deal> {
+    const [created] = await db.insert(deals).values(deal).returning();
+    return created;
+  }
+
+  async updateDeal(id: string, data: Partial<Deal>): Promise<Deal> {
+    const [updated] = await db.update(deals).set(data).where(eq(deals.id, id)).returning();
+    return updated;
+  }
+
+  // Atomically claim a deal for trade formation. Only one caller can win: the
+  // conditional UPDATE succeeds only while the deal is still tfr_pending with no
+  // trade yet. Returns the claimed deal (moved to "trade_forming"), or undefined
+  // if another request already claimed it — preventing duplicate trades/blocks.
+  async claimDealForTfrApproval(id: string): Promise<Deal | undefined> {
+    const [claimed] = await db.update(deals)
+      .set({ stage: "trade_forming" })
+      .where(and(eq(deals.id, id), eq(deals.stage, "tfr_pending"), isNull(deals.tradeRef)))
+      .returning();
+    return claimed;
   }
 
   async getRegistrations(): Promise<Registration[]> {

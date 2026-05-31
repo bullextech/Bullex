@@ -19,6 +19,7 @@ import {
   Banknote,
   TrendingUp,
   MessageSquare,
+  GitMerge,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
@@ -31,6 +32,7 @@ export const PLATFORM_MODULES = [
   { id: "kyc-admin",      title: "KYC & Compliance", url: "/kyc-admin",       icon: ShieldCheck,     description: "Client KYC reviews & approvals" },
   { id: "enquiries",      title: "Enquiries",        url: "/trade-enquiries", icon: SearchCheck,     description: "Trade enquiry management" },
   { id: "trading",        title: "Deal Desk",        url: "/trading",         icon: Link2,           description: "Trade execution & deal management" },
+  { id: "deals",          title: "Deal Pipeline",    url: "/deals",           icon: GitMerge,        description: "Automated enquiry matching & deal cascade" },
   { id: "documents",      title: "Documents",        url: "/documents",       icon: FileText,        description: "Document generation & management" },
   { id: "doc-templates",  title: "Doc. Templates",   url: "/doc-templates",   icon: FileCog,         description: "Document template library" },
   { id: "vault",          title: "Vault",            url: "/vault",           icon: FolderOpen,      description: "Document vault & file storage" },
@@ -45,7 +47,7 @@ export const PLATFORM_MODULES = [
 
 const SECTIONS: Array<{ label: string; ids: string[] }> = [
   { label: "Overview",   ids: ["dashboard", "analytics", "notifications", "chat"] },
-  { label: "Trading",    ids: ["kyc-admin", "enquiries", "trading"] },
+  { label: "Trading",    ids: ["kyc-admin", "enquiries", "trading", "deals"] },
   { label: "Documents",  ids: ["documents", "doc-templates", "vault"] },
   { label: "Operations", ids: ["shipments", "qa-reports"] },
   { label: "Finance",    ids: ["banking", "live-prices"] },

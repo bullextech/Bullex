@@ -32,6 +32,7 @@ import KycRegister from "@/pages/kyc-register";
 import EnquiryRegister from "@/pages/enquiry-register";
 import ClientPortal from "@/pages/client-portal";
 import TradeEnquiries from "@/pages/trade-enquiries";
+import Deals from "@/pages/deals";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 import RegistrationsAdmin from "@/pages/registrations-admin";
@@ -116,6 +117,7 @@ function Router() {
       <Route path="/trade-enquiries">{() => <ModuleRoute component={TradeEnquiries} moduleId="enquiries" />}</Route>
       <Route path="/documents">{() => <ModuleRoute component={DocumentGenerator} moduleId="doc-templates" />}</Route>
       <Route path="/trading">{() => <ModuleRoute component={Trading} moduleId="trading" />}</Route>
+      <Route path="/deals">{() => <ModuleRoute component={Deals} moduleId="deals" />}</Route>
       <Route path="/vault">{() => <ModuleRoute component={Vault} moduleId="vault" />}</Route>
       <Route path="/blockchain">{() => <ModuleRoute component={Blockchain} moduleId="blockchain" />}</Route>
       <Route path="/team-members">{() => <Redirect to="/team" />}</Route>
