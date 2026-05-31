@@ -296,6 +296,10 @@ export const insertTradeEnquirySchema = createInsertSchema(tradeEnquiries).omit(
   enquiryRef: true,
   status: true,
   createdAt: true,
+}).extend({
+  // A blank commodity makes an enquiry unusable for matching/deals, so require
+  // a non-blank, trimmed product at the schema level.
+  product: z.string().trim().min(1, "Commodity is required"),
 });
 
 export const insertTradeEnquiryDocumentSchema = createInsertSchema(tradeEnquiryDocuments).omit({

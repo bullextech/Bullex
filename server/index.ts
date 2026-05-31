@@ -100,6 +100,22 @@ app.use((req, res, next) => {
     console.error("[password-migration] failed:", e?.message || e);
   }
 
+  // Surface any pre-existing enquiries with a blank/missing commodity. New ones
+  // are now blocked at the source, but legacy rows would silently never match —
+  // warn so an admin can correct them.
+  try {
+    const { storage } = await import("./storage");
+    const enquiries = await storage.getTradeEnquiries();
+    const blank = enquiries.filter((e) => !e.product || !e.product.trim());
+    if (blank.length > 0) {
+      console.warn(
+        `[enquiry-data] ${blank.length} enquiry(ies) have a blank commodity and will never match — correct: ${blank.map((e) => e.enquiryRef).join(", ")}`,
+      );
+    }
+  } catch (e: any) {
+    console.error("[enquiry-data] blank-commodity scan failed:", e?.message || e);
+  }
+
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

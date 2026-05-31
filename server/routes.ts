@@ -3194,6 +3194,13 @@ export async function registerRoutes(
       for (const [key, val] of Object.entries(changedFields)) {
         if (ALLOWED_ENQUIRY_CHANGE_FIELDS.has(key) && typeof val === "string") sanitized[key] = val;
       }
+      // A blank commodity makes an enquiry unusable for matching/deals — never let
+      // an amendment clear it. Trim the change so the stored value can't be padded.
+      if ("product" in sanitized) {
+        const trimmed = sanitized.product.trim();
+        if (!trimmed) return res.status(400).json({ message: "Commodity is required and cannot be blank" });
+        sanitized.product = trimmed;
+      }
       if (Object.keys(sanitized).length === 0) return res.status(400).json({ message: "No valid fields to change" });
       const created = await storage.createEnquiryChangeRequest({
         enquiryId: req.params.id,
