@@ -571,6 +571,62 @@ export function sanitizeEnquiryChangeFields(
   return { ok: true, fields: sanitized };
 }
 
+// Fields a KYC profile amendment (change request) is permitted to alter.
+// Anything outside this allowlist is silently dropped so an amendment can't
+// touch identity/workflow columns (status, participantId, credentials,
+// blockchain fields, AML/OFAC results, ...).
+export const ALLOWED_KYC_CHANGE_FIELDS = new Set([
+  "companyName", "registeredAddress", "primaryBusinessAddress",
+  "contactName", "contactTitle", "contactPhone", "contactEmail",
+  "countryOfOperation", "businessType", "coreBusinessDescription",
+  "bankName", "bankBranch", "bankAddress", "accountName", "accountNumber",
+  "swiftCode", "bankAccountCurrency", "bankOfficerName", "bankOfficerEmail",
+  "signatoryName", "signatoryTitle", "signatoryEmail", "signatoryCompany",
+  "website", "faxNumber",
+]);
+
+// KYC columns that are NOT NULL in the schema. An amendment must never blank or
+// whitespace these out — doing so would corrupt an approved onboarding record.
+export const REQUIRED_KYC_CHANGE_FIELDS = new Set([
+  "companyName", "registeredAddress",
+  "contactName", "contactTitle", "contactPhone", "contactEmail",
+]);
+
+// Validate + normalise the changedFields of a KYC profile amendment before it is
+// stored. Returns the cleaned, allowlisted field map on success, or an error
+// message on rejection. Extracted from the POST /api/kyc/:id/change-request
+// handler so the rules — in particular that an amendment can never blank out a
+// required field — can be tested directly, mirroring sanitizeEnquiryChangeFields.
+export function sanitizeKycChangeFields(
+  changedFields: unknown,
+):
+  | { ok: true; fields: Record<string, string> }
+  | { ok: false; message: string } {
+  if (
+    !changedFields ||
+    typeof changedFields !== "object" ||
+    Array.isArray(changedFields) ||
+    Object.keys(changedFields).length === 0
+  ) {
+    return { ok: false, message: "changedFields must be a non-empty object" };
+  }
+  const sanitized: Record<string, string> = {};
+  for (const [key, val] of Object.entries(changedFields)) {
+    if (ALLOWED_KYC_CHANGE_FIELDS.has(key) && typeof val === "string") sanitized[key] = val;
+  }
+  // Trim every change so a stored value can't be padded, and never let a
+  // required field be cleared by a blank/whitespace-only amendment.
+  for (const key of Object.keys(sanitized)) {
+    const trimmed = sanitized[key].trim();
+    if (REQUIRED_KYC_CHANGE_FIELDS.has(key) && !trimmed) {
+      return { ok: false, message: `${key} is required and cannot be blank` };
+    }
+    sanitized[key] = trimmed;
+  }
+  if (Object.keys(sanitized).length === 0) return { ok: false, message: "No valid fields to change" };
+  return { ok: true, fields: sanitized };
+}
+
 // Compute the same-commodity Import (buy) <-> Export (sell) pairings that admins
 // see before forming a deal. Only enquiries whose status is in the
 // MATCHABLE_ENQUIRY_STATUSES allowlist and that are not already committed to a
@@ -2861,16 +2917,6 @@ export async function registerRoutes(
     }
   });
 
-  const ALLOWED_CHANGE_FIELDS = new Set([
-    "companyName", "registeredAddress", "primaryBusinessAddress",
-    "contactName", "contactTitle", "contactPhone", "contactEmail",
-    "countryOfOperation", "businessType", "coreBusinessDescription",
-    "bankName", "bankBranch", "bankAddress", "accountName", "accountNumber",
-    "swiftCode", "bankAccountCurrency", "bankOfficerName", "bankOfficerEmail",
-    "signatoryName", "signatoryTitle", "signatoryEmail", "signatoryCompany",
-    "website", "faxNumber",
-  ]);
-
   app.post("/api/kyc/:id/change-request", requireAuth, async (req, res) => {
     try {
       const kyc = await storage.getKycApplicationById(req.params.id);
@@ -2883,18 +2929,9 @@ export async function registerRoutes(
         }
       }
       const { changedFields, reason } = req.body;
-      if (!changedFields || typeof changedFields !== "object" || Object.keys(changedFields).length === 0) {
-        return res.status(400).json({ message: "changedFields must be a non-empty object" });
-      }
-      const sanitized: Record<string, string> = {};
-      for (const [key, val] of Object.entries(changedFields)) {
-        if (ALLOWED_CHANGE_FIELDS.has(key) && typeof val === "string") {
-          sanitized[key] = val;
-        }
-      }
-      if (Object.keys(sanitized).length === 0) {
-        return res.status(400).json({ message: "No valid fields to change" });
-      }
+      const result = sanitizeKycChangeFields(changedFields);
+      if (!result.ok) return res.status(400).json({ message: result.message });
+      const sanitized = result.fields;
       const created = await storage.createKycChangeRequest({
         kycApplicationId: req.params.id,
         changedFields: sanitized,
