@@ -481,6 +481,49 @@ export function isEnquiryStatusMatchable(status: string): boolean {
   return MATCHABLE_ENQUIRY_STATUSES.has(status);
 }
 
+// Fields an enquiry amendment (change request) is permitted to alter. Anything
+// outside this allowlist is silently dropped so an amendment can't touch
+// identity/workflow columns (status, enquiryRef, ids, blockchain fields, ...).
+export const ALLOWED_ENQUIRY_CHANGE_FIELDS = new Set([
+  "product", "specifications", "producer", "quantity", "unit",
+  "loadingPort", "dischargePort", "incoterms", "validity", "additionalInfo",
+  "origin", "deliveryPeriod", "price", "currency", "paymentTerms",
+  "buyerName", "sellerName", "createdBy", "email",
+]);
+
+// Validate + normalise the changedFields of an enquiry amendment before it is
+// stored. Returns the cleaned, allowlisted field map on success, or an error
+// message on rejection. Extracted from the POST
+// /api/trade-enquiries/:id/change-request handler so the rules — in particular
+// that an amendment can never blank out the commodity — can be tested directly.
+export function sanitizeEnquiryChangeFields(
+  changedFields: unknown,
+):
+  | { ok: true; fields: Record<string, string> }
+  | { ok: false; message: string } {
+  if (
+    !changedFields ||
+    typeof changedFields !== "object" ||
+    Array.isArray(changedFields) ||
+    Object.keys(changedFields).length === 0
+  ) {
+    return { ok: false, message: "changedFields must be a non-empty object" };
+  }
+  const sanitized: Record<string, string> = {};
+  for (const [key, val] of Object.entries(changedFields)) {
+    if (ALLOWED_ENQUIRY_CHANGE_FIELDS.has(key) && typeof val === "string") sanitized[key] = val;
+  }
+  // A blank commodity makes an enquiry unusable for matching/deals — never let
+  // an amendment clear it. Trim the change so the stored value can't be padded.
+  if ("product" in sanitized) {
+    const trimmed = sanitized.product.trim();
+    if (!trimmed) return { ok: false, message: "Commodity is required and cannot be blank" };
+    sanitized.product = trimmed;
+  }
+  if (Object.keys(sanitized).length === 0) return { ok: false, message: "No valid fields to change" };
+  return { ok: true, fields: sanitized };
+}
+
 // Compute the same-commodity Import (buy) <-> Export (sell) pairings that admins
 // see before forming a deal. Only enquiries whose status is in the
 // MATCHABLE_ENQUIRY_STATUSES allowlist and that are not already committed to a
@@ -3132,13 +3175,6 @@ export async function registerRoutes(
   });
 
   // ─── ENQUIRY CHANGE REQUESTS ───
-  const ALLOWED_ENQUIRY_CHANGE_FIELDS = new Set([
-    "product", "specifications", "producer", "quantity", "unit",
-    "loadingPort", "dischargePort", "incoterms", "validity", "additionalInfo",
-    "origin", "deliveryPeriod", "price", "currency", "paymentTerms",
-    "buyerName", "sellerName", "createdBy", "email",
-  ]);
-
   app.get("/api/enquiry-change-requests", requireAuth, async (req, res) => {
     try {
       const all = await storage.getEnquiryChangeRequests();
@@ -3187,21 +3223,9 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Amendments only allowed on accepted/closed/quoted/under-review enquiries. Edit directly while still active." });
       }
       const { changedFields, reason } = req.body;
-      if (!changedFields || typeof changedFields !== "object" || Object.keys(changedFields).length === 0) {
-        return res.status(400).json({ message: "changedFields must be a non-empty object" });
-      }
-      const sanitized: Record<string, string> = {};
-      for (const [key, val] of Object.entries(changedFields)) {
-        if (ALLOWED_ENQUIRY_CHANGE_FIELDS.has(key) && typeof val === "string") sanitized[key] = val;
-      }
-      // A blank commodity makes an enquiry unusable for matching/deals — never let
-      // an amendment clear it. Trim the change so the stored value can't be padded.
-      if ("product" in sanitized) {
-        const trimmed = sanitized.product.trim();
-        if (!trimmed) return res.status(400).json({ message: "Commodity is required and cannot be blank" });
-        sanitized.product = trimmed;
-      }
-      if (Object.keys(sanitized).length === 0) return res.status(400).json({ message: "No valid fields to change" });
+      const result = sanitizeEnquiryChangeFields(changedFields);
+      if (!result.ok) return res.status(400).json({ message: result.message });
+      const sanitized = result.fields;
       const created = await storage.createEnquiryChangeRequest({
         enquiryId: req.params.id,
         changedFields: sanitized,
