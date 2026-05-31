@@ -797,7 +797,7 @@ function EnquiryCard({ enquiry, onView, onStatusChange, onDelete }: {
                 <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={() => onStatusChange("rejected")} data-testid={`button-reject-${enquiry.id}`}>Reject</Button>
               </>
             )}
-            {isEnquiryStatusAccepted(enquiry.status) && (
+            {enquiry.linkedTradeRef && (
               <Button size="sm" className="h-8 text-xs bg-primary hover:bg-primary/90 text-white" onClick={goToTrade} data-testid={`link-trading-${enquiry.id}`}>
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> View Trade <ArrowRight className="w-3 h-3 ml-1" />
               </Button>
@@ -1043,11 +1043,13 @@ function EnquiryDetailDialog({ enquiry, onClose, onStatusChange, onDelete }: {
                 <Button size="sm" variant="destructive" onClick={() => onStatusChange("rejected")} data-testid="button-detail-reject">Reject</Button>
               </>
             )}
+            {enquiry.linkedTradeRef && (
+              <Button size="sm" className="bg-primary hover:bg-primary/90 text-white" onClick={goToTrade} data-testid="link-detail-trading">
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Go to Trading <ArrowRight className="w-3.5 h-3.5 ml-1" />
+              </Button>
+            )}
             {isEnquiryStatusAccepted(enquiry.status) && (
               <>
-                <Button size="sm" className="bg-primary hover:bg-primary/90 text-white" onClick={goToTrade} data-testid="link-detail-trading">
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Go to Trading <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </Button>
                 <Button variant="outline" size="sm" onClick={() => { onClose(); nav(`/documents?enquiryRef=${encodeURIComponent(enquiry.enquiryRef)}&enqProduct=${encodeURIComponent(enquiry.product || "")}&enqQuantity=${encodeURIComponent(enquiry.quantity ? (enquiry.quantity + " " + (enquiry.unit || "MT")) : "")}&enqOrigin=${encodeURIComponent(enquiry.origin || enquiry.loadingPort || "")}&enqIncoterm=${encodeURIComponent(enquiry.incoterms || "")}&enqSpecs=${encodeURIComponent(enquiry.specifications || "")}&enqValidity=${encodeURIComponent(enquiry.validity || "")}&enqCreatedBy=${encodeURIComponent(enquiry.createdBy || "")}&enqEmail=${encodeURIComponent(enquiry.email || "")}`); }} data-testid="link-generate-doc">
                   <FileText className="w-3.5 h-3.5 mr-1.5" /> Generate Document
                 </Button>

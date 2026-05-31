@@ -10,7 +10,7 @@ import fs from "fs";
 import { storage } from "./storage";
 import { getTableColumns } from "drizzle-orm";
 import { insertTradeSchema, insertKycSchema, insertDocumentSchema, insertPotentialClientSchema, kycApplications, ENQUIRY_STATUS_PENDING, isEnquiryStatusPending, isAssignableEnquiryStatus, type Trade, type Deal, type TradeEnquiry, type Document } from "@shared/schema";
-import { generateTradeHash, generateKycHash, generateKycAmendmentHash, generateEnquiryTradeHash, mineBlock, GENESIS_HASH } from "./blockchain";
+import { generateTradeHash, generateKycHash, generateKycAmendmentHash, mineBlock, GENESIS_HASH } from "./blockchain";
 import { generateDocumentContent, type PartyDetails } from "./documentTemplates";
 import { seedDatabase } from "./seed";
 import { sendKycConfirmationEmail, sendKycApprovalEmail, sendKycRejectionEmail, sendChangeRequestApprovedEmail, sendChangeRequestRejectedEmail, sendDocumentEmail, sendSignaturePendingEmail, sendAmendmentRequestedEmail, sendKycSubmittedAdminEmail, sendKycActionAdminCopyEmail, sendKycOnboardingInviteEmail, sendRegistrationConfirmationEmail, sendRegistrationAdminEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail, sendEnquiryCreatedNotification, sendEnquiryClientResponseNotification, sendEnquiryStatusNotification, sendJobApplicationToHR, sendJobApplicationAcknowledgement, sendTeamKycAdminNotification, sendTeamKycConfirmation, sendTeamMemberWelcomeEmail, sendTeamMemberPasswordChangedEmail, sendTeamMemberPasswordResetLinkEmail } from "./email";
@@ -2244,69 +2244,10 @@ export async function registerRoutes(
         companyName
       );
 
-      if (response === "accepted" && enquiry.status !== "accepted") {
-        try {
-          const categoryMap: Record<string, string> = {
-            "Iron Ore": "minerals", "Bauxite": "minerals", "Manganese Ore": "minerals",
-            "Copper Cathode": "metals", "Copper Concentrate": "metals", "Aluminium Ingots": "metals",
-            "Gasoil 10ppm": "energy", "Gasoil 50ppm": "energy", "LHC": "energy", "HSFO": "energy", "HSGO": "energy",
-            "Petcoke – Anode Grade": "petrochemicals", "Petcoke – Fuel Grade": "petrochemicals",
-            "NPK": "fertilizers", "Sulphur – Granular": "fertilizers", "Sulphur – Lumps": "fertilizers",
-          };
-          const commodityCategory = categoryMap[enquiry.product] || "minerals";
-          const isBuyer = enquiry.side === "buy";
-          const buyerName = isBuyer ? (enquiry.createdBy || companyName) : companyName;
-          const sellerName = !isBuyer ? (enquiry.createdBy || companyName) : companyName;
-
-          const trade = await storage.createPreDealTrade({
-            commodity: enquiry.product,
-            commodityCategory,
-            quantity: parseFloat(enquiry.quantity || "0") || 0,
-            unit: enquiry.unit || "MT",
-            pricePerUnit: 0,
-            totalValue: 0,
-            currency: "USD",
-            buyerName,
-            sellerName,
-            origin: enquiry.loadingPort || "TBD",
-            destination: "TBD",
-            incoterm: enquiry.incoterms || "FOB",
-          });
-
-          const latestBlock = await storage.getLatestBlock();
-          const previousHash = latestBlock ? latestBlock.hash : GENESIS_HASH;
-          const blockNumber = latestBlock ? latestBlock.blockNumber + 1 : 1;
-          const timestamp = new Date().toISOString();
-
-          const enquiryHash = generateEnquiryTradeHash(
-            enquiry.enquiryRef,
-            enquiry.product,
-            enquiry.side,
-            enquiry.quantity,
-            companyName,
-            timestamp
-          );
-
-          const tradeData = `${enquiry.enquiryRef}:${enquiry.product}:TRADE_INITIATED:${trade.tradeRef}:${enquiryHash}`;
-          const { hash: blockHash, nonce } = mineBlock(blockNumber, previousHash, timestamp, tradeData, 2);
-
-          await storage.createBlock({
-            blockNumber,
-            hash: blockHash,
-            previousHash,
-            nonce,
-            tradeCount: 1,
-            verified: true,
-            dataType: "trade",
-            dataId: trade.id,
-            dataSummary: `Trade ${trade.tradeRef} initiated from ${enquiry.enquiryRef} | ${enquiry.side.toUpperCase()} ${enquiry.product} | Accepted by ${companyName}`,
-          });
-
-          console.log(`[trade] Auto-created trade ${trade.tradeRef} from enquiry ${enquiry.enquiryRef}, blockchain block #${blockNumber}`);
-        } catch (err: any) {
-          console.error("[trade] Auto-create trade from client acceptance failed:", err.message);
-        }
-      }
+      // NOTE: Accepting an enquiry no longer forms a trade. Trades are only
+      // created in the Deal Desk after a TFR is approved (see runDealCascade /
+      // POST /api/deals/:id/approve-tfr). This endpoint only records the
+      // client's response and status.
 
       sendEnquiryClientResponseNotification(enquiry, response, companyName).catch(() => {});
       res.json(updated);
