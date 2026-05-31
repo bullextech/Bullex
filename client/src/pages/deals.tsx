@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   ArrowRight,
   GitMerge,
@@ -22,6 +23,18 @@ import {
 import type { Deal, TradeEnquiry, Document } from "@shared/schema";
 
 type ProductGroup = { product: string; imports: TradeEnquiry[]; exports: TradeEnquiry[] };
+type EnquiryRowData = {
+  id: string;
+  enquiryRef: string;
+  product: string;
+  side: string;
+  quantity: string | null;
+  unit: string | null;
+  price: string | null;
+  currency: string | null;
+  status: string;
+  inDeal: boolean;
+};
 
 const STAGE_LABELS: Record<string, string> = {
   matched: "Matched",
@@ -46,6 +59,7 @@ export default function Deals() {
   const [startingPair, setStartingPair] = useState<string | null>(null);
 
   const { data: board, isLoading: boardLoading } = useQuery<ProductGroup[]>({ queryKey: ["/api/enquiry-board"] });
+  const { data: enquiryRows, isLoading: rowsLoading } = useQuery<EnquiryRowData[]>({ queryKey: ["/api/enquiry-table"] });
   const { data: deals, isLoading: dealsLoading } = useQuery<Deal[]>({ queryKey: ["/api/deals"] });
   const { data: documents } = useQuery<Document[]>({ queryKey: ["/api/documents"] });
 
@@ -72,6 +86,7 @@ export default function Deals() {
       const deal = await res.json();
       queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/enquiry-board"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-table"] });
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       if (deal?.cascadeError) {
         toast({ title: "Deal created with errors", description: deal.cascadeError, variant: "destructive" });
@@ -90,6 +105,7 @@ export default function Deals() {
       queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trades"] });
       queryClient.invalidateQueries({ queryKey: ["/api/enquiry-board"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-table"] });
       toast({ title: "TFR approved", description: `Trade ${data?.createdTradeRef} formed in the Deal Desk.` });
     },
     onError: (e: any) => toast({ title: "Approval failed", description: e.message, variant: "destructive" }),
@@ -264,6 +280,68 @@ export default function Deals() {
               );
             })}
           </div>
+        )}
+      </section>
+
+      {/* All enquiries table */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">All Enquiries</h2>
+          {!rowsLoading && <Badge variant="outline" data-testid="badge-enquiry-count">{enquiryRows?.length ?? 0}</Badge>}
+        </div>
+
+        {rowsLoading ? (
+          <Skeleton className="h-48" />
+        ) : (enquiryRows?.length ?? 0) === 0 ? (
+          <Card><CardContent className="py-10 text-center text-sm text-muted-foreground" data-testid="text-no-enquiry-rows">
+            No enquiries yet.
+          </CardContent></Card>
+        ) : (
+          <Card>
+            <CardContent className="p-0">
+              <Table data-testid="table-enquiries">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Reference</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Import / Export</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {enquiryRows!.map(r => (
+                    <TableRow key={r.id} data-testid={`row-enquiry-${r.id}`}>
+                      <TableCell className="font-mono text-xs" data-testid={`cell-ref-${r.id}`}>{r.enquiryRef}</TableCell>
+                      <TableCell className="font-medium" data-testid={`cell-product-${r.id}`}>{r.product}</TableCell>
+                      <TableCell data-testid={`cell-side-${r.id}`}>
+                        {r.side === "buy" ? (
+                          <Badge className="bg-green-600 text-white text-[10px]">IMPORT (BUY)</Badge>
+                        ) : (
+                          <Badge className="bg-red-600 text-white text-[10px]">EXPORT (SELL)</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right" data-testid={`cell-qty-${r.id}`}>
+                        {r.quantity ? `${r.quantity} ${r.unit || ""}`.trim() : "—"}
+                      </TableCell>
+                      <TableCell className="text-right" data-testid={`cell-price-${r.id}`}>
+                        {r.price ? `${r.price} ${r.currency || ""}`.trim() : "—"}
+                      </TableCell>
+                      <TableCell data-testid={`cell-status-${r.id}`}>
+                        {r.inDeal ? (
+                          <Badge variant="outline" className="text-[10px]"><GitMerge className="w-3 h-3 mr-1" /> In deal</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[10px] capitalize">{r.status.replace(/_/g, " ")}</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         )}
       </section>
 

@@ -4634,6 +4634,34 @@ export async function registerRoutes(
     }
   });
 
+  // Flat tabular view of every enquiry for the Deal Pipeline dashboard, with an
+  // inDeal flag so used enquiries are visibly distinguished.
+  app.get("/api/enquiry-table", requireModule("deals"), async (_req: Request, res: Response) => {
+    try {
+      const enquiries = await storage.getTradeEnquiries();
+      const existingDeals = await storage.getDeals();
+      const used = new Set<string>();
+      for (const d of existingDeals) { used.add(d.importEnquiryRef); used.add(d.exportEnquiryRef); }
+      const rows = enquiries
+        .map(e => ({
+          id: e.id,
+          enquiryRef: e.enquiryRef,
+          product: e.product,
+          side: e.side,
+          quantity: e.quantity,
+          unit: e.unit,
+          price: e.price,
+          currency: e.currency,
+          status: e.status,
+          inDeal: used.has(e.enquiryRef),
+        }))
+        .sort((a, b) => a.product.localeCompare(b.product) || a.side.localeCompare(b.side));
+      res.json(rows);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/deals", requireModule("deals"), async (_req: Request, res: Response) => {
     try {
       res.json(await storage.getDeals());
