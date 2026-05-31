@@ -41,6 +41,7 @@ import TeamMembers from "@/pages/team-members";
 import TeamKYC from "@/pages/team-kyc";
 import InvestorDeck from "@/pages/investor-deck";
 import TradeBank from "@/pages/trade-bank";
+import TradingTerminal from "@/pages/trading-terminal";
 import Banking from "@/pages/banking";
 import DatabaseBackup from "@/pages/database-backup";
 import TaskBoard from "@/pages/task-board";
@@ -199,6 +200,7 @@ function App() {
   const [isClientSetup] = useRoute("/client-setup/:token");
   const [isDeck] = useRoute("/deck");
   const [isTradeBank] = useRoute("/trade-bank");
+  const [isTradingTerminal] = useRoute("/trading-terminal");
 
   return (
     <ThemeProvider>
@@ -228,6 +230,8 @@ function App() {
                 <InvestorDeck />
               ) : isTradeBank ? (
                 <TradeBank />
+              ) : isTradingTerminal ? (
+                <TradingTerminal />
               ) : (
                 <AppShell />
               )}

@@ -11,6 +11,7 @@ import {
   LogOut,
   Briefcase,
   Landmark,
+  LineChart,
   Menu,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -22,6 +23,7 @@ const publicNavItems = [
   { title: "Products", url: "/products", icon: Package },
   { title: "Platform", url: "/platform", icon: Wrench },
   { title: "Trade Bank", url: "/trade-bank", icon: Landmark },
+  { title: "Trading Terminal", url: "/trading-terminal", icon: LineChart },
   { title: "Investor", url: "/investor", icon: Users },
   { title: "HR", url: "/human-resources", icon: Briefcase },
   { title: "Contact", url: "/contact", icon: Mail },

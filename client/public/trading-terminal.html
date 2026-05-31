@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bullex — Trading Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0B0E11;
+  --bg2:#111418;
+  --bg3:#161B22;
+  --bg4:#1C2330;
+  --panel:#1A2030;
+  --border:#252D3A;
+  --border2:#2E3A4E;
+  --text:#E8EDF2;
+  --muted:#7A8A9C;
+  --hint:#4A5568;
+  --buy:#00D68F;
+  --buy-dk:#00A36C;
+  --buy-bg:rgba(0,214,143,0.07);
+  --buy-bg2:rgba(0,214,143,0.13);
+  --sell:#FF4D6A;
+  --sell-dk:#CC2E47;
+  --sell-bg:rgba(255,77,106,0.07);
+  --sell-bg2:rgba(255,77,106,0.13);
+  --gold:#0084be;
+  --gold-bg:rgba(0,132,190,0.12);
+  --burgundy:#990000;
+  --burgundy-dk:#6b0000;
+  --blue:#4D9FFF;
+  --blue-bg:rgba(77,159,255,0.09);
+  --matched:#B06EFF;
+  --matched-bg:rgba(176,110,255,0.09);
+  --amber:#FFB020;
+  --amber-bg:rgba(255,176,32,0.09);
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans',sans-serif;
+  --r:4px;
+  --r2:6px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;overflow:hidden}
+
+/* ── TOPBAR ── */
+.topbar{
+  height:48px;background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 16px;gap:16px;position:fixed;top:0;left:0;right:0;z-index:200;
+}
+.brand{display:flex;align-items:center;gap:10px;margin-right:8px}
+.brand-mark{
+  width:28px;height:28px;background:var(--burgundy);border-radius:5px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-weight:600;font-size:14px;color:#fff;
+}
+.brand-name{font-family:var(--mono);font-weight:600;font-size:13px;color:var(--gold);letter-spacing:0.12em}
+.brand-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+.terminal-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase}
+.top-tabs{display:flex;gap:0}
+.top-tab{
+  padding:0 18px;height:48px;display:flex;align-items:center;font-size:12px;font-weight:500;
+  color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;
+  letter-spacing:0.03em;background:none;border-top:none;border-left:none;border-right:none;
+  font-family:var(--sans);
+}
+.top-tab:hover{color:var(--text)}
+.top-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--buy);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.live-label{font-family:var(--mono);font-size:10px;color:var(--buy);letter-spacing:0.1em}
+.top-time{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.top-user{
+  display:flex;align-items:center;gap:6px;padding:4px 10px;
+  border:1px solid var(--border);border-radius:var(--r);cursor:pointer;
+  font-size:12px;color:var(--muted);
+}
+.user-dot{width:6px;height:6px;border-radius:50%;background:var(--buy)}
+
+/* ── TICKER ── */
+.ticker-wrap{
+  position:fixed;top:48px;left:0;right:0;height:28px;
+  background:var(--bg3);border-bottom:1px solid var(--border);
+  overflow:hidden;z-index:190;display:flex;align-items:center;
+}
+.ticker-track{display:flex;gap:0;animation:ticker 40s linear infinite;white-space:nowrap}
+@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.tick-item{
+  display:inline-flex;align-items:center;gap:8px;padding:0 20px;
+  font-family:var(--mono);font-size:11px;border-right:1px solid var(--border);
+}
+.tick-name{color:var(--muted);font-weight:500}
+.tick-price{color:var(--text);font-weight:500}
+.tick-chg.up{color:var(--buy)}.tick-chg.dn{color:var(--sell)}
+
+/* ── LAYOUT ── */
+.layout{
+  position:fixed;top:76px;left:0;right:0;bottom:0;
+  display:grid;grid-template-columns:300px 1fr 320px;grid-template-rows:1fr;
+  gap:0;overflow:hidden;
+}
+
+/* ── PANELS ── */
+.panel{background:var(--bg2);border-right:1px solid var(--border);overflow:hidden;display:flex;flex-direction:column}
+.panel:last-child{border-right:none;border-left:1px solid var(--border)}
+.panel-hdr{
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+  background:var(--bg3);
+}
+.panel-title{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase}
+.panel-body{flex:1;overflow-y:auto;padding:0}
+.panel-body::-webkit-scrollbar{width:3px}
+.panel-body::-webkit-scrollbar-track{background:transparent}
+.panel-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── CENTER PANEL ── */
+.center{background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+.center-hdr{
+  padding:10px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;flex-shrink:0;
+  background:var(--bg2);
+}
+.view-tabs{display:flex;gap:2px}
+.view-tab{
+  padding:5px 12px;border-radius:var(--r);font-size:11px;font-weight:500;
+  color:var(--muted);cursor:pointer;border:1px solid transparent;background:none;
+  font-family:var(--sans);transition:all 0.12s;
+}
+.view-tab:hover{color:var(--text);background:var(--bg4)}
+.view-tab.active{color:var(--text);background:var(--bg4);border-color:var(--border)}
+.center-toolbar{margin-left:auto;display:flex;align-items:center;gap:8px}
+.filter-select{
+  padding:5px 10px;border:1px solid var(--border);border-radius:var(--r);
+  background:var(--bg3);color:var(--text);font-size:11px;font-family:var(--sans);outline:none;cursor:pointer;
+}
+.filter-select:focus{border-color:var(--gold)}
+.srch{
+  padding:5px 10px;border:1px solid var(--border);border-radius:var(--r);
+  background:var(--bg3);color:var(--text);font-size:11px;font-family:var(--sans);outline:none;width:160px;
+}
+.srch::placeholder{color:var(--hint)}
+.srch:focus{border-color:var(--gold)}
+
+/* ── ORDER BOOK TABLE ── */
+.ob-wrap{flex:1;overflow:auto;padding:0}
+.ob-wrap::-webkit-scrollbar{width:3px}
+.ob-wrap::-webkit-scrollbar-thumb{background:var(--border)}
+.ob-table{width:100%;border-collapse:collapse}
+.ob-table th{
+  position:sticky;top:0;background:var(--bg3);
+  font-family:var(--mono);font-size:10px;font-weight:500;color:var(--hint);
+  letter-spacing:0.08em;text-transform:uppercase;padding:8px 14px;text-align:left;
+  border-bottom:1px solid var(--border);z-index:10;white-space:nowrap;
+}
+.ob-table th.right{text-align:right}
+.ob-table td{padding:9px 14px;font-size:12px;border-bottom:1px solid rgba(37,45,58,0.5);vertical-align:middle;white-space:nowrap}
+.ob-table tr{cursor:pointer;transition:background 0.1s}
+.ob-table tr:hover td{background:var(--bg4)}
+.ob-table tr.buy-row:hover td{background:var(--buy-bg2)}
+.ob-table tr.sell-row:hover td{background:var(--sell-bg2)}
+.ob-table tr.matched-row td{background:var(--matched-bg);opacity:0.7}
+.side-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:var(--mono);font-size:10px;font-weight:600;
+  padding:3px 9px;border-radius:3px;letter-spacing:0.08em;
+}
+.side-badge.buy{background:var(--buy-bg2);color:var(--buy);border:1px solid rgba(0,214,143,0.2)}
+.side-badge.sell{background:var(--sell-bg2);color:var(--sell);border:1px solid rgba(255,77,106,0.2)}
+.side-badge.matched{background:var(--matched-bg);color:var(--matched);border:1px solid rgba(176,110,255,0.2)}
+.mono{font-family:var(--mono)}
+.price-cell{font-family:var(--mono);font-weight:500}
+.buy-price{color:var(--buy)}
+.sell-price{color:var(--sell)}
+.match-btn{
+  padding:4px 10px;border-radius:var(--r);border:1px solid var(--matched);
+  background:var(--matched-bg);color:var(--matched);font-size:10px;font-weight:600;
+  font-family:var(--mono);cursor:pointer;transition:all 0.15s;white-space:nowrap;
+  letter-spacing:0.05em;
+}
+.match-btn:hover{background:rgba(176,110,255,0.22);color:#fff}
+.match-btn:disabled{opacity:0.3;cursor:default}
+.score-bar{display:flex;align-items:center;gap:5px}
+.score-fill-wrap{width:48px;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.score-fill{height:100%;border-radius:2px}
+.compat-high{color:var(--buy);font-family:var(--mono);font-size:11px;font-weight:600}
+.compat-med{color:var(--amber);font-family:var(--mono);font-size:11px;font-weight:600}
+.compat-low{color:var(--sell);font-family:var(--mono);font-size:11px;font-weight:600}
+.row-flash{animation:rowFlash 0.8s ease}
+@keyframes rowFlash{0%{background:rgba(0,214,143,0.25)}100%{background:transparent}}
+
+/* ── STATUS CHIP ── */
+.status-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;font-weight:500;font-family:var(--mono);padding:2px 7px;border-radius:3px;
+}
+.chip-open{background:var(--blue-bg);color:var(--blue)}
+.chip-matched{background:var(--matched-bg);color:var(--matched)}
+.chip-partial{background:var(--amber-bg);color:var(--amber)}
+.chip-closed{background:rgba(74,85,104,0.2);color:var(--hint)}
+
+/* ── LEFT PANEL: ENQUIRY SUBMIT ── */
+.enq-form{padding:14px}
+.f-row{margin-bottom:10px}
+.f-label{font-family:var(--mono);font-size:9px;color:var(--hint);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:5px;display:block}
+.f-inp,.f-sel,.f-ta{
+  width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);
+  background:var(--bg3);color:var(--text);font-size:12px;font-family:var(--sans);outline:none;transition:all 0.15s;
+}
+.f-inp:focus,.f-sel:focus,.f-ta:focus{border-color:var(--gold);background:var(--bg4)}
+.f-sel{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%234A5568' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;background-color:var(--bg3);padding-right:24px;cursor:pointer}
+.f-ta{min-height:56px;resize:none;font-size:11px}
+.side-toggle{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.side-opt{
+  padding:8px 12px;text-align:center;font-size:12px;font-weight:600;cursor:pointer;
+  font-family:var(--mono);transition:all 0.15s;border:none;background:var(--bg3);color:var(--hint);
+  letter-spacing:0.08em;
+}
+.side-opt.buy.active{background:var(--buy-bg2);color:var(--buy);border-right:1px solid var(--border)}
+.side-opt.sell.active{background:var(--sell-bg2);color:var(--sell)}
+.side-opt:not(.active):hover{color:var(--muted)}
+.f-row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.submit-btn{
+  width:100%;padding:9px;border-radius:var(--r);border:none;
+  font-size:12px;font-weight:600;font-family:var(--mono);cursor:pointer;
+  letter-spacing:0.06em;transition:all 0.15s;margin-top:4px;
+}
+.submit-btn.buy{background:var(--buy);color:#0B0E11}
+.submit-btn.buy:hover{background:var(--buy-dk)}
+.submit-btn.sell{background:var(--sell);color:#fff}
+.submit-btn.sell:hover{background:var(--sell-dk)}
+.divider{height:1px;background:var(--border);margin:14px 0}
+
+/* MINI BOOK: my enquiries */
+.my-enq-item{
+  padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;
+  transition:background 0.1s;display:flex;flex-direction:column;gap:4px;
+}
+.my-enq-item:hover{background:var(--bg4)}
+.my-enq-top{display:flex;align-items:center;gap:6px}
+.my-enq-id{font-family:var(--mono);font-size:10px;color:var(--hint)}
+.my-enq-comm{font-size:12px;font-weight:500;flex:1}
+.my-enq-bot{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)}
+.my-enq-vol{font-family:var(--mono);color:var(--text)}
+.my-enq-price{font-family:var(--mono)}
+
+/* ── RIGHT PANEL: MATCH DETAIL ── */
+.match-detail{padding:14px}
+.md-empty{text-align:center;padding:40px 20px;color:var(--hint);font-size:12px}
+.md-empty-icon{font-size:28px;margin-bottom:8px;opacity:0.3}
+.md-header{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.md-pair{display:flex;gap:10px;margin-bottom:12px}
+.md-card{
+  flex:1;border-radius:var(--r2);padding:10px 12px;
+}
+.md-card.buy{background:var(--buy-bg);border:1px solid rgba(0,214,143,0.15)}
+.md-card.sell{background:var(--sell-bg);border:1px solid rgba(255,77,106,0.15)}
+.md-card-label{font-family:var(--mono);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;font-weight:600}
+.md-card-label.buy{color:var(--buy)}
+.md-card-label.sell{color:var(--sell)}
+.md-card-val{font-size:13px;font-weight:600;margin-bottom:2px}
+.md-card-sub{font-size:10px;color:var(--muted)}
+.compat-meter{margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:var(--r2);border:1px solid var(--border)}
+.compat-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.compat-label{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase}
+.compat-pct{font-family:var(--mono);font-size:18px;font-weight:600}
+.compat-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:10px}
+.compat-fill{height:100%;border-radius:3px;transition:width 0.6s ease}
+.compat-checks{display:flex;flex-direction:column;gap:4px}
+.compat-row{display:flex;align-items:center;justify-content:space-between;font-size:11px}
+.compat-key{color:var(--muted)}
+.compat-ok{color:var(--buy)}.compat-warn{color:var(--amber)}.compat-fail{color:var(--sell)}
+.trade-form-wrap{background:var(--bg3);border-radius:var(--r2);border:1px solid var(--border);padding:12px;margin-bottom:12px}
+.tf-title{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px}
+.tf-row{display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)}
+.tf-row:last-child{border-bottom:none;padding-top:8px;font-size:12px;font-weight:600}
+.tf-key{color:var(--muted)}
+.tf-val{font-family:var(--mono);color:var(--text)}
+.confirm-btns{display:flex;gap:8px}
+.confirm-btn{
+  flex:1;padding:9px;border-radius:var(--r);border:none;
+  font-size:11px;font-weight:600;font-family:var(--mono);cursor:pointer;
+  letter-spacing:0.06em;transition:all 0.15s;
+}
+.confirm-btn.go{background:var(--burgundy);color:#fff}
+.confirm-btn.go:hover{background:var(--burgundy-dk)}
+.confirm-btn.cancel{background:var(--bg4);color:var(--muted);border:1px solid var(--border)}
+.confirm-btn.cancel:hover{color:var(--text)}
+
+/* MATCHED TRADES LOG */
+.matched-item{
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  animation:slideIn 0.3s ease;
+}
+@keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+.mi-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.mi-id{font-family:var(--mono);font-size:10px;color:var(--matched)}
+.mi-comm{font-size:12px;font-weight:500;flex:1}
+.mi-time{font-size:10px;color:var(--hint);font-family:var(--mono)}
+.mi-row{display:flex;gap:8px;font-size:11px;color:var(--muted)}
+.mi-val{font-family:var(--mono);color:var(--text)}
+
+/* ── TOAST ── */
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px}
+.toast{
+  padding:10px 16px;border-radius:var(--r2);font-size:12px;font-family:var(--mono);
+  animation:toastIn 0.3s ease;max-width:320px;
+}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.toast.success{background:#0A2A1E;border:1px solid var(--buy);color:var(--buy)}
+.toast.error{background:#2A0A10;border:1px solid var(--sell);color:var(--sell)}
+.toast.info{background:#0A1E2A;border:1px solid var(--gold);color:var(--gold)}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.modal-overlay.hidden{display:none}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);width:520px;max-width:95vw;max-height:80vh;overflow-y:auto}
+.modal-hdr{padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--gold);letter-spacing:0.1em;text-transform:uppercase}
+.modal-close{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:18px}
+.modal-footer{padding:14px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+/* misc */
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:3px;font-size:10px;font-family:var(--mono);font-weight:500}
+.pill-gold{background:var(--gold-bg);color:var(--gold)}
+.pill-blue{background:var(--blue-bg);color:var(--blue)}
+.tag{font-size:10px;font-family:var(--mono);color:var(--hint)}
+.count-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:18px;height:18px;border-radius:9px;background:var(--border);
+  color:var(--muted);font-family:var(--mono);font-size:10px;padding:0 5px;
+}
+.count-badge.active-buy{background:var(--buy-bg2);color:var(--buy)}
+.count-badge.active-sell{background:var(--sell-bg2);color:var(--sell)}
+.section-sep{padding:6px 14px;background:var(--bg3);border-bottom:1px solid var(--border);border-top:1px solid var(--border)}
+.section-sep-label{font-family:var(--mono);font-size:9px;color:var(--hint);letter-spacing:0.12em;text-transform:uppercase}
+
+/* scrollable center body */
+.ob-scroll{flex:1;overflow:auto}
+.ob-scroll::-webkit-scrollbar{width:3px}
+.ob-scroll::-webkit-scrollbar-thumb{background:var(--border)}
+
+/* blinking cursor */
+.cursor::after{content:'▮';animation:blink 1s step-end infinite;color:var(--gold);font-size:11px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark">B</div>
+    <div>
+      <div class="brand-name">BULLEX</div>
+    </div>
+    <div class="brand-sep"></div>
+    <div class="terminal-label">Trading Terminal</div>
+  </div>
+  <div class="top-tabs">
+    <button class="top-tab active" onclick="setView('orderbook')">Order Book</button>
+    <button class="top-tab" onclick="setView('matched')">Matched Trades</button>
+    <button class="top-tab" onclick="setView('myenq')">My Enquiries</button>
+  </div>
+  <div class="top-right">
+    <div class="live-dot"></div>
+    <div class="live-label">LIVE</div>
+    <div class="top-time" id="top-clock">--:--:--</div>
+    <div class="top-user">
+      <div class="user-dot"></div>
+      <span id="tb-user-name">Demo Trader</span>
+    </div>
+  </div>
+</div>
+
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <div class="ticker-track" id="ticker-track"></div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- LEFT: Submit Enquiry + My Enquiries -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="panel-title">Post Enquiry</span>
+      <span class="pill pill-gold" id="tb-user-role">Demo</span>
+    </div>
+    <div class="panel-body">
+      <div class="enq-form">
+        <div class="side-toggle">
+          <button class="side-opt buy active" id="side-buy" onclick="setSide('buy')">▲ IMPORT / BUY</button>
+          <button class="side-opt sell" id="side-sell" onclick="setSide('sell')">▼ EXPORT / SELL</button>
+        </div>
+        <div class="f-row">
+          <label class="f-label">Commodity</label>
+          <select class="f-sel" id="f-commodity">
+            <option value="">Select commodity…</option>
+          </select>
+        </div>
+        <div class="f-row2">
+          <div class="f-row">
+            <label class="f-label">Volume (MT)</label>
+            <input class="f-inp" type="number" id="f-volume" placeholder="e.g. 25000">
+          </div>
+          <div class="f-row">
+            <label class="f-label">Price (USD/MT)</label>
+            <input class="f-inp" type="number" id="f-price" placeholder="e.g. 120">
+          </div>
+        </div>
+        <div class="f-row2">
+          <div class="f-row">
+            <label class="f-label">Origin</label>
+            <select class="f-sel" id="f-origin">
+              <option value="">Country…</option>
+              <option>Brazil</option><option>Australia</option><option>India</option>
+              <option>South Africa</option><option>Indonesia</option><option>Guinea</option>
+              <option>Chile</option><option>United Arab Emirates</option><option>Russia</option>
+              <option>United States</option>
+            </select>
+          </div>
+          <div class="f-row">
+            <label class="f-label">Destination</label>
+            <select class="f-sel" id="f-dest">
+              <option value="">Country…</option>
+              <option>China</option><option>India</option><option>Turkey</option>
+              <option>Netherlands</option><option>United Arab Emirates</option><option>South Korea</option>
+              <option>Japan</option><option>Germany</option><option>Singapore</option>
+              <option>Italy</option>
+            </select>
+          </div>
+        </div>
+        <div class="f-row">
+          <label class="f-label">Quality Grade</label>
+          <select class="f-sel" id="f-grade">
+            <option>Grade A (Premium)</option>
+            <option>Grade B (Standard)</option>
+            <option>Standard</option>
+            <option>Certified</option>
+            <option>As per spec</option>
+          </select>
+        </div>
+        <div class="f-row2">
+          <div class="f-row">
+            <label class="f-label">Incoterms</label>
+            <select class="f-sel" id="f-inco">
+              <option>CIF</option><option>FOB</option><option>CFR</option><option>DAP</option>
+            </select>
+          </div>
+          <div class="f-row">
+            <label class="f-label">Payment Terms</label>
+            <select class="f-sel" id="f-payment">
+              <option>Letter of Credit</option>
+              <option>Open Account</option>
+              <option>Documents against Payment</option>
+              <option>Bank Guarantee</option>
+            </select>
+          </div>
+        </div>
+        <div class="f-row">
+          <label class="f-label">Delivery Window</label>
+          <input class="f-inp" type="text" id="f-delivery" placeholder="e.g. June 2026 – July 2026">
+        </div>
+        <div class="f-row">
+          <label class="f-label">Additional Notes</label>
+          <textarea class="f-ta" id="f-notes" placeholder="Certifications, packaging specs, special requirements…"></textarea>
+        </div>
+        <button class="submit-btn buy" id="submit-btn" onclick="submitEnquiry()">POST BUY ENQUIRY</button>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-sep"><span class="section-sep-label">My Active Enquiries</span></div>
+      <div id="my-enq-list"></div>
+    </div>
+  </div>
+
+  <!-- CENTER: Order Book -->
+  <div class="center">
+    <div class="center-hdr">
+      <div class="view-tabs">
+        <button class="view-tab active" onclick="setCenterTab('all',this)">All Enquiries</button>
+        <button class="view-tab" onclick="setCenterTab('buy',this)">Buy Orders</button>
+        <button class="view-tab" onclick="setCenterTab('sell',this)">Sell Orders</button>
+        <button class="view-tab" onclick="setCenterTab('matched',this)">Matched</button>
+      </div>
+      <div class="center-toolbar">
+        <input class="srch" type="text" id="ob-search" placeholder="Search commodity, origin…" oninput="renderBook()">
+        <select class="filter-select" id="ob-filter-comm" onchange="renderBook()">
+          <option value="">All Commodities</option>
+        </select>
+        <select class="filter-select" id="ob-sort" onchange="renderBook()">
+          <option value="time">Sort: Newest</option>
+          <option value="price-asc">Price: Low–High</option>
+          <option value="price-desc">Price: High–Low</option>
+          <option value="volume">Volume: Largest</option>
+          <option value="compat">Compatibility</option>
+        </select>
+      </div>
+    </div>
+    <div class="ob-scroll">
+      <table class="ob-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Side</th>
+            <th>Commodity</th>
+            <th>Volume (MT)</th>
+            <th class="right">Price (USD/MT)</th>
+            <th>Origin</th>
+            <th>Destination</th>
+            <th>Grade</th>
+            <th>Incoterms</th>
+            <th>Participant</th>
+            <th>Status</th>
+            <th>Compat.</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="ob-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RIGHT: Match Detail -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="panel-title">Match Detail</span>
+      <span id="match-count-badge" class="count-badge">0</span>
+    </div>
+    <div class="panel-body" id="right-panel-body">
+      <div id="match-detail">
+        <div class="match-detail">
+          <div class="md-empty">
+            <div class="md-empty-icon">⇄</div>
+            <div>Select any enquiry in the<br>order book to view potential matches</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MATCH CONFIRM MODAL -->
+<div class="modal-overlay hidden" id="match-modal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title">Confirm Trade Match</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="confirm-btn cancel" style="width:120px" onclick="closeModal()">Cancel</button>
+      <button class="confirm-btn go" style="width:160px" onclick="confirmMatch()">▶ EXECUTE MATCH</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+// ── DATA ────────────────────────────────────
+let currentSide = 'buy';
+let centerTab = 'all';
+let selectedEnqId = null;
+let pendingMatchA = null;
+let pendingMatchB = null;
+let enqCounter = 100;
+let matchCounter = 1;
+let liveMode = false;
+
+const COMMODITIES = ['Iron Ore','Bauxite','Manganese Ore','Copper Cathode','Copper Concentrate','Aluminium Ingots','Gasoil 10ppm','Gasoil 50ppm','LHC','HSFO','HSGO','Petcoke – Anode Grade','Petcoke – Fuel Grade','NPK'];
+const COUNTRIES_ORIGIN = ['Brazil','Australia','India','South Africa','Indonesia','Guinea','Chile','United Arab Emirates','Russia','United States'];
+const COUNTRIES_DEST = ['China','India','Turkey','Netherlands','United Arab Emirates','South Korea','Japan','Germany','Singapore','Italy'];
+const PARTICIPANTS = ['Bullfrog Group','Glencore','Trafigura','Vitol','Gunvor','Cargill','ADM','Mercuria','Louis Dreyfus'];
+const GRADES = ['Grade A (Premium)','Grade B (Standard)','Standard','Certified'];
+const INCOS = ['CIF','FOB','CFR','DAP'];
+const PAYMENTS = ['Letter of Credit','Open Account','Documents against Payment','Bank Guarantee'];
+
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a}
+function pick(arr){return arr[rnd(0,arr.length-1)]}
+function fmtNum(n){return Number(n||0).toLocaleString()}
+function fmtTime(ts){const d=new Date(ts);return d.toTimeString().slice(0,8)}
+function nowTs(){return Date.now()}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+// Base prices per commodity (USD/MT)
+const BASE_PRICE = {
+  'Iron Ore':110,'Bauxite':55,'Manganese Ore':280,'Copper Cathode':9000,
+  'Copper Concentrate':3500,'Aluminium Ingots':2400,'Gasoil 10ppm':720,'Gasoil 50ppm':700,
+  'LHC':600,'HSFO':480,'HSGO':650,'Petcoke – Anode Grade':450,'Petcoke – Fuel Grade':120,'NPK':380
+};
+
+function genPrice(commodity, side){
+  const base = BASE_PRICE[commodity] || 1000;
+  const spread = side === 'buy' ? 1.02 : 0.98;
+  return Math.round(base * spread * (1 + (Math.random()-0.5)*0.06));
+}
+
+// ── POPULATE COMMODITY SELECTS ─────────────
+function populateCommoditySelects(){
+  const commSel = document.getElementById('f-commodity');
+  const filterSel = document.getElementById('ob-filter-comm');
+  commSel.innerHTML = '<option value="">Select commodity…</option>' + COMMODITIES.map(c=>`<option>${esc(c)}</option>`).join('');
+  filterSel.innerHTML = '<option value="">All Commodities</option>' + COMMODITIES.map(c=>`<option>${esc(c)}</option>`).join('');
+}
+
+// Seed order book
+let enquiries = [];
+function seedBook(){
+  enquiries = [];
+  const comms = COMMODITIES.slice(0,7);
+  comms.forEach(c=>{
+    for(let i=0;i<rnd(2,3);i++){
+      enquiries.push(makeEnquiry('buy',c));
+    }
+    for(let i=0;i<rnd(2,3);i++){
+      enquiries.push(makeEnquiry('sell',c));
+    }
+  });
+}
+
+function makeEnquiry(side, commodity, overrides={}){
+  commodity = commodity || pick(COMMODITIES.slice(0,7));
+  enqCounter++;
+  return {
+    id: 'ENQ-' + enqCounter,
+    side,
+    commodity,
+    volume: rnd(500,5000) * 10,
+    price: genPrice(commodity, side),
+    origin: pick(COUNTRIES_ORIGIN),
+    destination: pick(COUNTRIES_DEST),
+    grade: pick(GRADES),
+    incoterms: pick(INCOS),
+    payment: pick(PAYMENTS),
+    participant: pick(PARTICIPANTS),
+    status: 'open',
+    ts: Date.now() - rnd(0, 3600000),
+    notes: '',
+    mine: false,
+    ...overrides
+  };
+}
+
+// Matched trades log
+let matchedTrades = [];
+
+// ── COMPATIBILITY SCORE ─────────────────────
+function compatScore(buy, sell){
+  if(buy.side === sell.side) return 0;
+  const b = buy.side === 'buy' ? buy : sell;
+  const s = buy.side === 'sell' ? buy : sell;
+
+  let score = 0;
+  const checks = {};
+
+  // Commodity must match
+  if(b.commodity !== s.commodity){ return {score:0, checks:{commodity:'FAIL'}, label:'0%'} }
+  score += 30; checks.commodity = 'OK';
+
+  // Price spread: buyer price >= seller price
+  const spread = b.price - s.price;
+  if(spread >= 0){ score += 25; checks.price = 'OK'; }
+  else if(spread >= -b.price*0.05){ score += 12; checks.price = 'WARN'; }
+  else { checks.price = 'FAIL'; }
+
+  // Volume compatibility (within 30% of each other)
+  const volRatio = Math.min(b.volume, s.volume)/Math.max(b.volume, s.volume);
+  if(volRatio >= 0.85){ score += 20; checks.volume = 'OK'; }
+  else if(volRatio >= 0.60){ score += 10; checks.volume = 'WARN'; }
+  else { checks.volume = 'WARN'; score += 5; }
+
+  // Incoterms compatible pairs
+  const incoCompat = {CIF:['CIF','CFR'],FOB:['FOB','CFR'],CFR:['CFR','CIF','FOB'],DAP:['DAP','CIF']};
+  if((incoCompat[b.incoterms]||[]).includes(s.incoterms)){ score+=10; checks.incoterms='OK'; }
+  else { score+=4; checks.incoterms='WARN'; }
+
+  // Grade compatibility
+  if(b.grade === s.grade){ score+=10; checks.grade='OK'; }
+  else if(b.grade.includes('Grade A') && s.grade.includes('Grade A')){ score+=8; checks.grade='OK'; }
+  else { score+=4; checks.grade='WARN'; }
+
+  // Payment terms
+  if(b.payment === s.payment){ score+=5; checks.payment='OK'; }
+  else { score+=2; checks.payment='WARN'; }
+
+  score = Math.min(score,100);
+  return {score, checks, label: score+'%'};
+}
+
+// ── RENDER TICKER ─────────────────────────
+function renderTicker(){
+  const track = document.getElementById('ticker-track');
+  let html = '';
+  const items = Object.entries(BASE_PRICE).slice(0,10);
+  for(let pass=0;pass<2;pass++){
+    items.forEach(([name, base])=>{
+      const chg = (Math.random()-0.48)*4;
+      const price = (base*(1+chg/100)).toFixed(0);
+      const cls = chg>=0?'up':'dn';
+      const sign = chg>=0?'+':'';
+      html += `<div class="tick-item"><span class="tick-name">${esc(name)}</span><span class="tick-price">$${Number(price).toLocaleString()}/MT</span><span class="tick-chg ${cls}">${sign}${chg.toFixed(2)}%</span></div>`;
+    });
+  }
+  track.innerHTML = html;
+}
+
+// ── CLOCK ─────────────────────────────────
+function updateClock(){
+  document.getElementById('top-clock').textContent = new Date().toLocaleTimeString('en-GB',{hour12:false});
+}
+setInterval(updateClock,1000);
+updateClock();
+
+// ── SIDE TOGGLE ───────────────────────────
+function setSide(side){
+  currentSide = side;
+  document.getElementById('side-buy').className = 'side-opt buy' + (side==='buy'?' active':'');
+  document.getElementById('side-sell').className = 'side-opt sell' + (side==='sell'?' active':'');
+  const btn = document.getElementById('submit-btn');
+  if(side==='buy'){btn.className='submit-btn buy';btn.textContent='POST BUY ENQUIRY';}
+  else{btn.className='submit-btn sell';btn.textContent='POST SELL ENQUIRY';}
+}
+
+// ── SUBMIT ENQUIRY (local/demo) ────────────
+function submitEnquiry(){
+  const comm = document.getElementById('f-commodity').value;
+  const vol = parseFloat(document.getElementById('f-volume').value);
+  const price = parseFloat(document.getElementById('f-price').value);
+  const origin = document.getElementById('f-origin').value;
+  const dest = document.getElementById('f-dest').value;
+  if(!comm||!vol||!price||!origin||!dest){
+    showToast('Please fill in all required fields','error'); return;
+  }
+  const enq = {
+    id: 'ENQ-' + (++enqCounter),
+    side: currentSide,
+    commodity: comm,
+    volume: vol,
+    price: price,
+    origin: origin,
+    destination: dest,
+    grade: document.getElementById('f-grade').value,
+    incoterms: document.getElementById('f-inco').value,
+    payment: document.getElementById('f-payment').value,
+    participant: (document.getElementById('tb-user-name').textContent || 'You').trim(),
+    status: 'open',
+    ts: Date.now(),
+    notes: document.getElementById('f-notes').value,
+    mine: true
+  };
+  enquiries.unshift(enq);
+  renderBook();
+  renderMyEnquiries();
+  showToast(`${currentSide.toUpperCase()} enquiry ${enq.id} added to board ✓`, 'success');
+  // clear form
+  document.getElementById('f-commodity').value='';
+  document.getElementById('f-volume').value='';
+  document.getElementById('f-price').value='';
+  document.getElementById('f-origin').value='';
+  document.getElementById('f-dest').value='';
+  document.getElementById('f-notes').value='';
+}
+
+// ── RENDER MY ENQUIRIES ────────────────────
+function renderMyEnquiries(){
+  const mine = enquiries.filter(e=>e.mine);
+  const el = document.getElementById('my-enq-list');
+  if(!mine.length){el.innerHTML='<div style="padding:16px 14px;font-size:11px;color:var(--hint);text-align:center">No active enquiries yet</div>';return;}
+  el.innerHTML = mine.map(e=>{
+    const sideColor = e.side==='buy'?'var(--buy)':'var(--sell)';
+    return `<div class="my-enq-item" data-action="select" data-id="${esc(e.id)}">
+      <div class="my-enq-top">
+        <span class="my-enq-id">${esc(e.id)}</span>
+        <span class="side-badge ${e.side}" style="font-size:9px;padding:2px 7px">${e.side.toUpperCase()}</span>
+        <span style="margin-left:auto"><span class="status-chip ${e.status==='matched'?'chip-matched':e.status==='partial'?'chip-partial':'chip-open'}">${e.status.toUpperCase()}</span></span>
+      </div>
+      <div class="my-enq-top" style="margin-top:3px">
+        <span class="my-enq-comm">${esc(e.commodity)}</span>
+      </div>
+      <div class="my-enq-bot">
+        <span class="my-enq-vol">${fmtNum(e.volume)} MT</span>
+        <span>·</span>
+        <span class="my-enq-price" style="color:${sideColor}">$${fmtNum(e.price)}/MT</span>
+        <span>·</span>
+        <span>${esc(e.origin)} → ${esc(e.destination)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── RENDER ORDER BOOK ─────────────────────
+function renderBook(){
+  const search = (document.getElementById('ob-search').value||'').toLowerCase();
+  const filterComm = document.getElementById('ob-filter-comm').value;
+  const sort = document.getElementById('ob-sort').value;
+
+  let list = enquiries.filter(e=>e.status!=='matched');
+  if(centerTab==='buy') list=list.filter(e=>e.side==='buy');
+  if(centerTab==='sell') list=list.filter(e=>e.side==='sell');
+  if(centerTab==='matched') list=enquiries.filter(e=>e.status==='matched');
+  if(filterComm) list=list.filter(e=>e.commodity===filterComm);
+  if(search) list=list.filter(e=>(e.commodity+e.origin+e.destination+e.participant+e.id).toLowerCase().includes(search));
+
+  // sort
+  if(sort==='price-asc') list.sort((a,b)=>a.price-b.price);
+  else if(sort==='price-desc') list.sort((a,b)=>b.price-a.price);
+  else if(sort==='volume') list.sort((a,b)=>b.volume-a.volume);
+  else if(sort==='compat' && selectedEnqId){
+    const sel = enquiries.find(e=>e.id===selectedEnqId);
+    if(sel) list.sort((a,b)=>compatScore(sel,b).score-compatScore(sel,a).score);
+  } else {
+    list.sort((a,b)=>b.ts-a.ts);
+  }
+
+  const sel = selectedEnqId ? enquiries.find(e=>e.id===selectedEnqId) : null;
+  const tbody = document.getElementById('ob-tbody');
+  if(!list.length){
+    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:32px;color:var(--hint);font-size:12px">No enquiries on the board</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(e=>{
+    const isSel = e.id===selectedEnqId;
+    const isOppSide = sel && sel.side!==e.side && sel.id!==e.id;
+    const compat = sel && isOppSide ? compatScore(sel, e) : null;
+    const rowCls = e.side==='buy'?'buy-row':e.status==='matched'?'matched-row':'sell-row';
+    const priceColor = e.side==='buy'?'buy-price':'sell-price';
+    const selStyle = isSel?'outline:2px solid var(--gold);outline-offset:-2px;':'';
+    let compatCell = '<td>—</td>';
+    let actionCell = `<td><button class="match-btn" disabled style="opacity:0.15">MATCH</button></td>`;
+    if(compat){
+      const sc = compat.score;
+      const fillColor = sc>=70?'var(--buy)':sc>=45?'var(--amber)':'var(--sell)';
+      const cls = sc>=70?'compat-high':sc>=45?'compat-med':'compat-low';
+      compatCell = `<td><div class="score-bar">
+        <div class="score-fill-wrap"><div class="score-fill" style="width:${sc}%;background:${fillColor}"></div></div>
+        <span class="${cls}">${sc}%</span>
+      </div></td>`;
+      actionCell = `<td><button class="match-btn" data-action="match" data-a="${esc(sel.id)}" data-b="${esc(e.id)}">MATCH</button></td>`;
+    }
+    const statusMap={open:'chip-open',matched:'chip-matched',partial:'chip-partial'};
+    return `<tr class="${rowCls}" style="${selStyle}" data-action="select" data-id="${esc(e.id)}">
+      <td class="mono tag">${esc(e.id)}</td>
+      <td><span class="side-badge ${e.side}">${e.side==='buy'?'▲ BUY':'▼ SELL'}</span></td>
+      <td style="font-weight:500">${esc(e.commodity)}</td>
+      <td class="mono">${fmtNum(e.volume)}</td>
+      <td class="mono ${priceColor}" style="text-align:right">$${fmtNum(e.price)}</td>
+      <td>${esc(e.origin)}</td>
+      <td>${esc(e.destination)}</td>
+      <td style="font-size:11px;color:var(--muted)">${esc(String(e.grade).replace(' (Premium)','').replace(' (Standard)',''))}</td>
+      <td class="mono" style="font-size:11px">${esc(e.incoterms)}</td>
+      <td style="font-size:11px;color:var(--muted)">${esc(String(e.participant).split(' ')[0])}</td>
+      <td><span class="status-chip ${statusMap[e.status]||'chip-open'}">${e.status.toUpperCase()}</span></td>
+      ${compatCell}
+      ${actionCell}
+    </tr>`;
+  }).join('');
+}
+
+// ── SELECT ENQUIRY ────────────────────────
+function selectEnquiry(id){
+  selectedEnqId = id;
+  renderBook();
+  renderMatchDetail(id);
+}
+
+// ── MATCH DETAIL PANEL ────────────────────
+function renderMatchDetail(id){
+  const enq = enquiries.find(e=>e.id===id);
+  if(!enq){document.getElementById('match-detail').innerHTML=`<div class="match-detail"><div class="md-empty"><div class="md-empty-icon">⇄</div><div>Select an enquiry to view matches</div></div></div>`;return;}
+
+  const opposSide = enq.side==='buy'?'sell':'buy';
+  const candidates = enquiries
+    .filter(e=>e.side===opposSide && e.status!=='matched' && e.id!==id && e.commodity===enq.commodity)
+    .map(e=>({...e, compat:compatScore(enq,e)}))
+    .filter(e=>e.compat.score>0)
+    .sort((a,b)=>b.compat.score-a.compat.score)
+    .slice(0,5);
+
+  document.getElementById('match-count-badge').textContent = candidates.length;
+  document.getElementById('match-count-badge').className = 'count-badge ' + (enq.side==='buy'?'active-buy':'active-sell');
+
+  const sideColor = enq.side==='buy'?'var(--buy)':'var(--sell)';
+  let html = `<div class="match-detail">
+    <div class="md-header">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span class="side-badge ${enq.side}">${enq.side==='buy'?'▲ BUY':'▼ SELL'}</span>
+        <span style="font-weight:600">${esc(enq.commodity)}</span>
+        <span class="tag">${esc(enq.id)}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px">
+        <div><span style="color:var(--hint)">Volume</span><br><span class="mono" style="color:var(--text)">${fmtNum(enq.volume)} MT</span></div>
+        <div><span style="color:var(--hint)">Price</span><br><span class="mono" style="color:${sideColor}">$${fmtNum(enq.price)}/MT</span></div>
+        <div><span style="color:var(--hint)">Origin</span><br><span>${esc(enq.origin)}</span></div>
+        <div><span style="color:var(--hint)">Destination</span><br><span>${esc(enq.destination)}</span></div>
+        <div><span style="color:var(--hint)">Incoterms</span><br><span class="mono">${esc(enq.incoterms)}</span></div>
+        <div><span style="color:var(--hint)">Payment</span><br><span style="font-size:10px">${esc(enq.payment)}</span></div>
+      </div>
+    </div>`;
+
+  if(!candidates.length){
+    html+=`<div style="padding:20px;text-align:center;color:var(--hint);font-size:11px">
+      <div style="font-size:22px;margin-bottom:8px">∅</div>
+      No matching ${opposSide} enquiries found for ${esc(enq.commodity)}
+    </div>`;
+  } else {
+    html += `<div style="padding:10px 14px 4px"><span class="section-sep-label" style="font-size:9px;font-family:var(--mono);letter-spacing:0.1em;text-transform:uppercase;color:var(--hint)">Top ${candidates.length} Potential Matches</span></div>`;
+    candidates.forEach((c,i)=>{
+      const sc = c.compat.score;
+      const fillColor = sc>=70?'var(--buy)':sc>=45?'var(--amber)':'var(--sell)';
+      const scCls = sc>=70?'compat-high':sc>=45?'compat-med':'compat-low';
+      const priceColor = c.side==='buy'?'var(--buy)':'var(--sell)';
+      html+=`<div style="padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background=''">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--hint)">#${i+1}</span>
+          <span class="tag mono" style="font-size:10px;color:var(--muted)">${esc(c.id)}</span>
+          <span style="font-size:11px;font-weight:500;flex:1">${esc(String(c.participant).split(' ')[0])}</span>
+          <span class="${scCls}">${sc}%</span>
+        </div>
+        <div class="compat-meter" style="margin-bottom:8px;padding:8px 10px">
+          <div class="compat-track"><div class="compat-fill" style="width:${sc}%;background:${fillColor}"></div></div>
+          <div class="compat-checks" style="margin-top:6px">
+            ${Object.entries(c.compat.checks).map(([k,v])=>`
+              <div class="compat-row">
+                <span class="compat-key">${esc(k)}</span>
+                <span class="${v==='OK'?'compat-ok':v==='WARN'?'compat-warn':'compat-fail'}">${v==='OK'?'✓':v==='WARN'?'~':'✗'} ${v}</span>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;margin-bottom:8px">
+          <span style="color:var(--hint)">Volume: <span class="mono" style="color:var(--text)">${fmtNum(c.volume)} MT</span></span>
+          <span style="color:var(--hint)">Price: <span class="mono" style="color:${priceColor}">$${fmtNum(c.price)}</span></span>
+          <span style="color:var(--hint)">Origin: <span style="color:var(--muted)">${esc(c.origin)}</span></span>
+          <span style="color:var(--hint)">Grade: <span style="color:var(--muted);font-size:10px">${esc(String(c.grade).split(' ').slice(0,2).join(' '))}</span></span>
+        </div>
+        <button class="match-btn" style="width:100%" data-action="match" data-a="${esc(id)}" data-b="${esc(c.id)}">
+          ▶ INITIATE MATCH
+        </button>
+      </div>`;
+    });
+  }
+  html+='</div>';
+  document.getElementById('match-detail').innerHTML = html;
+}
+
+// ── MATCH MODAL ───────────────────────────
+function openMatchModal(idA, idB, evt){
+  if(evt) evt.stopPropagation();
+  const A = enquiries.find(e=>e.id===idA);
+  const B = enquiries.find(e=>e.id===idB);
+  if(!A||!B) return;
+  pendingMatchA = A;
+  pendingMatchB = B;
+  const buy = A.side==='buy'?A:B;
+  const sell = A.side==='sell'?A:B;
+  const compat = compatScore(buy,sell);
+  const execVol = Math.min(buy.volume,sell.volume);
+  const execPrice = ((buy.price+sell.price)/2).toFixed(0);
+  const sc = compat.score;
+  const fillColor = sc>=70?'var(--buy)':sc>=45?'var(--amber)':'var(--sell)';
+  const scCls = sc>=70?'compat-high':sc>=45?'compat-med':'compat-low';
+
+  document.getElementById('modal-body').innerHTML = `
+    <div style="margin-bottom:16px">
+      <div class="md-pair">
+        <div class="md-card buy">
+          <div class="md-card-label buy">▲ BUY ORDER</div>
+          <div class="md-card-val">${esc(buy.commodity)}</div>
+          <div class="md-card-sub">${esc(buy.id)} · ${esc(String(buy.participant).split(' ')[0])}</div>
+          <div class="md-card-sub" style="margin-top:4px;font-family:var(--mono);color:var(--buy)">$${fmtNum(buy.price)}/MT · ${fmtNum(buy.volume)} MT</div>
+        </div>
+        <div class="md-card sell">
+          <div class="md-card-label sell">▼ SELL ORDER</div>
+          <div class="md-card-val">${esc(sell.commodity)}</div>
+          <div class="md-card-sub">${esc(sell.id)} · ${esc(String(sell.participant).split(' ')[0])}</div>
+          <div class="md-card-sub" style="margin-top:4px;font-family:var(--mono);color:var(--sell)">$${fmtNum(sell.price)}/MT · ${fmtNum(sell.volume)} MT</div>
+        </div>
+      </div>
+    </div>
+    <div class="compat-meter" style="margin-bottom:14px">
+      <div class="compat-top">
+        <span class="compat-label">Compatibility Score</span>
+        <span class="${scCls}" style="font-size:22px">${sc}%</span>
+      </div>
+      <div class="compat-track"><div class="compat-fill" style="width:${sc}%;background:${fillColor}"></div></div>
+      <div class="compat-checks" style="margin-top:8px">
+        ${Object.entries(compat.checks).map(([k,v])=>`
+          <div class="compat-row" style="padding:3px 0;border-bottom:1px solid var(--border)">
+            <span class="compat-key">${esc(k.charAt(0).toUpperCase()+k.slice(1))}</span>
+            <span class="${v==='OK'?'compat-ok':v==='WARN'?'compat-warn':'compat-fail'}">${v==='OK'?'✓ Match':v==='WARN'?'~ Partial':'✗ Mismatch'}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="trade-form-wrap">
+      <div class="tf-title">Proposed Trade Terms</div>
+      <div class="tf-row"><span class="tf-key">Commodity</span><span class="tf-val">${esc(buy.commodity)}</span></div>
+      <div class="tf-row"><span class="tf-key">Execution Volume</span><span class="tf-val">${fmtNum(execVol)} MT</span></div>
+      <div class="tf-row"><span class="tf-key">Execution Price</span><span class="tf-val" style="color:var(--gold)">$${fmtNum(parseInt(execPrice))}/MT</span></div>
+      <div class="tf-row"><span class="tf-key">Origin</span><span class="tf-val">${esc(sell.origin)}</span></div>
+      <div class="tf-row"><span class="tf-key">Destination</span><span class="tf-val">${esc(buy.destination)}</span></div>
+      <div class="tf-row"><span class="tf-key">Incoterms</span><span class="tf-val">${esc(buy.incoterms)}</span></div>
+      <div class="tf-row"><span class="tf-key">Payment</span><span class="tf-val">${esc(buy.payment)}</span></div>
+      <div class="tf-row"><span class="tf-key">Total Trade Value</span><span class="tf-val" style="color:var(--gold);font-size:14px">$${fmtNum(execVol*parseInt(execPrice))}</span></div>
+    </div>
+    <div style="font-size:11px;color:var(--hint);margin-bottom:4px">
+      ⓘ Executing this match records a proposed trade TRD-${1000+matchCounter} and flags both participants for final confirmation by the Bullex deal desk.
+    </div>`;
+  document.getElementById('match-modal').classList.remove('hidden');
+}
+
+function closeModal(){
+  document.getElementById('match-modal').classList.add('hidden');
+  pendingMatchA = null; pendingMatchB = null;
+}
+
+function confirmMatch(){
+  if(!pendingMatchA||!pendingMatchB) return;
+  const buy = pendingMatchA.side==='buy'?pendingMatchA:pendingMatchB;
+  const sell = pendingMatchA.side==='sell'?pendingMatchA:pendingMatchB;
+  const execVol = Math.min(buy.volume,sell.volume);
+  const execPrice = Math.round((buy.price+sell.price)/2);
+  const tradeId = 'TRD-' + (1000+matchCounter++);
+  const compat = compatScore(buy,sell);
+
+  // Update statuses
+  buy.status = buy.volume===execVol ? 'matched' : 'partial';
+  sell.status = sell.volume===execVol ? 'matched' : 'partial';
+
+  const matchedTrade = {
+    id: tradeId,
+    buyEnq: buy.id,
+    sellEnq: sell.id,
+    buyParticipant: buy.participant,
+    sellParticipant: sell.participant,
+    commodity: buy.commodity,
+    volume: execVol,
+    price: execPrice,
+    value: execVol*execPrice,
+    origin: sell.origin,
+    destination: buy.destination,
+    incoterms: buy.incoterms,
+    payment: buy.payment,
+    score: compat.score,
+    ts: Date.now()
+  };
+  matchedTrades.unshift(matchedTrade);
+  closeModal();
+  renderBook();
+  renderMyEnquiries();
+  showToast(`✓ TRADE MATCHED: ${tradeId} · $${fmtNum(execVol*execPrice)}`, 'success');
+  selectedEnqId = null;
+  document.getElementById('match-detail').innerHTML=`<div class="match-detail">
+    <div style="padding:20px;text-align:center">
+      <div style="font-size:28px;color:var(--matched);margin-bottom:8px">✓</div>
+      <div style="font-size:13px;font-weight:600;color:var(--matched);font-family:var(--mono)">${esc(tradeId)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">${esc(buy.commodity)} · ${fmtNum(execVol)} MT<br>$${fmtNum(execPrice)}/MT · Total: $${fmtNum(execVol*execPrice)}</div>
+      <div style="font-size:10px;color:var(--hint);margin-top:8px">Flagged for deal desk confirmation</div>
+    </div>
+  </div>`;
+}
+
+// ── VIEW TABS ─────────────────────────────
+function setView(v){
+  document.querySelectorAll('.top-tab').forEach((t,i)=>{
+    t.className='top-tab'+((['orderbook','matched','myenq'][i]===v)?' active':'');
+  });
+  if(v==='matched') renderMatchedList();
+  else renderBook();
+}
+
+function setCenterTab(tab, el){
+  centerTab=tab;
+  document.querySelectorAll('.view-tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderBook();
+}
+
+function renderMatchedList(){
+  // show matched trades in center
+  const tbody = document.getElementById('ob-tbody');
+  tbody.innerHTML = matchedTrades.map(t=>`
+    <tr class="matched-row">
+      <td class="mono tag">${esc(t.id)}</td>
+      <td><span class="side-badge matched">MATCHED</span></td>
+      <td style="font-weight:500">${esc(t.commodity)}</td>
+      <td class="mono">${fmtNum(t.volume)}</td>
+      <td class="mono" style="text-align:right;color:var(--gold)">$${fmtNum(t.price)}</td>
+      <td>${esc(t.origin)}</td>
+      <td>${esc(t.destination)}</td>
+      <td style="font-size:11px;color:var(--muted)">${esc(t.incoterms)}</td>
+      <td style="font-size:11px;color:var(--muted)">${esc(t.payment)}</td>
+      <td style="font-size:11px">${esc(String(t.buyParticipant).split(' ')[0])} ↔ ${esc(String(t.sellParticipant).split(' ')[0])}</td>
+      <td><span class="status-chip chip-matched">MATCHED</span></td>
+      <td><span class="mono" style="color:var(--buy);font-size:11px">${t.score}%</span></td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--gold)">$${fmtNum(t.value)}</td>
+    </tr>`).join('') || `<tr><td colspan="13" style="text-align:center;padding:32px;color:var(--hint);font-size:12px">No matched trades yet</td></tr>`;
+}
+
+// ── TOAST ─────────────────────────────────
+function showToast(msg, type='info'){
+  const wrap = document.getElementById('toast-wrap');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.4s';setTimeout(()=>t.remove(),400)}, 3500);
+}
+
+// ── LIVE DATA (postMessage from parent) ────
+function normalizeEnq(e){
+  return {
+    id: e.id || e.enquiryRef || ('ENQ-' + (++enqCounter)),
+    side: (e.side === 'sell') ? 'sell' : 'buy',
+    commodity: e.commodity || e.product || '',
+    volume: Number(e.volume) || 0,
+    price: Number(e.price) || 0,
+    origin: e.origin || '—',
+    destination: e.destination || '—',
+    grade: e.grade || 'Standard',
+    incoterms: e.incoterms || 'FOB',
+    payment: e.payment || '—',
+    participant: e.participant || '—',
+    status: e.status || 'open',
+    ts: Number(e.ts) || Date.now(),
+    notes: e.notes || '',
+    mine: !!e.mine
+  };
+}
+
+function renderUser(u){
+  const nameEl = document.getElementById('tb-user-name');
+  const roleEl = document.getElementById('tb-user-role');
+  if(u){
+    if(nameEl) nameEl.textContent = u.name || 'Trader';
+    if(roleEl) roleEl.textContent = u.role || 'Participant';
+  } else {
+    if(nameEl) nameEl.textContent = 'Demo Trader';
+    if(roleEl) roleEl.textContent = 'Demo';
+  }
+}
+
+function applyPayload(p){
+  if(!p) return;
+  if(p.user !== undefined) renderUser(p.user);
+  if(Array.isArray(p.enquiries)){
+    liveMode = true;
+    enquiries = p.enquiries.map(normalizeEnq);
+    selectedEnqId = null;
+    if(document.querySelector('.top-tab.active') && document.querySelector('.top-tab.active').textContent.trim()==='Matched Trades'){
+      renderMatchedList();
+    } else {
+      renderBook();
+    }
+    renderMyEnquiries();
+    renderMatchDetail(null);
+  }
+}
+
+window.addEventListener('message', (ev)=>{
+  if(ev.source !== window.parent) return;
+  const d = ev.data;
+  if(d && d.source === 'bullex-parent') applyPayload(d.payload);
+});
+
+// Delegated click handling (no inline JS-context interpolation of dynamic ids)
+document.addEventListener('click', (ev)=>{
+  const el = ev.target.closest('[data-action]');
+  if(!el) return;
+  const action = el.getAttribute('data-action');
+  if(action === 'select'){
+    selectEnquiry(el.getAttribute('data-id'));
+  } else if(action === 'match'){
+    openMatchModal(el.getAttribute('data-a'), el.getAttribute('data-b'), ev);
+  }
+});
+
+function sendReady(){
+  if(window.parent && window.parent !== window){
+    window.parent.postMessage({source:'bullex-iframe', ready:true}, '*');
+  }
+}
+
+// ── INIT ──────────────────────────────────
+populateCommoditySelects();
+seedBook();
+renderTicker();
+renderBook();
+renderMyEnquiries();
+sendReady();
+
+// simulate live ticks every 8s (demo only — disabled in live mode)
+setInterval(()=>{
+  if(liveMode) return;
+  const live = enquiries.filter(e=>e.status==='open');
+  if(live.length>0){
+    const e = live[rnd(0,live.length-1)];
+    const delta = (Math.random()-0.5)*40;
+    e.price = Math.max(10, Math.round(e.price+delta));
+    renderBook();
+  }
+}, 8000);
+</script>
+</body>
+</html>

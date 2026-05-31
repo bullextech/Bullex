@@ -39,6 +39,7 @@ import {
   Trash2,
   Loader2,
   Paperclip,
+  LineChart,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -403,6 +404,14 @@ export default function Trading() {
                 <p className="text-white/60 text-sm leading-snug mt-1">
                   Every stage requires mandatory documents before advancing — transparency, compliance, immutable verification.
                 </p>
+                <a
+                  href="/trading-terminal"
+                  data-testid="link-open-trading-terminal"
+                  className="inline-flex items-center gap-2 mt-3 rounded bg-[#0084be] hover:bg-[#006a99] text-white px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-colors"
+                >
+                  <LineChart className="w-3.5 h-3.5" />
+                  Open Trading Terminal
+                </a>
               </div>
             </div>
             <div className="grid grid-cols-4 gap-3">
