@@ -2865,7 +2865,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/kyc/:id/change-requests", async (req, res) => {
+  app.get("/api/kyc/:id/change-requests", requireAuth, async (req, res) => {
     try {
       const requests = await storage.getKycChangeRequestsByApplicationId(req.params.id);
       res.json(requests);
@@ -3404,7 +3404,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/kyc/send-onboarding-link", async (req, res) => {
+  app.post("/api/kyc/send-onboarding-link", requireAuth, async (req, res) => {
     try {
       const { email } = req.body;
       if (!email || typeof email !== "string") {
