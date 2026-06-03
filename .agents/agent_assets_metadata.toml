@@ -53,3 +53,9 @@ id = "vrwgcESAZd0jMA22NVQZX"
 uri = "file://client/public/bullex-logo-transparent.png"
 type = "image"
 title = "Bullex Logo (transparent background)"
+
+[[outputs]]
+id = "nG3QAxdQgE5dVQbe3NWkR"
+uri = "file://bullex-source.zip"
+type = "unspecified"
+title = "Bullex source code (full — code + images + videos)"
