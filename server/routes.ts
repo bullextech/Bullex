@@ -3841,8 +3841,24 @@ export async function registerRoutes(
 
   app.get("/api/documents/:id/download/docx", async (req, res) => {
     try {
+      const isAdminOrTeam = req.session?.authenticated && (req.session.role === "admin" || req.session.role === "team");
+      const isClient = req.session?.authenticated && req.session.role === "client";
+      if (!isAdminOrTeam && !isClient) return res.status(401).json({ message: "Unauthorized" });
+
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
+
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        if (!tmId || doc.submittedByTeamMemberId !== tmId) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+
+      if (isClient && doc.sentToClientId !== req.session.clientKycId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
       if (!doc.content) return res.status(404).json({ message: "Document content not available" });
       const hasSigDocx = doc.docType === "NCNDA" ? (doc.sellerSignature || doc.buyerSignature) : doc.buyerSignature;
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
@@ -3881,8 +3897,24 @@ export async function registerRoutes(
 
   app.get("/api/documents/:id/download/pdf", async (req, res) => {
     try {
+      const isAdminOrTeamPdf = req.session?.authenticated && (req.session.role === "admin" || req.session.role === "team");
+      const isClientPdf = req.session?.authenticated && req.session.role === "client";
+      if (!isAdminOrTeamPdf && !isClientPdf) return res.status(401).json({ message: "Unauthorized" });
+
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
+
+      if (req.session?.role === "team") {
+        const tmId = await getSessionTeamMemberId(req);
+        if (!tmId || doc.submittedByTeamMemberId !== tmId) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+
+      if (isClientPdf && doc.sentToClientId !== req.session.clientKycId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
       if (!doc.content) return res.status(404).json({ message: "Document content not available" });
       const hasSigPdf = doc.docType === "NCNDA" ? (doc.sellerSignature || doc.buyerSignature) : doc.buyerSignature;
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
@@ -4192,7 +4224,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/documents/:id/respond", requireModule("doc-templates"), async (req: Request, res: Response) => {
+  app.post("/api/documents/:id/respond", requireAdminAuth, async (req: Request, res: Response) => {
     try {
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
