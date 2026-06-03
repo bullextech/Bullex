@@ -114,6 +114,7 @@ export const trades = pgTable("trades", {
   nonce: integer("nonce"),
   enquiryRef: text("enquiry_ref"),
   specifications: text("specifications"),
+  submittedByTeamMemberId: varchar("submitted_by_team_member_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

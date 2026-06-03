@@ -2372,13 +2372,14 @@ export async function registerRoutes(
 
   app.get("/api/kyc", requireAuth, async (req, res) => {
     try {
-      if (req.session?.role === "team") {
+      let result;
+      if (req.session!.role === "admin") {
+        result = await storage.getKycApplications();
+      } else {
         const tmId = await getSessionTeamMemberId(req);
-        if (!tmId) return res.json([]);
-        const result = await storage.getKycApplicationsByTeamMemberId(tmId);
-        return res.json(result.map(sanitizeKyc));
+        if (!tmId) return res.status(403).json({ message: "Team-member only" });
+        result = await storage.getKycApplicationsByTeamMemberId(tmId);
       }
-      const result = await storage.getKycApplications();
       res.json(result.map(sanitizeKyc));
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch KYC applications" });
@@ -3126,7 +3127,7 @@ export async function registerRoutes(
     return { ok: false, message: "Forbidden" };
   }
 
-  // Returns the set of enquiryRefs that a team member submitted — used to scope trade access.
+  // Returns the set of enquiryRefs that a team member submitted — used to scope trade-document access.
   async function getTeamMemberEnquiryRefs(tmId: string): Promise<Set<string>> {
     const enquiries = await storage.getTradeEnquiriesByTeamMemberId(tmId);
     const refs = new Set<string>();
@@ -3136,20 +3137,15 @@ export async function registerRoutes(
     return refs;
   }
 
-  // Trade record-level access: admin passes through; team users must own the trade
-  // via an enquiry they submitted (trade.enquiryRef → enquiry.submittedByTeamMemberId).
-  // Trades without an enquiryRef are admin-only.
-  async function ensureTradeAccess(req: Request, trade: any): Promise<boolean> {
-    if (!req.session?.authenticated) return false;
-    if (req.session.role === "admin") return true;
+  async function ensureTradeAccess(req: Request, trade: any): Promise<{ ok: boolean; message?: string }> {
+    if (!req.session?.authenticated) return { ok: false, message: "Not authenticated" };
+    if (req.session.role === "admin") return { ok: true };
     if (req.session.role === "team") {
-      if (!trade.enquiryRef) return false;
       const tmId = await getSessionTeamMemberId(req);
-      if (!tmId) return false;
-      const refs = await getTeamMemberEnquiryRefs(tmId);
-      return refs.has(trade.enquiryRef);
+      if (!tmId || trade.submittedByTeamMemberId !== tmId) return { ok: false, message: "Not authorised for this trade" };
+      return { ok: true };
     }
-    return false;
+    return { ok: false, message: "Forbidden" };
   }
 
   app.get("/api/kyc/:id/pdf", requireAuth, async (req: Request, res: Response) => {
@@ -3544,14 +3540,14 @@ export async function registerRoutes(
 
   app.get("/api/trades", requireModule("trading"), async (req, res) => {
     try {
-      if (req.session?.role === "team") {
+      let result;
+      if (req.session!.role === "admin") {
+        result = await storage.getTrades();
+      } else {
         const tmId = await getSessionTeamMemberId(req);
-        if (!tmId) return res.json([]);
-        const refs = await getTeamMemberEnquiryRefs(tmId);
-        const all = await storage.getTrades();
-        return res.json(all.filter((t) => t.enquiryRef && refs.has(t.enquiryRef)));
+        if (!tmId) return res.status(403).json({ message: "Team-member only" });
+        result = await storage.getTradesByTeamMemberId(tmId);
       }
-      const result = await storage.getTrades();
       res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch trades" });
@@ -3570,7 +3566,8 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Quantity and price must be positive" });
       }
 
-      const result = await storage.createPreDealTrade(parsed.data);
+      const tmId = req.session!.role === "team" ? await getSessionTeamMemberId(req) : null;
+      const result = await storage.createPreDealTrade({ ...parsed.data, submittedByTeamMemberId: tmId });
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to create trade" });
@@ -3589,9 +3586,8 @@ export async function registerRoutes(
       if (!trade) {
         return res.status(404).json({ message: "Trade not found" });
       }
-      if (!(await ensureTradeAccess(req, trade))) {
-        return res.status(403).json({ message: "Access denied" });
-      }
+      const accessCheck = await ensureTradeAccess(req, trade);
+      if (!accessCheck.ok) return res.status(403).json({ message: accessCheck.message });
       const currentIdx = statusFlow.indexOf(trade.status);
       const nextIdx = statusFlow.indexOf(status);
       if (nextIdx !== currentIdx + 1) {
@@ -3637,9 +3633,8 @@ export async function registerRoutes(
       if (!trade) {
         return res.status(404).json({ message: "Trade not found" });
       }
-      if (!(await ensureTradeAccess(req, trade))) {
-        return res.status(403).json({ message: "Access denied" });
-      }
+      const accessCheck = await ensureTradeAccess(req, trade);
+      if (!accessCheck.ok) return res.status(403).json({ message: accessCheck.message });
       const current = (trade.stageDocuments as Record<string, boolean>) || {};
       current[docKey] = checked;
       const updated = await storage.updateStageDocuments(id, current);
@@ -4445,7 +4440,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/kyc-documents", requireAuth, async (req, res) => {
+  app.get("/api/kyc-documents", requireAdminAuth, async (req, res) => {
     try {
       const { documentType } = req.query;
       if (req.session?.role === "team") {
@@ -4488,6 +4483,10 @@ export async function registerRoutes(
       if (!Array.isArray(documentIds) || documentIds.length === 0) {
         return res.status(400).json({ message: "documentIds array required" });
       }
+      const kyc = await storage.getKycApplicationById(id);
+      if (!kyc) return res.status(404).json({ message: "KYC application not found" });
+      const access = await ensureKycAccess(req, kyc);
+      if (!access.ok) return res.status(403).json({ message: access.message });
       await storage.linkKycDocumentsToApplication(id, documentIds);
       res.json({ message: "Documents linked successfully" });
     } catch (error: any) {
@@ -4514,12 +4513,24 @@ export async function registerRoutes(
         fs.unlinkSync(file.path);
         return res.status(400).json({ message: "Invalid document type" });
       }
-      // Uploading directly to an existing application requires authentication.
+      // Uploading directly to an existing application requires authentication + ownership.
       // Unauthenticated callers (public KYC registration) must leave kycApplicationId empty;
       // documents are linked to the newly-created application server-side on submission.
-      if (kycApplicationId && !(req.session?.authenticated)) {
-        fs.unlinkSync(file.path);
-        return res.status(401).json({ message: "Unauthorized" });
+      if (kycApplicationId) {
+        if (!req.session?.authenticated) {
+          fs.unlinkSync(file.path);
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const kyc = await storage.getKycApplicationById(kycApplicationId);
+        if (!kyc) {
+          fs.unlinkSync(file.path);
+          return res.status(404).json({ message: "KYC application not found" });
+        }
+        const access = await ensureKycAccess(req, kyc);
+        if (!access.ok) {
+          fs.unlinkSync(file.path);
+          return res.status(403).json({ message: access.message });
+        }
       }
       // Team users may only attach documents to KYC applications they submitted.
       if (kycApplicationId && req.session?.authenticated && req.session.role === "team") {
@@ -4555,7 +4566,7 @@ export async function registerRoutes(
       if (!doc) {
         return res.status(404).json({ message: "Document not found" });
       }
-      if (req.session?.role === "team") {
+      if (req.session!.role !== "admin") {
         if (!doc.kycApplicationId) return res.status(403).json({ message: "Access denied" });
         const kyc = await storage.getKycApplicationById(doc.kycApplicationId);
         if (!kyc) return res.status(403).json({ message: "Access denied" });
@@ -4574,7 +4585,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/kyc-documents/:id", requireAuth, async (req, res) => {
+  app.delete("/api/kyc-documents/:id", requireAdminAuth, async (req, res) => {
     try {
       const docs = await storage.getKycDocuments();
       const doc = docs.find((d) => d.id === req.params.id);
@@ -4623,7 +4634,8 @@ export async function registerRoutes(
     try {
       const trade = await storage.getTradeById(req.params.tradeId);
       if (!trade) return res.status(404).json({ message: "Trade not found" });
-      if (!(await ensureTradeAccess(req, trade))) return res.status(403).json({ message: "Access denied" });
+      const access = await ensureTradeAccess(req, trade);
+      if (!access.ok) return res.status(403).json({ message: access.message });
       const result = await storage.getTradeDocuments(req.params.tradeId);
       res.json(result);
     } catch (error) {
@@ -4647,9 +4659,10 @@ export async function registerRoutes(
         fs.unlinkSync(file.path);
         return res.status(404).json({ message: "Trade not found" });
       }
-      if (!(await ensureTradeAccess(req, trade))) {
+      const access = await ensureTradeAccess(req, trade);
+      if (!access.ok) {
         fs.unlinkSync(file.path);
-        return res.status(403).json({ message: "Access denied" });
+        return res.status(403).json({ message: access.message });
       }
       const doc = await storage.createTradeDocument({
         tradeId: req.params.tradeId,
@@ -4675,9 +4688,9 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Document not found" });
       }
       const trade = await storage.getTradeById(doc.tradeId);
-      if (!trade || !(await ensureTradeAccess(req, trade))) {
-        return res.status(403).json({ message: "Access denied" });
-      }
+      if (!trade) return res.status(404).json({ message: "Parent trade not found" });
+      const access = await ensureTradeAccess(req, trade);
+      if (!access.ok) return res.status(403).json({ message: access.message });
       const filePath = path.join(tradeUploadsDir, doc.storedName);
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({ message: "File not found on disk" });
@@ -4697,9 +4710,9 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Document not found" });
       }
       const trade = await storage.getTradeById(doc.tradeId);
-      if (!trade || !(await ensureTradeAccess(req, trade))) {
-        return res.status(403).json({ message: "Access denied" });
-      }
+      if (!trade) return res.status(404).json({ message: "Parent trade not found" });
+      const access2 = await ensureTradeAccess(req, trade);
+      if (!access2.ok) return res.status(403).json({ message: access2.message });
       const filePath = path.join(tradeUploadsDir, doc.storedName);
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({ message: "File not found on disk" });
@@ -4712,7 +4725,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/trade-documents/:id", requireModule("trading"), async (req, res) => {
+  app.delete("/api/trade-documents/:id", requireAdminAuth, async (req, res) => {
     try {
       const doc = await storage.getTradeDocumentById(req.params.id);
       if (!doc) {

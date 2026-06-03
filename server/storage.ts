@@ -102,6 +102,7 @@ export interface IStorage {
   updateKycAmlScreening(id: string, data: { amlStatus: string; amlMatches?: any; amlCheckedBy?: string; amlNotes?: string; ofacStatus?: string; ofacMatches?: any; unSanctionsStatus?: string; unSanctionsMatches?: any; pepStatus?: string; pepMatches?: any }): Promise<KycApplication>;
 
   getTrades(): Promise<Trade[]>;
+  getTradesByTeamMemberId(teamMemberId: string): Promise<Trade[]>;
   getTradeById(id: string): Promise<Trade | undefined>;
   updateTradeStatus(id: string, status: string): Promise<Trade>;
   updateStageDocuments(id: string, stageDocuments: Record<string, boolean>): Promise<Trade>;
@@ -310,6 +311,10 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(trades).orderBy(desc(trades.createdAt));
   }
 
+  async getTradesByTeamMemberId(teamMemberId: string): Promise<Trade[]> {
+    return db.select().from(trades).where(eq(trades.submittedByTeamMemberId, teamMemberId)).orderBy(desc(trades.createdAt));
+  }
+
   async getTradeById(id: string): Promise<Trade | undefined> {
     const [trade] = await db.select().from(trades).where(eq(trades.id, id));
     return trade;
@@ -447,6 +452,7 @@ export class DatabaseStorage implements IStorage {
       nonce: null,
       enquiryRef: tradeInput.enquiryRef || null,
       specifications: tradeInput.specifications || null,
+      submittedByTeamMemberId: tradeInput.submittedByTeamMemberId || null,
     }).returning();
 
     return trade;
