@@ -4483,10 +4483,6 @@ export async function registerRoutes(
       if (!Array.isArray(documentIds) || documentIds.length === 0) {
         return res.status(400).json({ message: "documentIds array required" });
       }
-      const kyc = await storage.getKycApplicationById(id);
-      if (!kyc) return res.status(404).json({ message: "KYC application not found" });
-      const access = await ensureKycAccess(req, kyc);
-      if (!access.ok) return res.status(403).json({ message: access.message });
       await storage.linkKycDocumentsToApplication(id, documentIds);
       res.json({ message: "Documents linked successfully" });
     } catch (error: any) {
