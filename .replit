@@ -63,7 +63,7 @@ isValidation = true
 EMAIL_FROM = "Bullex Trading Platform <noreply@bullex.tech>"
 
 [agent]
-integrations = ["onedrive:1.0.0"]
+integrations = ["onedrive:1.0.0", "github:1.0.0"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
