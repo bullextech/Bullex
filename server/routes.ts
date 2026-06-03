@@ -3841,14 +3841,23 @@ export async function registerRoutes(
 
   app.get("/api/documents/:id/download/docx", async (req, res) => {
     try {
-      const isAdminOrTeam = req.session?.authenticated && (req.session.role === "admin" || req.session.role === "team");
-      const isClient = req.session?.authenticated && req.session.role === "client";
-      if (!isAdminOrTeam && !isClient) return res.status(401).json({ message: "Unauthorized" });
-
+      if (!req.session?.authenticated) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const role = req.session.role;
+      const isAdmin = role === "admin";
+      const isTeam = role === "team";
+      const isClient = role === "client";
+      if (isTeam && !(req.session.allowedModules ?? []).includes("doc-templates")) {
+        return res.status(403).json({ message: "Access denied: module not assigned" });
+      }
+      if (!isAdmin && !isTeam && !isClient) {
+        return res.status(403).json({ message: "Access denied" });
+      }
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
 
-      if (req.session?.role === "team") {
+      if (isTeam) {
         const tmId = await getSessionTeamMemberId(req);
         if (!tmId || doc.submittedByTeamMemberId !== tmId) {
           return res.status(403).json({ message: "Access denied" });
@@ -3897,14 +3906,23 @@ export async function registerRoutes(
 
   app.get("/api/documents/:id/download/pdf", async (req, res) => {
     try {
-      const isAdminOrTeamPdf = req.session?.authenticated && (req.session.role === "admin" || req.session.role === "team");
-      const isClientPdf = req.session?.authenticated && req.session.role === "client";
-      if (!isAdminOrTeamPdf && !isClientPdf) return res.status(401).json({ message: "Unauthorized" });
-
+      if (!req.session?.authenticated) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const rolePdf = req.session.role;
+      const isAdminPdf = rolePdf === "admin";
+      const isTeamPdf = rolePdf === "team";
+      const isClientPdf = rolePdf === "client";
+      if (isTeamPdf && !(req.session.allowedModules ?? []).includes("doc-templates")) {
+        return res.status(403).json({ message: "Access denied: module not assigned" });
+      }
+      if (!isAdminPdf && !isTeamPdf && !isClientPdf) {
+        return res.status(403).json({ message: "Access denied" });
+      }
       const doc = await storage.getDocumentById(req.params.id);
       if (!doc) return res.status(404).json({ message: "Document not found" });
 
-      if (req.session?.role === "team") {
+      if (isTeamPdf) {
         const tmId = await getSessionTeamMemberId(req);
         if (!tmId || doc.submittedByTeamMemberId !== tmId) {
           return res.status(403).json({ message: "Access denied" });
