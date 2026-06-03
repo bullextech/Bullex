@@ -31,6 +31,8 @@ Production scope for security scans should focus on the Express API, session han
 - Highest-risk areas: session/auth middleware in `server/routes.ts`; file upload/download handlers; document generation/send/sign flows; KYC approval and client/team provisioning; public-versus-authenticated route boundaries.
 - Public surfaces include onboarding/KYC-style submissions and several file/document endpoints; authenticated surfaces include admin/team dashboards and client portal APIs.
 - Frontend route guards in `client/src/App.tsx` are useful UX hints but are not authoritative for authorization decisions.
+- Treat team module assignment as coarse feature gating only. Endpoints that return or mutate a specific KYC, trade, or document still need explicit server-side ownership or recipient checks.
+- Treat opaque UUIDs, document IDs, and setup tokens as references rather than authorization. Download and workflow endpoints still require authentication and record-level validation.
 - Treat Vite dev middleware and other development-only paths as out of scope unless directly reachable in production.
 
 ## Threat Categories
@@ -50,6 +52,7 @@ The application stores highly sensitive KYC, banking, trade, and document data. 
 ### Denial of Service
 
 Public submission and upload endpoints can be invoked by unauthenticated users. The service must bound request sizes, file sizes, and any resource-intensive generation or screening work so external callers cannot exhaust CPU, storage, or email quotas.
+Public invite-style endpoints that directly send email are in scope for abuse even when they do not expose stored data, because they can still be used for quota exhaustion, spam relay, or brand impersonation.
 
 ### Elevation of Privilege
 
