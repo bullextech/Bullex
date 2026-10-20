@@ -2,7 +2,8 @@
 // Invoke with: node scripts/check-clean-install.mjs
 import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,7 +25,7 @@ const env = { ...process.env };
 delete env.NODE_PATH; // Do not borrow global/working-tree modules.
 delete env.NODE_OPTIONS;
 
-function run(command, args, cwd, log, extraEnv = {}) {
+function run(command, args, cwd, log, extraEnv = {}, expectedFailure = false) {
   console.log(`[${path.basename(cwd)}] ${command} ${args.join(" ")}`);
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -40,7 +41,11 @@ function run(command, args, cwd, log, extraEnv = {}) {
     child.on("close", async code => {
       try {
         await writeFile(log, output);
-        if (code !== 0) {
+        if (expectedFailure) {
+          assert.ok(Number.isInteger(code) && code > 0, `Expected a nonzero failure, got ${code}; see ${log}`);
+          console.log(`Expected native rejection confirmed; log: ${log}`);
+          resolve();
+        } else if (code !== 0) {
           console.error(output);
           reject(new Error(`${command} ${args.join(" ")} exited ${code}; see ${log}`));
         } else {
@@ -51,6 +56,35 @@ function run(command, args, cwd, log, extraEnv = {}) {
       } catch (error) { reject(error); }
     });
   });
+}
+
+async function checkNativeFailures(name, cwd) {
+  const checker = path.join(source, "scripts/check-native-css.cjs");
+  const rejectNative = (label, extraEnv) => run(process.execPath, [checker], cwd,
+    path.join(temporary, `${name}-${label}.log`), extraEnv, true);
+  await rejectNative("forced-wasi", { NAPI_RS_FORCE_WASI: "true" });
+  const fromTree = createRequire(path.join(cwd, "package.json"));
+  const suffix = `${process.platform}-${process.arch}` + (
+    process.platform === "win32" ? "-msvc" :
+    process.platform === "linux" ? (process.report.getReport().header.glibcVersionRuntime ? "-gnu" : "-musl") : "");
+  for (const [parent, nativeName] of [
+    ["@tailwindcss/oxide", `@tailwindcss/oxide-${suffix}`],
+    ["lightningcss", `lightningcss-${suffix}`],
+  ]) {
+    const binding = createRequire(fromTree.resolve(parent)).resolve(nativeName);
+    assert.ok(binding.startsWith(path.join(cwd, "node_modules") + path.sep));
+    assert.equal(path.extname(binding), ".node");
+    // Never load bindings in this coordinator: Windows locks loaded DLLs.
+    // Every probe is a fresh process, so module caches cannot hide removal.
+    const hidden = `${binding}.unavailable`;
+    await rename(binding, hidden);
+    try {
+      await rejectNative(`missing-${parent === "lightningcss" ? "lightningcss" : "oxide"}`);
+    } finally {
+      await rename(hidden, binding);
+    }
+  }
+  console.log(`[${name}] Forced WASI and both missing native bindings failed as required.`);
 }
 
 async function checkTree(name, entries, checkScript) {
@@ -70,6 +104,7 @@ async function checkTree(name, entries, checkScript) {
   await command(["ci", "--include=dev", "--include=optional"], "ci");
   await run(process.execPath, [path.join(source, "scripts/check-native-css.cjs")], cwd,
     path.join(temporary, `${name}-native.log`));
+  await checkNativeFailures(name, cwd);
   await command(["ls", "--all"], "dependencies");
   await command(["audit", "--audit-level=low"], "audit");
   // The sandbox build generates src/.generated/mockup-components.ts for tsc.

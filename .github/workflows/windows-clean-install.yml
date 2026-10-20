@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: windows-clean-install-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   clean-install:
     runs-on: windows-2022
