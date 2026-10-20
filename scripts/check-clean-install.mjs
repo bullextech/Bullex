@@ -28,14 +28,26 @@ delete env.NODE_OPTIONS;
 function run(command, args, cwd, log, extraEnv = {}, expectedFailure = false) {
   console.log(`[${path.basename(cwd)}] ${command} ${args.join(" ")}`);
   return new Promise((resolve, reject) => {
+    const childEnv = { ...env };
+    for (const [key, value] of Object.entries(extraEnv)) {
+      // Windows environment names are case-insensitive. Otherwise an inherited
+      // NPM_CONFIG_CACHE can win over npm_config_cache in Node's spawn handling.
+      if (process.platform === "win32") {
+        for (const existing of Object.keys(childEnv)) {
+          if (existing.toLowerCase() === key.toLowerCase()) delete childEnv[existing];
+        }
+      }
+      childEnv[key] = value;
+    }
     const child = spawn(command, args, {
-      cwd, env: { ...env, ...extraEnv },
+      cwd, env: childEnv,
       // npm.cmd needs the Windows command interpreter.
       shell: process.platform === "win32" && command === npm,
       stdio: ["ignore", "pipe", "pipe"],
     });
     let output = "";
-    child.stdout.on("data", data => { output += data; });
+    let stdout = "";
+    child.stdout.on("data", data => { output += data; stdout += data; });
     child.stderr.on("data", data => { output += data; });
     child.on("error", reject);
     child.on("close", async code => {
@@ -44,14 +56,14 @@ function run(command, args, cwd, log, extraEnv = {}, expectedFailure = false) {
         if (expectedFailure) {
           assert.ok(Number.isInteger(code) && code > 0, `Expected a nonzero failure, got ${code}; see ${log}`);
           console.log(`Expected native rejection confirmed; log: ${log}`);
-          resolve();
+          resolve(stdout);
         } else if (code !== 0) {
           console.error(output);
           reject(new Error(`${command} ${args.join(" ")} exited ${code}; see ${log}`));
         } else {
           console.log(`Passed; log: ${log}`);
           if (command === process.execPath || args[0] === "audit") console.log(output.trim());
-          resolve();
+          resolve(stdout);
         }
       } catch (error) { reject(error); }
     });
@@ -98,9 +110,13 @@ async function checkTree(name, entries, checkScript) {
   const manifests = ["package.json", "package-lock.json"];
   const before = await Promise.all(manifests.map(file => readFile(path.join(cwd, file))));
   const cache = path.join(temporary, `${name}-cache`);
+  await mkdir(cache); // A newly created directory cannot contain cached packages.
   // Leave registry/firewall settings intact; include both build tools and native optionals.
   const installEnv = { npm_config_cache: cache };
   const command = (args, label, extraEnv) => run(npm, args, cwd, path.join(temporary, `${name}-${label}.log`), { ...installEnv, ...extraEnv });
+  const selectedCache = await command(["config", "get", "cache"], "cache");
+  assert.equal(path.resolve(selectedCache.trim()), cache, `${name} npm selected a foreign cache`);
+  console.log(`[${name}] Isolated npm cache selected: ${cache}`);
   await command(["ci", "--include=dev", "--include=optional"], "ci");
   await run(process.execPath, [path.join(source, "scripts/check-native-css.cjs")], cwd,
     path.join(temporary, `${name}-native.log`));
@@ -113,6 +129,7 @@ async function checkTree(name, entries, checkScript) {
   for (let i = 0; i < manifests.length; i++) {
     assert.deepEqual(await readFile(path.join(cwd, manifests[i])), before[i], `${name} ${manifests[i]} changed`);
   }
+  console.log(`[${name}] Manifest and lock unchanged.`);
 }
 
 console.log(`Node ${process.version}, npm ${execFileSync(npm, ["--version"], { shell: process.platform === "win32" }).toString().trim()}`);

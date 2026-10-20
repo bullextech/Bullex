@@ -29,6 +29,10 @@ jobs:
           architecture: x64
           # No shared npm cache or registry override.
       - name: Verify fresh Windows installs
+        env:
+          # Exercise Windows' case-insensitive environment handling: this must
+          # never override either isolated install's npm_config_cache.
+          NPM_CONFIG_CACHE: ${{ runner.temp }}\inherited-cache-not-for-installs
         run: |
           New-Item -ItemType Directory -Force generated-artifacts/windows | Out-Null
           Start-Transcript -Path generated-artifacts/windows/verification.txt
