@@ -13,13 +13,17 @@ two separate sibling directories under the OS temporary directory. It does not
 copy `node_modules`, build output, generated preview modules, or generated
 documents. Each tree gets its own initially empty npm cache and runs:
 
-1. `npm ci --include=dev --include=optional`, with the existing registry/firewall
+1. Create each empty cache and confirm `npm config get cache` selects that exact
+   directory, then `npm ci --include=dev --include=optional`, with the existing registry/firewall
    settings and normal lifecycle scripts. No registry replacement, `--force`,
    `--ignore-scripts`, `--legacy-peer-deps`, or WASI workaround is used.
 2. `scripts/check-native-css.cjs` against that tree. It requires the host-specific
    Oxide and Lightning CSS `.node` binaries, checks their versions against their
    parents and the lock, and actually scans HTML and transforms CSS. The normal
-   loaders are exercised too. A missing native binding, foreign install
+   loaders are exercised too. Fresh-process negative checks also force WASI and
+   temporarily remove each binary in turn, restoring it in `finally`. Each must
+   exit nonzero. The coordinator never loads the binaries itself, so Windows DLL
+   locking cannot prevent these probes. A missing native binding, foreign install
    resolution, custom binding path, forced WASI, or compiler exception fails.
 3. `npm ls --all` and `npm audit --audit-level=low`. Any nonzero exit fails;
    audit findings are not suppressed or converted into a passing result.
@@ -45,7 +49,7 @@ registry/security configuration. Requires Git, Node and npm on PATH.
 | Linux x64 glibc (`linux-x64-gnu`), deployment architecture | Both fresh installs and builds verified on Node 20.20.0, npm 10.8.2, glibc 2.40 |
 | macOS Apple Silicon (`darwin-arm64`) | Intended native-machine check; not executed here |
 | macOS Intel (`darwin-x64`) | Intended native-machine check; not executed here |
-| Windows x64 (`win32-x64-msvc`) | Intended native-machine check; not executed here |
+| Windows x64 (`win32-x64-msvc`) | Native run attempted 2026-10-20; blocked during package installation; native execution/builds/typechecks are **not verified** |
 | Linux arm64 / musl, Windows arm64 | Lock entries exist; not deployment targets or verified developer platforms in this check |
 
 For the Linux check, both trees selected and executed
@@ -77,6 +81,63 @@ Linux glibc success does not establish musl or a minimum glibc version.
 Build tools are dev dependencies: do not omit them or optional dependencies
 before building a deployment. Do not delete/regenerate locks to conceal an
 install failure.
+
+### Native Windows attempt — 2026-10-20 (blocked, not a pass)
+
+The separate GitHub branch `verification/windows-clean-install` runs
+`.github/workflows/windows-clean-install.yml` on `windows-2022`, without merging
+or deploying anything. Actions are pinned to commit hashes, checkout credentials
+are not retained, job permissions are read-only, npm caches are not shared, and
+failure transcripts/logs are uploaded with a 14-day retention period.
+
+Real host/runtime evidence from
+[the native Windows run](https://github.com/bullextech/Bullex/actions/runs/39406519652):
+
+- Microsoft Windows Server 2022 Datacenter, version `10.0.20348`, 64-bit.
+- GitHub runner image `win22`, image version `20261012.333.1`.
+- Git `2.56.0.windows.2`, native x64 Node `20.20.0`, npm `10.8.2`.
+- `node scripts/check-clean-install.mjs` reported `win32/x64`.
+- `npm.cmd config get cache` selected the isolated root cache even with an
+  inherited uppercase `NPM_CONFIG_CACHE`. The runner now replaces
+  case-insensitive environment-name collisions before spawning Windows children.
+- `npm.cmd ci --include=dev --include=optional` ran, but npm aborted with
+  `npm error Exit handler never called!`. Its launcher reported exit zero;
+  the following native check correctly stopped with `MODULE_NOT_FOUND` for
+  `@tailwindcss/oxide`. This is an incomplete install, not successful native
+  loading. No WASI fallback was accepted.
+
+Both unchanged lockfiles contain resolved tarball URLs on
+`package-firewall.replit.local` and `package-firewall.replit.internal`.
+[The follow-up registry preflight](https://github.com/bullextech/Bullex/actions/runs/39406968426)
+confirmed `ENOTFOUND` for **both** private hosts on that native Windows runner;
+`registry.npmjs.org` resolved successfully. It failed before installing anything
+and retained its evidence artifact. A public
+GitHub-hosted Windows runner must have approved access to these hosts before the
+locked installation can work. The workflow now checks DNS for **both HTTP and
+HTTPS** registry URLs before installing, rather than rewriting private URLs,
+changing registries, regenerating locks, or disabling the package firewall.
+DNS success alone would not prove HTTP access or package-firewall enforcement.
+An external GitHub audit is not evidence of Replit's network-level protections.
+
+The test branch is a compilation snapshot of the current build sources,
+manifests, locks, and imported assets. Unrelated uploaded documents, tutorial
+assets, and large public runtime videos were deliberately not added to Git
+history. It is not a deployment or a check of runtime media availability.
+Windows Git checkout line-ending conversion changes text-file SHA-256 values
+relative to a Linux checkout; preservation checks compare each tree against its
+own pre-install bytes, not a different host's working-tree hashes.
+
+**Still required:** an approved native Windows x64 runner that can resolve and
+reach the locked registry hosts, followed by a complete successful run of both
+installs, both native checks and negative probes, both dependency checks/audits,
+both builds/typechecks, manifest comparisons, and successful cleanup. None of
+those unexecuted Windows stages is claimed as passing.
+
+The updated verifier did complete on Linux x64/glibc `2.40` with Node
+`20.20.0`/npm `10.8.2`: both isolated caches, both native compilers, all six
+negative probes, both dependency trees/audits (zero vulnerabilities), both
+builds/typechecks, unchanged copied manifests/locks, and temporary cleanup passed.
+The original working manifests and locks are unchanged.
 
 
 ## Build-tool crash-risk remediation
