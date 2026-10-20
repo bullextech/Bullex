@@ -50,6 +50,10 @@ jobs:
               $before[$file] = (Get-FileHash $file -Algorithm SHA256).Hash
               Write-Output "$file SHA256 $($before[$file])"
             }
+            # Do not rewrite private lock URLs to a public registry on an
+            # external runner. Fail clearly before a partial npm installation.
+            node --input-type=module -e "import { readFileSync } from 'node:fs'; import { lookup } from 'node:dns/promises'; const hosts = new Set(['package-lock.json','artifacts/mockup-sandbox/package-lock.json'].flatMap(file => Object.values(JSON.parse(readFileSync(file, 'utf8')).packages).filter(p => p.resolved?.startsWith('https:')).map(p => new URL(p.resolved).hostname))); for (const host of hosts) { try { await lookup(host); console.log('Registry DNS reachable: ' + host); } catch (error) { console.error('Locked registry unavailable: ' + host + ' (' + error.code + '). Use a Windows runner with approved registry access; do not rewrite the locks or bypass the package firewall.'); process.exitCode = 1; } }"
+            if ($LASTEXITCODE -ne 0) { throw "The Windows runner cannot resolve the locked package registries" }
             & node scripts/check-clean-install.mjs 2>&1 | Tee-Object -FilePath generated-artifacts/windows/clean-install.txt
             if ($LASTEXITCODE -ne 0) { throw "Clean-install verification failed with exit $LASTEXITCODE" }
             foreach ($file in $manifests) {
