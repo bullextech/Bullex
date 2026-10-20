@@ -1,3 +1,4 @@
+import { lazy, Suspense, useEffect, type ComponentType } from "react";
 import { Switch, Route, useRoute, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -17,62 +18,88 @@ import { Shield } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import AccessDenied from "@/pages/access-denied";
 import Home from "@/pages/home";
-import Dashboard from "@/pages/dashboard";
-import KYC from "@/pages/kyc";
-import DocumentGenerator from "@/pages/document-generator";
-import Trading from "@/pages/trades";
-import Vault from "@/pages/vault";
-import Blockchain from "@/pages/blockchain";
-import Products from "@/pages/products";
-import Contact from "@/pages/contact";
-import KycAdmin from "@/pages/kyc-admin";
-import Investor from "@/pages/investor";
-import Platform from "@/pages/platform";
-import KycRegister from "@/pages/kyc-register";
-import EnquiryRegister from "@/pages/enquiry-register";
-import ClientPortal from "@/pages/client-portal";
-import TradeEnquiries from "@/pages/trade-enquiries";
-import Deals from "@/pages/deals";
 import Login from "@/pages/login";
-import Register from "@/pages/register";
-import RegistrationsAdmin from "@/pages/registrations-admin";
-import HumanResources from "@/pages/human-resources";
-import TeamMembers from "@/pages/team-members";
-import TeamKYC from "@/pages/team-kyc";
-import InvestorDeck from "@/pages/investor-deck";
-import TradeBank from "@/pages/trade-bank";
-import TradingTerminal from "@/pages/trading-terminal";
-import Banking from "@/pages/banking";
-import DatabaseBackup from "@/pages/database-backup";
-import TaskBoard from "@/pages/task-board";
-import TeamPortal from "@/pages/team-portal";
-import TeamReset from "@/pages/team-reset";
-import ClientSetup from "@/pages/client-setup";
-import Notifications from "@/pages/notifications";
-import Chat from "@/pages/chat";
 import { ComingSoon } from "@/pages/coming-soon";
+import { idlePrefetchAllowedRoutes } from "@/lib/route-prefetch";
+
+const Dashboard = lazy(() => import("@/pages/dashboard"));
+const KYC = lazy(() => import("@/pages/kyc"));
+const DocumentGenerator = lazy(() => import("@/pages/document-generator"));
+const Trading = lazy(() => import("@/pages/trades"));
+const Vault = lazy(() => import("@/pages/vault"));
+const Blockchain = lazy(() => import("@/pages/blockchain"));
+const Products = lazy(() => import("@/pages/products"));
+const Contact = lazy(() => import("@/pages/contact"));
+const KycAdmin = lazy(() => import("@/pages/kyc-admin"));
+const Investor = lazy(() => import("@/pages/investor"));
+const TokenizationModel = lazy(() => import("@/pages/tokenization-model"));
+const Platform = lazy(() => import("@/pages/platform"));
+const KycRegister = lazy(() => import("@/pages/kyc-register"));
+const EnquiryRegister = lazy(() => import("@/pages/enquiry-register"));
+const ClientPortal = lazy(() => import("@/pages/client-portal"));
+const TradeEnquiries = lazy(() => import("@/pages/trade-enquiries"));
+const Register = lazy(() => import("@/pages/register"));
+const RegistrationsAdmin = lazy(() => import("@/pages/registrations-admin"));
+const HumanResources = lazy(() => import("@/pages/human-resources"));
+const TeamMembers = lazy(() => import("@/pages/team-members"));
+const TeamPerformance = lazy(() => import("@/pages/team-performance"));
+const TeamKYC = lazy(() => import("@/pages/team-kyc"));
+const InvestorDeck = lazy(() => import("@/pages/investor-deck"));
+const TradeBank = lazy(() => import("@/pages/trade-bank"));
+const Matching = lazy(() => import("@/pages/matching"));
+const DealPipeline = lazy(() => import("@/pages/deal-pipeline"));
+const Banking = lazy(() => import("@/pages/banking"));
+const DatabaseBackup = lazy(() => import("@/pages/database-backup"));
+const TaskBoard = lazy(() => import("@/pages/task-board"));
+const Checklists = lazy(() => import("@/pages/checklists"));
+const TeamPortal = lazy(() => import("@/pages/team-portal"));
+const TeamReset = lazy(() => import("@/pages/team-reset"));
+const ClientSetup = lazy(() => import("@/pages/client-setup"));
+const Notifications = lazy(() => import("@/pages/notifications"));
+const Chat = lazy(() => import("@/pages/chat"));
+const Contacts = lazy(() => import("@/pages/contacts"));
+const MyTeam = lazy(() => import("@/pages/my-team"));
+const Shipments = lazy(() => import("@/pages/shipments"));
+const LivePrices = lazy(() => import("@/pages/live-prices"));
+
+function PageFallback() {
+  return (
+    <div className="p-6 space-y-6">
+      <Skeleton className="h-8 w-72" />
+      <Skeleton className="h-[400px]" />
+    </div>
+  );
+}
 
 const Analytics = () => <ComingSoon title="Analytics" description="Trading performance, KYC throughput and operational analytics will appear here." />;
-const Shipments = () => <ComingSoon title="Shipments" description="Vessel scheduling, cargo loading, ETA tracking and discharge events." />;
 const QaReports = () => <ComingSoon title="QA Reports" description="Sampling, quality, moisture and weight inspection reports from independent agencies." />;
-const LivePrices = () => <ComingSoon title="Live Prices" description="Live commodity price feeds for metals, energy and fertilizers." />;
 
 // Always requires login; admins get full access, team members get all modules unrestricted by this gate
-function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
+function ProtectedRoute({ component: Component }: { component: ComponentType }) {
   const { authenticated, loading } = useAuth();
   if (loading) return <div className="p-6 space-y-6"><Skeleton className="h-8 w-72" /><Skeleton className="h-[400px]" /></div>;
   if (!authenticated) return <Login />;
   return <Component />;
 }
 
-// Requires login AND a specific module in allowedModules (for team members).
-// Admins bypass the module check entirely.
-function ModuleRoute({ component: Component, moduleId }: { component: () => JSX.Element; moduleId: string }) {
-  const { authenticated, loading, role, allowedModules } = useAuth();
+// Requires login AND the admin role (team members are denied).
+function AdminRoute({ component: Component }: { component: ComponentType }) {
+  const { authenticated, loading, role } = useAuth();
   if (loading) return <div className="p-6 space-y-6"><Skeleton className="h-8 w-72" /><Skeleton className="h-[400px]" /></div>;
   if (!authenticated) return <Login />;
   if (role === "admin") return <Component />;
-  if (role === "team" && (allowedModules ?? []).includes(moduleId)) return <Component />;
+  return <AccessDenied />;
+}
+
+// Requires login AND a specific module in allowedModules (for team members).
+// Admins bypass the module check entirely.
+function ModuleRoute({ component: Component, moduleId, teamOnly }: { component: ComponentType; moduleId: string | string[]; teamOnly?: boolean }) {
+  const { authenticated, loading, role, allowedModules } = useAuth();
+  const requiredIds = Array.isArray(moduleId) ? moduleId : [moduleId];
+  if (loading) return <div className="p-6 space-y-6"><Skeleton className="h-8 w-72" /><Skeleton className="h-[400px]" /></div>;
+  if (!authenticated) return <Login />;
+  if (role === "admin") return teamOnly ? <AccessDenied /> : <Component />;
+  if (role === "team" && requiredIds.some((id) => (allowedModules ?? []).includes(id))) return <Component />;
   return <AccessDenied />;
 }
 
@@ -108,40 +135,48 @@ function HomeOrTeamPortal() {
 
 function Router() {
   return (
+    <Suspense fallback={<PageFallback />}>
     <Switch>
       <Route path="/">{() => <HomeOrTeamPortal />}</Route>
       <Route path="/dashboard">{() => <ModuleRoute component={Dashboard} moduleId="dashboard" />}</Route>
       <Route path="/registrations">{() => <ModuleRoute component={RegistrationsAdmin} moduleId="registrations" />}</Route>
       <Route path="/kyc-admin">{() => <ModuleRoute component={KycAdmin} moduleId="kyc-admin" />}</Route>
       <Route path="/team">{() => <ProtectedRoute component={TeamMembers} />}</Route>
+      <Route path="/team-performance">{() => <AdminRoute component={TeamPerformance} />}</Route>
       <Route path="/team-kyc-admin">{() => <Redirect to="/team" />}</Route>
       <Route path="/trade-enquiries">{() => <ModuleRoute component={TradeEnquiries} moduleId="enquiries" />}</Route>
-      <Route path="/documents">{() => <ModuleRoute component={DocumentGenerator} moduleId="doc-templates" />}</Route>
+      <Route path="/documents">{() => <ModuleRoute component={DocumentGenerator} moduleId={["documents", "doc-templates"]} />}</Route>
       <Route path="/trading">{() => <ModuleRoute component={Trading} moduleId="trading" />}</Route>
-      <Route path="/deals">{() => <ModuleRoute component={Deals} moduleId="deals" />}</Route>
+      <Route path="/matching">{() => <ModuleRoute component={Matching} moduleId="matching" />}</Route>
+      <Route path="/deal-pipeline">{() => <ModuleRoute component={DealPipeline} moduleId="enquiries" />}</Route>
       <Route path="/vault">{() => <ModuleRoute component={Vault} moduleId="vault" />}</Route>
       <Route path="/blockchain">{() => <ModuleRoute component={Blockchain} moduleId="blockchain" />}</Route>
       <Route path="/team-members">{() => <Redirect to="/team" />}</Route>
       <Route path="/hr">{() => <Redirect to="/team" />}</Route>
       <Route path="/db-backup">{() => <ProtectedRoute component={DatabaseBackup} />}</Route>
       <Route path="/tasks">{() => <ModuleRoute component={TaskBoard} moduleId="tasks" />}</Route>
+      <Route path="/checklists">{() => <ModuleRoute component={Checklists} moduleId="checklists" />}</Route>
       <Route path="/analytics">{() => <ModuleRoute component={Analytics} moduleId="analytics" />}</Route>
       <Route path="/notifications">{() => <ModuleRoute component={Notifications} moduleId="notifications" />}</Route>
       <Route path="/chat">{() => <ProtectedRoute component={Chat} />}</Route>
-      <Route path="/doc-templates">{() => <ModuleRoute component={DocumentGenerator} moduleId="doc-templates" />}</Route>
+      <Route path="/doc-templates">{() => <ModuleRoute component={DocumentGenerator} moduleId={["documents", "doc-templates"]} />}</Route>
       <Route path="/shipments">{() => <ModuleRoute component={Shipments} moduleId="shipments" />}</Route>
       <Route path="/qa-reports">{() => <ModuleRoute component={QaReports} moduleId="qa-reports" />}</Route>
       <Route path="/banking">{() => <ModuleRoute component={Banking} moduleId="banking" />}</Route>
       <Route path="/live-prices">{() => <ModuleRoute component={LivePrices} moduleId="live-prices" />}</Route>
+      <Route path="/contacts">{() => <ModuleRoute component={Contacts} moduleId="contacts" />}</Route>
+      <Route path="/my-team">{() => <ModuleRoute component={MyTeam} moduleId="team-network" teamOnly />}</Route>
       <Route path="/team-portal">{() => <ProtectedRoute component={TeamPortal} />}</Route>
       <Route path="/products" component={Products} />
       <Route path="/platform" component={Platform} />
       <Route path="/client-portal" component={ClientPortal} />
       <Route path="/investor" component={Investor} />
+      <Route path="/tokenization-model" component={TokenizationModel} />
       <Route path="/human-resources" component={HumanResources} />
       <Route path="/contact" component={Contact} />
       <Route component={NotFound} />
     </Switch>
+    </Suspense>
   );
 }
 
@@ -156,6 +191,18 @@ function MobileSidebarSheet() {
       </SheetContent>
     </Sheet>
   );
+}
+
+// Once auth resolves, warm the chunks of the pages this user can open
+// during browser idle time (helps touch devices, where hover prefetch
+// never fires). No-op until authenticated; renders nothing.
+function IdleRoutePrefetcher() {
+  const { authenticated, loading, role, allowedModules, username } = useAuth();
+  useEffect(() => {
+    if (loading || !authenticated) return;
+    idlePrefetchAllowedRoutes(role, allowedModules, username);
+  }, [loading, authenticated, role, allowedModules, username]);
+  return null;
 }
 
 function AppShell() {
@@ -174,6 +221,7 @@ function AppShell() {
             <MobileSidebarSheet />
           </>
         )}
+        <IdleRoutePrefetcher />
         <main className="flex-1 overflow-hidden flex flex-col min-w-0">
           <div className="flex-1 overflow-hidden">
             <Router />
@@ -200,7 +248,6 @@ function App() {
   const [isClientSetup] = useRoute("/client-setup/:token");
   const [isDeck] = useRoute("/deck");
   const [isTradeBank] = useRoute("/trade-bank");
-  const [isTradingTerminal] = useRoute("/trading-terminal");
 
   return (
     <ThemeProvider>
@@ -210,6 +257,7 @@ function App() {
             <AuthProvider>
               <MobileSidebarProvider>
               <AmendModeProvider>
+              <Suspense fallback={<PageFallback />}>
               {isKycRegister ? (
                 <KycRegister />
               ) : isEnquiryRegister ? (
@@ -230,11 +278,10 @@ function App() {
                 <InvestorDeck />
               ) : isTradeBank ? (
                 <TradeBank />
-              ) : isTradingTerminal ? (
-                <TradingTerminal />
               ) : (
                 <AppShell />
               )}
+              </Suspense>
               </AmendModeProvider>
               </MobileSidebarProvider>
             </AuthProvider>

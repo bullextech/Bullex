@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { trackEvent } from "@/lib/analytics";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ export default function EnquiryRegister() {
       return res.json();
     },
     onSuccess: (data: any) => {
+      trackEvent("enquiry_created", { location: "public_enquiry" });
       setSubmitted(data?.enquiryRef || "submitted");
       toast({ title: "Enquiry Submitted", description: `Reference: ${data?.enquiryRef || ""}. Our trade desk will contact you shortly.` });
     },

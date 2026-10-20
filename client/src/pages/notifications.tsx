@@ -1,12 +1,21 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { FileText, Bell, ExternalLink, Check } from "lucide-react";
+import { FileText, Bell, ExternalLink, Check, Loader2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Notification } from "@shared/schema";
+
+const PAGE_SIZE = 100;
+
+interface NotificationsPage {
+  items: Notification[];
+  total: number;
+  nextCursor: string | null;
+}
 
 function formatTimestamp(iso: string) {
   const d = new Date(iso);
@@ -18,32 +27,79 @@ function formatTimestamp(iso: string) {
   return `${day} ${month} ${year} at ${hh}:${mm}`;
 }
 
+async function fetchNotificationsPage(cursor?: string): Promise<NotificationsPage> {
+  const qs = new URLSearchParams({ limit: String(PAGE_SIZE) });
+  if (cursor) qs.set("cursor", cursor);
+  const res = await fetch(`/api/notifications?${qs.toString()}`, { credentials: "include" });
+  if (!res.ok) throw new Error(`${res.status}: ${(await res.text()) || res.statusText}`);
+  return res.json();
+}
+
 export default function NotificationsPage() {
-  const { data: notifications = [], isLoading } = useQuery<Notification[]>({
-    queryKey: ["/api/notifications"],
+  // Older pages loaded via "Load more" live in local state; only the newest
+  // page is polled every 30s so the refresh cost stays constant as history grows.
+  const [olderItems, setOlderItems] = useState<Notification[]>([]);
+  const [olderCursor, setOlderCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const { data: firstPage, isLoading } = useQuery<NotificationsPage>({
+    queryKey: ["/api/notifications", "latest"],
+    queryFn: () => fetchNotificationsPage(),
     refetchInterval: 30000,
   });
 
+  const { data: unread } = useQuery<{ count: number }>({
+    queryKey: ["/api/notifications/unread-count"],
+    refetchInterval: 30000,
+  });
+
+  const firstItems = firstPage?.items ?? [];
+  const firstIds = new Set(firstItems.map((n) => n.id));
+  const notifications = [...firstItems, ...olderItems.filter((n) => !firstIds.has(n.id))];
+  const total = firstPage?.total ?? notifications.length;
+  const unreadCount = unread?.count ?? firstItems.filter((n) => !n.isRead).length;
+  // Cursor for the next older page: continue from where we last loaded, or
+  // from the first page if nothing older has been loaded yet.
+  const nextCursor = olderItems.length > 0 ? olderCursor : firstPage?.nextCursor ?? null;
+
+  const loadMore = async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await fetchNotificationsPage(nextCursor);
+      setOlderItems((prev) => {
+        const seen = new Set(prev.map((n) => n.id));
+        return [...prev, ...page.items.filter((n) => !seen.has(n.id))];
+      });
+      setOlderCursor(page.nextCursor);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+  };
+
   const markRead = useMutation({
     mutationFn: (id: string) => apiRequest("PATCH", `/api/notifications/${id}/read`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+    onSuccess: (_res, id) => {
+      setOlderItems((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+      invalidate();
     },
   });
 
   const markAllRead = useMutation({
     mutationFn: () => apiRequest("PATCH", "/api/notifications/read-all"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+      setOlderItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      invalidate();
     },
   });
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
-
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-background">
+    <div className="h-full flex flex-col overflow-hidden bg-background">
       <div className="border-b border-border px-6 py-5 bg-card">
         <h1 className="text-xl font-bold tracking-tight text-foreground" data-testid="text-notifications-title">
           Notifications
@@ -51,13 +107,13 @@ export default function NotificationsPage() {
         <p className="text-xs text-muted-foreground mt-0.5">Platform alerts and updates</p>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-bold text-foreground">Notifications</h2>
               <p className="text-xs text-muted-foreground mt-0.5" data-testid="text-notifications-counts">
-                {unreadCount} unread · {notifications.length} total
+                {unreadCount} unread · {total} total
               </p>
             </div>
             <Button
@@ -91,66 +147,84 @@ export default function NotificationsPage() {
               </p>
             </Card>
           ) : (
-            <Card className="rounded-md border border-border shadow-none overflow-hidden">
-              <ul className="divide-y divide-border">
-                {notifications.map((n) => (
-                  <li key={n.id}>
-                    <div
-                      className="flex items-start gap-4 px-5 py-4 transition-colors"
-                      data-testid={`notification-${n.id}`}
-                    >
-                      <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                        <FileText className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-sm font-semibold text-foreground leading-tight truncate" data-testid={`text-notif-title-${n.id}`}>
-                            {n.title}
-                          </p>
-                          {!n.isRead && (
-                            <span
-                              className="inline-block w-2 h-2 rounded-full bg-primary shrink-0"
-                              aria-label="Unread"
-                              data-testid={`indicator-unread-${n.id}`}
-                            />
-                          )}
+            <>
+              <Card className="rounded-md border border-border shadow-none overflow-hidden">
+                <ul className="divide-y divide-border">
+                  {notifications.map((n) => (
+                    <li key={n.id}>
+                      <div
+                        className="flex items-start gap-4 px-5 py-4 transition-colors"
+                        data-testid={`notification-${n.id}`}
+                      >
+                        <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                          <FileText className="w-4 h-4 text-muted-foreground" />
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1 break-words">{n.message}</p>
-                        <p className="text-[11px] text-muted-foreground mt-1.5" data-testid={`text-notif-time-${n.id}`}>
-                          {formatTimestamp(n.createdAt as any)}
-                        </p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-semibold text-foreground leading-tight truncate" data-testid={`text-notif-title-${n.id}`}>
+                              {n.title}
+                            </p>
+                            {!n.isRead && (
+                              <span
+                                className="inline-block w-2 h-2 rounded-full bg-primary shrink-0"
+                                aria-label="Unread"
+                                data-testid={`indicator-unread-${n.id}`}
+                              />
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1 break-words">{n.message}</p>
+                          <p className="text-[11px] text-muted-foreground mt-1.5" data-testid={`text-notif-time-${n.id}`}>
+                            {formatTimestamp(n.createdAt as any)}
+                          </p>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-2 pt-1">
+                          {n.link && (
+                            <Link href={n.link}>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 rounded-md text-xs font-medium gap-1.5"
+                                data-testid={`button-notif-open-${n.id}`}
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                Open
+                              </Button>
+                            </Link>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={n.isRead || markRead.isPending}
+                            onClick={() => markRead.mutate(n.id)}
+                            className="h-8 rounded-md text-xs font-medium gap-1.5"
+                            data-testid={`button-notif-mark-read-${n.id}`}
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            {n.isRead ? "Read" : "Mark read"}
+                          </Button>
+                        </div>
                       </div>
-                      <div className="shrink-0 flex items-center gap-2 pt-1">
-                        {n.link && (
-                          <Link href={n.link}>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 rounded-md text-xs font-medium gap-1.5"
-                              data-testid={`button-notif-open-${n.id}`}
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              Open
-                            </Button>
-                          </Link>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={n.isRead || markRead.isPending}
-                          onClick={() => markRead.mutate(n.id)}
-                          className="h-8 rounded-md text-xs font-medium gap-1.5"
-                          data-testid={`button-notif-mark-read-${n.id}`}
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          {n.isRead ? "Read" : "Mark read"}
-                        </Button>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </Card>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+
+              {nextCursor && (
+                <div className="mt-4 text-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={loadingMore}
+                    onClick={loadMore}
+                    className="h-8 rounded-md border-border text-xs font-medium gap-1.5"
+                    data-testid="button-load-more-notifications"
+                  >
+                    {loadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    Load more ({notifications.length} of {total})
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </ScrollArea>

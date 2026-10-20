@@ -14,13 +14,14 @@ import {
   Calendar,
 } from "lucide-react";
 import type { KycApplication } from "@shared/schema";
+import { sortClientDetails } from "@shared/client-sorting";
 
 export default function Participants() {
   const { data: applications, isLoading } = useQuery<KycApplication[]>({
     queryKey: ["/api/kyc"],
   });
 
-  const approved = applications?.filter((a) => a.status === "approved") || [];
+  const approved = sortClientDetails(applications?.filter((a) => a.status === "approved") || []);
 
   if (isLoading) {
     return (

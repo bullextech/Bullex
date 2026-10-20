@@ -8,6 +8,7 @@ import type {
   Document as DocRow,
   Notification as AppNotification,
 } from "@shared/schema";
+import { sortClientDetails } from "@shared/client-sorting";
 
 const TERMINAL = ["final_payment", "cancelled", "closed", "completed", "rejected"];
 
@@ -113,10 +114,17 @@ export function TradeBankFrame({ className }: TradeBankFrameProps) {
   const { data: trades } = useQuery<Trade[]>({ queryKey: ["/api/trades"], enabled: authenticated });
   const { data: kyc } = useQuery<KycApplication[]>({ queryKey: ["/api/kyc"], enabled: authenticated });
   const { data: docs } = useQuery<DocRow[]>({ queryKey: ["/api/documents"], enabled: authenticated });
-  const { data: notifs } = useQuery<AppNotification[]>({
-    queryKey: ["/api/notifications"],
+  // Paginated endpoint: only the newest few rows are needed for the frame.
+  const { data: notifsPage } = useQuery<{ items: AppNotification[] }>({
+    queryKey: ["/api/notifications", "latest"],
+    queryFn: async () => {
+      const res = await fetch("/api/notifications?limit=100", { credentials: "include" });
+      if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+      return res.json();
+    },
     enabled: authenticated && role === "admin",
   });
+  const notifs = notifsPage?.items;
 
   const payload = useMemo(() => {
     if (!authenticated) return null;
@@ -126,7 +134,7 @@ export function TradeBankFrame({ className }: TradeBankFrameProps) {
 
     const financeVolume = T.reduce((a, t) => a + num(t.totalValue), 0);
     const activeTrades = T.filter((t) => !TERMINAL.includes((t.status || "").toLowerCase())).length;
-    const approved = K.filter((k) => (k.status || "").toLowerCase() === "approved");
+    const approved = sortClientDetails(K.filter((k) => (k.status || "").toLowerCase() === "approved"));
     const approvalRate = K.length ? Math.round((approved.length / K.length) * 100) : 0;
     const riskWords = ["flag", "hit", "match", "potential", "review", "fail", "positive"];
     const atRisk = K.filter((k) =>

@@ -23,6 +23,55 @@ export async function apiRequest(
   return res;
 }
 
+/**
+ * Robust multipart/file upload helper.
+ *
+ * Wraps a FormData POST with:
+ *  - `credentials: "include"` so the session cookie is always sent,
+ *  - an AbortController timeout so a stalled request fails with an actionable
+ *    error instead of an infinite "processing…" spinner,
+ *  - friendly messaging for the common Replit-preview case where the embedded
+ *    preview pane blocks the session cookie (401/403) — the fix is to open the
+ *    app in a full browser tab.
+ *
+ * Throws an Error on any failure; returns the ok Response otherwise.
+ */
+export async function uploadFormData(
+  url: string,
+  formData: FormData,
+  timeoutMs = 60000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      body: formData,
+      credentials: "include",
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new Error(
+          "Your session isn't active in this view. Open the app in a full browser tab (not the embedded preview), sign in, then upload again.",
+        );
+      }
+      const body = await res.json().catch(() => ({} as any));
+      throw new Error(body.message || `Upload failed (${res.status})`);
+    }
+    return res;
+  } catch (e: any) {
+    if (e?.name === "AbortError") {
+      throw new Error(
+        "Upload timed out. Open the app in a full browser tab (not the embedded preview), check your connection, and try again.",
+      );
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;

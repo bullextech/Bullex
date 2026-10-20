@@ -47,11 +47,11 @@ const SAMPLE_TASKS: Task[] = [
     description: "Review all submitted documents, verify blockchain hash, and approve the KYC application. Cross-check with AML database before final approval.",
     priority: "urgent",
     status: "in_progress",
-    assignee: "trade@bullex.tech",
+    assignee: "trade@bullfrog-group.com",
     dueDate: "2026-05-12",
     updates: [
       { id: "u1", author: "VK", text: "Documents received and under review. Passport and registration cert look good.", time: "10 May, 09:15" },
-      { id: "u2", author: "trade@bullex.tech", text: "AML check initiated. Waiting for response from compliance team.", time: "10 May, 11:40" },
+      { id: "u2", author: "trade@bullfrog-group.com", text: "AML check initiated. Waiting for response from compliance team.", time: "10 May, 11:40" },
     ],
   },
   {
@@ -60,7 +60,7 @@ const SAMPLE_TASKS: Task[] = [
     description: "Generate and send the Seller's Conditional Offer for 50,000 MT Granular Sulphur ex-Aktau. Price: USD 185/MT CIF. Validity: 7 days.",
     priority: "high",
     status: "todo",
-    assignee: "trade@bullex.tech",
+    assignee: "trade@bullfrog-group.com",
     dueDate: "2026-05-11",
     updates: [],
   },
@@ -82,7 +82,7 @@ const SAMPLE_TASKS: Task[] = [
     description: "Draft the Deal Recap for ANZ-IRO-0905-001. Commodity: Iron Ore 62% Fe, 50,000 MT, CIF Kamsar. Ensure dual signatory block is included.",
     priority: "medium",
     status: "todo",
-    assignee: "trade@bullex.tech",
+    assignee: "trade@bullfrog-group.com",
     dueDate: "2026-05-14",
     updates: [],
   },
@@ -132,7 +132,7 @@ function TaskRow({ task }: { task: Task }) {
     if (!replyText.trim()) return;
     setUpdates(prev => [...prev, {
       id: `u${Date.now()}`,
-      author: "trade@bullex.tech",
+      author: "trade@bullfrog-group.com",
       text: replyText.trim(),
       time: "Just now",
     }]);

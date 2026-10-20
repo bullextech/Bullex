@@ -4,3 +4,7 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+# Generated trade documents (regenerated from DB per-request, not source)
+generated_docs/
+bullex-source.zip
+/generated-artifacts/

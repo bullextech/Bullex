@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { trackEvent } from "@/lib/analytics";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,9 +35,21 @@ import {
   Eye,
   Plus,
 } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, uploadFormData } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { KycDocument } from "@shared/schema";
+import type { KycDocument, BankEntry } from "@shared/schema";
+
+const emptyBank: BankEntry = {
+  bankName: "",
+  bankBranch: "",
+  bankAddress: "",
+  accountName: "",
+  accountNumber: "",
+  swiftCode: "",
+  bankAccountCurrency: "",
+  bankOfficerName: "",
+  bankOfficerEmail: "",
+};
 
 const sections = [
   "Company Details",
@@ -102,6 +115,7 @@ const emptyForm = {
   bankAccountCurrency: "",
   bankOfficerName: "",
   bankOfficerEmail: "",
+  additionalBanks: [] as BankEntry[],
   employeesCompany: "",
   employeesGroup: "",
   previousBullfrogEmployee: "",
@@ -145,11 +159,7 @@ export default function KYC() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("documentType", documentType);
-      const res = await fetch("/api/kyc-documents/upload", { method: "POST", body: formData });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Upload failed");
-      }
+      const res = await uploadFormData("/api/kyc-documents/upload", formData);
       return res.json();
     },
     onSuccess: (data: any) => {
@@ -194,6 +204,7 @@ export default function KYC() {
       return created;
     },
     onSuccess: () => {
+      trackEvent("kyc_submitted", { location: "kyc" });
       setUploadedDocIds([]);
       queryClient.invalidateQueries({ queryKey: ["/api/kyc"] });
       queryClient.invalidateQueries({ queryKey: ["/api/kyc-documents"] });
@@ -221,6 +232,16 @@ export default function KYC() {
     }
     submitKyc.mutate(form);
   };
+
+  const addBank = () =>
+    setForm((prev) => ({ ...prev, additionalBanks: [...prev.additionalBanks, { ...emptyBank }] }));
+  const removeBank = (idx: number) =>
+    setForm((prev) => ({ ...prev, additionalBanks: prev.additionalBanks.filter((_, i) => i !== idx) }));
+  const updateBank = (idx: number, field: keyof BankEntry, value: string) =>
+    setForm((prev) => ({
+      ...prev,
+      additionalBanks: prev.additionalBanks.map((b, i) => (i === idx ? { ...b, [field]: value } : b)),
+    }));
 
   const update = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -724,6 +745,75 @@ export default function KYC() {
                   <Input className={inputClass} type="email" placeholder="Bank officer email address" value={form.bankOfficerEmail} onChange={(e) => update("bankOfficerEmail", e.target.value)} data-testid="input-bank-officer-email" />
                 </div>
               </div>
+
+              {form.additionalBanks.map((bank, idx) => (
+                <div key={idx} className="mt-8 border-t border-border pt-6" data-testid={`bank-additional-${idx}`}>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-primary flex items-center gap-2">
+                      <Landmark className="h-4 w-4 text-primary" /> Additional Bank {idx + 2}
+                    </h4>
+                    <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => removeBank(idx)} data-testid={`button-remove-bank-${idx}`}>
+                      <Trash2 className="h-4 w-4 mr-1" /> Remove
+                    </Button>
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2 md:col-span-2">
+                      <Label className={labelClass}>Bank Name</Label>
+                      <Input className={inputClass} placeholder="Full name of bank" value={bank.bankName} onChange={(e) => updateBank(idx, "bankName", e.target.value)} data-testid={`input-bank-name-${idx}`} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={labelClass}>Branch</Label>
+                      <Input className={inputClass} placeholder="Branch name" value={bank.bankBranch} onChange={(e) => updateBank(idx, "bankBranch", e.target.value)} data-testid={`input-bank-branch-${idx}`} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={labelClass}>Bank Address</Label>
+                      <Input className={inputClass} placeholder="Full bank address" value={bank.bankAddress} onChange={(e) => updateBank(idx, "bankAddress", e.target.value)} data-testid={`input-bank-address-${idx}`} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={labelClass}>Account Name</Label>
+                      <Input className={inputClass} placeholder="Name on account" value={bank.accountName} onChange={(e) => updateBank(idx, "accountName", e.target.value)} data-testid={`input-account-name-${idx}`} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={labelClass}>Account Number / IBAN</Label>
+                      <Input className={inputClass} placeholder="Account number or IBAN" value={bank.accountNumber} onChange={(e) => updateBank(idx, "accountNumber", e.target.value)} data-testid={`input-account-number-${idx}`} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={labelClass}>Swift Code</Label>
+                      <Input className={inputClass} placeholder="SWIFT / BIC code" value={bank.swiftCode} onChange={(e) => updateBank(idx, "swiftCode", e.target.value)} data-testid={`input-swift-code-${idx}`} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={labelClass}>Bank Account / Currency</Label>
+                      <Select value={bank.bankAccountCurrency} onValueChange={(v) => updateBank(idx, "bankAccountCurrency", v)}>
+                        <SelectTrigger className={inputClass} data-testid={`select-bank-currency-${idx}`}>
+                          <SelectValue placeholder="Select currency..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="GBP">GBP</SelectItem><SelectItem value="CNY">CNY</SelectItem>
+                          <SelectItem value="AED">AED</SelectItem>
+                          <SelectItem value="CHF">CHF</SelectItem>
+                          <SelectItem value="SGD">SGD</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={labelClass}>Bank Officer Name</Label>
+                      <Input className={inputClass} placeholder="Full name of bank officer" value={bank.bankOfficerName} onChange={(e) => updateBank(idx, "bankOfficerName", e.target.value)} data-testid={`input-bank-officer-name-${idx}`} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className={labelClass}>Bank Officer Email</Label>
+                      <Input className={inputClass} type="email" placeholder="Bank officer email address" value={bank.bankOfficerEmail} onChange={(e) => updateBank(idx, "bankOfficerEmail", e.target.value)} data-testid={`input-bank-officer-email-${idx}`} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <div className="mt-6">
+                <Button type="button" variant="outline" onClick={addBank} data-testid="button-add-bank">
+                  <Plus className="h-4 w-4 mr-2" /> Add Another Bank
+                </Button>
+              </div>
             </div>
           )}
 
@@ -1037,6 +1127,13 @@ export default function KYC() {
                     ["Account Name", form.accountName], ["Account Number", form.accountNumber],
                     ["SWIFT Code", form.swiftCode], ["Currency", form.bankAccountCurrency],
                     ["Bank Officer Name", form.bankOfficerName], ["Bank Officer Email", form.bankOfficerEmail],
+                    ...form.additionalBanks.flatMap((b, i) => [
+                      [`— Additional Bank ${i + 2} —`, ""],
+                      [`Bank Name`, b.bankName], [`Branch`, b.bankBranch], [`Bank Address`, b.bankAddress],
+                      [`Account Name`, b.accountName], [`Account Number`, b.accountNumber],
+                      [`SWIFT Code`, b.swiftCode], [`Currency`, b.bankAccountCurrency],
+                      [`Bank Officer Name`, b.bankOfficerName], [`Bank Officer Email`, b.bankOfficerEmail],
+                    ]),
                   ]},
                   { title: "7. Human Resources", icon: <Users className="w-4 h-4" />, rows: [
                     ["Employees (Company)", form.employeesCompany], ["Employees (Group)", form.employeesGroup],

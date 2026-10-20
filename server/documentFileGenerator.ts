@@ -15,14 +15,374 @@ import {
   ShadingType,
   PageBreak,
   ImageRun,
+  Header,
+  Footer,
+  HorizontalPositionRelativeFrom,
+  VerticalPositionRelativeFrom,
 } from "docx";
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
+import { storage } from "./storage";
+import { getObjectBuffer } from "./object-files";
+import { parseSpecBlobRows } from "./documentTemplates";
 
 const docsDir = path.join(process.cwd(), "generated_docs");
 if (!fs.existsSync(docsDir)) {
   fs.mkdirSync(docsDir, { recursive: true });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// DOCUMENT BRANDING LOGOS
+// Two admin-configured logos (stored in Object Storage, referenced by the
+// "document_logo" and "document_logo_secondary" app settings) brand every
+// generated document: the Bullfrog logo (secondary) at the top/header and the
+// Bullex logo (primary) at the bottom/footer.
+// ─────────────────────────────────────────────────────────────────────
+export const LOGO_SETTING_KEY = "document_logo";
+export const LOGO_SECONDARY_SETTING_KEY = "document_logo_secondary";
+// Optional full-page A4 letterhead (stationery). When set, it is drawn full-bleed
+// behind the content on every page and REPLACES the small Bullfrog header logo;
+// the Bullex footer logo still renders on top.
+export const LOGO_LETTERHEAD_SETTING_KEY = "document_letterhead";
+const BRANDING_CAT = "branding";
+// Bold running tagline shown in the footer of every page of every generated
+// document, alongside the Bullex logo.
+const BRAND_TAGLINE = "Bullex is a proprietary platform of Bullfrog Group.";
+// Declaration line rendered under the tagline on every page of every generated
+// document (PDF and DOCX).
+const DOC_DECLARATION = "This document is generated from the proprietary trading platform of Bullfrog and doesn't require any signature";
+const logoBufferCache = new Map<string, Buffer>();
+const logoPathCache = new Map<string, string>();
+
+interface DocumentLogo {
+  buffer: Buffer;
+  width: number;
+  height: number;
+  kind: "png" | "jpg";
+  // On-disk copy of the logo bytes. PDFKit only de-duplicates images that are
+  // passed as a string path (Buffers are re-embedded on every draw), so the
+  // per-page letterhead/footer must reference this path to avoid bloating
+  // multi-page PDFs.
+  path: string;
+}
+
+// Reads intrinsic pixel dimensions from a PNG or JPEG buffer (no external deps).
+function readImageSize(buf: Buffer): { width: number; height: number } | null {
+  if (buf.length >= 24 && buf.toString("ascii", 1, 4) === "PNG") {
+    return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+  }
+  if (buf.length >= 4 && buf[0] === 0xff && buf[1] === 0xd8) {
+    let offset = 2;
+    while (offset + 9 < buf.length) {
+      if (buf[offset] !== 0xff) { offset++; continue; }
+      const marker = buf[offset + 1];
+      if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+        return { height: buf.readUInt16BE(offset + 5), width: buf.readUInt16BE(offset + 7) };
+      }
+      if (offset + 3 >= buf.length) break;
+      offset += 2 + buf.readUInt16BE(offset + 2);
+    }
+  }
+  return null;
+}
+
+function imageKind(buf: Buffer): "png" | "jpg" | null {
+  if (buf.length >= 4 && buf.toString("ascii", 1, 4) === "PNG") return "png";
+  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xd8) return "jpg";
+  return null;
+}
+
+async function getDocumentLogoByKey(settingKey: string): Promise<DocumentLogo | null> {
+  try {
+    const setting = await storage.getAppSetting(settingKey);
+    if (!setting) return null;
+    const meta = JSON.parse(setting.value) as { storedName?: string };
+    if (!meta.storedName) return null;
+    let buffer = logoBufferCache.get(meta.storedName);
+    if (!buffer) {
+      buffer = await getObjectBuffer(BRANDING_CAT, meta.storedName);
+      logoBufferCache.set(meta.storedName, buffer);
+    }
+    const kind = imageKind(buffer);
+    if (!kind) return null;
+    const size = readImageSize(buffer) || { width: 300, height: 100 };
+    let diskPath = logoPathCache.get(meta.storedName);
+    if (!diskPath || !fs.existsSync(diskPath)) {
+      // Harden against a malformed storedName escaping docsDir: strip any path
+      // segments and assert the resolved file stays inside docsDir.
+      const safeName = path.basename(String(meta.storedName));
+      diskPath = path.join(docsDir, `.logo-${safeName}`);
+      if (!path.resolve(diskPath).startsWith(path.resolve(docsDir) + path.sep)) {
+        return null;
+      }
+      fs.writeFileSync(diskPath, buffer);
+      logoPathCache.set(meta.storedName, diskPath);
+    }
+    return { buffer, width: size.width, height: size.height, kind, path: diskPath };
+  } catch {
+    return null;
+  }
+}
+
+// Loads the branding logos used to top-and-tail every generated document:
+// `header` = Bullfrog (secondary slot), `footer` = Bullex (primary slot).
+// Either may be null when that slot has not been configured.
+export async function getBrandingLogos(): Promise<{ header: DocumentLogo | null; footer: DocumentLogo | null; letterhead: DocumentLogo | null }> {
+  const [footer, header, letterhead] = await Promise.all([
+    getDocumentLogoByKey(LOGO_SETTING_KEY),
+    getDocumentLogoByKey(LOGO_SECONDARY_SETTING_KEY),
+    getDocumentLogoByKey(LOGO_LETTERHEAD_SETTING_KEY),
+  ]);
+  return { header, footer, letterhead };
+}
+
+// Scales a logo to fit within a bounding box while preserving aspect ratio.
+function fitLogo(logo: DocumentLogo, maxW: number, maxH: number): { width: number; height: number } {
+  const ratio = Math.min(maxW / logo.width, maxH / logo.height, 1);
+  return { width: Math.max(1, Math.round(logo.width * ratio)), height: Math.max(1, Math.round(logo.height * ratio)) };
+}
+
+// Builds a single centered DOCX paragraph holding the header logo (Bullfrog).
+function logoHeaderDocxParagraph(logo: DocumentLogo): Paragraph {
+  const { width, height } = fitLogo(logo, 180, 70);
+  return new Paragraph({
+    children: [new ImageRun({ data: logo.buffer, transformation: { width, height }, type: logo.kind } as any)],
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 120 },
+  });
+}
+
+// Bold running tagline paragraph shown in the DOCX footer of every page.
+function taglineFooterDocxParagraph(): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text: BRAND_TAGLINE, bold: true, size: 16 })],
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 20, after: 20 },
+  });
+}
+
+// Declaration paragraph shown under the tagline in the DOCX footer of every page.
+function declarationFooterDocxParagraph(): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text: DOC_DECLARATION, italics: true, size: 14, color: "444444" })],
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 0, after: 20 },
+  });
+}
+
+// Builds a single centered DOCX paragraph holding the footer logo (Bullex).
+function logoFooterDocxParagraph(logo: DocumentLogo): Paragraph {
+  const { width, height } = fitLogo(logo, 150, 48);
+  return new Paragraph({
+    children: [new ImageRun({ data: logo.buffer, transformation: { width, height }, type: logo.kind } as any)],
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 80, after: 40 },
+  });
+}
+
+// PDF page geometry (A4) and the reserved bands for the repeating
+// Bullfrog letterhead (top) and Bullex footer logo (bottom).
+const PDF_LEFT = 50;
+const PDF_PAGE_W = 495;
+const PDF_PAGE_H = 841.89;
+const PDF_FULL_W = 595.28; // full A4 width in points (for full-bleed letterhead)
+const PDF_MARGINS = { top: 118, bottom: 95, left: PDF_LEFT, right: PDF_LEFT };
+
+interface PdfBranding {
+  header: DocumentLogo | null;
+  footer: DocumentLogo | null;
+  letterhead: DocumentLogo | null;
+}
+
+// Draws the page branding on the CURRENT page. When a full-page letterhead is
+// configured it is drawn full-bleed behind the content and the small Bullfrog
+// header logo is skipped; otherwise the Bullfrog header logo is drawn. The
+// Bullex footer logo is always drawn (on top of the letterhead when present).
+// Invoked from a PDFKit "pageAdded" handler so every page is branded.
+// Restores the text cursor so document content is unaffected.
+let brandingInProgress = false;
+function drawPdfPageBranding(doc: PDFKit.PDFDocument, b: PdfBranding) {
+  // Drawing the bottom tagline with the text engine could overflow the bottom
+  // margin and auto-add a page, re-firing this pageAdded handler. Guard against
+  // re-entrancy so that can never recurse.
+  if (brandingInProgress) return;
+  brandingInProgress = true;
+  const sx = doc.x;
+  const sy = doc.y;
+  const savedBottom = doc.page.margins.bottom;
+  doc.save();
+  try {
+    if (b.letterhead) {
+      // Full-bleed A4 stationery behind everything else.
+      doc.image(b.letterhead.path, 0, 0, { width: PDF_FULL_W, height: PDF_PAGE_H });
+    } else if (b.header) {
+      const { width, height } = fitLogo(b.header, 200, 52);
+      doc.image(b.header.path, PDF_LEFT + (PDF_PAGE_W - width) / 2, 38, { width, height });
+      doc.moveTo(PDF_LEFT, 102).lineTo(PDF_LEFT + PDF_PAGE_W, 102).lineWidth(0.5).strokeColor("#CCCCCC").stroke();
+    }
+    if (b.footer) {
+      const { width, height } = fitLogo(b.footer, 130, 30);
+      const fy = PDF_PAGE_H - 52 - height;
+      if (!b.letterhead) {
+        doc.moveTo(PDF_LEFT, fy - 8).lineTo(PDF_LEFT + PDF_PAGE_W, fy - 8).lineWidth(0.5).strokeColor("#CCCCCC").stroke();
+      }
+      doc.image(b.footer.path, PDF_LEFT + (PDF_PAGE_W - width) / 2, fy, { width, height });
+    }
+    // Bold running tagline at the very bottom of every page. Zero the bottom
+    // margin so the text engine cannot overflow it and auto-add a page.
+    doc.page.margins.bottom = 0;
+    doc.font("Helvetica-Bold").fontSize(8).fillColor("#000000")
+      .text(BRAND_TAGLINE, PDF_LEFT, PDF_PAGE_H - 38, { width: PDF_PAGE_W, align: "center", lineBreak: false });
+    doc.font("Helvetica-Oblique").fontSize(7).fillColor("#444444")
+      .text(DOC_DECLARATION, PDF_LEFT, PDF_PAGE_H - 26, { width: PDF_PAGE_W, align: "center", lineBreak: false });
+  } finally {
+    // Always restore state so a draw failure (e.g. corrupt logo image) can never
+    // leave the margin shifted or the re-entrancy guard stuck for later documents.
+    doc.page.margins.bottom = savedBottom;
+    doc.restore();
+    doc.x = sx;
+    doc.y = sy;
+    brandingInProgress = false;
+  }
+}
+
+// Creates a branded A4 PDFDocument: reserved margins for the per-page
+// letterhead/footer, with a pageAdded handler that brands every page
+// (including the first, thanks to autoFirstPage:false + addPage()).
+function createBrandedPdf(b: PdfBranding): PDFKit.PDFDocument {
+  const doc = new PDFDocument({ size: "A4", margins: PDF_MARGINS, autoFirstPage: false });
+  doc.on("pageAdded", () => drawPdfPageBranding(doc, b));
+  doc.addPage();
+  return doc;
+}
+
+// Builds a DOCX paragraph holding the full-page letterhead as a floating image
+// anchored to the page and placed behind the document text, so it repeats on
+// every page as full-bleed A4 stationery (794x1123px ≈ A4 at 96dpi).
+function letterheadDocxParagraph(logo: DocumentLogo): Paragraph {
+  return new Paragraph({
+    children: [
+      new ImageRun({
+        data: logo.buffer,
+        transformation: { width: 794, height: 1123 },
+        type: logo.kind,
+        floating: {
+          horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: 0 },
+          verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: 0 },
+          behindDocument: true,
+          allowOverlap: true,
+        },
+      } as any),
+    ],
+  });
+}
+
+// Builds DOCX section header/footer props so branding repeats on every page.
+// When a full-page letterhead is set it is drawn full-bleed behind the text and
+// replaces the small Bullfrog header logo; the Bullex footer logo still renders.
+function brandedDocxSection(
+  children: (Paragraph | Table)[],
+  header: DocumentLogo | null,
+  footer: DocumentLogo | null,
+  letterhead: DocumentLogo | null,
+): any {
+  const section: any = {
+    properties: {
+      page: { margin: { top: 1850, right: 1440, bottom: 1700, left: 1440, header: 480, footer: 480 } },
+    },
+    children,
+  };
+  if (letterhead) {
+    section.headers = { default: new Header({ children: [letterheadDocxParagraph(letterhead)] }) };
+  } else if (header) {
+    section.headers = { default: new Header({ children: [logoHeaderDocxParagraph(header)] }) };
+  }
+  const footerChildren: Paragraph[] = [];
+  if (footer) footerChildren.push(logoFooterDocxParagraph(footer));
+  footerChildren.push(taglineFooterDocxParagraph());
+  footerChildren.push(declarationFooterDocxParagraph());
+  section.footers = { default: new Footer({ children: footerChildren }) };
+  return section;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// GENERATED-DOCS CACHE PRUNING
+// generated_docs/ is only a cache: every download regenerates the PDF/DOCX from
+// the document content stored in the database. Without pruning the folder grows
+// unboundedly (it once hit 1.5 GB / 2,000+ files and broke publishing because
+// the workspace snapshot became too large to upload). pruneGeneratedDocsCache
+// enforces both an age limit and a total-size budget; it is invoked at startup
+// (after the port is bound) and then daily.
+// ─────────────────────────────────────────────────────────────────────
+const PRUNE_MAX_AGE_DAYS = 7;
+const PRUNE_MAX_TOTAL_BYTES = 256 * 1024 * 1024; // 256 MB budget
+
+export function pruneGeneratedDocsCache(opts?: { maxAgeDays?: number; maxTotalBytes?: number }): { deleted: number; freedBytes: number } {
+  const maxAgeMs = (opts?.maxAgeDays ?? PRUNE_MAX_AGE_DAYS) * 24 * 60 * 60 * 1000;
+  const maxTotalBytes = opts?.maxTotalBytes ?? PRUNE_MAX_TOTAL_BYTES;
+  let deleted = 0;
+  let freedBytes = 0;
+  try {
+    const now = Date.now();
+    const entries: { path: string; size: number; mtimeMs: number }[] = [];
+    for (const name of fs.readdirSync(docsDir)) {
+      // `.logo-*` files back the on-disk logo path cache used by PDFKit image
+      // de-duplication; they are tiny and rewritten lazily, but skipping them
+      // avoids churning the in-memory logoPathCache mid-generation.
+      if (name.startsWith(".")) continue;
+      const filePath = path.join(docsDir, name);
+      if (!isInsideDocsDir(filePath)) continue;
+      let stat: fs.Stats;
+      try {
+        stat = fs.statSync(filePath);
+      } catch {
+        continue; // deleted concurrently
+      }
+      if (!stat.isFile()) continue;
+      entries.push({ path: filePath, size: stat.size, mtimeMs: stat.mtimeMs });
+    }
+
+    const remove = (e: { path: string; size: number }) => {
+      try {
+        fs.unlinkSync(e.path);
+        deleted++;
+        freedBytes += e.size;
+        return true;
+      } catch {
+        return false; // in use / already gone — leave it for the next run
+      }
+    };
+
+    // Pass 1: age limit — anything not touched recently is stale cache.
+    const kept: typeof entries = [];
+    for (const e of entries) {
+      if (now - e.mtimeMs > maxAgeMs) {
+        if (!remove(e)) kept.push(e);
+      } else {
+        kept.push(e);
+      }
+    }
+
+    // Pass 2: size budget — evict oldest-first until under budget.
+    let totalBytes = kept.reduce((sum, e) => sum + e.size, 0);
+    if (totalBytes > maxTotalBytes) {
+      kept.sort((a, b) => a.mtimeMs - b.mtimeMs);
+      for (const e of kept) {
+        if (totalBytes <= maxTotalBytes) break;
+        if (remove(e)) totalBytes -= e.size;
+      }
+    }
+  } catch (err: any) {
+    console.error("[docs-cache] prune failed:", err?.message || err);
+  }
+  return { deleted, freedBytes };
+}
+
+// Invalidates the cached logo bytes (call after an admin uploads/removes the logo).
+export function clearLogoCache() {
+  logoBufferCache.clear();
+  logoPathCache.clear();
 }
 
 function assertSafeDocId(docId: string): void {
@@ -43,6 +403,11 @@ function sanitizeUnicode(text: string): string {
     .replace(/─/g, "-")
     .replace(/│/g, "|")
     .replace(/⬛\s*/g, "")
+    // Standard PDF Helvetica has no mathematical inequality/minus glyphs.
+    // ASCII equivalents preserve commercial limits instead of corrupting them.
+    .replace(/≥/g, ">=")
+    .replace(/≤/g, "<=")
+    .replace(/−/g, "-")
     .replace(/–/g, "-");
 }
 
@@ -113,7 +478,7 @@ interface DealRecapData {
   specialNote?: string;
 }
 
-function extractDealRecapData(content: string): DealRecapData {
+export function extractDealRecapData(content: string): DealRecapData {
   const data: DealRecapData = {};
   const sanitized = sanitizeUnicode(content);
   const lines = sanitized.split("\n");
@@ -180,7 +545,7 @@ const thinBorder = {
 };
 
 const headerShading = {
-  type: ShadingType.SOLID as const,
+  type: ShadingType.SOLID,
   color: "F2F2F2",
   fill: "F2F2F2",
 };
@@ -349,29 +714,22 @@ function buildDealRecapDocx(content: string): (Paragraph | Table)[] {
   children.push(textPara(`Product: ${d.commodity || ""}`, true));
   children.push(textPara(`Grade: ${d.qualitySpecs || ""}`, false));
   children.push(spacer());
-  children.push(textPara("The product supplied under this Contract shall comply with the following specifications. Guaranteed specifications represent binding commitments by the Seller. Typical specifications are provided for reference only and shall not constitute contractual guarantees."));
+  children.push(textPara("The product supplied under this Contract shall comply with the following specifications."));
   children.push(spacer());
 
   children.push(textPara("PRODUCT SPECIFICATION", true));
 
   const specRows: [string, string, string, string][] = [
-    ["Parameter", "Guaranteed Specification", "Typical Specification", "Rejection Limit"],
+    ["Parameter", "Specification", "Rejection", "Test Method"],
   ];
 
   if (d.annexSpecs) {
     const specLines = d.annexSpecs.split("\n");
     for (const line of specLines) {
       const cells = line.split("|").map(c => c.trim());
-      if (cells.length >= 4) {
-        specRows.push([cells[0], cells[1], cells[2], cells[3]]);
-      } else if (cells.length >= 2) {
-        specRows.push([cells[0], cells[1] || "", cells[2] || "", cells[3] || ""]);
+      if (cells.length >= 2) {
+        specRows.push([cells[0] || "", cells[1] || "", cells[2] || "", cells[3] || ""]);
       }
-    }
-  } else {
-    const params = ["Moisture", "Ash", "Volatile Matter", "Fixed Carbon", "Sulphur", "Calorific Value", "Size Distribution"];
-    for (const p of params) {
-      specRows.push([p, "", "", ""]);
     }
   }
 
@@ -412,6 +770,66 @@ function isDealRecapContent(content: string): boolean {
 
 function isTfrContent(content: string): boolean {
   return content.includes("TRANSACTION FEASIBILITY REPORT") && content.includes("OVERALL FEASIBILITY CONCLUSION");
+}
+
+function isDlcMt700Content(content: string): boolean {
+  // Anchored to the template's opening line (not includes()) so other doc types
+  // whose editable content merely mentions MT700 don't get routed here.
+  return firstLine(content) === "DRAFT - SWIFT MT700" && /^:40A:/m.test(content);
+}
+
+function isPbgMt760Content(content: string): boolean {
+  return firstLine(content) === "DRAFT - SWIFT MT760" && /^:77U:/m.test(content);
+}
+
+function firstLine(content: string): string {
+  return content.trimStart().split(/\r?\n/, 1)[0].trim();
+}
+
+// SWIFT MT700/MT760 drafts: rendered as a monospace message block. The generic
+// heuristics would mangle ":NN:" tag lines, so lines are emitted verbatim —
+// headings bold, tag lines (:NN:/{n:) semi-bold, everything else plain Courier.
+const DLC_HEADING_RE = /^(DRAFT - SWIFT MT7\d0|DOCUMENTARY CREDIT|IRREVOCABLE PERFORMANCE GUARANTEE|STATUS:.*|SWIFT MESSAGE)$/;
+const DLC_TAG_RE = /^(:\d{2}[A-Z]?:|\{\d:|-\}$)/;
+
+function buildDlcMt700Docx(content: string): (Paragraph | Table)[] {
+  const lines = sanitizeUnicode(content).split("\n");
+  const children: (Paragraph | Table)[] = [];
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, "");
+    const trimmed = line.trim();
+    if (DLC_HEADING_RE.test(trimmed)) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: trimmed, bold: true, size: trimmed.startsWith("DRAFT - SWIFT MT7") ? 22 : 18, font: "Courier New" })],
+        spacing: { before: 120, after: 80 },
+      }));
+      continue;
+    }
+    children.push(new Paragraph({
+      children: [new TextRun({ text: line, size: 16, font: "Courier New", bold: DLC_TAG_RE.test(trimmed) })],
+      spacing: { after: 20 },
+    }));
+  }
+  return children;
+}
+
+function buildDlcMt700Pdf(doc: PDFKit.PDFDocument, content: string, leftMargin: number, pageWidth: number) {
+  const lines = sanitizeUnicode(content).split("\n");
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, "");
+    const trimmed = line.trim();
+    if (!trimmed) { doc.moveDown(0.4); continue; }
+    pdfCheckPage(doc, 14);
+    if (DLC_HEADING_RE.test(trimmed)) {
+      doc.font("Courier-Bold").fontSize(trimmed.startsWith("DRAFT - SWIFT MT7") ? 11 : 9).fillColor("#000000")
+        .text(trimmed, leftMargin, doc.y, { width: pageWidth });
+      doc.moveDown(0.3);
+      continue;
+    }
+    doc.font(DLC_TAG_RE.test(trimmed) ? "Courier-Bold" : "Courier").fontSize(8).fillColor("#000000")
+      .text(line, leftMargin, doc.y, { width: pageWidth });
+  }
+  doc.moveDown(1);
 }
 
 function buildTfrDocx(content: string): (Paragraph | Table)[] {
@@ -668,7 +1086,7 @@ interface BlData {
   agentsName: string;
 }
 
-function parseBlContent(content: string): BlData {
+export function parseBlContent(content: string): BlData {
   const sanitized = sanitizeUnicode(content);
   const lines = sanitized.split("\n");
 
@@ -782,7 +1200,7 @@ function buildBlDocx(content: string): (Paragraph | Table)[] {
   const bl = parseBlContent(content);
   const children: (Paragraph | Table)[] = [];
 
-  const S = { style: BorderStyle.SINGLE as const, size: 4, color: "000000" };
+  const S = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
   const BB = { top: S, bottom: S, left: S, right: S };
 
   const lbl = (t: string) => new Paragraph({ children: [new TextRun({ text: t, size: 14, font: "Arial", color: "444444" })], spacing: { before: 30, after: 10 } });
@@ -1109,7 +1527,7 @@ interface CoaData {
   agency: string;
 }
 
-function parseCoaContent(content: string): CoaData {
+export function parseCoaContent(content: string): CoaData {
   const lines = content.split("\n");
 
   const extractColon = (label: string): string => {
@@ -1251,8 +1669,13 @@ function buildCoaDocx(content: string): (Paragraph | Table)[] {
   ch.push(p("THE ACTUAL RESULT OF THE TEST FOR CHEMICAL COMPOSITIONS (ON DRY BASIS)", { spaceAfter: 40 }));
   ch.push(p("        (Percentage by weight)", { spaceAfter: 120 }));
 
-  for (const line of (coa.chemSpecs || "").split("\n")) {
-    if (line.trim()) ch.push(p(line, { spaceAfter: 40 }));
+  const coaSpecRows = parseSpecBlobRows(coa.chemSpecs);
+  if (coaSpecRows.length > 0) {
+    ch.push(make4ColTable([["Parameter", "Specification", "Rejection", "Test Method"], ...coaSpecRows]));
+  } else {
+    for (const line of (coa.chemSpecs || "").split("\n")) {
+      if (line.trim()) ch.push(p(line, { spaceAfter: 40 }));
+    }
   }
 
   ch.push(p("THE ACTUAL RESULT OF THE TEST FOR FREE MOISTURE LOSS AT 105 DEGREES", { spaceBefore: 120, spaceAfter: 40 }));
@@ -1344,10 +1767,15 @@ function buildCoaPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
   doc.font(mono).fontSize(8).text("        (Percentage by weight)", x, doc.y);
   doc.moveDown(0.5);
 
-  for (const line of (coa.chemSpecs || "").split("\n")) {
-    if (line.trim()) {
-      pdfCheckPage(doc, 20);
-      doc.font(mono).fontSize(8).text(line, x, doc.y);
+  const coaSpecRows = parseSpecBlobRows(coa.chemSpecs);
+  if (coaSpecRows.length > 0) {
+    drawPdf4ColTable(doc, [["Parameter", "Specification", "Rejection", "Test Method"], ...coaSpecRows], x, W);
+  } else {
+    for (const line of (coa.chemSpecs || "").split("\n")) {
+      if (line.trim()) {
+        pdfCheckPage(doc, 20);
+        doc.font(mono).fontSize(8).text(line, x, doc.y);
+      }
     }
   }
 
@@ -1380,6 +1808,10 @@ function isCowContent(content: string): boolean {
   return content.trimStart().startsWith("CERTIFICATE OF WEIGHT") && content.includes("Draft Survey");
 }
 
+function isFobExportContent(content: string): boolean {
+  return content.trimStart().startsWith("FOB EXPORT (SELL) PROCEDURE");
+}
+
 interface CowData {
   certNo: string;
   date: string;
@@ -1397,7 +1829,7 @@ interface CowData {
   agency: string;
 }
 
-function parseCowContent(content: string): CowData {
+export function parseCowContent(content: string): CowData {
   const lines = content.split("\n");
 
   const extractColon = (label: string): string => {
@@ -1591,7 +2023,9 @@ function buildCowPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
 }
 
 function isCiContent(content: string): boolean {
-  return content.trimStart().startsWith("COMMERCIAL INVOICE") && content.includes("SELLER (BENEFICIARY)");
+  const trimmed = content.trimStart();
+  return (trimmed.startsWith("COMMERCIAL INVOICE") || trimmed.startsWith("PROFORMA INVOICE"))
+    && content.includes("SELLER (BENEFICIARY)");
 }
 
 interface CiData {
@@ -1623,7 +2057,65 @@ interface CiData {
   paymentTerms: string;
 }
 
-function parseCiContent(content: string): CiData {
+interface InvoiceSignature {
+  data?: string;
+  name?: string;
+  signedAt?: Date;
+  signedIp?: string;
+}
+
+function integerToEnglish(value: number): string {
+  if (!Number.isFinite(value) || value < 0) return "";
+  if (value === 0) return "zero";
+  const ones = [
+    "", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+    "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+    "seventeen", "eighteen", "nineteen",
+  ];
+  const tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+  const underThousand = (n: number): string => {
+    const parts: string[] = [];
+    if (n >= 100) {
+      parts.push(`${ones[Math.floor(n / 100)]} hundred`);
+      n %= 100;
+    }
+    if (n >= 20) {
+      parts.push(tens[Math.floor(n / 10)]);
+      n %= 10;
+    }
+    if (n > 0) parts.push(ones[n]);
+    return parts.join(" ");
+  };
+  const scales: Array<[number, string]> = [
+    [1_000_000_000_000, "trillion"],
+    [1_000_000_000, "billion"],
+    [1_000_000, "million"],
+    [1_000, "thousand"],
+  ];
+  const parts: string[] = [];
+  let remaining = Math.floor(value);
+  for (const [scale, label] of scales) {
+    if (remaining >= scale) {
+      parts.push(`${underThousand(Math.floor(remaining / scale))} ${label}`);
+      remaining %= scale;
+    }
+  }
+  if (remaining > 0) parts.push(underThousand(remaining));
+  return parts.join(" ");
+}
+
+export function invoiceAmountInWords(totalAmount: string, currency: string): string {
+  const amount = Number(totalAmount.replace(/[^0-9.-]/g, ""));
+  if (!Number.isFinite(amount) || amount < 0) return `${currency} ${totalAmount}`;
+  const whole = Math.floor(amount);
+  const cents = Math.round((amount - whole) * 100);
+  return `${currency} ${integerToEnglish(whole)}${cents ? ` and ${String(cents).padStart(2, "0")}/100` : ""} only`
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+// Exported so tests can assert the CI template wording and this extraction
+// stay in lockstep (label-coupling guard — see ci-field-extraction.test.ts).
+export function parseCiContent(content: string): CiData {
   const lines = content.split("\n");
 
   const extractColon = (label: string): string => {
@@ -1696,191 +2188,629 @@ function parseCiContent(content: string): CiData {
   return { invoiceNo, date, sellerName, sellerAddr, sellerContact, sellerBank, sellerSwift, buyerName, buyerAddr, buyerContact, lcNo, lcBank, vessel, voyage, portOfLoading: pol, portOfDischarge: pod, origin, blNo, blDate, commodity, quantity, unitPrice, currency, totalAmount, tolerance, paymentTerms };
 }
 
-function buildCiDocx(content: string): (Paragraph | Table)[] {
+function buildCiDocx(content: string, signature?: InvoiceSignature): (Paragraph | Table)[] {
   const ci = parseCiContent(content);
-  const ch: (Paragraph | Table)[] = [];
-  const S = { style: BorderStyle.SINGLE as const, size: 4, color: "000000" };
-  const BB = { top: S, bottom: S, left: S, right: S };
-  const NB = { top: { style: BorderStyle.NONE as const, size: 0, color: "FFFFFF" }, bottom: { style: BorderStyle.NONE as const, size: 0, color: "FFFFFF" }, left: { style: BorderStyle.NONE as const, size: 0, color: "FFFFFF" }, right: { style: BorderStyle.NONE as const, size: 0, color: "FFFFFF" } };
-
-  const p = (text: string, opts: { bold?: boolean; size?: number; align?: (typeof AlignmentType)[keyof typeof AlignmentType]; spaceBefore?: number; spaceAfter?: number } = {}) =>
-    new Paragraph({
-      children: [new TextRun({ text, bold: opts.bold || false, size: opts.size || 20, font: "Calibri" })],
-      alignment: opts.align,
-      spacing: { before: opts.spaceBefore || 0, after: opts.spaceAfter || 60 },
-    });
-
-  const cell = (paras: Paragraph[], w: number, shaded = false, borders = BB) => new TableCell({
-    children: paras,
-    borders,
-    width: { size: w, type: WidthType.DXA },
-    verticalAlign: VerticalAlign.TOP,
-    shading: shaded ? { fill: "F5F5F5", type: ShadingType.CLEAR } : undefined,
-  });
-
-  const row2 = (lbl: string, val: string) => new TableRow({
-    children: [
-      cell([new Paragraph({ children: [new TextRun({ text: lbl, bold: true, size: 18, font: "Calibri" })], spacing: { before: 40, after: 40 } })], 3000, true),
-      cell([new Paragraph({ children: [new TextRun({ text: val, size: 18, font: "Calibri" })], spacing: { before: 40, after: 40 } })], 6000),
-    ],
-  });
-
-  ch.push(p("COMMERCIAL INVOICE", { bold: true, size: 32, align: AlignmentType.CENTER, spaceAfter: 80 }));
-  ch.push(new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" } }, spacing: { after: 120 } }));
-
-  ch.push(new Table({
-    width: { size: 9000, type: WidthType.DXA },
-    rows: [
-      row2("Invoice No.", ci.invoiceNo),
-      row2("Invoice Date", ci.date),
-    ],
-  }));
-  ch.push(p("", { spaceAfter: 80 }));
-
-  const halfW = 4500;
-  const partyCell = (title: string, name: string, addr: string, contact: string, bank?: string, swift?: string) => {
-    const paras: Paragraph[] = [
-      new Paragraph({ children: [new TextRun({ text: title, bold: true, size: 18, font: "Calibri" })], spacing: { before: 40, after: 60 } }),
-      new Paragraph({ children: [new TextRun({ text: name, bold: true, size: 20, font: "Calibri" })], spacing: { before: 20, after: 40 } }),
-      new Paragraph({ children: [new TextRun({ text: `Address: ${addr}`, size: 17, font: "Calibri" })], spacing: { before: 20, after: 30 } }),
-      new Paragraph({ children: [new TextRun({ text: `Contact: ${contact}`, size: 17, font: "Calibri" })], spacing: { before: 20, after: 30 } }),
-    ];
-    if (bank) paras.push(new Paragraph({ children: [new TextRun({ text: `Bank: ${bank}`, size: 17, font: "Calibri" })], spacing: { before: 20, after: 30 } }));
-    if (swift) paras.push(new Paragraph({ children: [new TextRun({ text: `SWIFT: ${swift}`, size: 17, font: "Calibri" })], spacing: { before: 20, after: 40 } }));
-    return cell(paras, halfW, false, BB);
+  const isPi = content.trimStart().startsWith("PROFORMA INVOICE");
+  const lines = content.split("\n");
+  const extractLine = (label: string) => {
+    const line = lines.find((entry) => entry.trimStart().startsWith(`${label}:`));
+    return line ? line.slice(line.indexOf(":") + 1).trim() : "_______________";
   };
+  const spaReference = extractLine("SPA Reference");
+  const validUntil = extractLine("Valid Until");
+  const deliveryTerm = extractLine("Delivery Term");
+  const shipmentWindow = extractLine("Shipment Window");
+  const packing = extractLine("Packing");
+  const children: (Paragraph | Table)[] = [];
+  const single = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
+  const borders = { top: single, bottom: single, left: single, right: single };
 
-  ch.push(new Table({
+  const para = (
+    text: string,
+    opts: {
+      bold?: boolean;
+      size?: number;
+      align?: (typeof AlignmentType)[keyof typeof AlignmentType];
+      after?: number;
+    } = {},
+  ) => new Paragraph({
+    children: [new TextRun({ text: text || " ", bold: opts.bold || false, size: opts.size || 14, font: "Arial" })],
+    alignment: opts.align,
+    spacing: { before: 0, after: opts.after ?? 20 },
+  });
+
+  const labeled = (label: string, value: string, compact = false): Paragraph[] => [
+    para(label, { size: 11, after: compact ? 0 : 8 }),
+    para(value || "_______________", { bold: true, size: 14, after: compact ? 4 : 12 }),
+  ];
+
+  const cell = (
+    cellChildren: (Paragraph | Table)[],
+    width: number,
+    verticalAlign: typeof VerticalAlign.TOP | typeof VerticalAlign.CENTER | typeof VerticalAlign.BOTTOM = VerticalAlign.TOP,
+  ) => new TableCell({
+    children: cellChildren,
+    borders,
+    width: { size: width, type: WidthType.DXA },
+    verticalAlign,
+    margins: { top: 50, bottom: 50, left: 70, right: 70 },
+  });
+
+  const table = (columnWidths: number[], rows: TableRow[]) => new Table({
     width: { size: 9000, type: WidthType.DXA },
-    rows: [new TableRow({ children: [partyCell("SELLER (BENEFICIARY)", ci.sellerName, ci.sellerAddr, ci.sellerContact, ci.sellerBank, ci.sellerSwift), partyCell("BUYER (APPLICANT)", ci.buyerName, ci.buyerAddr, ci.buyerContact)] })],
-  }));
-  ch.push(p("", { spaceAfter: 80 }));
+    columnWidths,
+    rows,
+  });
 
-  ch.push(p("LETTER OF CREDIT DETAILS", { bold: true, size: 22, spaceAfter: 40 }));
-  ch.push(new Table({
-    width: { size: 9000, type: WidthType.DXA },
-    rows: [row2("LC Number", ci.lcNo), row2("LC Issuing Bank", ci.lcBank)],
-  }));
-  ch.push(p("", { spaceAfter: 80 }));
+  children.push(table([9000], [
+    new TableRow({
+      children: [cell([
+        para(isPi ? "PROFORMA INVOICE" : "COMMERCIAL INVOICE", {
+          bold: true,
+          size: 24,
+          align: AlignmentType.CENTER,
+          after: 0,
+        }),
+      ], 9000, VerticalAlign.CENTER)],
+    }),
+  ]));
 
-  ch.push(p("SHIPMENT DETAILS", { bold: true, size: 22, spaceAfter: 40 }));
-  ch.push(new Table({
-    width: { size: 9000, type: WidthType.DXA },
-    rows: [
-      row2("Vessel", ci.vessel),
-      row2("Voyage No.", ci.voyage),
-      row2("Port of Loading", ci.portOfLoading),
-      row2("Port of Discharge", ci.portOfDischarge),
-      row2("Country of Origin", ci.origin),
-      row2("B/L No. & Date", `${ci.blNo} & DATED ${ci.blDate}`),
-    ],
-  }));
-  ch.push(p("", { spaceAfter: 80 }));
+  const half = 4500;
+  const partyBlock = (label: string, name: string, address: string, contact: string): Paragraph[] => [
+    para(label, { size: 11, after: 6 }),
+    para(name, { bold: true, size: 15, after: 4 }),
+    para(address, { bold: true, size: 13, after: 4 }),
+    para(contact, { size: 12, after: 0 }),
+  ];
 
-  ch.push(p("DESCRIPTION OF GOODS", { bold: true, size: 22, spaceAfter: 40 }));
-  const colW = [2500, 1800, 2000, 2700];
-  const hdrCell = (text: string, w: number) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text, bold: true, size: 18, font: "Calibri" })], spacing: { before: 40, after: 40 } })], borders: BB, width: { size: w, type: WidthType.DXA }, shading: { fill: "E8E8E8", type: ShadingType.CLEAR } });
-  const dataCell = (text: string, w: number) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text, size: 18, font: "Calibri" })], spacing: { before: 40, after: 40 } })], borders: BB, width: { size: w, type: WidthType.DXA } });
-  ch.push(new Table({
-    width: { size: 9000, type: WidthType.DXA },
-    rows: [
-      new TableRow({ children: [hdrCell("Commodity", colW[0]), hdrCell("Quantity (MT)", colW[1]), hdrCell(`Unit Price (${ci.currency}/MT)`, colW[2]), hdrCell(`Total Amount (${ci.currency})`, colW[3])] }),
-      new TableRow({ children: [dataCell(ci.commodity, colW[0]), dataCell(`${ci.quantity} MT`, colW[1]), dataCell(`${ci.currency} ${ci.unitPrice}/MT`, colW[2]), dataCell(`${ci.currency} ${ci.totalAmount}`, colW[3])] }),
-    ],
-  }));
-  ch.push(p("", { spaceAfter: 40 }));
-  ch.push(p(`Tolerance: ${ci.tolerance}`, { spaceAfter: 40 }));
-  ch.push(p(`TOTAL INVOICE VALUE: ${ci.currency} ${ci.totalAmount}`, { bold: true, size: 22, spaceAfter: 40 }));
-  ch.push(p(`Payment Terms: ${ci.paymentTerms}`, { spaceAfter: 200 }));
+  children.push(table([half, half], [
+    new TableRow({
+      children: [
+        cell(partyBlock("Exporter", ci.sellerName, ci.sellerAddr, ci.sellerContact), half),
+        cell([
+          ...labeled("Invoice No. & Date", `${ci.invoiceNo}  |  ${ci.date}`, true),
+          ...labeled(isPi ? "SPA / Contract Ref." : "Exporter's Ref.", isPi ? spaReference : ci.invoiceNo, true),
+          ...labeled(isPi ? "Valid Until" : "LC No.", isPi ? validUntil : ci.lcNo, true),
+        ], half),
+      ],
+    }),
+  ]));
 
-  ch.push(new Paragraph({ border: { top: { style: BorderStyle.SINGLE, size: 2, color: "AAAAAA" } }, spacing: { before: 200, after: 80 } }));
-  ch.push(p(`FOR AND ON BEHALF OF ${ci.sellerName}`, { bold: true, spaceAfter: 40 }));
-  ch.push(p("Authorised Signatory", { spaceAfter: 160 }));
-  ch.push(p("Name:  _______________", { spaceAfter: 40 }));
-  ch.push(p("Title: _______________", { spaceAfter: 40 }));
-  ch.push(p(`Date:  ${ci.date}`, { spaceAfter: 40 }));
-  ch.push(p("Signature & Stamp: _______________", { spaceAfter: 40 }));
+  children.push(table([half, half], [
+    new TableRow({
+      children: [
+        cell(partyBlock("Consignee", ci.buyerName, ci.buyerAddr, ci.buyerContact), half),
+        cell([
+          ...labeled("Contract No.", isPi ? spaReference : ci.invoiceNo, true),
+          ...labeled(isPi ? "Delivery Basis" : "LC Issuing Bank", isPi ? deliveryTerm : ci.lcBank, true),
+        ], half),
+      ],
+    }),
+  ]));
 
-  return ch;
+  children.push(table([half, half], [
+    new TableRow({
+      children: [
+        cell(labeled("Country of Origin of Goods", ci.origin, true), half),
+        cell(labeled("Country / Place of Final Destination", ci.portOfDischarge, true), half),
+      ],
+    }),
+  ]));
+
+  children.push(table([9000], [
+    new TableRow({
+      children: [cell(
+        labeled(
+          "Terms of Delivery and Payment",
+          `${deliveryTerm}${deliveryTerm && ci.paymentTerms ? " — " : ""}${ci.paymentTerms}`,
+          true,
+        ),
+        9000,
+      )],
+    }),
+  ]));
+
+  const transportCell = (labelA: string, valueA: string, labelB: string, valueB: string) => cell([
+    ...labeled(labelA, valueA, true),
+    ...labeled(labelB, valueB, true),
+  ], half);
+  children.push(table([half, half], [
+    new TableRow({
+      children: [
+        transportCell(
+          isPi ? "Shipment Window" : "Pre-Carriage By",
+          isPi ? shipmentWindow : ci.voyage,
+          "Name of Vessel",
+          ci.vessel,
+        ),
+        transportCell("Place / Port of Loading", ci.portOfLoading, "Port of Discharge", ci.portOfDischarge),
+      ],
+    }),
+  ]));
+
+  const description: Paragraph[] = [
+    ...labeled("Commodity", ci.commodity, true),
+    ...labeled("Packing", packing, true),
+    ...labeled("Country of Origin", ci.origin, true),
+    ...labeled("Quantity", `${ci.quantity} MT`, true),
+    ...labeled("Base Price", `${ci.currency} ${ci.unitPrice}/MT`, true),
+    ...labeled("Tolerance", ci.tolerance, true),
+  ];
+  if (isPi) {
+    description.push(...labeled("SPA Reference", spaReference, true));
+    description.push(...labeled("Shipment Window", shipmentWindow, true));
+  }
+  description.push(...labeled("Payment Terms", ci.paymentTerms, true));
+
+  const goodsWidths = [5400, 1200, 1200, 1200];
+  const goodsHeader = (title: string, width: number) => cell([
+    para(title, { bold: true, size: 12, align: AlignmentType.CENTER, after: 0 }),
+  ], width, VerticalAlign.CENTER);
+  const goodsValue = (value: string, width: number) => cell([
+    para(value, { bold: true, size: 13, align: AlignmentType.CENTER, after: 0 }),
+  ], width, VerticalAlign.CENTER);
+  children.push(table(goodsWidths, [
+    new TableRow({
+      children: [
+        goodsHeader("DESCRIPTION OF GOODS AND / OR SERVICES", goodsWidths[0]),
+        goodsHeader("Quantity M/tonnes", goodsWidths[1]),
+        goodsHeader(`Rate ${ci.currency}`, goodsWidths[2]),
+        goodsHeader(`Amount ${ci.currency}`, goodsWidths[3]),
+      ],
+    }),
+    new TableRow({
+      children: [
+        cell(description, goodsWidths[0]),
+        goodsValue(ci.quantity, goodsWidths[1]),
+        goodsValue(ci.unitPrice, goodsWidths[2]),
+        goodsValue(ci.totalAmount, goodsWidths[3]),
+      ],
+    }),
+  ]));
+
+  children.push(table([7200, 1800], [
+    new TableRow({
+      children: [
+        cell([
+          para("Amount Chargeable (In Words)", { size: 11, after: 6 }),
+          para(invoiceAmountInWords(ci.totalAmount, ci.currency), { bold: true, size: 12, after: 0 }),
+        ], 7200),
+        cell([
+          para("Total", { bold: true, size: 12, align: AlignmentType.CENTER, after: 6 }),
+          para(ci.totalAmount, { bold: true, size: 13, align: AlignmentType.CENTER, after: 0 }),
+        ], 1800, VerticalAlign.CENTER),
+      ],
+    }),
+  ]));
+
+  const signatureDetails: (Paragraph | Table)[] = [
+    para("Signature", { size: 11, after: 8 }),
+    para("FOR & ON BEHALF OF SELLER / ISSUER", { bold: true, size: 11, align: AlignmentType.CENTER, after: 6 }),
+    para(ci.sellerName, { bold: true, size: 14, align: AlignmentType.CENTER, after: 8 }),
+  ];
+  if (signature?.data) {
+    try {
+      signatureDetails.push(new Paragraph({
+        children: [new ImageRun({
+          data: base64ToBuffer(signature.data),
+          transformation: { width: 150, height: 55 },
+          type: "png",
+        })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 8 },
+      }));
+    } catch {}
+  }
+  signatureDetails.push(para(
+    signature?.name ? `Signed by: ${signature.name}` : "(Authorised Signatory)",
+    { size: 12, align: AlignmentType.CENTER, after: 4 },
+  ));
+  const signedAt = fmtSignedDateTime(signature?.signedAt);
+  if (signedAt) {
+    signatureDetails.push(para(`Signed: ${signedAt}`, { size: 10, align: AlignmentType.CENTER, after: 2 }));
+  }
+  if (signature?.signedIp) {
+    signatureDetails.push(para(`IP: ${signature.signedIp}`, { size: 10, align: AlignmentType.CENTER, after: 0 }));
+  }
+
+  children.push(table([half, half], [
+    new TableRow({
+      children: [
+        cell([
+          para("Our Bankers are:", { size: 11, after: 6 }),
+          para(ci.sellerBank, { bold: true, size: 14, after: 4 }),
+          para(`SWIFT CODE: ${ci.sellerSwift}`, { bold: true, size: 12, after: 12 }),
+          para(
+            "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.",
+            { size: 11, after: 0 },
+          ),
+        ], half),
+        cell(signatureDetails, half, VerticalAlign.CENTER),
+      ],
+    }),
+  ]));
+
+  return children;
 }
 
-function buildCiPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: number, pageWidth: number) {
-  const ci = parseCiContent(content);
-  const x = leftMargin;
-  const W = pageWidth;
-
-  doc.font("Helvetica-Bold").fontSize(16).fillColor("#000000").text("COMMERCIAL INVOICE", x, doc.y, { width: W, align: "center" });
-  doc.moveDown(0.3);
-  const lineY = doc.y;
-  doc.moveTo(x, lineY).lineTo(x + W, lineY).stroke("#000000");
-  doc.moveDown(0.6);
-
-  drawPdf2ColTable(doc, [["Invoice No.", ci.invoiceNo], ["Invoice Date", ci.date]], x, W);
-  doc.moveDown(0.6);
-
-  const halfW = Math.floor(W / 2) - 5;
-  const rightX = x + halfW + 10;
-  const partyStartY = doc.y;
-
-  const renderPartyBlock = (xPos: number, title: string, name: string, addr: string, contact: string, bank?: string, swift?: string) => {
-    doc.font("Helvetica-Bold").fontSize(8).text(title, xPos, partyStartY, { width: halfW });
-    doc.font("Helvetica-Bold").fontSize(9).text(name, xPos, doc.y, { width: halfW });
-    doc.font("Helvetica").fontSize(8).text(`Address: ${addr}`, xPos, doc.y, { width: halfW });
-    doc.font("Helvetica").fontSize(8).text(`Contact: ${contact}`, xPos, doc.y, { width: halfW });
-    if (bank) doc.font("Helvetica").fontSize(8).text(`Bank: ${bank}`, xPos, doc.y, { width: halfW });
-    if (swift) doc.font("Helvetica").fontSize(8).text(`SWIFT: ${swift}`, xPos, doc.y, { width: halfW });
+function buildCiPdf(
+  doc: PDFKit.PDFDocument,
+  content: string,
+  leftMargin: number,
+  pageWidth: number,
+  signature?: InvoiceSignature,
+) {
+  type CellLine = {
+    text: string;
+    bold?: boolean;
+    size?: number;
+    align?: "left" | "center" | "right";
+  };
+  type WrappedLine = Required<Pick<CellLine, "text" | "size" | "align">> & { bold: boolean; height: number };
+  type CellDefinition = {
+    width: number;
+    lines: CellLine[];
   };
 
-  renderPartyBlock(x, "SELLER (BENEFICIARY)", ci.sellerName, ci.sellerAddr, ci.sellerContact, ci.sellerBank, ci.sellerSwift);
-  const sellerEndY = doc.y;
-  doc.y = partyStartY;
-  renderPartyBlock(rightX, "BUYER (APPLICANT)", ci.buyerName, ci.buyerAddr, ci.buyerContact);
-  doc.y = Math.max(sellerEndY, doc.y);
+  const ci = parseCiContent(content);
+  const isPi = content.trimStart().startsWith("PROFORMA INVOICE");
+  const lines = content.split("\n");
+  const extractLine = (label: string) => {
+    const line = lines.find((entry) => entry.trimStart().startsWith(`${label}:`));
+    return line ? line.slice(line.indexOf(":") + 1).trim() : "_______________";
+  };
+  const spaReference = extractLine("SPA Reference");
+  const validUntil = extractLine("Valid Until");
+  const deliveryTerm = extractLine("Delivery Term");
+  const shipmentWindow = extractLine("Shipment Window");
+  const packing = extractLine("Packing");
+  const x = leftMargin;
+  const width = pageWidth;
+  const half = width / 2;
+  const bottomLimit = 685;
+  const paddingX = 4;
+  const paddingY = 4;
+  let y = doc.y;
+
+  const line = (
+    text: string,
+    opts: Omit<CellLine, "text"> = {},
+  ): CellLine => ({ text: text || " ", ...opts });
+  const labelValue = (label: string, value: string): CellLine[] => [
+    line(label, { size: 5.5 }),
+    line(value || "_______________", { bold: true, size: 7 }),
+  ];
+  const box = (xPos: number, yPos: number, boxWidth: number, height: number) => {
+    doc.lineWidth(0.6).strokeColor("#000000").rect(xPos, yPos, boxWidth, height).stroke();
+  };
+  const fontName = (bold: boolean) => bold ? "Helvetica-Bold" : "Helvetica";
+  const textWidth = (text: string, bold: boolean, size: number) =>
+    doc.font(fontName(bold)).fontSize(size).widthOfString(text);
+
+  const splitLongToken = (token: string, maxWidth: number, bold: boolean, size: number): string[] => {
+    if (textWidth(token, bold, size) <= maxWidth) return [token];
+    const parts: string[] = [];
+    let current = "";
+    for (const character of token) {
+      const candidate = `${current}${character}`;
+      if (current && textWidth(candidate, bold, size) > maxWidth) {
+        parts.push(current);
+        current = character;
+      } else {
+        current = candidate;
+      }
+    }
+    if (current) parts.push(current);
+    return parts.length ? parts : [" "];
+  };
+
+  const wrapCellLine = (source: CellLine, maxWidth: number): WrappedLine[] => {
+    const bold = Boolean(source.bold);
+    const size = source.size || 7;
+    const align = source.align || "left";
+    const wrapped: WrappedLine[] = [];
+    for (const paragraph of String(source.text || " ").split("\n")) {
+      if (!paragraph.trim()) {
+        wrapped.push({ text: " ", bold, size, align, height: size + 2 });
+        continue;
+      }
+      const tokens = paragraph.trim().split(/\s+/).flatMap((token) =>
+        splitLongToken(token, maxWidth, bold, size)
+      );
+      let current = "";
+      for (const token of tokens) {
+        const candidate = current ? `${current} ${token}` : token;
+        if (current && textWidth(candidate, bold, size) > maxWidth) {
+          wrapped.push({ text: current, bold, size, align, height: size + 2 });
+          current = token;
+        } else {
+          current = candidate;
+        }
+      }
+      if (current) wrapped.push({ text: current, bold, size, align, height: size + 2 });
+    }
+    return wrapped.length ? wrapped : [{ text: " ", bold, size, align, height: size + 2 }];
+  };
+
+  const drawTitle = (continued = false) => {
+    const titleHeight = 19;
+    box(x, y, width, titleHeight);
+    doc.font("Helvetica-Bold").fontSize(10).fillColor("#000000").text(
+      `${isPi ? "PROFORMA INVOICE" : "COMMERCIAL INVOICE"}${continued ? " (CONTINUED)" : ""}`,
+      x + paddingX,
+      y + 4,
+      { width: width - paddingX * 2, align: "center" },
+    );
+    y += titleHeight;
+    doc.y = y;
+    doc.x = x;
+  };
+
+  const addContinuationPage = (afterTitle?: () => void) => {
+    doc.addPage();
+    y = doc.y;
+    drawTitle(true);
+    afterTitle?.();
+  };
+
+  const drawRow = (
+    cells: CellDefinition[],
+    options: {
+      minHeight?: number;
+      keepTogether?: boolean;
+      repeatAfterPageBreak?: () => void;
+      afterChunk?: (chunkIndex: number, chunkY: number, chunkHeight: number) => void;
+    } = {},
+  ) => {
+    const queues = cells.map((cell) =>
+      cell.lines.flatMap((cellLine) => wrapCellLine(cellLine, cell.width - paddingX * 2))
+    );
+    let chunkIndex = 0;
+    while (queues.some((queue) => queue.length > 0)) {
+      const remainingHeight = Math.max(...queues.map(
+        (queue) => queue.reduce((sum, wrappedLine) => sum + wrappedLine.height, 0),
+      )) + paddingY * 2;
+      const minimumHeight = options.minHeight || 0;
+      const desiredHeight = Math.max(minimumHeight, remainingHeight);
+      const available = bottomLimit - y;
+
+      if (
+        available < 24
+        || (options.keepTogether && desiredHeight <= bottomLimit - 120 && desiredHeight > available)
+        || minimumHeight > available
+      ) {
+        addContinuationPage(options.repeatAfterPageBreak);
+        continue;
+      }
+
+      const contentCapacity = Math.max(8, bottomLimit - y - paddingY * 2);
+      const chunks = queues.map((queue) => {
+        const selected: WrappedLine[] = [];
+        let used = 0;
+        for (const wrappedLine of queue) {
+          if (selected.length > 0 && used + wrappedLine.height > contentCapacity) break;
+          selected.push(wrappedLine);
+          used += wrappedLine.height;
+          if (used >= contentCapacity) break;
+        }
+        return selected;
+      });
+      const chunkContentHeight = Math.max(
+        0,
+        ...chunks.map((chunk) => chunk.reduce((sum, wrappedLine) => sum + wrappedLine.height, 0)),
+      );
+      const allContentFits = queues.every((queue, index) => chunks[index].length === queue.length);
+      const chunkHeight = Math.min(
+        bottomLimit - y,
+        Math.max(allContentFits ? minimumHeight : 0, chunkContentHeight + paddingY * 2, 18),
+      );
+      const chunkY = y;
+      let cellX = x;
+
+      cells.forEach((cell, cellIndex) => {
+        box(cellX, chunkY, cell.width, chunkHeight);
+        let textY = chunkY + paddingY;
+        for (const wrappedLine of chunks[cellIndex]) {
+          doc.font(fontName(wrappedLine.bold)).fontSize(wrappedLine.size).fillColor("#000000").text(
+            wrappedLine.text,
+            cellX + paddingX,
+            textY,
+            {
+              width: cell.width - paddingX * 2,
+              align: wrappedLine.align,
+              lineBreak: false,
+            },
+          );
+          textY += wrappedLine.height;
+        }
+        cellX += cell.width;
+      });
+
+      options.afterChunk?.(chunkIndex, chunkY, chunkHeight);
+      queues.forEach((queue, index) => queue.splice(0, chunks[index].length));
+      y += chunkHeight;
+      doc.y = y;
+      doc.x = x;
+
+      if (queues.some((queue) => queue.length > 0)) {
+        chunkIndex += 1;
+        addContinuationPage(options.repeatAfterPageBreak);
+      }
+    }
+  };
+
+  const ensureSpace = (height: number) => {
+    if (bottomLimit - y < height) addContinuationPage();
+  };
+
+  drawTitle();
+
+  drawRow([
+    {
+      width: half,
+      lines: [
+        line("Exporter", { size: 5.5 }),
+        line(ci.sellerName, { bold: true, size: 7.5 }),
+        line(ci.sellerAddr, { bold: true, size: 6.5 }),
+        line(ci.sellerContact, { size: 6 }),
+      ],
+    },
+    {
+      width: half,
+      lines: [
+        ...labelValue("Invoice No. & Date", `${ci.invoiceNo}  |  ${ci.date}`),
+        ...labelValue(isPi ? "SPA / Contract Ref." : "Exporter's Ref.", isPi ? spaReference : ci.invoiceNo),
+        ...labelValue(isPi ? "Valid Until" : "LC No.", isPi ? validUntil : ci.lcNo),
+      ],
+    },
+  ], { minHeight: 66 });
+
+  drawRow([
+    {
+      width: half,
+      lines: [
+        line("Consignee", { size: 5.5 }),
+        line(ci.buyerName, { bold: true, size: 7.5 }),
+        line(ci.buyerAddr, { bold: true, size: 6.5 }),
+        line(ci.buyerContact, { size: 6 }),
+      ],
+    },
+    {
+      width: half,
+      lines: [
+        ...labelValue("Contract No.", isPi ? spaReference : ci.invoiceNo),
+        ...labelValue(isPi ? "Delivery Basis" : "LC Issuing Bank", isPi ? deliveryTerm : ci.lcBank),
+      ],
+    },
+  ], { minHeight: 58 });
+
+  drawRow([
+    { width: half, lines: labelValue("Country of Origin of Goods", ci.origin) },
+    { width: half, lines: labelValue("Country / Place of Final Destination", ci.portOfDischarge) },
+  ], { minHeight: 28, keepTogether: true });
+
+  drawRow([
+    {
+      width,
+      lines: labelValue(
+        "Terms of Delivery and Payment",
+        `${deliveryTerm}${deliveryTerm && ci.paymentTerms ? " — " : ""}${ci.paymentTerms}`,
+      ),
+    },
+  ], { minHeight: 32 });
+
+  drawRow([
+    {
+      width: half,
+      lines: labelValue(
+        isPi ? "Shipment Window / Name of Vessel" : "Pre-Carriage / Name of Vessel",
+        `${isPi ? shipmentWindow : ci.voyage}  |  ${ci.vessel}`,
+      ),
+    },
+    { width: half, lines: labelValue("Place / Port of Loading", ci.portOfLoading) },
+  ], { minHeight: 30 });
+
+  drawRow([
+    { width: half, lines: labelValue("Port of Discharge", ci.portOfDischarge) },
+    { width: half, lines: labelValue("Final Destination", ci.portOfDischarge) },
+  ], { minHeight: 28, keepTogether: true });
+
+  const goodsWidths = [width * 0.64, width * 0.14, width * 0.11, width * 0.11];
+  const drawGoodsHeader = () => drawRow([
+    { width: goodsWidths[0], lines: [line("DESCR. OF GOODS AND / OR SERVICES", { bold: true, size: 6 })] },
+    { width: goodsWidths[1], lines: [line("Quantity\nM/tonnes", { bold: true, size: 6, align: "center" })] },
+    { width: goodsWidths[2], lines: [line(`Rate\n${ci.currency}`, { bold: true, size: 6, align: "center" })] },
+    { width: goodsWidths[3], lines: [line(`Amount\n${ci.currency}`, { bold: true, size: 6, align: "center" })] },
+  ], { minHeight: 28, keepTogether: true });
+
+  ensureSpace(140);
+  drawGoodsHeader();
+  drawRow([
+    {
+      width: goodsWidths[0],
+      lines: [
+        line(`Commodity: ${ci.commodity}`, { size: 7 }),
+        line(`Packing: ${packing}`, { size: 7 }),
+        line(`Country of Origin: ${ci.origin}`, { size: 7 }),
+        line(`Quantity: ${ci.quantity} MT`, { size: 7 }),
+        line(`Base Price: ${ci.currency} ${ci.unitPrice}/MT`, { size: 7 }),
+        line(`Tolerance: ${ci.tolerance}`, { size: 7 }),
+        ...(isPi ? [
+          line(`SPA Reference: ${spaReference}`, { size: 7 }),
+          line(`Shipment Window: ${shipmentWindow}`, { size: 7 }),
+        ] : []),
+        line(`Payment Terms: ${ci.paymentTerms}`, { size: 7 }),
+      ],
+    },
+    { width: goodsWidths[1], lines: [line(ci.quantity, { bold: true, size: 7, align: "center" })] },
+    { width: goodsWidths[2], lines: [line(ci.unitPrice, { bold: true, size: 7, align: "center" })] },
+    { width: goodsWidths[3], lines: [line(ci.totalAmount, { bold: true, size: 7, align: "center" })] },
+  ], { minHeight: 112, repeatAfterPageBreak: drawGoodsHeader });
+
+  const amountLeftWidth = width * 0.78;
+  drawRow([
+    {
+      width: amountLeftWidth,
+      lines: [
+        line("Amount Chargeable (In Words)", { size: 5.5 }),
+        line(invoiceAmountInWords(ci.totalAmount, ci.currency), { bold: true, size: 6.5 }),
+      ],
+    },
+    {
+      width: width - amountLeftWidth,
+      lines: [
+        line("Total", { bold: true, size: 6, align: "center" }),
+        line(ci.totalAmount, { bold: true, size: 7, align: "center" }),
+      ],
+    },
+  ], { minHeight: 34, keepTogether: true });
+
+  const signatureLines: CellLine[] = [
+    line("Signature", { size: 5.5 }),
+    line("FOR & ON BEHALF OF SELLER / ISSUER", { bold: true, size: 5.5, align: "center" }),
+    line(ci.sellerName, { bold: true, size: 7, align: "center" }),
+    line(" ", { size: 9 }),
+    line(" ", { size: 9 }),
+    line(" ", { size: 9 }),
+    line(signature?.name ? `Signed by: ${signature.name}` : "(Authorised Signatory)", { size: 6, align: "center" }),
+  ];
+  const signedAt = fmtSignedDateTime(signature?.signedAt);
+  if (signedAt) {
+    signatureLines.push(line(
+      `Signed: ${signedAt}${signature?.signedIp ? `  |  IP: ${signature.signedIp}` : ""}`,
+      { size: 5, align: "center" },
+    ));
+  }
+
+  drawRow([
+    {
+      width: half,
+      lines: [
+        line("Our Bankers are:", { size: 5.5 }),
+        line(ci.sellerBank, { bold: true, size: 7 }),
+        line(`SWIFT CODE: ${ci.sellerSwift}`, { bold: true, size: 6.5 }),
+        line(" ", { size: 6 }),
+        line(
+          "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.",
+          { size: 5.5 },
+        ),
+      ],
+    },
+    { width: half, lines: signatureLines },
+  ], {
+    minHeight: 98,
+    keepTogether: true,
+    afterChunk: (chunkIndex, chunkY) => {
+      if (chunkIndex !== 0 || !signature?.data) return;
+      doc.image(base64ToBuffer(signature.data), x + half + half / 2 - 50, chunkY + 36, {
+        width: 100,
+        height: 30,
+      });
+    },
+  });
+
+  doc.y = y;
   doc.x = x;
-  doc.moveDown(0.6);
-
-  doc.font("Helvetica-Bold").fontSize(10).text("LETTER OF CREDIT DETAILS", x, doc.y, { width: W });
-  doc.moveDown(0.3);
-  drawPdf2ColTable(doc, [["LC Number", ci.lcNo], ["LC Issuing Bank", ci.lcBank]], x, W);
-  doc.moveDown(0.6);
-
-  doc.font("Helvetica-Bold").fontSize(10).text("SHIPMENT DETAILS", x, doc.y, { width: W });
-  doc.moveDown(0.3);
-  drawPdf2ColTable(doc, [
-    ["Vessel", ci.vessel],
-    ["Voyage No.", ci.voyage],
-    ["Port of Loading", ci.portOfLoading],
-    ["Port of Discharge", ci.portOfDischarge],
-    ["Country of Origin", ci.origin],
-    ["B/L No. & Date", `${ci.blNo} & DATED ${ci.blDate}`],
-  ], x, W);
-  doc.moveDown(0.6);
-
-  doc.font("Helvetica-Bold").fontSize(10).text("DESCRIPTION OF GOODS", x, doc.y, { width: W });
-  doc.moveDown(0.3);
-  drawPdf4ColTable(doc, [
-    ["Commodity", "Quantity (MT)", `Unit Price (${ci.currency}/MT)`, `Total Amount (${ci.currency})`],
-    [ci.commodity, `${ci.quantity} MT`, `${ci.currency} ${ci.unitPrice}/MT`, `${ci.currency} ${ci.totalAmount}`],
-  ], x, W);
-  doc.moveDown(0.5);
-
-  doc.font("Helvetica").fontSize(9).text(`Tolerance: ${ci.tolerance}`, x, doc.y, { width: W });
-  doc.moveDown(0.3);
-  doc.font("Helvetica-Bold").fontSize(10).text(`TOTAL INVOICE VALUE: ${ci.currency} ${ci.totalAmount}`, x, doc.y, { width: W });
-  doc.moveDown(0.3);
-  doc.font("Helvetica").fontSize(9).text(`Payment Terms: ${ci.paymentTerms}`, x, doc.y, { width: W });
-  doc.moveDown(1);
-
-  const sigLineY = doc.y;
-  doc.moveTo(x, sigLineY).lineTo(x + W, sigLineY).stroke("#AAAAAA");
-  doc.moveDown(0.5);
-  doc.font("Helvetica-Bold").fontSize(9).text(`FOR AND ON BEHALF OF ${ci.sellerName}`, x, doc.y, { width: W });
-  doc.font("Helvetica").fontSize(9).text("Authorised Signatory", x, doc.y, { width: W });
-  doc.moveDown(1.5);
-  doc.font("Helvetica").fontSize(9).text("Name:  _______________", x, doc.y, { width: W });
-  doc.font("Helvetica").fontSize(9).text("Title: _______________", x, doc.y, { width: W });
-  doc.font("Helvetica").fontSize(9).text(`Date:  ${ci.date}`, x, doc.y, { width: W });
-  doc.font("Helvetica").fontSize(9).text("Signature & Stamp: _______________", x, doc.y, { width: W });
 }
 
 interface CooData {
@@ -1897,7 +2827,7 @@ interface CooData {
   countryOfOrigin: string;
 }
 
-function parseCooContent(content: string): CooData {
+export function parseCooContent(content: string): CooData {
   const lines = content.split("\n").map(l => l.trimEnd());
 
   const findIdx = (keyword: string): number => lines.findIndex(l => l.trim() === keyword);
@@ -1940,7 +2870,7 @@ function buildCooDocx(content: string): (Paragraph | Table)[] {
   const coo = parseCooContent(content);
   const children: (Paragraph | Table)[] = [];
 
-  const S = { style: BorderStyle.SINGLE as const, size: 4, color: "000000" };
+  const S = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
   const BB = { top: S, bottom: S, left: S, right: S };
 
   const lbl = (t: string, bold = false) => new Paragraph({
@@ -2409,17 +3339,30 @@ interface LoiParsed {
   headerRows: { label: string; value: string }[];
   buyerRows: { label: string; value: string }[];
   paramRows: { sr: string; param: string; detail: string }[];
+  specRows: [string, string, string, string][];
+  logisticsRows: { label: string; value: string }[];
   specialNote: string;
   closingLines: string[];
   buyerSignatory: string;
 }
 
-function parseLoiContent(content: string): LoiParsed {
+/** Grade markers remain ordinary spec rows for round trips, but each grade
+ * receives its own table in the dedicated LOI layouts. */
+export function groupLoiSpecRows(rows: [string, string, string, string][]): [string, string, string, string][][] {
+  const groups: [string, string, string, string][][] = [[]];
+  for (const row of rows) {
+    if (row[0] === "Propane grade" && groups[0].some(r => r[0] === "n-Butane grade")) groups.push([]);
+    groups[groups.length - 1].push(row);
+  }
+  return groups.filter(g => g.length);
+}
+
+export function parseLoiContent(content: string): LoiParsed {
   const sanitized = sanitizeUnicode(content);
   const lines = sanitized.split("\n");
-  const result: LoiParsed = { headerRows: [], buyerRows: [], paramRows: [], specialNote: "", closingLines: [], buyerSignatory: "" };
+  const result: LoiParsed = { headerRows: [], buyerRows: [], paramRows: [], specRows: [], logisticsRows: [], specialNote: "", closingLines: [], buyerSignatory: "" };
 
-  let section: "pre" | "seller" | "buyer" | "table" | "note" | "closing" = "pre";
+  let section: "pre" | "seller" | "buyer" | "table" | "note" | "closing" | "specs" = "pre";
   let currentLabel = "";
   let currentValue = "";
 
@@ -2440,6 +3383,32 @@ function parseLoiContent(content: string): LoiParsed {
     const trimmed = line.trim();
 
     if (trimmed === "PURCHASE LETTER OF INTENT" || trimmed.match(/^={3,}$/)) continue;
+
+    if (trimmed === "COMMODITY SPECIFICATIONS") {
+      flushHeader();
+      section = "specs";
+      continue;
+    }
+    if (section === "specs") {
+      if (trimmed.startsWith("SPECIAL NOTES")) { section = "note"; continue; }
+      if (trimmed.startsWith("We look forward") || trimmed.startsWith("With warm regards") || trimmed.startsWith("For & On Behalf")) {
+        section = "closing";
+        result.closingLines.push(trimmed);
+        continue;
+      }
+      if (trimmed.match(/^[=-]{3,}$/) || !trimmed || trimmed === "LOGISTICS") continue;
+      const portMatch = trimmed.match(/^(Loading Port|Discharge Port):\s*(.*)$/);
+      if (portMatch) {
+        result.logisticsRows.push({ label: portMatch[1], value: portMatch[2].trim() });
+        continue;
+      }
+      if (trimmed.includes("|")) {
+        if (trimmed.includes("Parameter")) continue;
+        const cells = trimmed.split("|").map(c => c.trim());
+        result.specRows.push([cells[0] || "", cells[1] || "", cells[2] || "", cells[3] || ""]);
+      }
+      continue;
+    }
 
     if (trimmed === "Issued to Seller") {
       section = "seller";
@@ -2547,7 +3516,7 @@ function parseLoiContent(content: string): LoiParsed {
   return result;
 }
 
-function buildLoiDocx(content: string): (Paragraph | Table)[] {
+function buildLoiDocx(content: string, signature?: InvoiceSignature): (Paragraph | Table)[] {
   const loi = parseLoiContent(content);
   const children: (Paragraph | Table)[] = [];
 
@@ -2625,7 +3594,7 @@ function buildLoiDocx(content: string): (Paragraph | Table)[] {
   }));
 
   for (const row of loi.paramRows) {
-    const cellBorder = { top: { style: BorderStyle.SINGLE as const, size: 1, color: "CCCCCC" }, bottom: { style: BorderStyle.SINGLE as const, size: 1, color: "CCCCCC" }, left: { style: BorderStyle.SINGLE as const, size: 1, color: "CCCCCC" }, right: { style: BorderStyle.SINGLE as const, size: 1, color: "CCCCCC" } };
+    const cellBorder = { top: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" }, bottom: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" }, left: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" }, right: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" } };
     paramTableRows.push(new TableRow({
       children: [
         new TableCell({
@@ -2654,6 +3623,33 @@ function buildLoiDocx(content: string): (Paragraph | Table)[] {
   }
   children.push(new Table({ rows: paramTableRows, width: { size: 9000, type: WidthType.DXA } }));
 
+  if (loi.specRows.length > 0) {
+    children.push(new Paragraph({
+      children: [new TextRun({ text: "COMMODITY SPECIFICATIONS", bold: true, size: 20, font: "Calibri" })],
+      spacing: { before: 300, after: 120 },
+    }));
+    for (const rows of groupLoiSpecRows(loi.specRows)) {
+      children.push(make4ColTable([["Parameter", "Specification", "Rejection", "Test Method"], ...rows]));
+      children.push(new Paragraph({ spacing: { after: 160 } }));
+    }
+  }
+
+  if (loi.logisticsRows.length > 0) {
+    children.push(new Paragraph({
+      children: [new TextRun({ text: "LOGISTICS", bold: true, size: 20, font: "Calibri" })],
+      spacing: { before: 300, after: 120 },
+    }));
+    for (const row of loi.logisticsRows) {
+      children.push(new Paragraph({
+        children: [
+          new TextRun({ text: `${row.label}: `, bold: true, size: 18, font: "Calibri" }),
+          new TextRun({ text: row.value, size: 18, font: "Calibri" }),
+        ],
+        spacing: { after: 60 },
+      }));
+    }
+  }
+
   if (loi.specialNote) {
     children.push(new Paragraph({ spacing: { before: 400 } }));
     children.push(new Paragraph({
@@ -2675,11 +3671,16 @@ function buildLoiDocx(content: string): (Paragraph | Table)[] {
     children.push(new Paragraph({
       children: [new TextRun({ text: line, size: 18, font: "Calibri", italics: isItalic })],
       spacing: { after: isItalic ? 200 : 80 },
+      keepNext: !!signature?.data,
     }));
     if (!isItalic && line.trim()) issuerName = line;
   }
 
   children.push(new Paragraph({ spacing: { before: 100 } }));
+  if (signature?.data) {
+    children.push(...nativeSignatureDocx(signature));
+    return children;
+  }
   children.push(new Paragraph({
     children: [new TextRun({ text: "Digital Signature:", size: 16, font: "Calibri", color: "555555" })],
     spacing: { after: 60 },
@@ -2722,7 +3723,7 @@ function buildLoiDocx(content: string): (Paragraph | Table)[] {
   return children;
 }
 
-function buildLoiPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: number, pageWidth: number) {
+function buildLoiPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: number, pageWidth: number, signature?: InvoiceSignature) {
   const loi = parseLoiContent(content);
 
   doc.font("Helvetica-Bold").fontSize(16).text("PURCHASE LETTER OF INTENT", leftMargin, doc.y, { width: pageWidth, align: "center" });
@@ -2786,6 +3787,30 @@ function buildLoiPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
   doc.moveTo(leftMargin, doc.y).lineTo(leftMargin + pageWidth, doc.y).lineWidth(2).stroke("#333333");
   doc.moveDown(0.8);
 
+  if (loi.specRows.length > 0) {
+    pdfCheckPage(doc, 60);
+    doc.font("Helvetica-Bold").fontSize(10).fillColor("#333333").text("COMMODITY SPECIFICATIONS", leftMargin, doc.y, { width: pageWidth });
+    doc.moveDown(0.4);
+    for (const rows of groupLoiSpecRows(loi.specRows)) {
+      drawPdf4ColTable(doc, [["Parameter", "Specification", "Rejection", "Test Method"], ...rows], leftMargin, pageWidth);
+      doc.moveDown(0.8);
+    }
+    doc.moveDown(0.8);
+  }
+
+  if (loi.logisticsRows.length > 0) {
+    pdfCheckPage(doc, 40);
+    doc.font("Helvetica-Bold").fontSize(9).fillColor("#000000").text("LOGISTICS", leftMargin, doc.y);
+    doc.moveDown(0.4);
+    for (const row of loi.logisticsRows) {
+      pdfCheckPage(doc, 14);
+      doc.font("Helvetica-Bold").fontSize(8).text(`${row.label}: `, leftMargin, doc.y, { continued: true });
+      doc.font("Helvetica").fontSize(8).text(row.value, { width: pageWidth });
+      doc.moveDown(0.2);
+    }
+    doc.moveDown(0.6);
+  }
+
   if (loi.specialNote) {
     doc.moveDown(1.2);
     pdfCheckPage(doc, 50);
@@ -2809,6 +3834,10 @@ function buildLoiPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
     }
   }
 
+  if (signature?.data) {
+    drawNativeSignaturePdf(doc, signature, leftMargin, pageWidth);
+    return;
+  }
   pdfCheckPage(doc, 80);
   doc.font("Helvetica").fontSize(7).fillColor("#555555").text("Digital Signature:", leftMargin, doc.y);
   doc.moveDown(0.3);
@@ -2826,7 +3855,7 @@ function buildLoiPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: numbe
 const DISCLAIMER_TEXT =
   "DISCLAIMER: The information contained in this document may be privileged and/or confidential, and is intended only for the use of the person to whom it is addressed. If the reader of this message is not the intended recipient (or such recipient's employee or agent), you are hereby notified not to read, distribute, use or copy this document or the materials attached. If you have received this document in error, please notify the sender and delete the document from your computer. In compliance with regulatory requirements, all messages sent to or from this server are archived and may be read by someone other than the recipient. This document has been scanned for viruses and malware, and may have been automatically archived by Bullfrog Group.";
 
-function buildFooterParagraphs(submittedBy?: string, agentCode?: string): Paragraph[] {
+function buildFooterParagraphs(submittedBy?: string, agentCode?: string, teamMemberCode?: string): Paragraph[] {
   const out: Paragraph[] = [
     new Paragraph({ spacing: { before: 600 } }),
     new Paragraph({
@@ -2861,37 +3890,31 @@ function buildFooterParagraphs(submittedBy?: string, agentCode?: string): Paragr
       spacing: { after: 40 },
     }));
   }
+  if (teamMemberCode) {
+    out.push(new Paragraph({
+      children: [new TextRun({ text: `Allocated Team Member: ${teamMemberCode}`, bold: true, size: 14, font: "Calibri", color: "333333" })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 40 },
+    }));
+  }
   return out;
 }
 
-export async function generateDocx(docId: string, title: string, content: string, submittedBy?: string, agentCode?: string): Promise<string> {
+type BuilderKey =
+  | "TFR" | "DLC_MT700" | "DEAL_RECAP" | "LOI" | "NCNDA"
+  | "BL" | "COO" | "COA" | "COW" | "CI" | "GENERIC";
+export async function generateDocx(docId: string, title: string, content: string, submittedBy?: string, agentCode?: string, teamMemberCode?: string, docType?: string | null): Promise<string> {
   assertSafeDocId(docId);
-  let children: (Paragraph | Table)[];
+  const builderKey = resolveBuilderKey(content, docType);
+  const children = buildDocxByKey(builderKey, content);
 
-  if (isTfrContent(content)) {
-    children = buildTfrDocx(content);
-  } else if (isDealRecapContent(content)) {
-    children = buildDealRecapDocx(content);
-  } else if (isLoiContent(content)) {
-    children = buildLoiDocx(content);
-  } else if (isNcndaContent(content)) {
-    children = buildNcndaDocx(content);
-  } else if (isBlContent(content)) {
-    children = buildBlDocx(content);
-  } else if (isCooContent(content)) {
-    children = buildCooDocx(content);
-  } else if (isCoaContent(content)) {
-    children = buildCoaDocx(content);
-  } else if (isCowContent(content)) {
-    children = buildCowDocx(content);
-  } else {
-    children = buildGenericDocx(content);
+  const { header, footer, letterhead } = await getBrandingLogos();
+  if (builderKey !== "CI") {
+    children.push(...buildFooterParagraphs(submittedBy, agentCode, teamMemberCode));
   }
 
-  children.push(...buildFooterParagraphs(submittedBy, agentCode));
-
   const doc = new DocxDocument({
-    sections: [{ children }],
+    sections: [brandedDocxSection(children, header, footer, letterhead)],
   });
 
   const buffer = await Packer.toBuffer(doc);
@@ -2901,12 +3924,13 @@ export async function generateDocx(docId: string, title: string, content: string
   return filePath;
 }
 
-function buildGenericDocx(content: string): (Paragraph | Table)[] {
-  const sections = parseContentToSections(content);
+function buildGenericDocx(content: string, signature?: InvoiceSignature): (Paragraph | Table)[] {
+  const sections = parseContentToSections(signature?.data ? prepareNativeSignatureContent(content) : content);
   const children: (Paragraph | Table)[] = [];
 
   let tableRows: TableRow[] = [];
   let tableColCount = 0;
+  let inSignatureBlock = false;
 
   const flushTable = () => {
     if (tableRows.length > 0) {
@@ -2925,8 +3949,15 @@ function buildGenericDocx(content: string): (Paragraph | Table)[] {
   };
 
   for (const section of sections) {
+    if (signature?.data && /^AUTHORI[ZS]ED SIGNATORY$/i.test(section.text)) inSignatureBlock = true;
+    if (signature?.data && nativeSignatureLine.test(section.text)) {
+      flushTable();
+      children.push(...nativeSignatureDocx(signature));
+      inSignatureBlock = false;
+      continue;
+    }
     if (section.type === "table-row" && section.cells) {
-      const isHeader = section.cells.every(c => c === c.replace(/[a-z]/g, "").trim() || c.includes("Item") || c.includes("Parameter") || c.includes("Specification") || c.includes("Limit"));
+      const isHeader = section.cells.every(c => c === c.replace(/[a-z]/g, "").trim() || c.includes("Item") || c.includes("Parameter") || c.includes("Specification") || c.includes("Limit") || c.includes("Rejection") || c.includes("Test Method"));
       tableColCount = Math.max(tableColCount, section.cells.length);
       tableRows.push(
         new TableRow({
@@ -2971,6 +4002,7 @@ function buildGenericDocx(content: string): (Paragraph | Table)[] {
             children: [new TextRun({ text: section.text, bold: true, size: 22, font: "Calibri" })],
             heading: HeadingLevel.HEADING_2,
             spacing: { before: 300, after: 100 },
+            keepNext: inSignatureBlock,
           })
         );
       } else if (section.text === "") {
@@ -2985,7 +4017,7 @@ function buildGenericDocx(content: string): (Paragraph | Table)[] {
             runs.push(new TextRun({ text: part, size: 20, font: "Calibri" }));
           }
         }
-        children.push(new Paragraph({ children: runs, spacing: { before: 40, after: 40 } }));
+        children.push(new Paragraph({ children: runs, spacing: { before: 40, after: 40 }, keepNext: inSignatureBlock }));
       }
     }
   }
@@ -2993,39 +4025,25 @@ function buildGenericDocx(content: string): (Paragraph | Table)[] {
   return children;
 }
 
-export async function generatePdf(docId: string, title: string, content: string, submittedBy?: string, agentCode?: string): Promise<string> {
+export async function generatePdf(docId: string, title: string, content: string, submittedBy?: string, agentCode?: string, teamMemberCode?: string, docType?: string | null): Promise<string> {
   assertSafeDocId(docId);
+  const { header, footer, letterhead } = await getBrandingLogos();
   return new Promise((resolve, reject) => {
     const fileName = `${docId}.pdf`;
     const filePath = path.join(docsDir, fileName);
-    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const doc = createBrandedPdf({ header, footer, letterhead });
     const stream = fs.createWriteStream(filePath);
     doc.pipe(stream);
 
     const pageWidth = 495;
     const leftMargin = 50;
+    const builderKey = resolveBuilderKey(content, docType);
 
-    if (isTfrContent(content)) {
-      buildTfrPdf(doc, content, leftMargin, pageWidth);
-    } else if (isDealRecapContent(content)) {
-      buildDealRecapPdf(doc, content, leftMargin, pageWidth);
-    } else if (isLoiContent(content)) {
-      buildLoiPdf(doc, content, leftMargin, pageWidth);
-    } else if (isNcndaContent(content)) {
-      buildNcndaPdf(doc, content, leftMargin, pageWidth);
-    } else if (isBlContent(content)) {
-      buildBlPdf(doc, content, leftMargin, pageWidth);
-    } else if (isCooContent(content)) {
-      buildCooPdf(doc, content, leftMargin, pageWidth);
-    } else if (isCoaContent(content)) {
-      buildCoaPdf(doc, content, leftMargin, pageWidth);
-    } else if (isCowContent(content)) {
-      buildCowPdf(doc, content, leftMargin, pageWidth);
-    } else {
-      buildGenericPdf(doc, content, leftMargin, pageWidth);
+    buildPdfByKey(builderKey, doc, content, leftMargin, pageWidth);
+
+    if (builderKey !== "CI") {
+      addPdfFooter(doc, leftMargin, pageWidth, submittedBy, agentCode, teamMemberCode);
     }
-
-    addPdfFooter(doc, leftMargin, pageWidth, submittedBy);
 
     doc.end();
     stream.on("finish", () => resolve(filePath));
@@ -3034,7 +4052,7 @@ export async function generatePdf(docId: string, title: string, content: string,
 }
 
 function pdfCheckPage(doc: PDFKit.PDFDocument, minSpace: number = 60) {
-  if (doc.y > 780 - minSpace) doc.addPage();
+  if (doc.y > 740 - minSpace) doc.addPage();
 }
 
 function drawPdf2ColTable(doc: PDFKit.PDFDocument, rows: [string, string][], left: number, totalWidth: number) {
@@ -3248,14 +4266,14 @@ function buildDealRecapPdf(doc: PDFKit.PDFDocument, content: string, leftMargin:
   doc.font("Helvetica").fontSize(9).text(`Grade: ${d.qualitySpecs || ""}`, leftMargin, doc.y, { width: pageWidth });
   doc.moveDown(0.5);
 
-  doc.font("Helvetica").fontSize(9).text("The product supplied under this Contract shall comply with the following specifications. Guaranteed specifications represent binding commitments by the Seller. Typical specifications are provided for reference only and shall not constitute contractual guarantees.", leftMargin, doc.y, { width: pageWidth });
+  doc.font("Helvetica").fontSize(9).text("The product supplied under this Contract shall comply with the following specifications.", leftMargin, doc.y, { width: pageWidth });
   doc.moveDown(0.5);
 
   doc.font("Helvetica-Bold").fontSize(9).text("PRODUCT SPECIFICATION", leftMargin, doc.y, { width: pageWidth });
   doc.moveDown(0.3);
 
   const specRows: [string, string, string, string][] = [
-    ["Parameter", "Guaranteed Specification", "Typical Specification", "Rejection Limit"],
+    ["Parameter", "Specification", "Rejection", "Test Method"],
   ];
 
   if (d.annexSpecs) {
@@ -3265,10 +4283,6 @@ function buildDealRecapPdf(doc: PDFKit.PDFDocument, content: string, leftMargin:
       if (cells.length >= 2) {
         specRows.push([cells[0] || "", cells[1] || "", cells[2] || "", cells[3] || ""]);
       }
-    }
-  } else {
-    for (const p of ["Moisture", "Ash", "Volatile Matter", "Fixed Carbon", "Sulphur", "Calorific Value", "Size Distribution"]) {
-      specRows.push([p, "", "", ""]);
     }
   }
 
@@ -3297,8 +4311,8 @@ function buildDealRecapPdf(doc: PDFKit.PDFDocument, content: string, leftMargin:
   }
 }
 
-function buildGenericPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: number, pageWidth: number) {
-  const sections = parseContentToSections(content);
+function buildGenericPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: number, pageWidth: number, signature?: InvoiceSignature) {
+  const sections = parseContentToSections(signature?.data ? prepareNativeSignatureContent(content) : content);
 
   let pendingTableRows: { cells: string[]; isHeader: boolean }[] = [];
 
@@ -3313,6 +4327,33 @@ function buildGenericPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: n
 
     if (maxCols === 2) {
       drawPdf2ColTable(doc, rows as [string, string][], leftMargin, pageWidth);
+    } else if (maxCols === 6) {
+      // LPG annexures carry ASTM and ISO in columns five/six. The legacy
+      // four-column renderer silently drops those cells; retain all six.
+      const widths = [0.30, 0.10, 0.10, 0.18, 0.14, 0.18].map(ratio => ratio * pageWidth);
+      let headerCells: string[] | undefined;
+      const drawRow = (cells: string[], header: boolean) => {
+        doc.font(header ? "Helvetica-Bold" : "Helvetica").fontSize(8);
+        const height = Math.max(22, ...cells.map((cell, i) => doc.heightOfString(cell, { width: widths[i] - 8 }) + 10));
+        if (doc.y > 740 - height) {
+          doc.addPage();
+          if (!header && headerCells) drawRow(headerCells, true);
+          doc.font(header ? "Helvetica-Bold" : "Helvetica").fontSize(8);
+        }
+        const y = doc.y;
+        let x = leftMargin;
+        cells.forEach((cell, i) => {
+          doc.rect(x, y, widths[i], height).fillAndStroke(header ? "#edf2f7" : "#ffffff", "#cbd5e1");
+          doc.fillColor("#111111").text(cell, x + 4, y + 5, { width: widths[i] - 8 });
+          x += widths[i];
+        });
+        doc.y = y + height;
+      };
+      for (const row of pendingTableRows) {
+        const header = row.cells[0] === "PROPERTY";
+        if (header) headerCells = row.cells;
+        drawRow(row.cells, header);
+      }
     } else if (maxCols >= 4) {
       drawPdf4ColTable(doc, rows as [string, string, string, string][], leftMargin, pageWidth);
     } else {
@@ -3327,6 +4368,12 @@ function buildGenericPdf(doc: PDFKit.PDFDocument, content: string, leftMargin: n
   };
 
   for (const section of sections) {
+    if (signature?.data && /^AUTHORI[ZS]ED SIGNATORY$/i.test(section.text)) pdfCheckPage(doc, 200);
+    if (signature?.data && nativeSignatureLine.test(section.text)) {
+      flushPdfTable();
+      drawNativeSignaturePdf(doc, signature, leftMargin, pageWidth);
+      continue;
+    }
     if (section.type === "table-row" && section.cells) {
       const isHeader = section.cells.some(c => c.includes("Item") || c.includes("Parameter") || c.includes("Description") || c.includes("Specification") || c.includes("Limit"));
       pendingTableRows.push({ cells: section.cells, isHeader });
@@ -3394,6 +4441,7 @@ function addSignatureBlockPdf(
   docType?: string,
   buyerSignedIp?: string,
   sellerSignedIp?: string,
+  issuerIsSeller?: boolean,
 ) {
   if (doc.y > 580) doc.addPage();
   doc.moveDown(1);
@@ -3406,14 +4454,15 @@ function addSignatureBlockPdf(
   doc.moveDown(0.8);
 
   const isNcnda = docType === "NCNDA";
+  const isTwoParty = isNcnda || docType === "ADDENDUM";
 
-  if (isNcnda) {
+  if (isTwoParty) {
     const halfW = Math.floor(pageWidth / 2) - 10;
     const rightX = leftMargin + Math.floor(pageWidth / 2) + 10;
     const sigStartY = doc.y;
 
-    doc.font("Helvetica-Bold").fontSize(9).text("PARTY A (ISSUER)", leftMargin, sigStartY, { width: halfW });
-    doc.font("Helvetica-Bold").fontSize(9).text("PARTY B (RECEIVING PARTY)", rightX, sigStartY, { width: halfW });
+    doc.font("Helvetica-Bold").fontSize(9).text(isNcnda ? "PARTY A (ISSUER)" : "SELLER", leftMargin, sigStartY, { width: halfW });
+    doc.font("Helvetica-Bold").fontSize(9).text(isNcnda ? "PARTY B (RECEIVING PARTY)" : "BUYER", rightX, sigStartY, { width: halfW });
 
     const labelY = sigStartY + 18;
 
@@ -3457,13 +4506,23 @@ function addSignatureBlockPdf(
 
     doc.y = nameY + 42;
   } else {
+    // Single-signer (generic) docs always store the signature in the "buyer"
+    // slot regardless of the issuing party (the sign UI signs as "buyer").
+    // issuerIsSeller only changes the displayed label (e.g. FOB Export is issued
+    // by the Seller); it must NOT change which stored signature we render, or the
+    // signature would silently disappear for those documents.
+    const issuerLabel = issuerIsSeller ? "FOR & ON BEHALF OF SELLER / ISSUER" : "FOR & ON BEHALF OF BUYER / ISSUER";
+    const issuerSig = buyerSig;
+    const issuerName = buyerName;
+    const issuerSignedAt = buyerSignedAt;
+    const issuerSignedIp = buyerSignedIp;
     const sigStartY = doc.y;
-    doc.font("Helvetica-Bold").fontSize(9).text("FOR & ON BEHALF OF BUYER / ISSUER", leftMargin, sigStartY, { width: pageWidth });
+    doc.font("Helvetica-Bold").fontSize(9).text(issuerLabel, leftMargin, sigStartY, { width: pageWidth });
     const labelY = sigStartY + 18;
 
-    if (buyerSig) {
+    if (issuerSig) {
       try {
-        const sigBuf = base64ToBuffer(buyerSig);
+        const sigBuf = base64ToBuffer(issuerSig);
         doc.image(sigBuf, leftMargin, labelY, { width: 150, height: 60 });
       } catch (e) {}
     }
@@ -3471,11 +4530,11 @@ function addSignatureBlockPdf(
     const nameY = labelY + 65;
     doc.font("Helvetica").fontSize(8);
 
-    if (buyerName) {
-      doc.text(`Name: ${buyerName}`, leftMargin, nameY, { width: pageWidth });
-      const buyerDt = fmtSignedDateTime(buyerSignedAt);
-      if (buyerDt) doc.text(`Signed: ${buyerDt}`, leftMargin, nameY + 12, { width: pageWidth });
-      if (buyerSignedIp) doc.text(`IP: ${buyerSignedIp}`, leftMargin, nameY + 24, { width: pageWidth });
+    if (issuerName) {
+      doc.text(`Name: ${issuerName}`, leftMargin, nameY, { width: pageWidth });
+      const issuerDt = fmtSignedDateTime(issuerSignedAt);
+      if (issuerDt) doc.text(`Signed: ${issuerDt}`, leftMargin, nameY + 12, { width: pageWidth });
+      if (issuerSignedIp) doc.text(`IP: ${issuerSignedIp}`, leftMargin, nameY + 24, { width: pageWidth });
     } else {
       doc.text("Name: _______________", leftMargin, nameY, { width: pageWidth });
       doc.text("Signed: _______________", leftMargin, nameY + 12, { width: pageWidth });
@@ -3486,9 +4545,10 @@ function addSignatureBlockPdf(
   }
 }
 
-function addPdfFooter(doc: PDFKit.PDFDocument, leftMargin: number, pageWidth: number, submittedBy?: string, agentCode?: string) {
+function addPdfFooter(doc: PDFKit.PDFDocument, leftMargin: number, pageWidth: number, submittedBy?: string, agentCode?: string, teamMemberCode?: string) {
   const disclaimerH = doc.font("Helvetica-Oblique").fontSize(7).heightOfString(DISCLAIMER_TEXT, { width: pageWidth });
-  if (doc.y > 750 - disclaimerH - 40) doc.addPage();
+  const extraLines = (submittedBy ? 12 : 0) + (agentCode ? 12 : 0) + (teamMemberCode ? 12 : 0);
+  if (doc.y > 720 - disclaimerH - 40 - extraLines) doc.addPage();
   doc.moveDown(1.5);
   const lineY = doc.y;
   doc.moveTo(leftMargin, lineY).lineTo(leftMargin + pageWidth, lineY).stroke("#999999");
@@ -3510,6 +4570,11 @@ function addPdfFooter(doc: PDFKit.PDFDocument, leftMargin: number, pageWidth: nu
     doc.font("Helvetica-Bold").fontSize(8).fillColor("#333333")
       .text(`Agent Code: ${agentCode}`, leftMargin, doc.y, { width: pageWidth, align: "center" });
   }
+  if (teamMemberCode) {
+    doc.moveDown(0.2);
+    doc.font("Helvetica-Bold").fontSize(8).fillColor("#333333")
+      .text(`Allocated Team Member: ${teamMemberCode}`, leftMargin, doc.y, { width: pageWidth, align: "center" });
+  }
 }
 
 function buildSignatureDocxParagraphs(
@@ -3522,6 +4587,7 @@ function buildSignatureDocxParagraphs(
   docType?: string,
   buyerSignedIp?: string,
   sellerSignedIp?: string,
+  issuerIsSeller?: boolean,
 ): (Paragraph | Table)[] {
   const items: (Paragraph | Table)[] = [];
 
@@ -3534,16 +4600,17 @@ function buildSignatureDocxParagraphs(
   }));
 
   const isNcnda = docType === "NCNDA";
+  const isTwoParty = isNcnda || docType === "ADDENDUM";
   const noBorder = { top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" } };
 
-  if (isNcnda) {
+  if (isTwoParty) {
     const makeCell = (children: (Paragraph | Table)[]): TableCell => new TableCell({
       children,
       borders: noBorder,
       width: { size: 5000, type: WidthType.DXA },
     });
     const leftChildren: (Paragraph | Table)[] = [
-      new Paragraph({ children: [new TextRun({ text: "PARTY A (ISSUER)", bold: true, size: 18, font: "Calibri" })], spacing: { after: 80 } }),
+      new Paragraph({ children: [new TextRun({ text: isNcnda ? "PARTY A (ISSUER)" : "SELLER", bold: true, size: 18, font: "Calibri" })], spacing: { after: 80 } }),
     ];
     if (sellerSig) {
       try {
@@ -3555,7 +4622,7 @@ function buildSignatureDocxParagraphs(
     leftChildren.push(new Paragraph({ children: [new TextRun({ text: `IP: ${sellerSignedIp || "_______________"}`, size: 18, font: "Calibri" })] }));
 
     const rightChildren: (Paragraph | Table)[] = [
-      new Paragraph({ children: [new TextRun({ text: "PARTY B (RECEIVING PARTY)", bold: true, size: 18, font: "Calibri" })], spacing: { after: 80 } }),
+      new Paragraph({ children: [new TextRun({ text: isNcnda ? "PARTY B (RECEIVING PARTY)" : "BUYER", bold: true, size: 18, font: "Calibri" })], spacing: { after: 80 } }),
     ];
     if (buyerSig) {
       try {
@@ -3571,32 +4638,93 @@ function buildSignatureDocxParagraphs(
       width: { size: 10000, type: WidthType.DXA },
     }));
   } else {
+    // Single-signer (generic) docs always store the signature in the "buyer"
+    // slot regardless of the issuing party (the sign UI signs as "buyer").
+    // issuerIsSeller only changes the displayed label (e.g. FOB Export is issued
+    // by the Seller); it must NOT change which stored signature we render, or the
+    // signature would silently disappear for those documents.
+    const issuerLabel = issuerIsSeller ? "FOR & ON BEHALF OF SELLER / ISSUER" : "FOR & ON BEHALF OF BUYER / ISSUER";
+    const issuerSig = buyerSig;
+    const issuerName = buyerName;
+    const issuerSignedAt = buyerSignedAt;
+    const issuerSignedIp = buyerSignedIp;
     items.push(new Paragraph({
-      children: [new TextRun({ text: "FOR & ON BEHALF OF BUYER / ISSUER", bold: true, size: 18, font: "Calibri" })],
+      children: [new TextRun({ text: issuerLabel, bold: true, size: 18, font: "Calibri" })],
       spacing: { after: 100 },
     }));
-    if (buyerSig) {
+    if (issuerSig) {
       try {
         items.push(new Paragraph({
-          children: [new ImageRun({ data: base64ToBuffer(buyerSig), transformation: { width: 180, height: 70 }, type: "png" })],
+          children: [new ImageRun({ data: base64ToBuffer(issuerSig), transformation: { width: 180, height: 70 }, type: "png" })],
           spacing: { after: 60 },
         }));
       } catch (e) {}
     }
     items.push(new Paragraph({
-      children: [new TextRun({ text: `Name: ${buyerName || "_______________"}`, size: 18, font: "Calibri" })],
+      children: [new TextRun({ text: `Name: ${issuerName || "_______________"}`, size: 18, font: "Calibri" })],
       spacing: { after: 40 },
     }));
     items.push(new Paragraph({
-      children: [new TextRun({ text: `Signed: ${fmtSignedDateTime(buyerSignedAt) || "_______________"}`, size: 18, font: "Calibri" })],
+      children: [new TextRun({ text: `Signed: ${fmtSignedDateTime(issuerSignedAt) || "_______________"}`, size: 18, font: "Calibri" })],
       spacing: { after: 40 },
     }));
     items.push(new Paragraph({
-      children: [new TextRun({ text: `IP: ${buyerSignedIp || "_______________"}`, size: 18, font: "Calibri" })]
+      children: [new TextRun({ text: `IP: ${issuerSignedIp || "_______________"}`, size: 18, font: "Calibri" })]
     }));
   }
 
   return items;
+}
+
+// Only a single, unambiguous issuer placeholder is eligible. Bilateral layouts
+// retain their existing execution rendering, including SPA addenda.
+const nativeSignatureLine = /^(?:Digital )?Signature(?:\s*(?:&|and)\s*Stamp)?\s*:\s*[_ .-]*$/i;
+
+function prepareNativeSignatureContent(content: string): string {
+  // Signer and execution date are rendered beside the image, not as stale
+  // template blanks/issue dates. Never alter names or dates outside this block.
+  return content.replace(
+    /(^AUTHORI[ZS]ED SIGNATORY[ \t]*\n)((?:[^\n]*\n){0,8}?)(^Signature[ \t]*:[ \t]*[_ .-]*$)/gim,
+    (_match, heading, body, slot) => heading + body.replace(/^(?:Name|Date):[^\n]*\n/gim, "") + slot,
+  );
+}
+
+export function hasNativeIssuerSignature(content: string, docType?: string): boolean {
+  const key = resolveBuilderKey(content, docType);
+  if (key === "NCNDA" || /ADDENDUM/i.test(docType || "") || /SPA ADDENDUM/i.test(content)) return false;
+  if (key === "LOI" || key === "CI") return true;
+  const lines = content.split("\n").map(line => line.trim());
+  return key === "GENERIC" &&
+    lines.filter(line => nativeSignatureLine.test(line)).length === 1 &&
+    lines.filter(line => /signature[^:\n]*:/i.test(line)).length === 1;
+}
+
+function nativeSignatureDocx(signature: InvoiceSignature): Paragraph[] {
+  const text = [signature.name && `Signed by: ${signature.name}`,
+    signature.signedAt && `Signed: ${fmtSignedDateTime(signature.signedAt)}`,
+    signature.signedIp && `IP: ${signature.signedIp}`].filter(Boolean).join("  |  ");
+  return [
+    new Paragraph({ children: [new TextRun({ text: "Digital Signature:", size: 18 })], keepNext: true }),
+    new Paragraph({
+      children: [new ImageRun({ data: base64ToBuffer(signature.data!), type: "png", transformation: { width: 180, height: 60 } })],
+      keepNext: true,
+    }),
+    new Paragraph({ children: [new TextRun({ text, size: 16, font: "Calibri" })], spacing: { after: 160 } }),
+  ];
+}
+
+function drawNativeSignaturePdf(doc: PDFKit.PDFDocument, signature: InvoiceSignature, left: number, width: number) {
+  const text = [signature.name && `Signed by: ${signature.name}`,
+    signature.signedAt && `Signed: ${fmtSignedDateTime(signature.signedAt)}`,
+    signature.signedIp && `IP: ${signature.signedIp}`].filter(Boolean).join("\n");
+  doc.font("Helvetica").fontSize(8);
+  pdfCheckPage(doc, 86 + doc.heightOfString(text, { width }));
+  doc.fillColor("#555555").text("Digital Signature:", left, doc.y, { width });
+  const y = doc.y + 4;
+  doc.image(base64ToBuffer(signature.data!), left, y, { fit: [180, 60] });
+  doc.y = y + 66;
+  doc.text(text, left, doc.y, { width });
+  doc.moveDown(0.5);
 }
 
 export async function regenerateWithSignatures(
@@ -3614,71 +4742,49 @@ export async function regenerateWithSignatures(
   buyerSignedIp?: string,
   sellerSignedIp?: string,
   agentCode?: string,
+  teamMemberCode?: string,
 ): Promise<{ docxPath: string; pdfPath: string }> {
   assertSafeDocId(docId);
-  let docxChildren: (Paragraph | Table)[];
-  if (isTfrContent(content)) {
-    docxChildren = buildTfrDocx(content);
-  } else if (isDealRecapContent(content)) {
-    docxChildren = buildDealRecapDocx(content);
-  } else if (isLoiContent(content)) {
-    docxChildren = buildLoiDocx(content);
-  } else if (isNcndaContent(content)) {
-    docxChildren = buildNcndaDocx(content);
-  } else if (isBlContent(content)) {
-    docxChildren = buildBlDocx(content);
-  } else if (isCooContent(content)) {
-    docxChildren = buildCooDocx(content);
-  } else if (isCoaContent(content)) {
-    docxChildren = buildCoaDocx(content);
-  } else {
-    docxChildren = buildGenericDocx(content);
+  const builderKey = resolveBuilderKey(content, docType);
+  const consumesIssuerSignature = hasNativeIssuerSignature(content, docType);
+  const invoiceSignature: InvoiceSignature | undefined = consumesIssuerSignature
+    ? { data: buyerSig, name: buyerName, signedAt: buyerSignedAt, signedIp: buyerSignedIp }
+    : undefined;
+  const docxChildren = buildDocxByKey(builderKey, content, invoiceSignature);
+
+  const issuerIsSeller = isFobExportContent(content) || docType === "FCO" || docType === "PI" || docType === "CI";
+
+  if ((buyerSig || sellerSig) && !(consumesIssuerSignature && buyerSig) && builderKey !== "CI") {
+    docxChildren.push(...buildSignatureDocxParagraphs(buyerSig, sellerSig, buyerName, sellerName, buyerSignedAt, sellerSignedAt, docType, buyerSignedIp, sellerSignedIp, issuerIsSeller));
   }
 
-  if (buyerSig || sellerSig) {
-    docxChildren.push(...buildSignatureDocxParagraphs(buyerSig, sellerSig, buyerName, sellerName, buyerSignedAt, sellerSignedAt, docType, buyerSignedIp, sellerSignedIp));
+  const { header, footer, letterhead } = await getBrandingLogos();
+  if (builderKey !== "CI") {
+    docxChildren.push(...buildFooterParagraphs(submittedBy, agentCode, teamMemberCode));
   }
 
-  docxChildren.push(...buildFooterParagraphs(submittedBy, agentCode));
-
-  const docxDoc = new DocxDocument({ sections: [{ children: docxChildren }] });
+  const docxDoc = new DocxDocument({ sections: [brandedDocxSection(docxChildren, header, footer, letterhead)] });
   const buffer = await Packer.toBuffer(docxDoc);
   const docxPath = path.join(docsDir, `${docId}.docx`);
   fs.writeFileSync(docxPath, buffer);
 
   const pdfPath = await new Promise<string>((resolve, reject) => {
     const filePath = path.join(docsDir, `${docId}.pdf`);
-    const pdfDoc = new PDFDocument({ size: "A4", margin: 50 });
+    const pdfDoc = createBrandedPdf({ header, footer, letterhead });
     const stream = fs.createWriteStream(filePath);
     pdfDoc.pipe(stream);
     const pageWidth = 495;
     const leftMargin = 50;
 
-    if (isTfrContent(content)) {
-      buildTfrPdf(pdfDoc, content, leftMargin, pageWidth);
-    } else if (isDealRecapContent(content)) {
-      buildDealRecapPdf(pdfDoc, content, leftMargin, pageWidth);
-    } else if (isLoiContent(content)) {
-      buildLoiPdf(pdfDoc, content, leftMargin, pageWidth);
-    } else if (isNcndaContent(content)) {
-      buildNcndaPdf(pdfDoc, content, leftMargin, pageWidth);
-    } else if (isBlContent(content)) {
-      buildBlPdf(pdfDoc, content, leftMargin, pageWidth);
-    } else if (isCooContent(content)) {
-      buildCooPdf(pdfDoc, content, leftMargin, pageWidth);
-    } else if (isCoaContent(content)) {
-      buildCoaPdf(pdfDoc, content, leftMargin, pageWidth);
-    } else if (isCowContent(content)) {
-      buildCowPdf(pdfDoc, content, leftMargin, pageWidth);
-    } else {
-      buildGenericPdf(pdfDoc, content, leftMargin, pageWidth);
+    buildPdfByKey(builderKey, pdfDoc, content, leftMargin, pageWidth, invoiceSignature);
+
+    if ((buyerSig || sellerSig) && !(consumesIssuerSignature && buyerSig) && builderKey !== "CI") {
+      addSignatureBlockPdf(pdfDoc, leftMargin, pageWidth, buyerSig, sellerSig, buyerName, sellerName, buyerSignedAt, sellerSignedAt, docType, buyerSignedIp, sellerSignedIp, issuerIsSeller);
     }
 
-    if (buyerSig || sellerSig) {
-      addSignatureBlockPdf(pdfDoc, leftMargin, pageWidth, buyerSig, sellerSig, buyerName, sellerName, buyerSignedAt, sellerSignedAt, docType, buyerSignedIp, sellerSignedIp);
+    if (builderKey !== "CI") {
+      addPdfFooter(pdfDoc, leftMargin, pageWidth, submittedBy, agentCode, teamMemberCode);
     }
-
-    addPdfFooter(pdfDoc, leftMargin, pageWidth, submittedBy, agentCode);
 
     pdfDoc.end();
     stream.on("finish", () => resolve(filePath));
@@ -3753,6 +4859,18 @@ function buildKycSections(kyc: any): KycPdfSection[] {
         ["Account Currency", v(kyc.bankAccountCurrency)],
         ["Bank Officer Name", v(kyc.bankOfficerName)],
         ["Bank Officer Email", v(kyc.bankOfficerEmail)],
+        ...((kyc.additionalBanks ?? []).flatMap((b: any, i: number) => [
+          [`— Additional Bank ${i + 2} —`, ""],
+          ["Bank Name", v(b?.bankName)],
+          ["Bank Branch", v(b?.bankBranch)],
+          ["Bank Address", v(b?.bankAddress)],
+          ["Account Name", v(b?.accountName)],
+          ["Account Number", v(b?.accountNumber)],
+          ["SWIFT Code", v(b?.swiftCode)],
+          ["Account Currency", v(b?.bankAccountCurrency)],
+          ["Bank Officer Name", v(b?.bankOfficerName)],
+          ["Bank Officer Email", v(b?.bankOfficerEmail)],
+        ]) as [string, string][]),
       ],
     },
     {
@@ -3824,10 +4942,11 @@ export async function generateKycApplicationPdf(
   kycDocs: { documentType: string; originalName: string }[] | undefined,
   submittedBy?: string,
 ): Promise<string> {
+  const { header, footer, letterhead } = await getBrandingLogos();
   return new Promise((resolve, reject) => {
     const fileName = `kyc_${kyc.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.pdf`;
     const filePath = path.join(docsDir, fileName);
-    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const doc = createBrandedPdf({ header, footer, letterhead });
     const stream = fs.createWriteStream(filePath);
     doc.pipe(stream);
 
@@ -3836,7 +4955,7 @@ export async function generateKycApplicationPdf(
 
     // Header
     doc.font("Helvetica-Bold").fontSize(18).fillColor("#990000")
-      .text("BULLEX TRADING PLATFORM", leftMargin, 50, { width: pageWidth, align: "center" });
+      .text("BULLEX TRADING PLATFORM", leftMargin, doc.y, { width: pageWidth, align: "center" });
     doc.font("Helvetica").fontSize(9).fillColor("#666666")
       .text("A proprietary platform of Bullfrog Group", leftMargin, doc.y + 2, { width: pageWidth, align: "center" });
     doc.moveDown(0.8);
@@ -3881,7 +5000,7 @@ export async function generateKycApplicationPdf(
       .text("Bullex is a proprietary platform of Bullfrog Group.", leftMargin, doc.y, { width: pageWidth, align: "center" });
     doc.moveDown(0.3);
 
-    addPdfFooter(doc, leftMargin, pageWidth, submittedBy, agentCode);
+    addPdfFooter(doc, leftMargin, pageWidth, submittedBy);
     doc.end();
     stream.on("finish", () => resolve(filePath));
     stream.on("error", reject);
@@ -3975,10 +5094,11 @@ function drawPdfBlankFormTable(doc: PDFKit.PDFDocument, rows: { label: string; l
 }
 
 export async function generateBlankKycApplicationPdf(): Promise<string> {
+  const { header, footer, letterhead } = await getBrandingLogos();
   return new Promise((resolve, reject) => {
     const fileName = `kyc_blank_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.pdf`;
     const filePath = path.join(docsDir, fileName);
-    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const doc = createBrandedPdf({ header, footer, letterhead });
     const stream = fs.createWriteStream(filePath);
     doc.pipe(stream);
 
@@ -3987,7 +5107,7 @@ export async function generateBlankKycApplicationPdf(): Promise<string> {
 
     // Header
     doc.font("Helvetica-Bold").fontSize(18).fillColor("#990000")
-      .text("BULLEX TRADING PLATFORM", leftMargin, 50, { width: pageWidth, align: "center" });
+      .text("BULLEX TRADING PLATFORM", leftMargin, doc.y, { width: pageWidth, align: "center" });
     doc.font("Helvetica").fontSize(9).fillColor("#666666")
       .text("A proprietary platform of Bullfrog Group", leftMargin, doc.y + 2, { width: pageWidth, align: "center" });
     doc.moveDown(0.8);
@@ -4000,7 +5120,7 @@ export async function generateBlankKycApplicationPdf(): Promise<string> {
     doc.moveTo(leftMargin, doc.y).lineTo(leftMargin + pageWidth, doc.y).lineWidth(1.5).stroke("#990000");
     doc.moveDown(0.6);
     doc.font("Helvetica").fontSize(9).fillColor("#333333")
-      .text("Please complete every section in BLOCK CAPITALS. Mark non-applicable fields with N/A. Attach supporting documents (incorporation certificate, financial statements, AML policy, etc.) when returning this form to team@bullex.tech.", leftMargin, doc.y, { width: pageWidth, align: "left" });
+      .text("Please complete every section in BLOCK CAPITALS. Mark non-applicable fields with N/A. Attach supporting documents (incorporation certificate, financial statements, AML policy, etc.) when returning this form to docs@bullfrog-group.com.", leftMargin, doc.y, { width: pageWidth, align: "left" });
     doc.moveDown(0.6);
 
     for (const section of BLANK_KYC_SECTIONS) {
@@ -4023,4 +5143,84 @@ export async function generateBlankKycApplicationPdf(): Promise<string> {
     stream.on("finish", () => resolve(filePath));
     stream.on("error", reject);
   });
+}
+
+const GENERIC_DOC_TYPES = new Set([
+  "FOB_PROCEDURE", "SCO", "FCO", "ICPO", "SPA", "POP", "POF",
+  "BCL", "CRC", "HC", "DTA", "LC", "ICA",
+]);
+
+const DOC_TYPE_BUILDERS: Record<string, BuilderKey> = {
+  TFR: "TFR",
+  DLC_MT700: "DLC_MT700",
+  // PBG (MT760) drafts share the SWIFT message-block layout with MT700.
+  PBG_MT760: "DLC_MT700",
+  DEAL_RECAP: "DEAL_RECAP",
+  LOI: "LOI",
+  NCNDA: "NCNDA",
+  BL: "BL",
+  COO: "COO",
+  COA: "COA",
+  COW: "COW",
+  CI: "CI",
+  PI: "CI",
+};
+
+function buildDocxByKey(key: BuilderKey, content: string, invoiceSignature?: InvoiceSignature): (Paragraph | Table)[] {
+  switch (key) {
+    case "TFR": return buildTfrDocx(content);
+    case "DLC_MT700": return buildDlcMt700Docx(content);
+    case "DEAL_RECAP": return buildDealRecapDocx(content);
+    case "LOI": return buildLoiDocx(content, invoiceSignature);
+    case "NCNDA": return buildNcndaDocx(content);
+    case "BL": return buildBlDocx(content);
+    case "COO": return buildCooDocx(content);
+    case "COA": return buildCoaDocx(content);
+    case "COW": return buildCowDocx(content);
+    case "CI": return buildCiDocx(content, invoiceSignature);
+    default: return buildGenericDocx(content, invoiceSignature);
+  }
+}
+
+function buildPdfByKey(
+  key: BuilderKey,
+  doc: PDFKit.PDFDocument,
+  content: string,
+  leftMargin: number,
+  pageWidth: number,
+  invoiceSignature?: InvoiceSignature,
+): void {
+  switch (key) {
+    case "TFR": buildTfrPdf(doc, content, leftMargin, pageWidth); break;
+    case "DLC_MT700": buildDlcMt700Pdf(doc, content, leftMargin, pageWidth); break;
+    case "DEAL_RECAP": buildDealRecapPdf(doc, content, leftMargin, pageWidth); break;
+    case "LOI": buildLoiPdf(doc, content, leftMargin, pageWidth, invoiceSignature); break;
+    case "NCNDA": buildNcndaPdf(doc, content, leftMargin, pageWidth); break;
+    case "BL": buildBlPdf(doc, content, leftMargin, pageWidth); break;
+    case "COO": buildCooPdf(doc, content, leftMargin, pageWidth); break;
+    case "COA": buildCoaPdf(doc, content, leftMargin, pageWidth); break;
+    case "COW": buildCowPdf(doc, content, leftMargin, pageWidth); break;
+    case "CI": buildCiPdf(doc, content, leftMargin, pageWidth, invoiceSignature); break;
+    default: buildGenericPdf(doc, content, leftMargin, pageWidth, invoiceSignature); break;
+  }
+}
+
+export function resolveBuilderKey(content: string, docType?: string | null): BuilderKey {
+  if (docType) {
+    const mapped = DOC_TYPE_BUILDERS[docType];
+    if (mapped) return mapped;
+    if (GENERIC_DOC_TYPES.has(docType)) return "GENERIC";
+    // Unrecognized docType — fall through to content sniffing below.
+  }
+  if (isTfrContent(content)) return "TFR";
+  if (isDlcMt700Content(content) || isPbgMt760Content(content)) return "DLC_MT700";
+  if (isDealRecapContent(content)) return "DEAL_RECAP";
+  if (isLoiContent(content)) return "LOI";
+  if (isNcndaContent(content)) return "NCNDA";
+  if (isBlContent(content)) return "BL";
+  if (isCooContent(content)) return "COO";
+  if (isCoaContent(content)) return "COA";
+  if (isCowContent(content)) return "COW";
+  if (isCiContent(content)) return "CI";
+  return "GENERIC";
 }

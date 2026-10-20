@@ -105,7 +105,7 @@ export default function ClientSetup() {
                 <p className="text-sm font-semibold mb-1">Link unavailable</p>
                 <p className="text-xs text-muted-foreground">{verify.message}</p>
                 <p className="text-[10px] text-muted-foreground mt-3">
-                  Please contact <a href="mailto:team@bullex.tech" className="text-primary underline">team@bullex.tech</a> to request a new link.
+                  Please contact <a href="mailto:docs@bullfrog-group.com" className="text-primary underline">docs@bullfrog-group.com</a> to request a new link.
                 </p>
               </div>
             )}

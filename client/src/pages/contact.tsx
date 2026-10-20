@@ -59,11 +59,11 @@ export default function Contact() {
                 </div>
                 <h3 className="text-sm font-semibold mb-1">Email</h3>
                 <a
-                  href="mailto:team@bullex.tech"
+                  href="mailto:docs@bullfrog-group.com"
                   className="text-sm text-primary hover:underline"
                   data-testid="link-email"
                 >
-                  team@bullex.tech
+                  docs@bullfrog-group.com
                 </a>
               </CardContent>
             </Card>
@@ -188,12 +188,12 @@ export default function Contact() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <a
-              href="mailto:team@bullex.tech"
+              href="mailto:docs@bullfrog-group.com"
               className="text-sm font-medium text-primary hover:underline flex items-center gap-1.5"
               data-testid="link-footer-email"
             >
               <Mail className="w-3.5 h-3.5" />
-              team@bullex.tech
+              docs@bullfrog-group.com
             </a>
             <span className="text-muted-foreground">|</span>
             <a

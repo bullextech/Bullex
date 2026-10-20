@@ -10,14 +10,18 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Briefcase, FileText, ShieldCheck, Plus, Send, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink, FilePlus, Mail, FileSignature, Download, Copy, Link2, ClipboardList, CalendarDays, Loader2, Building2, Pencil, Trash2, MapPin, Phone, Globe } from "lucide-react";
+import { Briefcase, FileText, ShieldCheck, Plus, Send, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink, FilePlus, Mail, FileSignature, Download, Copy, Link2, ClipboardList, CalendarDays, Loader2, Building2, Pencil, Trash2, MapPin, Phone, Globe, ChevronDown } from "lucide-react";
+import { EnquiryForm } from "@/components/enquiry-form";
 import type { DailyReport, TeamTask } from "@shared/schema";
 import type { KycApplication, TradeEnquiry, EnquiryChangeRequest, KycChangeRequest, Document, PotentialClient } from "@shared/schema";
+import { buildEnquiryDocParams } from "@shared/enquiry-doc-prefill";
+import { sortClientDetails } from "@shared/client-sorting";
 
 const POTENTIAL_CLIENT_STATUSES = [
   { value: "lead", label: "Lead" },
@@ -101,7 +105,7 @@ function PotentialClientsPanel() {
     }
   };
 
-  const clients = clientsQuery.data ?? [];
+  const clients = sortClientDetails(clientsQuery.data ?? []);
 
   return (
     <div className="space-y-4">
@@ -297,6 +301,7 @@ const ENQUIRY_AMENDABLE_FIELDS: { key: string; label: string }[] = [
   { key: "producer", label: "Producer" },
   { key: "quantity", label: "Quantity" },
   { key: "unit", label: "Unit" },
+  { key: "packing", label: "Packing" },
   { key: "loadingPort", label: "Loading Port" },
   { key: "dischargePort", label: "Discharge Port" },
   { key: "incoterms", label: "Incoterms" },
@@ -306,6 +311,30 @@ const ENQUIRY_AMENDABLE_FIELDS: { key: string; label: string }[] = [
   { key: "paymentTerms", label: "Payment Terms" },
   { key: "additionalInfo", label: "Additional Info" },
 ];
+
+// Document types a team member can generate directly from an accepted enquiry.
+// LOI / FCO / SPA are surfaced as quick buttons; the rest live in a "More
+// documents" dropdown. The document generator applies its own per-type prefill.
+const ENQ_QUICK_DOC_TYPES = [
+  { value: "LOI", label: "Generate LOI" },
+  { value: "FCO", label: "Generate FCO" },
+  { value: "SPA", label: "Generate SPA" },
+] as const;
+
+const ENQ_MORE_DOC_TYPES = [
+  { value: "SCO", label: "Soft Corporate Offer (SCO)" },
+  { value: "ICPO", label: "Irrevocable Corporate Purchase Order (ICPO)" },
+  { value: "DEAL_RECAP", label: "Deal Recap" },
+  { value: "NCNDA", label: "Non-Circumvention Non-Disclosure (NCNDA)" },
+  { value: "ICA", label: "International Commission Agreement (ICA)" },
+  { value: "POP", label: "Proof of Product (POP)" },
+  { value: "POF", label: "Proof of Funds (POF)" },
+  { value: "BCL", label: "Bank Comfort Letter (BCL)" },
+] as const;
+
+function buildEnqDocUrl(enquiry: TradeEnquiry, docType: string) {
+  return `/documents?${buildEnquiryDocParams(enquiry, docType).toString()}`;
+}
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; icon: any; label: string }> = {
@@ -421,95 +450,18 @@ function AmendmentDialog({
 
 function NewEnquiryDialog() {
   const [open, setOpen] = useState(false);
-  const [side, setSide] = useState<"buy" | "sell">("buy");
-  const [product, setProduct] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [unit, setUnit] = useState("MT");
-  const [loadingPort, setLoadingPort] = useState("");
-  const [incoterms, setIncoterms] = useState("");
-  const [specifications, setSpecifications] = useState("");
-  const [additionalInfo, setAdditionalInfo] = useState("");
-  const { toast } = useToast();
-
-  const reset = () => {
-    setSide("buy"); setProduct(""); setQuantity(""); setUnit("MT");
-    setLoadingPort(""); setIncoterms(""); setSpecifications(""); setAdditionalInfo("");
-  };
-
-  const m = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/trade-enquiries", {
-        side, product, quantity, unit, loadingPort, incoterms, specifications, additionalInfo,
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/team/me/enquiries"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-board"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/enquiry-table"] });
-      toast({ title: "Enquiry submitted" });
-      reset();
-      setOpen(false);
-    },
-    onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
-  });
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button data-testid="button-new-enquiry"><Plus className="w-4 h-4 mr-1" />New Enquiry</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Submit Trade Enquiry</DialogTitle>
           <DialogDescription>This will be submitted to the trading desk for review.</DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="grid gap-1">
-            <Label className="text-xs">Side</Label>
-            <Select value={side} onValueChange={(v) => setSide(v as any)}>
-              <SelectTrigger data-testid="select-side"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="buy">Buy</SelectItem>
-                <SelectItem value="sell">Sell</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-1">
-            <Label className="text-xs">Product *</Label>
-            <Input value={product} onChange={(e) => setProduct(e.target.value)} required data-testid="input-product" />
-          </div>
-          <div className="grid gap-1">
-            <Label className="text-xs">Quantity</Label>
-            <Input value={quantity} onChange={(e) => setQuantity(e.target.value)} data-testid="input-quantity" />
-          </div>
-          <div className="grid gap-1">
-            <Label className="text-xs">Unit</Label>
-            <Input value={unit} onChange={(e) => setUnit(e.target.value)} data-testid="input-unit" />
-          </div>
-          <div className="grid gap-1">
-            <Label className="text-xs">Loading Port</Label>
-            <Input value={loadingPort} onChange={(e) => setLoadingPort(e.target.value)} data-testid="input-loading-port" />
-          </div>
-          <div className="grid gap-1">
-            <Label className="text-xs">Incoterms</Label>
-            <Input value={incoterms} onChange={(e) => setIncoterms(e.target.value)} data-testid="input-incoterms" />
-          </div>
-          <div className="grid gap-1 col-span-2">
-            <Label className="text-xs">Specifications</Label>
-            <Textarea value={specifications} onChange={(e) => setSpecifications(e.target.value)} rows={2} data-testid="input-specifications" />
-          </div>
-          <div className="grid gap-1 col-span-2">
-            <Label className="text-xs">Additional Info</Label>
-            <Textarea value={additionalInfo} onChange={(e) => setAdditionalInfo(e.target.value)} rows={2} data-testid="input-additional-info" />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={() => m.mutate()} disabled={!product.trim() || m.isPending} data-testid="button-submit-enquiry">
-            {m.isPending ? "Submitting…" : "Submit"}
-          </Button>
-        </DialogFooter>
+        <EnquiryForm onSuccess={() => setOpen(false)} onCancel={() => setOpen(false)} />
       </DialogContent>
     </Dialog>
   );
@@ -893,7 +845,7 @@ export default function TeamPortal() {
             <NewEnquiryDialog />
           </div>
           {enquiryQuery.isLoading ? <Skeleton className="h-32" /> : enquiryList.length === 0 ? (
-            <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">You haven't submitted any enquiries yet.</CardContent></Card>
+            <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">No enquiries yet — ones you submit or are allocated to will appear here.</CardContent></Card>
           ) : (
             <div className="space-y-3">
               {enquiryList.map((eq) => {
@@ -946,11 +898,35 @@ export default function TeamPortal() {
                       )}
                       <div className="flex justify-end gap-2 flex-wrap">
                         {eq.status === "accepted" && (
-                          <Link href={`/documents?enquiryRef=${encodeURIComponent(eq.enquiryRef)}`}>
-                            <Button variant="default" size="sm" data-testid={`button-create-doc-${eq.id}`}>
-                              <FilePlus className="w-4 h-4 mr-1" /> Generate Documents
-                            </Button>
-                          </Link>
+                          <>
+                            {ENQ_QUICK_DOC_TYPES.map((dt, i) => (
+                              <Link key={dt.value} href={buildEnqDocUrl(eq, dt.value)}>
+                                <Button
+                                  variant={i === 0 ? "default" : "outline"}
+                                  size="sm"
+                                  data-testid={`button-generate-${dt.value.toLowerCase()}-${eq.id}`}
+                                >
+                                  {i === 0 ? <FileText className="w-4 h-4 mr-1" /> : <FilePlus className="w-4 h-4 mr-1" />}
+                                  {dt.label}
+                                </Button>
+                              </Link>
+                            ))}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" data-testid={`button-generate-more-${eq.id}`}>
+                                  <FileSignature className="w-4 h-4 mr-1" /> More documents
+                                  <ChevronDown className="w-3 h-3 ml-1" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {ENQ_MORE_DOC_TYPES.map((dt) => (
+                                  <DropdownMenuItem key={dt.value} asChild data-testid={`menu-generate-${dt.value.toLowerCase()}-${eq.id}`}>
+                                    <Link href={buildEnqDocUrl(eq, dt.value)}>{dt.label}</Link>
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </>
                         )}
                         <AmendmentDialog
                           title={`Request Amendment — ${eq.enquiryRef}`}

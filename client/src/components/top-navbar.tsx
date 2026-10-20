@@ -11,20 +11,22 @@ import {
   LogOut,
   Briefcase,
   Landmark,
-  LineChart,
+  Coins,
   Menu,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useMobileSidebar } from "@/hooks/use-mobile-sidebar";
 import { InstallAppButton } from "@/components/install-app-button";
+import { InstantMeetingButton } from "@/components/instant-meeting-button";
+import { prefetchHandlers } from "@/lib/route-prefetch";
 
 const publicNavItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Products", url: "/products", icon: Package },
   { title: "Platform", url: "/platform", icon: Wrench },
   { title: "Trade Bank", url: "/trade-bank", icon: Landmark },
-  { title: "Trading Terminal", url: "/trading-terminal", icon: LineChart },
   { title: "Investor", url: "/investor", icon: Users },
+  { title: "Tokenization", url: "/tokenization-model", icon: Coins },
   { title: "HR", url: "/human-resources", icon: Briefcase },
   { title: "Contact", url: "/contact", icon: Mail },
 ];
@@ -75,6 +77,7 @@ export function TopNavbar() {
                 <Link
                   key={item.url}
                   href={item.url}
+                  {...prefetchHandlers(item.url)}
                   data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
                     active
@@ -98,6 +101,12 @@ export function TopNavbar() {
 
           {authenticated && (
             <>
+              <InstantMeetingButton
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                label="Meet"
+              />
               <span className="hidden md:block text-xs text-muted-foreground border-l border-border pl-2">
                 <span className="font-medium text-foreground">{username}</span>
               </span>

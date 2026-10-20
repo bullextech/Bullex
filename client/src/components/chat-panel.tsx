@@ -19,6 +19,7 @@ import {
   Hash,
   ArrowLeft,
 } from "lucide-react";
+import { InstantMeetingButton } from "@/components/instant-meeting-button";
 
 interface ChatUser {
   id: string;
@@ -88,10 +89,11 @@ export function ChatPanel({ embedded = false }: { embedded?: boolean }) {
   const [online, setOnline] = useState<Set<string>>(new Set());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [search, setSearch] = useState("");
-  const [activeRoom, setActiveRoom] = useState<{ id: string; label: string; peerId?: string }>({
-    id: "general",
-    label: "General",
-  });
+  // Clients (embedded=true, client portal) are blocked from the shared general room.
+  // Start with no room selected so they are prompted to pick a staff DM.
+  const [activeRoom, setActiveRoom] = useState<{ id: string; label: string; peerId?: string }>(
+    embedded ? { id: "", label: "" } : { id: "general", label: "General" }
+  );
   const [draft, setDraft] = useState("");
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
@@ -153,7 +155,7 @@ export function ChatPanel({ embedded = false }: { embedded?: boolean }) {
 
   // ---- Load history when room changes ----
   useEffect(() => {
-    if (!me) return;
+    if (!me || !activeRoom.id) return;
     let cancelled = false;
     fetch(`/api/chat/messages?room=${encodeURIComponent(activeRoom.id)}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : []))
@@ -385,6 +387,7 @@ export function ChatPanel({ embedded = false }: { embedded?: boolean }) {
   }
 
   const isDm = activeRoom.id.startsWith("dm:");
+  const hasRoom = !!activeRoom.id;
 
   return (
     <div className={`flex ${embedded ? "h-[640px]" : "h-full"} bg-background border border-border rounded-md overflow-hidden`}>
@@ -408,21 +411,23 @@ export function ChatPanel({ embedded = false }: { embedded?: boolean }) {
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="px-2 py-2">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground px-2 mb-1">Rooms</p>
-            <button
-              onClick={() => { setActiveRoom({ id: "general", label: "General" }); setShowMobileList(false); }}
-              className={`w-full text-left flex items-center gap-2 px-2 py-2 rounded text-xs ${
-                activeRoom.id === "general" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-              }`}
-              data-testid="button-room-general"
-            >
-              <Hash className="w-3.5 h-3.5" />
-              <span className="flex-1">General</span>
-              <Users className="w-3 h-3 opacity-60" />
-              <span className="text-[10px] opacity-70">{online.size}</span>
-            </button>
-          </div>
+          {!embedded && (
+            <div className="px-2 py-2">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground px-2 mb-1">Rooms</p>
+              <button
+                onClick={() => { setActiveRoom({ id: "general", label: "General" }); setShowMobileList(false); }}
+                className={`w-full text-left flex items-center gap-2 px-2 py-2 rounded text-xs ${
+                  activeRoom.id === "general" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                }`}
+                data-testid="button-room-general"
+              >
+                <Hash className="w-3.5 h-3.5" />
+                <span className="flex-1">General</span>
+                <Users className="w-3 h-3 opacity-60" />
+                <span className="text-[10px] opacity-70">{online.size}</span>
+              </button>
+            </div>
+          )}
           <div className="px-2 py-2">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground px-2 mb-1">Direct messages</p>
             <div className="space-y-0.5">
@@ -468,6 +473,14 @@ export function ChatPanel({ embedded = false }: { embedded?: boolean }) {
 
       {/* Right: thread */}
       <section className={`${showMobileList ? "hidden" : "flex"} md:flex flex-1 flex-col min-w-0`}>
+        {!hasRoom ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground px-6 text-center">
+            <MessageSquare className="w-10 h-10 mb-3 opacity-30" />
+            <p className="text-sm font-medium mb-1">No conversation selected</p>
+            <p className="text-xs opacity-70">Select a team member from the list to start a private conversation.</p>
+          </div>
+        ) : (
+          <>
         {/* Header */}
         <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0 gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -541,6 +554,17 @@ export function ChatPanel({ embedded = false }: { embedded?: boolean }) {
 
         {/* Composer */}
         <div className="border-t border-border p-3 flex items-center gap-2 flex-shrink-0">
+          {!embedded && (
+            <InstantMeetingButton
+              label="Meet"
+              variant="outline"
+              size="sm"
+              className="h-9 flex-shrink-0"
+              onCreated={(m) =>
+                setDraft((d) => (d.trim() ? `${d.trim()} ${m.meetUrl}` : `Join my Google Meet: ${m.meetUrl}`))
+              }
+            />
+          )}
           <Input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -559,6 +583,8 @@ export function ChatPanel({ embedded = false }: { embedded?: boolean }) {
             Send
           </Button>
         </div>
+          </>
+        )}
       </section>
 
       {/* Incoming call dialog */}

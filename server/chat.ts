@@ -3,12 +3,27 @@ import type { RequestHandler } from "express";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 
-function isAllowedOrigin(origin: string | undefined, hostHeader: string | undefined): boolean {
+function isAllowedOrigin(
+  origin: string | undefined,
+  hostHeader: string | undefined,
+  forwardedHost?: string | undefined,
+): boolean {
   if (!origin) return true; // non-browser clients / same-origin without Origin header
   try {
     const u = new URL(origin);
-    // Only allow the exact same host as the server request (same-origin)
+    // Only allow the exact same host as the server request (same-origin).
     if (hostHeader && u.host === hostHeader) return true;
+    // Behind Replit's deployment/dev proxy the raw Host header can differ from
+    // the public host the browser sees; the real public host is carried in
+    // x-forwarded-host (may be a comma-separated list — use the first entry).
+    // This mirrors the REST CSRF origin check and is required or every proxied
+    // WebSocket upgrade is rejected with 403 (chat + video stop working).
+    // Safe because Replit's proxy sets/overwrites x-forwarded-host; browsers
+    // cannot set it, so a cross-site attacker still presents only Origin=evil.
+    if (forwardedHost) {
+      const publicHost = forwardedHost.split(",")[0].trim();
+      if (publicHost && u.host === publicHost) return true;
+    }
     // Allow localhost for local development
     if (u.hostname === "localhost" || u.hostname === "127.0.0.1") return true;
     return false;
@@ -26,7 +41,7 @@ async function isKnownUser(id: string): Promise<boolean> {
     const username = id.slice("team:".length);
     try {
       const m = await storage.getTeamMemberByUsername(username);
-      return !!m;
+      return !!m && !m.terminatedAt;
     } catch { return false; }
   }
   if (id.startsWith("client:")) {
@@ -45,15 +60,27 @@ export interface ChatIdentity {
   role: "admin" | "team" | "client";
 }
 
-export function getSessionIdentity(session: any): ChatIdentity | null {
+export async function getSessionIdentity(session: any): Promise<ChatIdentity | null> {
   if (!session?.authenticated) return null;
   if (session.role === "admin") {
     return { id: `admin:${session.username}`, name: session.username || "Admin", role: "admin" };
   }
   if (session.role === "team") {
+    try {
+      const tm = await storage.getTeamMemberByUsername(session.username ?? "");
+      if (!tm || tm.terminatedAt) return null;
+    } catch {
+      return null;
+    }
     return { id: `team:${session.username}`, name: session.username || "Team", role: "team" };
   }
   if (session.role === "client") {
+    try {
+      const kyc = await storage.getKycApplicationById(session.clientKycId ?? "");
+      if (!kyc || kyc.status !== "approved") return null;
+    } catch {
+      return null;
+    }
     return {
       id: `client:${session.clientKycId}`,
       name: session.clientCompanyName || session.username || "Client",
@@ -68,11 +95,24 @@ export function dmRoomId(a: string, b: string): string {
 }
 
 export function canAccessRoom(roomId: string, userId: string): boolean {
-  if (roomId === "general") return true;
+  const isClient = userId.startsWith("client:");
+
+  if (roomId === "general") {
+    // Clients are isolated to private staff DMs; they may not join the shared general room.
+    return !isClient;
+  }
+
   if (roomId.startsWith("dm:")) {
     const parts = roomId.slice(3).split("|");
-    return parts.includes(userId);
+    if (!parts.includes(userId)) return false;
+    // Clients may only DM with Bullex staff (admin or team), never with other clients.
+    if (isClient) {
+      const others = parts.filter((p) => p !== userId);
+      return others.every((p) => p.startsWith("admin:") || p.startsWith("team:"));
+    }
+    return true;
   }
+
   return false;
 }
 
@@ -84,11 +124,38 @@ interface ChatClient {
 const clients = new Map<WebSocket, ChatClient>();
 const byUser = new Map<string, Set<WebSocket>>();
 
+export function disconnectTeamMember(username: string) {
+  const id = `team:${username}`;
+  for (const ws of byUser.get(id) ?? []) {
+    clients.delete(ws);
+    ws.close(1008, "Team service has ended");
+  }
+  byUser.delete(id);
+  broadcastPresence();
+}
+
+async function revalidateConnectedClients() {
+  for (const [ws, c] of clients) {
+    if (ws.readyState !== WebSocket.OPEN) continue;
+    try {
+      const valid = await isKnownUser(c.identity.id);
+      if (!valid) {
+        ws.close(1008, "Session revoked");
+      }
+    } catch {
+      // Ignore transient DB errors; the next interval will retry.
+    }
+  }
+}
+
 function broadcastPresence() {
-  const online = Array.from(byUser.keys());
-  const payload = JSON.stringify({ type: "presence", online });
-  for (const ws of clients.keys()) {
-    if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+  const allOnline = Array.from(byUser.keys());
+  // Staff-only list excludes client identities — clients must never see peer client IDs.
+  const staffOnline = allOnline.filter((id) => !id.startsWith("client:"));
+  for (const [ws, c] of clients) {
+    if (ws.readyState !== WebSocket.OPEN) continue;
+    const online = c.identity.role === "client" ? staffOnline : allOnline;
+    ws.send(JSON.stringify({ type: "presence", online }));
   }
 }
 
@@ -111,7 +178,13 @@ function broadcastToAll(data: any, excludeWs?: WebSocket) {
 
 function broadcastToRoom(roomId: string, data: any, excludeWs?: WebSocket) {
   if (roomId === "general") {
-    broadcastToAll(data);
+    // General is a staff-only room; never relay messages to client sockets.
+    const payload = JSON.stringify(data);
+    for (const [ws, c] of clients) {
+      if (ws === excludeWs) continue;
+      if (c.identity.role === "client") continue;
+      if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+    }
     return;
   }
   if (roomId.startsWith("dm:")) {
@@ -138,14 +211,15 @@ export function attachChat(httpServer: HttpServer, sessionMiddleware: RequestHan
     // Reject cross-origin upgrades to prevent CSWSH (sameSite=none cookies).
     const origin = req.headers.origin as string | undefined;
     const host = req.headers.host as string | undefined;
-    if (!isAllowedOrigin(origin, host)) {
+    const forwardedHost = req.headers["x-forwarded-host"] as string | undefined;
+    if (!isAllowedOrigin(origin, host, forwardedHost)) {
       socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
       socket.destroy();
       return;
     }
     // Run express-session on the upgrade request to populate req.session.
-    sessionMiddleware(req as any, {} as any, () => {
-      const identity = getSessionIdentity((req as any).session);
+    sessionMiddleware(req as any, {} as any, async () => {
+      const identity = await getSessionIdentity((req as any).session);
       if (!identity) {
         socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
         socket.destroy();
@@ -157,15 +231,23 @@ export function attachChat(httpServer: HttpServer, sessionMiddleware: RequestHan
     });
   });
 
-  wss.on("connection", (ws: WebSocket, _req, identity: ChatIdentity) => {
+  wss.on("connection", (ws: WebSocket, _req: unknown, identity: ChatIdentity) => {
     clients.set(ws, { ws, identity });
     if (!byUser.has(identity.id)) byUser.set(identity.id, new Set());
     byUser.get(identity.id)!.add(ws);
+    // Close an upgrade whose identity lookup began just before termination.
+    void isKnownUser(identity.id).then(valid => {
+      if (!valid) ws.close(1008, "Session revoked");
+    });
 
     ws.send(JSON.stringify({ type: "welcome", you: identity }));
     broadcastPresence();
 
     ws.on("message", async (raw) => {
+      if (!await isKnownUser(identity.id) || ws.readyState !== WebSocket.OPEN) {
+        ws.close(1008, "Session revoked");
+        return;
+      }
       let data: any;
       try {
         data = JSON.parse(raw.toString());
@@ -228,4 +310,10 @@ export function attachChat(httpServer: HttpServer, sessionMiddleware: RequestHan
       try { ws.close(); } catch {}
     });
   });
+
+  // Periodically re-check every connected socket against the database.
+  // This ensures revoked clients and deleted team accounts are cut off from
+  // active chat sessions within 30 seconds, not just blocked on new connections.
+  const revalidationTimer = setInterval(revalidateConnectedClients, 30_000);
+  revalidationTimer.unref(); // don't prevent process exit
 }

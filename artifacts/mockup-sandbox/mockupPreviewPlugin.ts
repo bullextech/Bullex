@@ -1,13 +1,13 @@
 import { mkdirSync, writeFileSync } from "fs";
+import { readdir } from "node:fs/promises";
 import path from "path";
-import glob from "fast-glob";
 import chokidar from "chokidar";
 import type { FSWatcher } from "chokidar";
 import type { Plugin } from "vite";
 
 /**
  * Vite plugin that dynamically discovers mockup components and writes them to
- * a generated module under src/.generated. Uses fast-glob for initial
+ * a generated module under src/.generated. Uses Node's filesystem API for initial
  * discovery and a dedicated chokidar watcher (with awaitWriteFinish) for
  * reliable file monitoring.
  *
@@ -55,14 +55,33 @@ export function mockupPreviewPlugin(): Plugin {
   function isPreviewTarget(relativeToMockups: string): boolean {
     return relativeToMockups
       .split(path.sep)
-      .every((segment) => !segment.startsWith("_"));
+      .every((segment) => !segment.startsWith("_") && !segment.startsWith("."));
   }
 
   async function discoverComponents(): Promise<Array<DiscoveredComponent>> {
-    const files = await glob(`${MOCKUPS_DIR}/**/*.tsx`, {
-      cwd: root,
-      ignore: ["**/_*/**", "**/_*.tsx"],
-    });
+    const files: string[] = [];
+    // An explicit directory stack avoids glob parsers, stack exhaustion, and
+    // symlink cycles. Hidden and underscore-prefixed paths aren't previews.
+    const pending = [getMockupsAbsDir()];
+    while (pending.length) {
+      const directory = pending.pop()!;
+      let entries;
+      try {
+        entries = await readdir(directory, { withFileTypes: true });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+        throw error;
+      }
+      for (const entry of entries) {
+        if (entry.name.startsWith("_") || entry.name.startsWith(".")) continue;
+        const absolute = path.join(directory, entry.name);
+        if (entry.isDirectory()) pending.push(absolute);
+        else if (entry.isFile() && entry.name.endsWith(".tsx")) {
+          files.push(path.relative(root, absolute).split(path.sep).join("/"));
+        }
+      }
+    }
+    files.sort();
 
     return files.map((f) => ({
       globKey: "./" + f.slice("src/".length),
@@ -153,6 +172,7 @@ export function mockupPreviewPlugin(): Plugin {
 
       watcher = chokidar.watch(mockupsAbsDir, {
         ignoreInitial: true,
+        followSymlinks: false,
         awaitWriteFinish: {
           stabilityThreshold: 100,
           pollInterval: 50,
@@ -193,6 +213,13 @@ export function mockupPreviewPlugin(): Plugin {
     async closeWatcher() {
       if (watcher) {
         await watcher.close();
+      }
+    },
+
+    async closeBundle() {
+      if (watcher) {
+        await watcher.close();
+        watcher = null;
       }
     },
   };

@@ -1,6 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss" source(none);
+@import "./styles/tailwind-compat.css";
+@config "../../tailwind.config.ts";
+@source "../index.html";
+@source "./";
 
 /* LIGHT MODE */
 :root {
@@ -323,4 +325,13 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
   }
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-ticker-scroll {
+  animation: ticker-scroll 45s linear infinite;
 }

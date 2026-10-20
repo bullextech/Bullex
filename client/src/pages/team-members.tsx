@@ -8,15 +8,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import {
-  Users, Trash2, Plus, Loader2, X, Download, FileText,
+  Users, Plus, Loader2, X, Download, FileText,
   User, Phone, Briefcase, GraduationCap, Heart, Landmark, Lock,
   ChevronRight, Camera, FilePlus, UserCheck,
   CheckCircle2, XCircle, PenTool, ImageIcon, AlertCircle, ClipboardList,
   Mail, Send, Copy, ExternalLink, ShieldCheck, RefreshCw, KeyRound, FileSignature,
+  UserX,
 } from "lucide-react";
 import { PLATFORM_MODULES } from "@/components/admin-sidebar";
 import { useAuth } from "@/hooks/use-auth";
@@ -24,6 +29,7 @@ import { useAmendMode } from "@/hooks/use-amend-mode";
 import { AmendDialog, type AmendSection } from "@/components/amend-dialog";
 import { Pencil } from "lucide-react";
 import type { KycApplication, TradeEnquiry, PotentialClient } from "@shared/schema";
+import { sortClientDetails } from "@shared/client-sorting";
 
 type MemberSubmissions = {
   kycs: (KycApplication & { participantId?: string | null })[];
@@ -45,7 +51,12 @@ interface TeamMember {
   emergencyPhone: string | null; bankName: string | null; bankBranch: string | null;
   payrollAccountName: string | null; payrollAccountNumber: string | null;
   payrollSwift: string | null; photoStoredName: string | null;
-  additionalNotes: string | null; allowedModules: string[] | null; createdAt: string;
+  additionalNotes: string | null; allowedModules: string[] | null;
+  invitedByTeamMemberId: string | null; createdAt: string;
+  participantId: string | null;
+  terminatedAt: string | null;
+  terminationReason: string | null;
+  terminatedBy: string | null;
 }
 
 interface TeamDoc {
@@ -67,7 +78,8 @@ interface TeamKycApp {
   payrollSwift: string | null; additionalNotes: string | null;
   declarationAgreed: boolean | null; declarationName: string | null; declarationDate: string | null;
   photoStoredName: string | null; photoOriginalName: string | null;
-  status: string; reviewNotes: string | null; teamUsername: string | null; createdAt: string;
+  status: string; reviewNotes: string | null; teamUsername: string | null;
+  invitedByTeamMemberId: string | null; createdAt: string;
   participantId?: string | null;
 }
 
@@ -203,13 +215,16 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
     onSuccess: (data: any, vars) => {
       queryClient.invalidateQueries({ queryKey: ["/api/team-kyc"] });
       queryClient.invalidateQueries({ queryKey: ["/api/team/members"] });
-      const emailFailed = vars.status === "approved" && data && data.emailSent !== true;
+      const provisioned = vars.status === "approved" && !!vars.teamUsername;
+      const emailFailed = provisioned && data && data.emailSent !== true;
       toast({
         title: vars.status === "approved" ? "Application Approved" : "Application Rejected",
         description: vars.status === "approved"
-          ? (emailFailed
-              ? `${app.fullName} has been approved and their account created. ⚠ Welcome email was NOT delivered: ${data?.emailError || "no confirmation from email provider"}`
-              : `${app.fullName} has been approved, account created, and welcome email sent to ${app.email}.`)
+          ? (provisioned
+              ? (emailFailed
+                  ? `${app.fullName} has been approved and their account created. ⚠ Welcome email was NOT delivered: ${data?.emailError || "no confirmation from email provider"}`
+                  : `${app.fullName} has been approved, account created, and welcome email sent to ${app.email}.`)
+              : `${app.fullName} has been approved. You can allocate their login credentials later from this panel.`)
           : `${app.fullName}'s application has been rejected.`,
         variant: emailFailed ? "destructive" : "default",
       });
@@ -219,15 +234,32 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
   });
 
   const handleApprove = () => {
+    const hasCreds = !!kycUsername.trim() && !!kycPassword.trim();
+    // Credentials are optional at approval — an admin can approve now and allocate the
+    // login later. Modules are only required when a login is actually being created.
+    if (hasCreds && allowedModules.length === 0) {
+      toast({ title: "No Access Selected", description: "Grant at least one platform module before creating the login.", variant: "destructive" });
+      return;
+    }
+    reviewMutation.mutate({
+      status: "approved",
+      reviewNotes: reviewNote,
+      teamUsername: hasCreds ? kycUsername.trim() : undefined,
+      teamPassword: hasCreds ? kycPassword : undefined,
+      allowedModules: hasCreds ? allowedModules : undefined,
+    });
+  };
+
+  const handleAllocate = () => {
     if (!kycUsername.trim() || !kycPassword.trim()) {
-      toast({ title: "Credentials Required", description: "Enter a username and password before approving.", variant: "destructive" });
+      toast({ title: "Credentials Required", description: "Enter a username and password to allocate this team member's login.", variant: "destructive" });
       return;
     }
     if (allowedModules.length === 0) {
-      toast({ title: "No Access Selected", description: "Grant at least one platform module before approving.", variant: "destructive" });
+      toast({ title: "No Access Selected", description: "Grant at least one platform module before creating the login.", variant: "destructive" });
       return;
     }
-    reviewMutation.mutate({ status: "approved", reviewNotes: reviewNote, teamUsername: kycUsername, teamPassword: kycPassword, allowedModules });
+    reviewMutation.mutate({ status: "approved", reviewNotes: reviewNote, teamUsername: kycUsername.trim(), teamPassword: kycPassword, allowedModules });
   };
 
   const handleReject = () => {
@@ -683,6 +715,16 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
                     </Button>
                   </div>
                 </div>
+              ) : app.status === "approved" && !app.teamUsername ? (
+                <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                  <CheckCircle2 className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">Application Approved — login not yet allocated</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-500">
+                      Enter a username, password and platform access below, then click <span className="font-semibold">Allocate Login</span> to create the account and send the welcome email + NCNDA.
+                    </p>
+                  </div>
+                </div>
               ) : app.status === "rejected" ? (
                 <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
                   <XCircle className="w-5 h-5 text-destructive flex-shrink-0" />
@@ -709,17 +751,17 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
                 />
               </div>
 
-              {app.status !== "approved" && (
+              {!app.teamUsername && (
                 <div className="space-y-4 border border-border rounded-lg p-4 bg-muted/10">
                   {/* Login credentials */}
                   <div className="space-y-3">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-wider text-primary">Allocate Login Credentials</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Set the username and password for Bullex login. Required to approve.</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{app.status === "approved" ? "Set the username and password to allocate this member's Bullex login." : "Optional — you can approve now and allocate the login later."}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <Label className={lbl}>Username <span className="text-destructive">*</span></Label>
+                        <Label className={lbl}>Username {app.status === "approved" && <span className="text-destructive">*</span>}</Label>
                         <Input
                           className="bg-background border-border text-sm"
                           placeholder="e.g. john.doe@bullex"
@@ -729,7 +771,7 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className={lbl}>Password <span className="text-destructive">*</span></Label>
+                        <Label className={lbl}>Password {app.status === "approved" && <span className="text-destructive">*</span>}</Label>
                         <Input
                           type="password"
                           className="bg-background border-border text-sm"
@@ -829,7 +871,7 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
                     data-testid={`btn-kyc-approve-${app.id}`}
                   >
                     {reviewMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
-                    Approve & Create Account
+                    {kycUsername.trim() && kycPassword.trim() ? "Approve & Create Account" : "Approve"}
                   </Button>
                   <Button
                     variant="destructive"
@@ -842,6 +884,18 @@ function KycDetailPanel({ app, onClose }: { app: TeamKycApp; onClose: () => void
                     {app.status === "rejected" ? "Rejected" : "Reject"}
                   </Button>
                 </div>
+              )}
+
+              {app.status === "approved" && !app.teamUsername && (
+                <Button
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold uppercase tracking-wider text-xs"
+                  disabled={reviewMutation.isPending}
+                  onClick={handleAllocate}
+                  data-testid={`btn-kyc-allocate-${app.id}`}
+                >
+                  {reviewMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
+                  Allocate Login
+                </Button>
               )}
             </div>
           )}
@@ -878,11 +932,12 @@ function LockedSection({ icon: Icon, title, children }: { icon: any; title: stri
 }
 
 function LockedMemberView({
-  member, profileModules, docs, submissions, submissionsLoading, submissionsError,
+  member, profileModules, setProfileModules, docs, submissions, submissionsLoading, submissionsError,
   submissionsErrorObj, refetchSubmissions, onSendReset, sendingReset, onNavigate,
 }: {
   member: TeamMember;
   profileModules: string[];
+  setProfileModules: (m: string[]) => void;
   docs: TeamDoc[];
   submissions: MemberSubmissions | undefined;
   submissionsLoading: boolean;
@@ -894,6 +949,31 @@ function LockedMemberView({
   onNavigate: (to: string) => void;
 }) {
   const { toast } = useToast();
+  const [savingModules, setSavingModules] = useState(false);
+  const isTerminated = !!member.terminatedAt;
+  const originalModules = member.allowedModules ?? [];
+  const modulesDirty =
+    profileModules.length !== originalModules.length ||
+    profileModules.some(m => !originalModules.includes(m));
+  const toggleModule = (id: string) => {
+    setProfileModules(
+      profileModules.includes(id) ? profileModules.filter(m => m !== id) : [...profileModules, id],
+    );
+  };
+  const saveModules = async () => {
+    if (isTerminated) return;
+    setSavingModules(true);
+    try {
+      await apiRequest("PATCH", `/api/team/members/${member.id}`, { allowedModules: profileModules });
+      queryClient.invalidateQueries({ queryKey: ["/api/team/members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/team/members", member.id] });
+      toast({ title: "Access updated", description: `Module access saved for ${member.name}.` });
+    } catch (err: any) {
+      toast({ title: "Update failed", description: err?.message || "Could not save module access.", variant: "destructive" });
+    } finally {
+      setSavingModules(false);
+    }
+  };
   const generateDoc = async (kind: "ncnda" | "ica") => {
     try {
       const body = kind === "ica" ? { agentLabel: "Agent", agencyType: "Non-Exclusive" } : {};
@@ -913,11 +993,24 @@ function LockedMemberView({
   };
   return (
     <div className="max-w-4xl mx-auto space-y-5 pb-10" data-testid="locked-member-view">
-      <div className="border border-primary/30 bg-primary/5 px-4 py-2.5 flex items-center gap-2.5 rounded-none">
-        <Lock className="w-4 h-4 text-primary flex-shrink-0" />
+      <div className={`border px-4 py-2.5 flex items-start gap-2.5 rounded-none ${isTerminated ? "border-destructive/40 bg-destructive/5" : "border-primary/30 bg-primary/5"}`}>
+        {isTerminated
+          ? <UserX className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
+          : <Lock className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />}
         <div className="flex-1">
-          <p className="text-xs font-bold">Profile Locked</p>
-          <p className="text-[11px] text-muted-foreground">This team member has been approved. All profile data is read-only and cannot be amended. Use the secure reset link below to let the member update their own password.</p>
+          <p className={`text-xs font-bold ${isTerminated ? "text-destructive" : ""}`}>
+            {isTerminated ? "Services Terminated" : "Profile Locked"}
+          </p>
+          {isTerminated ? (
+            <div className="mt-1 space-y-1 text-[11px]">
+              <p className="text-muted-foreground">Login access and active sessions have been revoked. This retained profile and its history remain read-only.</p>
+              <p><span className="font-semibold">Effective:</span> {new Date(member.terminatedAt!).toLocaleString()}</p>
+              <p className="whitespace-pre-wrap break-words" data-testid="text-termination-reason"><span className="font-semibold">Reason:</span> {member.terminationReason || "—"}</p>
+              {member.terminatedBy && <p data-testid="text-terminated-by"><span className="font-semibold">Terminated by:</span> {member.terminatedBy}</p>}
+            </div>
+          ) : (
+            <p className="text-[11px] text-muted-foreground">This team member has been approved. All profile data is read-only and cannot be amended. Use the secure reset link below to let the member update their own password.</p>
+          )}
         </div>
       </div>
 
@@ -983,7 +1076,11 @@ function LockedMemberView({
             <KeyRound className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
             <div className="flex-1">
               <p className="text-xs font-bold">Password Reset Link</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Emails a secure one-time link (valid for 2 hours) so the team member can set their own password. No plaintext password is sent.</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {isTerminated
+                  ? "Password resets are unavailable because this account has been terminated."
+                  : "Emails a secure one-time link (valid for 2 hours) so the team member can set their own password. No plaintext password is sent."}
+              </p>
             </div>
           </div>
           <Button
@@ -991,7 +1088,7 @@ function LockedMemberView({
             size="sm"
             variant="outline"
             className="rounded-none text-xs font-bold uppercase tracking-wider h-8"
-            disabled={!member.email || sendingReset}
+            disabled={isTerminated || !member.email || sendingReset}
             onClick={onSendReset}
             data-testid="btn-send-reset-link"
           >
@@ -1000,6 +1097,7 @@ function LockedMemberView({
               : <><Mail className="w-3.5 h-3.5 mr-1.5" /> Email Reset Link{member.email ? ` to ${member.email}` : ""}</>}
           </Button>
           {!member.email && <p className="text-[10px] text-destructive">No email on file — reset link cannot be sent.</p>}
+          {isTerminated && <p className="text-[10px] text-destructive">Credential reset is disabled for terminated accounts.</p>}
         </div>
       </LockedSection>
 
@@ -1063,39 +1161,76 @@ function LockedMemberView({
         </div>
       </LockedSection>
 
-      <LockedSection icon={ShieldCheck} title="Platform Access">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[11px] text-muted-foreground">Modules this member can access when signed in to Bullex.</p>
-          <span className={`text-[10px] font-bold px-2 py-1 rounded ${profileModules.length > 0 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}>
-            {profileModules.length}/{PLATFORM_MODULES.length} modules
+      <section className="border border-primary/30 bg-background rounded-none" data-testid="section-platform-access">
+        <header className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-primary/5">
+          <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+          <h3 className="text-[11px] font-bold uppercase tracking-wider">Platform Access</h3>
+          <span className="ml-auto inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded">
+            {isTerminated ? <><Lock className="w-2.5 h-2.5" /> Read-only</> : <><Pencil className="w-2.5 h-2.5" /> Editable</>}
           </span>
-        </div>
-        <div className="grid grid-cols-1 gap-1.5">
-          {PLATFORM_MODULES.map(mod => {
-            const Icon = mod.icon;
-            const active = profileModules.includes(mod.id);
-            return (
-              <div
-                key={mod.id}
-                className={`flex items-center gap-3 px-3 py-2 rounded-md border ${active ? "bg-primary/8 border-primary/30 dark:bg-primary/10" : "bg-muted/30 border-border opacity-60"}`}
-                data-testid={`locked-module-${mod.id}`}
-              >
-                <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border-2 ${active ? "bg-primary border-primary" : "border-muted-foreground/30 bg-background"}`}>
-                  {active && <CheckCircle2 className="w-3 h-3 text-primary-foreground" />}
+        </header>
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[11px] text-muted-foreground">
+              {isTerminated ? "Platform access cannot be changed for a terminated account." : <>Switch modules on or off, then click <strong>Save Access Changes</strong>.</>}
+            </p>
+            <span className={`text-[10px] font-bold px-2 py-1 rounded ${profileModules.length > 0 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}>
+              {profileModules.length}/{PLATFORM_MODULES.length} modules
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-1.5">
+            {PLATFORM_MODULES.map(mod => {
+              const Icon = mod.icon;
+              const active = profileModules.includes(mod.id);
+              return (
+                <div
+                  key={mod.id}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md border transition-colors ${active ? "bg-primary/8 border-primary/30 dark:bg-primary/10" : "bg-muted/30 border-border"}`}
+                  data-testid={`row-module-${mod.id}`}
+                >
+                  <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-semibold ${active ? "text-foreground" : "text-muted-foreground"}`}>{mod.title}</p>
+                    <p className="text-[10px] text-muted-foreground">{mod.description}</p>
+                  </div>
+                  <span className={`text-[10px] font-bold ${active ? "text-primary" : "text-muted-foreground/40"}`}>
+                    {active ? "Allowed" : "Blocked"}
+                  </span>
+                  <Switch
+                    checked={active}
+                    onCheckedChange={() => toggleModule(mod.id)}
+                    disabled={isTerminated || savingModules}
+                    data-testid={`toggle-module-${mod.id}`}
+                  />
                 </div>
-                <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-semibold ${active ? "text-foreground" : "text-muted-foreground"}`}>{mod.title}</p>
-                  <p className="text-[10px] text-muted-foreground">{mod.description}</p>
-                </div>
-                <span className={`text-[10px] font-bold ${active ? "text-primary" : "text-muted-foreground/40"}`}>
-                  {active ? "Allowed" : "Blocked"}
-                </span>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-end gap-2 mt-3">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="rounded-none text-xs h-8"
+              onClick={() => setProfileModules(originalModules)}
+              disabled={isTerminated || savingModules || !modulesDirty}
+              data-testid="button-reset-modules"
+            >
+              Reset
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="rounded-none text-xs h-8"
+              onClick={saveModules}
+              disabled={isTerminated || !modulesDirty || savingModules || profileModules.length === 0}
+              data-testid="button-save-modules"
+            >
+              {savingModules ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Saving…</> : modulesDirty ? "Save Access Changes" : "Saved"}
+            </Button>
+          </div>
         </div>
-      </LockedSection>
+      </section>
 
       <LockedSection icon={FileText} title="Documents">
         {docs.length === 0 ? (
@@ -1156,7 +1291,7 @@ function LockedMemberView({
                 <div className="p-3 text-xs text-muted-foreground text-center">No KYCs submitted.</div>
               ) : (
                 <div className="divide-y divide-border">
-                  {submissions!.kycs.map(k => (
+                  {sortClientDetails(submissions!.kycs).map(k => (
                     <div key={k.id} className="p-3 flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1222,7 +1357,7 @@ function LockedMemberView({
                 <div className="p-3 text-xs text-muted-foreground text-center">No prospects tracked.</div>
               ) : (
                 <div className="divide-y divide-border">
-                  {submissions!.potentialClients.map(c => (
+                  {sortClientDetails(submissions!.potentialClients).map(c => (
                     <div key={c.id} className="p-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-semibold truncate">{c.companyName}</span>
@@ -1266,6 +1401,9 @@ export default function TeamMembersPage() {
   const [form, setForm] = useState({ ...emptyForm });
   const [formError, setFormError] = useState("");
   const [profileModules, setProfileModules] = useState<string[]>([]);
+  const [terminateMember, setTerminateMember] = useState<TeamMember | null>(null);
+  const [terminationReason, setTerminationReason] = useState("");
+  const [terminationError, setTerminationError] = useState("");
 
   // KYC state
   const [selectedKycId, setSelectedKycId] = useState<string | null>(null);
@@ -1329,6 +1467,47 @@ export default function TeamMembersPage() {
         .then(d => Array.isArray(d) ? d : []),
   });
 
+  // Per-member invite summary: team members they added (member rows +
+  // approved applications with no login yet) and invites still pending review.
+  const inviteStats = new Map<string, { added: number; pending: number }>();
+  const bumpStat = (id: string, key: "added" | "pending") => {
+    const s = inviteStats.get(id) || { added: 0, pending: 0 };
+    s[key] += 1;
+    inviteStats.set(id, s);
+  };
+  for (const x of members) {
+    if (x.invitedByTeamMemberId) bumpStat(x.invitedByTeamMemberId, "added");
+  }
+  for (const a of kycApps) {
+    if (!a.invitedByTeamMemberId) continue;
+    if (a.status === "pending") bumpStat(a.invitedByTeamMemberId, "pending");
+    else if (a.status === "approved" && !a.teamUsername) bumpStat(a.invitedByTeamMemberId, "added");
+  }
+  const inviteSummary = (id: string) => {
+    const s = inviteStats.get(id);
+    if (!s || (s.added === 0 && s.pending === 0)) return null;
+    const parts: string[] = [];
+    if (s.added > 0) parts.push(`Added ${s.added} team member${s.added === 1 ? "" : "s"}`);
+    if (s.pending > 0) parts.push(`${s.pending} pending`);
+    return parts.join(" · ");
+  };
+  // Named list of everyone a member added: provisioned members, approved
+  // applicants without a login yet, and applications still pending review.
+  const inviteList = (id: string) => {
+    const list: { key: string; name: string; detail: string; status: "active" | "terminated" | "approved" | "pending" }[] = [];
+    for (const x of members) {
+      if (x.invitedByTeamMemberId === id) {
+        list.push({ key: `m-${x.id}`, name: x.name, detail: x.position || x.department || x.email || x.username, status: x.terminatedAt ? "terminated" : "active" });
+      }
+    }
+    for (const a of kycApps) {
+      if (a.invitedByTeamMemberId !== id) continue;
+      if (a.status === "pending") list.push({ key: `a-${a.id}`, name: a.fullName, detail: a.email || "Application pending review", status: "pending" });
+      else if (a.status === "approved" && !a.teamUsername) list.push({ key: `a-${a.id}`, name: a.fullName, detail: a.email || "Approved — no login yet", status: "approved" });
+    }
+    return list;
+  };
+
   const filteredKyc = kycFilter === "all" ? kycApps : kycApps.filter(a => a.status === kycFilter);
   const pendingCount = kycApps.filter(a => a.status === "pending").length;
   const selectedKyc = kycApps.find(a => a.id === selectedKycId) ?? null;
@@ -1371,17 +1550,44 @@ export default function TeamMembersPage() {
     onError: (err: any) => toast({ title: "Could Not Send Reset Link", description: err.message, variant: "destructive" }),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const r = await fetch(`/api/team/members/${id}`, { method: "DELETE", credentials: "include" });
-      if (!r.ok) throw new Error("Delete failed");
+  const terminateMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const response = await apiRequest("POST", `/api/team/members/${id}/terminate`, { reason });
+      return response.json() as Promise<TeamMember>;
     },
-    onSuccess: () => {
+    onSuccess: (terminated) => {
+      queryClient.setQueryData<TeamMember[]>(["/api/team/members"], current =>
+        current?.map(member => member.id === terminated.id ? terminated : member),
+      );
       queryClient.invalidateQueries({ queryKey: ["/api/team/members"] });
-      setPanel("none"); setSelectedId(null);
-      toast({ title: "Member Removed" });
+      queryClient.invalidateQueries({ queryKey: ["/api/team/members", terminated.id] });
+      setTerminateMember(null);
+      setTerminationReason("");
+      setTerminationError("");
+      toast({
+        title: "Services Terminated",
+        description: `${terminated.name}'s login and active sessions have been revoked. Their profile and history remain available.`,
+      });
+    },
+    onError: (err: any) => {
+      setTerminationError(err?.message || "Could not terminate this team member's services.");
     },
   });
+
+  const submitTermination = () => {
+    const reason = terminationReason.trim();
+    if (!reason) {
+      setTerminationError("A termination reason is required.");
+      return;
+    }
+    if (reason.length > 1000) {
+      setTerminationError("The termination reason must be 1,000 characters or fewer.");
+      return;
+    }
+    if (!terminateMember) return;
+    setTerminationError("");
+    terminateMutation.mutate({ id: terminateMember.id, reason });
+  };
 
   if (role !== "admin") {
     return <div className="flex-1 flex items-center justify-center h-full"><p className="text-sm text-muted-foreground">Admin access required.</p></div>;
@@ -1566,8 +1772,20 @@ export default function TeamMembersPage() {
                 >
                   <MemberAvatar member={m} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold truncate">{m.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-semibold truncate">{m.name}</p>
+                      {m.terminatedAt && (
+                        <Badge variant="destructive" className="text-[8px] px-1 py-0 uppercase flex-shrink-0" data-testid={`badge-member-terminated-${m.id}`}>
+                          Terminated
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-[10px] text-muted-foreground truncate">{m.position || m.department || m.email || m.username}</p>
+                    {inviteSummary(m.id) && (
+                      <p className="text-[10px] font-medium text-primary truncate" data-testid={`text-invite-summary-${m.id}`}>
+                        {inviteSummary(m.id)}
+                      </p>
+                    )}
                   </div>
                   <ChevronRight className="w-3 h-3 text-muted-foreground/40 flex-shrink-0" />
                 </button>
@@ -1593,6 +1811,11 @@ export default function TeamMembersPage() {
                     <div className="min-w-0">
                       <h2 className="text-sm font-bold truncate">{selected.name}</h2>
                       <p className="text-[10px] text-muted-foreground">{selected.position || selected.department || "No role set"}</p>
+                      {inviteSummary(selected.id) && (
+                        <p className="text-[10px] font-medium text-primary flex items-center gap-1" data-testid={`text-invite-summary-header-${selected.id}`}>
+                          <UserCheck className="w-3 h-3" /> {inviteSummary(selected.id)}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -1601,21 +1824,39 @@ export default function TeamMembersPage() {
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {panel === "edit" && (
                     <>
-                      <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-wider border-green-600 text-green-700 dark:text-green-400 gap-1">
-                        <Lock className="w-2.5 h-2.5" /> Locked Profile
+                      <Badge
+                        variant={selected?.terminatedAt ? "destructive" : "outline"}
+                        className={`text-[9px] font-bold uppercase tracking-wider gap-1 ${selected?.terminatedAt ? "" : "border-green-600 text-green-700 dark:text-green-400"}`}
+                        data-testid={`badge-member-status-${selectedId}`}
+                      >
+                        {selected?.terminatedAt ? <><UserX className="w-2.5 h-2.5" /> Terminated</> : <><Lock className="w-2.5 h-2.5" /> Active · Locked Profile</>}
                       </Badge>
                       <Button
                         size="sm"
                         variant="outline"
                         className="rounded-none text-xs h-8 gap-1"
+                        disabled={!!selected?.terminatedAt}
                         onClick={() => requestUnlock(() => setAmendMember(selected))}
                         data-testid={`button-amend-member-${selectedId}`}
                       >
                         <Pencil className="w-3.5 h-3.5" />
                         Amend (Admin)
                       </Button>
-                      <Button size="sm" variant="destructive" className="rounded-none text-xs h-8" onClick={() => { if (confirm(`Remove ${selected?.name}?`)) deleteMutation.mutate(selectedId!); }} data-testid={`button-delete-member-${selectedId}`}>
-                        <Trash2 className="w-3.5 h-3.5" />
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="rounded-none text-xs h-8 gap-1 font-bold"
+                        disabled={!!selected?.terminatedAt}
+                        onClick={() => {
+                          if (!selected) return;
+                          setTerminateMember(selected);
+                          setTerminationReason("");
+                          setTerminationError("");
+                        }}
+                        data-testid={`button-terminate-member-${selectedId}`}
+                      >
+                        <UserX className="w-3.5 h-3.5" />
+                        {selected?.terminatedAt ? "Services Terminated" : "Terminate Services"}
                       </Button>
                     </>
                   )}
@@ -1672,7 +1913,7 @@ export default function TeamMembersPage() {
                         </div>
                         <div className="space-y-1.5">
                           <Label className={lbl}>Email</Label>
-                          <Input type="email" className={inp} placeholder="team@bullex.tech" value={form.email} onChange={e => up("email", e.target.value)} data-testid="input-team-email" />
+                          <Input type="email" className={inp} placeholder="docs@bullfrog-group.com" value={form.email} onChange={e => up("email", e.target.value)} data-testid="input-team-email" />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1.5">
@@ -1692,9 +1933,41 @@ export default function TeamMembersPage() {
                     )}
                   </form>
                 ) : selected ? (
+                  <>
+                  {inviteList(selected.id).length > 0 && (
+                    <div className="mb-5 border border-border rounded-md overflow-hidden" data-testid={`section-invitees-${selected.id}`}>
+                      <div className="px-4 py-2.5 bg-muted/40 border-b border-border flex items-center gap-2">
+                        <UserCheck className="w-3.5 h-3.5 text-primary" />
+                        <p className="text-[10px] font-bold uppercase tracking-wider">Team members added by {selected.name}</p>
+                      </div>
+                      <div className="divide-y divide-border">
+                        {inviteList(selected.id).map(p => (
+                          <div key={p.key} className="px-4 py-2 flex items-center justify-between gap-3" data-testid={`row-invitee-${p.key}`}>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold truncate" data-testid={`text-invitee-name-${p.key}`}>{p.name}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{p.detail}</p>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={`text-[9px] font-bold uppercase tracking-wider flex-shrink-0 ${
+                                p.status === "active" ? "border-green-600 text-green-700 dark:text-green-400"
+                                : p.status === "terminated" ? "border-destructive text-destructive"
+                                : p.status === "approved" ? "border-blue-600 text-blue-700 dark:text-blue-400"
+                                : "border-amber-500 text-amber-700 dark:text-amber-400"
+                              }`}
+                              data-testid={`badge-invitee-status-${p.key}`}
+                            >
+                              {p.status === "active" ? "Active" : p.status === "terminated" ? "Terminated" : p.status === "approved" ? "Approved" : "Pending"}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <LockedMemberView
                     member={selected}
                     profileModules={profileModules}
+                    setProfileModules={setProfileModules}
                     docs={selectedDocs}
                     submissions={submissions}
                     submissionsLoading={submissionsLoading}
@@ -1705,6 +1978,7 @@ export default function TeamMembersPage() {
                     sendingReset={sendResetMutation.isPending}
                     onNavigate={setLocation}
                   />
+                  </>
                 ) : null}
               </div>
             </div>
@@ -1977,6 +2251,73 @@ export default function TeamMembersPage() {
           sections={TEAM_AMEND_SECTIONS}
         />
       )}
+
+      <Dialog
+        open={!!terminateMember}
+        onOpenChange={(open) => {
+          if (!open && !terminateMutation.isPending) {
+            setTerminateMember(null);
+            setTerminationReason("");
+            setTerminationError("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg" data-testid="dialog-terminate-member">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <UserX className="w-5 h-5" />
+              Terminate services for {terminateMember?.name}?
+            </DialogTitle>
+            <DialogDescription className="space-y-2 pt-1">
+              <span className="block">Their profile, documents, submissions, and history will remain available to administrators.</span>
+              <span className="block font-medium text-foreground">Their login, active sessions, and outstanding password-reset links will be revoked immediately.</span>
+              <span className="block">This action does not delete the retained profile and cannot be used to reactivate the account.</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5 py-2">
+            <Label htmlFor="termination-reason" className={lbl}>Reason for termination *</Label>
+            <Textarea
+              id="termination-reason"
+              value={terminationReason}
+              onChange={event => {
+                setTerminationReason(event.target.value);
+                if (terminationError) setTerminationError("");
+              }}
+              maxLength={1000}
+              disabled={terminateMutation.isPending}
+              placeholder="Enter the reason that will be retained on this profile"
+              className="min-h-[120px] resize-none"
+              data-testid="input-termination-reason"
+            />
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-[10px] text-destructive">{terminationError}</p>
+              <p className="text-[10px] text-muted-foreground ml-auto">{terminationReason.length}/1000</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={terminateMutation.isPending}
+              onClick={() => setTerminateMember(null)}
+              data-testid="button-cancel-termination"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={terminateMutation.isPending || !terminationReason.trim()}
+              onClick={submitTermination}
+              data-testid="button-confirm-termination"
+            >
+              {terminateMutation.isPending
+                ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Terminating…</>
+                : <><UserX className="w-4 h-4 mr-1.5" />Confirm Termination</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

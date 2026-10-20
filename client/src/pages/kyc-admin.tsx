@@ -50,8 +50,6 @@ import {
   UserCheck,
   UserX,
   UserCog,
-  ClipboardList,
-  Package,
   CalendarDays,
   Loader2,
   Trash2,
@@ -60,12 +58,25 @@ import {
 import type { DailyReport, TeamTask } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+
+// Matches the 409 the server returns when an amendment approval hit a moving
+// blockchain tip twice (server already auto-retried once). apiRequest throws
+// `Error("409: {json}")`, so detect by status prefix + the server's message.
+function isChainBusyError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.startsWith("409") &&
+    error.message.includes("Blockchain advanced while approving")
+  );
+}
 import { Link } from "wouter";
 import type { KycApplication, Trade, Block, Document, KycDocument, KycChangeRequest, TeamKycApplication, TeamMember, TradeEnquiry, EnquiryChangeRequest } from "@shared/schema";
-import { enquiryStatusBucket, isEnquiryStatusPending, isEnquiryStatusAccepted } from "@shared/schema";
 import { useAmendMode } from "@/hooks/use-amend-mode";
 import { AmendDialog, type AmendSection } from "@/components/amend-dialog";
+import { useAuth } from "@/hooks/use-auth";
 import { Pencil } from "lucide-react";
+import { sortClientDetails } from "@shared/client-sorting";
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   pending: { label: "Pending Review", color: "text-amber-600", bg: "bg-amber-600/10 border-amber-600/20 text-amber-700", icon: Clock },
@@ -95,6 +106,8 @@ const tradeStatusLabel = (status: string) => {
 
 export default function KycAdmin() {
   const { requestUnlock } = useAmendMode();
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const [amendKyc, setAmendKyc] = useState<KycApplication | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -122,6 +135,22 @@ export default function KycAdmin() {
       setSendKycPdfApp(null);
     },
     onError: (e: any) => toast({ title: "Failed to send", description: e.message, variant: "destructive" }),
+  });
+
+  const resetClientPasswordMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/kyc/${id}/password-reset-link`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Password reset sent",
+        description: "A one-time password reset link has been emailed to the client.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Reset failed", description: error.message, variant: "destructive" });
+    },
   });
 
   const { data: applications, isLoading: kycLoading } = useQuery<KycApplication[]>({
@@ -155,12 +184,28 @@ export default function KycAdmin() {
       const res = await apiRequest("PATCH", `/api/enquiry-change-requests/${id}/status`, { status, adminNotes });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data: any, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/enquiry-change-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trade-enquiries"] });
       queryClient.invalidateQueries({ queryKey: ["/api/enquiry-board"] });
       queryClient.invalidateQueries({ queryKey: ["/api/enquiry-table"] });
       queryClient.invalidateQueries({ queryKey: ["/api/blocks"] });
+      toast({ title: "Enquiry Amendment Updated", description: `Request has been ${variables.status}.` });
+    },
+    onError: (error: Error, variables) => {
+      if (isChainBusyError(error)) {
+        toast({
+          title: "Chain was busy — try again",
+          description: "The blockchain recorded other activity while approving. Nothing was changed; click Retry to approve again.",
+          action: (
+            <ToastAction altText="Retry approval" onClick={() => updateEnquiryChangeRequest.mutate(variables)} data-testid="button-retry-enquiry-cr">
+              Retry
+            </ToastAction>
+          ),
+        });
+        return;
+      }
+      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -237,7 +282,19 @@ export default function KycAdmin() {
       queryClient.invalidateQueries({ queryKey: ["/api/kyc"] });
       toast({ title: "Change Request Updated", description: `Request has been ${variables.status}.` });
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables) => {
+      if (isChainBusyError(error)) {
+        toast({
+          title: "Chain was busy — try again",
+          description: "The blockchain recorded other activity while approving. Nothing was changed; click Retry to approve again.",
+          action: (
+            <ToastAction altText="Retry approval" onClick={() => updateChangeRequest.mutate(variables)} data-testid="button-retry-kyc-cr">
+              Retry
+            </ToastAction>
+          ),
+        });
+        return;
+      }
       toast({ title: "Update Failed", description: error.message, variant: "destructive" });
     },
   });
@@ -298,7 +355,7 @@ export default function KycAdmin() {
 
   const filtered = focusKycId
     ? (applications?.filter((a) => a.id === focusKycId) || [])
-    : (applications
+    : sortClientDetails(applications
         ?.filter((a) => statusFilter === "all" || a.status === statusFilter)
         .filter((a) =>
           a.companyName.toLowerCase().includes(search.toLowerCase()) ||
@@ -429,108 +486,9 @@ export default function KycAdmin() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {false && (() => {
-          const allEnq = enquiries || [];
-          const enqActive = allEnq.filter((e) => isEnquiryStatusPending(e.status)).length;
-          const enqAccepted = allEnq.filter((e) => isEnquiryStatusAccepted(e.status)).length;
-          const enqClosed = allEnq.filter((e) => enquiryStatusBucket(e.status) === "closed").length;
-          const enqRejected = allEnq.filter((e) => enquiryStatusBucket(e.status) === "rejected").length;
-          const recentEnq = [...allEnq]
-            .sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime())
-            .slice(0, 6);
-          const enqStatusClass = (s: string) => {
-            const bucket = enquiryStatusBucket(s);
-            return bucket === "accepted"
-              ? "bg-emerald-600/10 border-emerald-600/20 text-emerald-700"
-              : bucket === "rejected"
-              ? "bg-red-600/10 border-red-600/20 text-red-700"
-              : bucket === "closed"
-              ? "bg-slate-500/10 border-slate-500/20 text-slate-700 dark:text-slate-300"
-              : "bg-blue-600/10 border-blue-600/20 text-blue-700";
-          };
-          const EnqIcon = (s: string) => {
-            const bucket = enquiryStatusBucket(s);
-            return bucket === "accepted" ? CheckCircle2 : bucket === "rejected" ? XCircle : bucket === "closed" ? AlertCircle : Clock;
-          };
-          return (
-            <Card className="mb-8" data-testid="card-enquiries-summary">
-              <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <ClipboardList className="w-4 h-4 text-primary" />
-                  Trade Enquiries Status
-                </CardTitle>
-                <Link href="/trade-enquiries">
-                  <Button variant="ghost" size="sm" className="text-xs" data-testid="link-all-enquiries">
-                    View All <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                  </Button>
-                </Link>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
-                  <div className="rounded-md bg-primary/5 border border-primary/20 p-3 text-center" data-testid="enq-summary-total">
-                    <div className="text-2xl font-bold text-primary">{allEnq.length}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-primary mt-0.5">Total</div>
-                  </div>
-                  <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 text-center" data-testid="enq-summary-active">
-                    <div className="text-2xl font-bold text-blue-600">{enqActive}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-blue-700 dark:text-blue-400 mt-0.5">Active</div>
-                  </div>
-                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-center" data-testid="enq-summary-accepted">
-                    <div className="text-2xl font-bold text-emerald-600">{enqAccepted}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mt-0.5">Accepted</div>
-                  </div>
-                  <div className="rounded-md bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 p-3 text-center" data-testid="enq-summary-closed">
-                    <div className="text-2xl font-bold text-slate-600 dark:text-slate-300">{enqClosed}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-slate-700 dark:text-slate-400 mt-0.5">Closed</div>
-                  </div>
-                  <div className="rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 text-center" data-testid="enq-summary-rejected">
-                    <div className="text-2xl font-bold text-red-600">{enqRejected}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 mt-0.5">Rejected</div>
-                  </div>
-                </div>
-                <div className="space-y-0">
-                  {recentEnq.length > 0 ? recentEnq.map((eq) => {
-                    const Icon = EnqIcon(eq.status);
-                    const created = new Date(eq.createdAt as any).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-                    return (
-                      <Link key={eq.id} href="/trade-enquiries">
-                        <a className="flex items-center justify-between gap-3 py-2.5 border-b last:border-b-0 hover-elevate active-elevate-2 px-2 -mx-2 rounded" data-testid={`enq-summary-row-${eq.id}`}>
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-7 h-7 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                              <Package className="w-3.5 h-3.5 text-primary" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium truncate">
-                                <span className="font-mono text-xs text-muted-foreground mr-1.5">{eq.enquiryRef}</span>
-                                {eq.product}
-                                {eq.side ? <span className="text-[10px] uppercase ml-1.5 text-muted-foreground">({eq.side})</span> : null}
-                              </p>
-                              <p className="text-[11px] text-muted-foreground truncate">
-                                {eq.quantity ? `${eq.quantity} ${eq.unit || ""}` : "—"}
-                                {eq.loadingPort ? ` · ${eq.loadingPort}` : ""}
-                                {eq.incoterms ? ` · ${eq.incoterms}` : ""}
-                                {` · ${created}`}
-                              </p>
-                            </div>
-                          </div>
-                          <Badge variant="outline" className={`rounded-none text-[10px] font-bold shrink-0 ${enqStatusClass(eq.status)}`}>
-                            <Icon className="w-2.5 h-2.5 mr-1" />
-                            {eq.status.charAt(0).toUpperCase() + eq.status.slice(1)}
-                          </Badge>
-                        </a>
-                      </Link>
-                    );
-                  }) : (
-                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                      <ClipboardList className="w-8 h-8 mb-2 opacity-20" />
-                      <p className="text-sm">No trade enquiries yet</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })()}
+        {/* The old "Trade Enquiries Status" summary card was removed here: it was
+            permanently hidden dead JSX duplicating the dedicated Trade Enquiries
+            page and Enquiry Board, and this dashboard is scoped to KYC review. */}
 
         {(() => {
           const pendingChangeReqs = changeRequests?.filter((cr) => cr.status === "pending") || [];
@@ -621,7 +579,7 @@ export default function KycAdmin() {
           );
         })()}
 
-        {false && (() => {
+        {(() => {
           const pendingEnquiryCRs = enquiryChangeRequests?.filter((cr) => cr.status === "pending") || [];
           if (pendingEnquiryCRs.length === 0) return null;
           return (
@@ -834,6 +792,18 @@ export default function KycAdmin() {
                   {isExpanded && (
                     <div className="border-t border-border bg-muted/10" data-testid={`kyc-detail-${app.id}`}>
                       <div className="px-5 pt-4 pb-2 flex flex-wrap gap-2 justify-end border-b border-border/40">
+                        {isAdmin && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-none h-9 text-xs font-bold uppercase tracking-wider"
+                            onClick={() => requestUnlock(() => setAmendKyc(app))}
+                            data-testid={`button-amend-kyc-${app.id}`}
+                          >
+                            <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                            Amend Full KYC
+                          </Button>
+                        )}
                         <a
                           href={`/api/kyc/${app.id}/pdf`}
                           target="_blank"
@@ -937,6 +907,30 @@ export default function KycAdmin() {
                             ))}
                           </div>
 
+                          {Array.isArray(app.additionalBanks) && app.additionalBanks.length > 0 && app.additionalBanks.map((b: any, i: number) => (
+                            <div key={i} className="mt-4" data-testid={`admin-additional-bank-${i}`}>
+                              <h5 className="text-xs font-bold uppercase tracking-wider text-primary mb-2">Additional Bank {i + 2}</h5>
+                              <div className="space-y-2">
+                                {[
+                                  ["Bank Name", b?.bankName],
+                                  ["Bank Branch", b?.bankBranch],
+                                  ["Bank Address", b?.bankAddress],
+                                  ["Account Name", b?.accountName],
+                                  ["Account Number", b?.accountNumber],
+                                  ["SWIFT Code", b?.swiftCode],
+                                  ["Currency", b?.bankAccountCurrency],
+                                  ["Bank Officer Name", b?.bankOfficerName],
+                                  ["Bank Officer Email", b?.bankOfficerEmail],
+                                ].map(([label, value]) => (
+                                  <div key={label} className="flex justify-between py-1.5 border-b border-border/30 text-sm">
+                                    <span className="text-muted-foreground text-xs">{label}</span>
+                                    <span className="font-medium text-right max-w-[60%] break-words">{value || "—"}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+
                           <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-3 mt-6 flex items-center gap-2">
                             <Users className="w-4 h-4" /> Ownership & HR
                           </h4>
@@ -1018,6 +1012,46 @@ export default function KycAdmin() {
                           )}
 
                           <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 mt-6 flex items-center gap-2">
+                            <UserCog className="w-4 h-4" /> System & Access
+                          </h4>
+                          <div className="space-y-2 mb-6" data-testid={`kyc-system-access-${app.id}`}>
+                            {[
+                              ["Record ID", app.id],
+                              ["Status", tradeStatusLabel(app.status)],
+                              ["Client Username", app.clientUsername],
+                              ["Participant ID", app.participantId],
+                              ["Created", app.createdAt ? new Date(app.createdAt).toLocaleString() : null],
+                              ["AML Status", app.amlStatus],
+                              ["OFAC Status", app.ofacStatus],
+                              ["UN Sanctions Status", app.unSanctionsStatus],
+                              ["PEP Status", app.pepStatus],
+                              ["Screening Checked", app.amlCheckedAt ? new Date(app.amlCheckedAt).toLocaleString() : null],
+                              ["Screening Checked By", app.amlCheckedBy],
+                              ["Block Number", app.blockNumber != null ? `#${app.blockNumber}` : null],
+                              ["Blockchain Hash", app.blockchainHash],
+                              ["Previous Hash", app.previousHash],
+                            ].map(([label, value]) => (
+                              <div key={String(label)} className="flex justify-between py-1.5 border-b border-border/30 text-sm gap-3">
+                                <span className="text-muted-foreground text-xs shrink-0">{label}</span>
+                                <span className="font-mono text-[11px] font-medium text-right max-w-[65%] break-all">{value || "—"}</span>
+                              </div>
+                            ))}
+                            {isAdmin && app.status === "approved" && app.clientUsername && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full rounded-none h-9 text-xs font-bold uppercase tracking-wider mt-3"
+                                disabled={resetClientPasswordMutation.isPending}
+                                onClick={() => requestUnlock(() => resetClientPasswordMutation.mutate(app.id))}
+                                data-testid={`button-reset-client-password-${app.id}`}
+                              >
+                                {resetClientPasswordMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Shield className="w-3.5 h-3.5 mr-1.5" />}
+                                Send Password Reset Link
+                              </Button>
+                            )}
+                          </div>
+
+                          <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 mt-6 flex items-center gap-2">
                             <Shield className="w-4 h-4" /> Admin Review
                           </h4>
 
@@ -1073,16 +1107,6 @@ export default function KycAdmin() {
                                       <span className="font-medium text-right max-w-[60%] break-words">{app.products}</span>
                                     </div>
                                   )}
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="w-full rounded-none h-9 text-xs font-bold uppercase tracking-wider mt-2 gap-1.5"
-                                    onClick={() => requestUnlock(() => setAmendKyc(app))}
-                                    data-testid={`button-amend-kyc-${app.id}`}
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                    Amend (Admin)
-                                  </Button>
                                   <Button
                                     size="sm"
                                     variant="secondary"
@@ -1281,6 +1305,11 @@ export default function KycAdmin() {
 
                                 <AmlScreeningPanel app={app} />
 
+                                {/* Approval actions are admin-only. Allocated team members can view
+                                    the full KYC record and run the workflow above, but only an admin
+                                    may approve, reject, or reset an application. */}
+                                {isAdmin && (
+                                <>
                                 <div className="flex gap-2">
                                   <Button
                                     size="sm"
@@ -1320,6 +1349,8 @@ export default function KycAdmin() {
                                     <Clock className="w-3.5 h-3.5 mr-1.5" />
                                     Reset to Pending
                                   </Button>
+                                )}
+                                </>
                                 )}
                               </div>
                               )}
@@ -1445,34 +1476,80 @@ export default function KycAdmin() {
           open={!!amendKyc}
           onOpenChange={(o) => { if (!o) setAmendKyc(null); }}
           title={`Amend KYC — ${(amendKyc as any).companyName || amendKyc.id}`}
-          description="Edit approved KYC fields. Blockchain hash, status, and AML decision are immutable."
+          description="Edit the complete submitted KYC record. Status and screening use their controlled review actions; password hashes and blockchain history remain immutable."
           endpoint={`/api/kyc/${amendKyc.id}/amend`}
           invalidateKeys={["/api/kyc-applications", "/api/kyc", "/api/team-kyc"]}
           initialValues={{
-            companyName: (amendKyc as any).companyName ?? "",
-            legalEntityType: (amendKyc as any).legalEntityType ?? "",
-            registrationNumber: (amendKyc as any).registrationNumber ?? "",
-            registeredAddress: (amendKyc as any).registeredAddress ?? "",
-            operatingAddress: (amendKyc as any).operatingAddress ?? "",
-            countryOfIncorporation: (amendKyc as any).countryOfIncorporation ?? "",
-            taxId: (amendKyc as any).taxId ?? "",
-            website: (amendKyc as any).website ?? "",
-            primaryContactName: (amendKyc as any).primaryContactName ?? "",
-            primaryContactEmail: (amendKyc as any).primaryContactEmail ?? "",
-            primaryContactPhone: (amendKyc as any).primaryContactPhone ?? "",
-            primaryContactRole: (amendKyc as any).primaryContactRole ?? "",
-            authorizedSignatoryName: (amendKyc as any).authorizedSignatoryName ?? "",
-            authorizedSignatoryRole: (amendKyc as any).authorizedSignatoryRole ?? "",
-            authorizedSignatoryEmail: (amendKyc as any).authorizedSignatoryEmail ?? "",
-            bankName: (amendKyc as any).bankName ?? "",
-            bankAccountNumber: (amendKyc as any).bankAccountNumber ?? "",
-            bankSwiftCode: (amendKyc as any).bankSwiftCode ?? "",
-            bankIban: (amendKyc as any).bankIban ?? "",
+            companyName: amendKyc.companyName ?? "",
+            registeredAddress: amendKyc.registeredAddress ?? "",
+            primaryBusinessAddress: amendKyc.primaryBusinessAddress ?? "",
+            dateOfIncorporation: amendKyc.dateOfIncorporation ?? "",
+            countryOfIncorporation: amendKyc.countryOfIncorporation ?? "",
+            countryOfOperation: amendKyc.countryOfOperation ?? "",
+            registrationNumber: amendKyc.registrationNumber ?? "",
+            taxIdNumber: amendKyc.taxIdNumber ?? "",
+            contactName: amendKyc.contactName ?? "",
+            contactTitle: amendKyc.contactTitle ?? "",
+            contactPhone: amendKyc.contactPhone ?? "",
+            contactEmail: amendKyc.contactEmail ?? "",
+            faxNumber: amendKyc.faxNumber ?? "",
+            website: amendKyc.website ?? "",
+            businessType: amendKyc.businessType ?? "",
+            coreBusinessDescription: amendKyc.coreBusinessDescription ?? "",
+            ultimateBeneficialOwners: amendKyc.ultimateBeneficialOwners ?? "",
+            shareholders: amendKyc.shareholders ?? "",
+            managementStructure: amendKyc.managementStructure ?? "",
+            subsidiaries: amendKyc.subsidiaries ?? "",
+            listingInfo: amendKyc.listingInfo ?? "",
+            shareCapital: amendKyc.shareCapital ?? "",
+            capitalRange: amendKyc.capitalRange ?? "",
+            financialCurrency: amendKyc.financialCurrency ?? "",
+            salesRevenue: amendKyc.salesRevenue ?? "",
+            netIncome: amendKyc.netIncome ?? "",
+            totalEquity: amendKyc.totalEquity ?? "",
+            totalBalanceSheet: amendKyc.totalBalanceSheet ?? "",
+            lastReportingPeriod: amendKyc.lastReportingPeriod ?? "",
+            externalAuditors: amendKyc.externalAuditors ?? "",
+            bankName: amendKyc.bankName ?? "",
+            bankBranch: amendKyc.bankBranch ?? "",
+            bankAddress: amendKyc.bankAddress ?? "",
+            accountName: amendKyc.accountName ?? "",
+            accountNumber: amendKyc.accountNumber ?? "",
+            swiftCode: amendKyc.swiftCode ?? "",
+            bankAccountCurrency: amendKyc.bankAccountCurrency ?? "",
+            bankOfficerName: amendKyc.bankOfficerName ?? "",
+            bankOfficerEmail: amendKyc.bankOfficerEmail ?? "",
+            additionalBanks: Array.isArray(amendKyc.additionalBanks)
+              ? amendKyc.additionalBanks.map((bank) => ({ ...bank }))
+              : [],
+            employeesCompany: amendKyc.employeesCompany ?? "",
+            employeesGroup: amendKyc.employeesGroup ?? "",
+            previousBullfrogEmployee: amendKyc.previousBullfrogEmployee ?? "",
+            amlSubject: amendKyc.amlSubject ?? "",
+            amlConformityProgram: amendKyc.amlConformityProgram ?? "",
+            amlRegulator: amendKyc.amlRegulator ?? "",
+            amlLawName: amendKyc.amlLawName ?? "",
+            documentReasons: amendKyc.documentReasons ?? "",
+            signatoryName: amendKyc.signatoryName ?? "",
+            signatoryTitle: amendKyc.signatoryTitle ?? "",
+            signatoryCompany: amendKyc.signatoryCompany ?? "",
+            signatoryEmail: amendKyc.signatoryEmail ?? "",
+            signatoryPlaceDate: amendKyc.signatoryPlaceDate ?? "",
+            filledByName: amendKyc.filledByName ?? "",
+            filledByEmail: amendKyc.filledByEmail ?? "",
             category: amendKyc.category ?? "",
             products: amendKyc.products ?? "",
             reviewNotes: amendKyc.reviewNotes ?? "",
+            ...(amendKyc.status === "approved" && amendKyc.clientUsername
+              ? { clientUsername: amendKyc.clientUsername }
+              : {}),
           }}
-          sections={KYC_AMEND_SECTIONS}
+          sections={KYC_AMEND_SECTIONS.map((section) => ({
+            ...section,
+            fields: section.fields.filter(
+              (field) => field.key !== "clientUsername" || (amendKyc.status === "approved" && !!amendKyc.clientUsername),
+            ),
+          }))}
         />
       )}
     </div>
@@ -1689,50 +1766,122 @@ function AmlScreeningPanel({ app, readOnly = false }: { app: any; readOnly?: boo
 
 const KYC_AMEND_SECTIONS: AmendSection[] = [
   {
-    title: "Company",
+    title: "1. Company Details",
     fields: [
-      { key: "companyName", label: "Company Name" },
-      { key: "legalEntityType", label: "Legal Entity Type" },
-      { key: "registrationNumber", label: "Registration Number" },
-      { key: "countryOfIncorporation", label: "Country of Incorporation" },
-      { key: "taxId", label: "Tax ID" },
-      { key: "website", label: "Website" },
+      { key: "companyName", label: "Full Legal Name", colSpan: 2 },
       { key: "registeredAddress", label: "Registered Address", colSpan: 2 },
-      { key: "operatingAddress", label: "Operating Address", colSpan: 2 },
+      { key: "primaryBusinessAddress", label: "Primary Business Address", colSpan: 2 },
+      { key: "dateOfIncorporation", label: "Date of Incorporation" },
+      { key: "countryOfIncorporation", label: "Country of Incorporation" },
+      { key: "countryOfOperation", label: "Country of Operation" },
+      { key: "registrationNumber", label: "Registration Number" },
+      { key: "taxIdNumber", label: "Tax ID Number" },
+      { key: "contactName", label: "Contact Name" },
+      { key: "contactTitle", label: "Corporate Title" },
+      { key: "contactPhone", label: "Phone", type: "tel" },
+      { key: "contactEmail", label: "Email", type: "email" },
+      { key: "faxNumber", label: "Fax" },
+      { key: "website", label: "Website" },
     ],
   },
   {
-    title: "Primary Contact",
+    title: "2. Business Activity",
     fields: [
-      { key: "primaryContactName", label: "Contact Name" },
-      { key: "primaryContactRole", label: "Contact Role" },
-      { key: "primaryContactEmail", label: "Contact Email", type: "email" },
-      { key: "primaryContactPhone", label: "Contact Phone", type: "tel" },
+      { key: "businessType", label: "Type of Business", colSpan: 2 },
+      { key: "coreBusinessDescription", label: "Core Business Description", type: "textarea" },
     ],
   },
   {
-    title: "Authorized Signatory",
+    title: "3. Beneficial Owners",
     fields: [
-      { key: "authorizedSignatoryName", label: "Signatory Name" },
-      { key: "authorizedSignatoryRole", label: "Signatory Role" },
-      { key: "authorizedSignatoryEmail", label: "Signatory Email", type: "email" },
+      { key: "ultimateBeneficialOwners", label: "Ultimate Beneficial Owners", type: "textarea" },
+      { key: "shareholders", label: "Shareholders", type: "textarea" },
     ],
   },
   {
-    title: "Banking",
+    title: "4. Management Structure",
+    fields: [
+      { key: "managementStructure", label: "Directors / Senior Management", type: "textarea" },
+      { key: "subsidiaries", label: "Subsidiaries", type: "textarea" },
+      { key: "listingInfo", label: "Stock Exchange Listing", colSpan: 2 },
+    ],
+  },
+  {
+    title: "5. Financial Information",
+    fields: [
+      { key: "shareCapital", label: "Share Capital" },
+      { key: "capitalRange", label: "Capital Range" },
+      { key: "financialCurrency", label: "Financial Currency" },
+      { key: "salesRevenue", label: "Sales Revenue" },
+      { key: "netIncome", label: "Net Income" },
+      { key: "totalEquity", label: "Total Equity" },
+      { key: "totalBalanceSheet", label: "Total Balance Sheet" },
+      { key: "lastReportingPeriod", label: "Last Reporting Period" },
+      { key: "externalAuditors", label: "External Auditors", colSpan: 2 },
+    ],
+  },
+  {
+    title: "6. Banking Information",
     fields: [
       { key: "bankName", label: "Bank Name" },
-      { key: "bankAccountNumber", label: "Account Number" },
-      { key: "bankSwiftCode", label: "SWIFT Code" },
-      { key: "bankIban", label: "IBAN" },
+      { key: "bankBranch", label: "Branch" },
+      { key: "bankAddress", label: "Bank Address", colSpan: 2 },
+      { key: "accountName", label: "Account Name" },
+      { key: "accountNumber", label: "Account Number" },
+      { key: "swiftCode", label: "SWIFT Code" },
+      { key: "bankAccountCurrency", label: "Currency" },
+      { key: "bankOfficerName", label: "Bank Officer Name" },
+      { key: "bankOfficerEmail", label: "Bank Officer Email", type: "email" },
+      { key: "additionalBanks", label: "Additional Bank Accounts", type: "bank-list", colSpan: 2 },
     ],
   },
   {
-    title: "Classification",
+    title: "7. Human Resources",
+    fields: [
+      { key: "employeesCompany", label: "Employees (Company)" },
+      { key: "employeesGroup", label: "Employees (Group)" },
+      { key: "previousBullfrogEmployee", label: "Previous Bullfrog Employee", colSpan: 2 },
+    ],
+  },
+  {
+    title: "8. Compliance Questionnaire",
+    fields: [
+      { key: "amlSubject", label: "AML/CFT Subject" },
+      { key: "amlConformityProgram", label: "AML/CFT Conformity Program" },
+      { key: "amlRegulator", label: "AML/CFT Regulator" },
+      { key: "amlLawName", label: "Applicable AML/CFT Law" },
+    ],
+  },
+  {
+    title: "9. Documents",
+    fields: [
+      { key: "documentReasons", label: "Document Notes", type: "textarea" },
+    ],
+  },
+  {
+    title: "10. Authorised Signatory",
+    fields: [
+      { key: "signatoryName", label: "Print Name" },
+      { key: "signatoryTitle", label: "Title" },
+      { key: "signatoryCompany", label: "Company Name" },
+      { key: "signatoryEmail", label: "Email", type: "email" },
+      { key: "signatoryPlaceDate", label: "Place & Date" },
+      { key: "filledByName", label: "Filled By" },
+      { key: "filledByEmail", label: "Filled By Email", type: "email" },
+    ],
+  },
+  {
+    title: "Classification (Admin)",
     fields: [
       { key: "category", label: "Category" },
       { key: "products", label: "Products" },
       { key: "reviewNotes", label: "Review Notes", type: "textarea" },
+    ],
+  },
+  {
+    title: "Portal Access (Controlled)",
+    fields: [
+      { key: "clientUsername", label: "Client Username", colSpan: 2 },
     ],
   },
 ];

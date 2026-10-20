@@ -694,10 +694,13 @@ export default function TeamKycAdmin() {
                       </div>
                     )}
 
-                    {app.status !== "approved" && (
+                    {/* Credential inputs show until a login has been provisioned.
+                        Credentials are OPTIONAL at approval — admins can approve now
+                        and allocate the login later from this same panel. */}
+                    {!app.teamUsername && (
                       <div className="space-y-2">
                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          Allocate Login Credentials <span className="text-[10px] font-normal">(required to approve)</span>
+                          Allocate Login Credentials <span className="text-[10px] font-normal normal-case">(optional — you can approve now and allocate later)</span>
                         </p>
                         <div className="grid grid-cols-2 gap-2">
                           <Input
@@ -717,38 +720,61 @@ export default function TeamKycAdmin() {
                           />
                         </div>
                         <p className="text-[10px] text-muted-foreground">
-                          These credentials will be stored securely and used for the team member's platform login. Send them to the team member after approval.
+                          If left blank, the application is approved without a login. The welcome email and NCNDA are sent once you allocate credentials.
                         </p>
                       </div>
                     )}
 
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider"
-                        disabled={reviewMutation.isPending || app.status === "approved"}
-                        onClick={() => {
-                          if (!usernames[app.id] || !passwords[app.id]) {
-                            toast({
-                              title: "Credentials Required",
-                              description: "Please enter a username and password to approve this application.",
-                              variant: "destructive",
+                      {app.status !== "approved" && (
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider"
+                          disabled={reviewMutation.isPending}
+                          onClick={() => {
+                            const u = (usernames[app.id] || "").trim();
+                            const p = passwords[app.id] || "";
+                            reviewMutation.mutate({
+                              id: app.id,
+                              status: "approved",
+                              reviewNotes: notes[app.id] || undefined,
+                              teamUsername: u || undefined,
+                              teamPassword: p || undefined,
                             });
-                            return;
-                          }
-                          reviewMutation.mutate({
-                            id: app.id,
-                            status: "approved",
-                            reviewNotes: notes[app.id] || undefined,
-                            teamUsername: usernames[app.id],
-                            teamPassword: passwords[app.id],
-                          });
-                        }}
-                        data-testid={`btn-team-kyc-approve-${app.id}`}
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                        {app.status === "approved" ? "Approved" : "Approve & Create Account"}
-                      </Button>
+                          }}
+                          data-testid={`btn-team-kyc-approve-${app.id}`}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                          {(usernames[app.id] || "").trim() && passwords[app.id] ? "Approve & Create Account" : "Approve"}
+                        </Button>
+                      )}
+                      {app.status === "approved" && !app.teamUsername && (
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider"
+                          disabled={reviewMutation.isPending}
+                          onClick={() => {
+                            if (!(usernames[app.id] || "").trim() || !passwords[app.id]) {
+                              toast({
+                                title: "Credentials Required",
+                                description: "Enter a username and password to allocate this team member's login.",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                            reviewMutation.mutate({
+                              id: app.id,
+                              status: "approved",
+                              teamUsername: usernames[app.id].trim(),
+                              teamPassword: passwords[app.id],
+                            });
+                          }}
+                          data-testid={`btn-team-kyc-allocate-${app.id}`}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                          Allocate Login
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="destructive"

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { trackEvent } from "@/lib/analytics";
 import { useWatch } from "react-hook-form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -85,7 +86,10 @@ export default function Register() {
       };
       return apiRequest("POST", "/api/register", payload);
     },
-    onSuccess: () => setSubmitted(true),
+    onSuccess: () => {
+      trackEvent("registration_submitted", { location: "registration" });
+      setSubmitted(true);
+    },
   });
 
   const onSubmit = (data: RegistrationForm) => mutation.mutate(data);
@@ -352,7 +356,7 @@ export default function Register() {
 
                   {mutation.isError && (
                     <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-sm text-destructive" data-testid="text-error-message">
-                      Something went wrong. Please try again or contact <a href="mailto:team@bullex.tech" className="underline">team@bullex.tech</a>.
+                      Something went wrong. Please try again or contact <a href="mailto:docs@bullfrog-group.com" className="underline">docs@bullfrog-group.com</a>.
                     </div>
                   )}
 

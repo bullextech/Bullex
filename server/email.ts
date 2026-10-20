@@ -1,5 +1,11 @@
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
+import { AsyncLocalStorage } from "async_hooks";
+import { ReplitConnectors } from "@replit/connectors-sdk";
+import { storage } from "./storage";
+import { getBrandingLogos } from "./documentFileGenerator";
+import { getObjectBuffer } from "./object-files";
 
 function esc(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -16,43 +22,189 @@ interface EmailAttachment {
   content: string;
 }
 
-async function sendEmail(to: string, subject: string, html: string, attachments?: EmailAttachment[], cc?: string[]): Promise<boolean> {
+// Extracts the bare address out of "Name <addr>" or returns the input as-is.
+function extractAddress(value: string): string {
+  return value.match(/<([^>]+)>/)?.[1]?.trim() || value.trim();
+}
+
+// ---------------------------------------------------------------------------
+// Sender audit stamp
+//
+// When an email is triggered by an authenticated admin or team-member request,
+// a per-request actor context (set by middleware in routes.ts via
+// AsyncLocalStorage) propagates into sendEmail — including across
+// fire-and-forget promises — and an audit block is appended to the outgoing
+// email: who sent it (system ID + email), from which IP, when, plus an
+// HMAC-SHA256 digital stamp over those details so the stamp cannot be forged
+// or altered without the server's secret.
+// ---------------------------------------------------------------------------
+
+export interface EmailActorContext {
+  role: "admin" | "team";
+  username: string;
+  ip: string;
+}
+
+const emailActorStorage = new AsyncLocalStorage<EmailActorContext>();
+
+export function runWithEmailActor<T>(actor: EmailActorContext, fn: () => T): T {
+  return emailActorStorage.run(actor, fn);
+}
+
+interface ResolvedActor {
+  roleLabel: string;
+  systemId: string;
+  email: string;
+  ip: string;
+}
+
+async function resolveEmailActor(ctx: EmailActorContext): Promise<ResolvedActor> {
+  if (ctx.role === "admin") {
+    return {
+      roleLabel: "Administrator",
+      systemId: "ADMIN",
+      email: process.env.ADMIN_EMAIL || "administrator",
+      ip: ctx.ip,
+    };
+  }
+  let systemId = ctx.username || "unknown";
+  let email = "not on file";
+  try {
+    const tm = await storage.getTeamMemberByUsername(ctx.username);
+    if (tm) {
+      systemId = tm.participantId || tm.id;
+      if (tm.email) email = tm.email;
+    }
+  } catch {
+    // Fall back to username as the system ID; never block the email itself.
+  }
+  return { roleLabel: "Team Member", systemId, email, ip: ctx.ip };
+}
+
+function buildAuditStampHtml(actor: ResolvedActor, to: string, subject: string): string {
+  const timestamp = new Date().toISOString();
+  const stampSecret = process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || "bullex-dev-only";
+  const stamp = crypto
+    .createHmac("sha256", stampSecret)
+    .update([actor.roleLabel, actor.systemId, actor.email, actor.ip, to, subject, timestamp].join("|"))
+    .digest("hex");
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 12px auto 0 auto; padding: 12px 16px; background-color: #f7f7f7; border: 1px solid #e0e0e0; border-radius: 6px;">
+      <p style="margin: 0 0 6px 0; font-size: 11px; font-weight: bold; color: #555555; text-transform: uppercase; letter-spacing: 0.5px;">Sender Audit — Digitally Stamped</p>
+      <table style="font-size: 11px; color: #666666; border-collapse: collapse;">
+        <tr><td style="padding: 1px 10px 1px 0; white-space: nowrap;">Sent by</td><td style="padding: 1px 0;">${esc(actor.roleLabel)}</td></tr>
+        <tr><td style="padding: 1px 10px 1px 0; white-space: nowrap;">System ID</td><td style="padding: 1px 0;">${esc(actor.systemId)}</td></tr>
+        <tr><td style="padding: 1px 10px 1px 0; white-space: nowrap;">Email ID</td><td style="padding: 1px 0;">${esc(actor.email)}</td></tr>
+        <tr><td style="padding: 1px 10px 1px 0; white-space: nowrap;">IP Address</td><td style="padding: 1px 0;">${esc(actor.ip)}</td></tr>
+        <tr><td style="padding: 1px 10px 1px 0; white-space: nowrap;">Timestamp (UTC)</td><td style="padding: 1px 0;">${esc(timestamp)}</td></tr>
+      </table>
+      <p style="margin: 6px 0 0 0; font-size: 10px; color: #999999; word-break: break-all;">Digital Stamp (HMAC-SHA256): ${stamp}</p>
+    </div>`;
+}
+
+// All platform email is branded as coming from Bullfrog Group and is sent from
+// the docs address. If the bullfrog-group.com domain is not (yet)
+// verified with Resend, delivery falls back to the previously configured
+// verified sender (EMAIL_FROM, else Resend's onboarding address) so
+// transactional mail keeps flowing — with a loud log so it gets fixed.
+const PREFERRED_FROM_ADDRESS = "docs@bullfrog-group.com";
+
+async function sendEmail(to: string, subject: string, html: string, attachments?: EmailAttachment[], cc?: string[], replyTo?: string): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.log("[email] RESEND_API_KEY not set, skipping email");
+  // node:test exposes NODE_TEST_CONTEXT. Never let either a connected account
+  // or a legacy key turn route tests into real outbound email. A test may opt
+  // in only when it has installed a mocked transport first.
+  if (process.env.NODE_TEST_CONTEXT && process.env.EMAIL_ENABLE_TEST_DELIVERY !== "true") {
+    console.log("[email] Resend delivery disabled under node:test");
     return false;
   }
 
+  const primaryFrom = extractAddress(process.env.EMAIL_FROM_OVERRIDE || PREFERRED_FROM_ADDRESS);
+  const fallbackFrom = extractAddress(process.env.EMAIL_FROM || "onboarding@resend.dev");
+
+  // If this email was triggered by an authenticated admin/team request, append
+  // the digitally-stamped sender audit block.
+  let finalHtml = html;
+  const actorCtx = emailActorStorage.getStore();
+  if (actorCtx) {
+    try {
+      const actor = await resolveEmailActor(actorCtx);
+      finalHtml = html + buildAuditStampHtml(actor, to, subject);
+    } catch (error) {
+      console.error("[email] Failed to build sender audit stamp (sending without it):", error);
+    }
+  }
+
+  // Swap the header/footer brand markers for the uploaded logos (inline images).
+  const branding = await applyEmailBranding(finalHtml);
+  finalHtml = branding.html;
+
   try {
     const payload: Record<string, any> = {
-      from: process.env.EMAIL_FROM || "Bullex Trading Platform <onboarding@resend.dev>",
+      from: `Bullfrog Group <${primaryFrom}>`,
       to: [to],
       subject,
-      html,
+      html: finalHtml,
     };
-    if (attachments && attachments.length > 0) {
-      payload.attachments = attachments;
+    const allAttachments = [...(attachments || []), ...branding.inlineAttachments];
+    if (allAttachments.length > 0) {
+      payload.attachments = allAttachments;
     }
-    if (cc && cc.length > 0) {
-      payload.cc = cc;
+    // Every outgoing platform email is CC'd to the legal desk, unless legal is
+    // already the recipient or an explicit CC.
+    const LEGAL_CC = "legal@bullfrog-group.com";
+    const ccList = [...(cc || [])];
+    const already = [to, ...ccList].some((a) => a.trim().toLowerCase() === LEGAL_CC);
+    if (!already) ccList.push(LEGAL_CC);
+    if (ccList.length > 0) {
+      payload.cc = ccList;
+    }
+    // Any email that carries a document attachment is also forwarded (BCC) to
+    // the VK desk, unless VK is already a recipient.
+    const VK_BCC = "vk@bullfrog-group.com";
+    if ((attachments || []).length > 0) {
+      const vkAlready = [to, ...ccList].some((a) => extractAddress(a).trim().toLowerCase() === VK_BCC);
+      if (!vkAlready) payload.bcc = [VK_BCC];
+    }
+    if (replyTo) {
+      payload.reply_to = replyTo;
     }
 
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
+    const post = () => apiKey
+      ? fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        })
+      : new ReplitConnectors().proxy("resend", "/emails", {
+          method: "POST",
+          body: payload,
+        });
+
+    let response = await post();
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error(`[email] Failed to send email to ${to} (status ${response.status}) using from="${payload.from}": ${errorData}`);
-      return false;
+      const domainNotVerified = response.status === 403 && errorData.includes("not verified");
+      if (domainNotVerified && fallbackFrom !== primaryFrom) {
+        console.error(`[email] SENDER DOMAIN NOT VERIFIED: cannot send from "${primaryFrom}". Verify the domain at https://resend.com/domains. Falling back to "${fallbackFrom}".`);
+        payload.from = `Bullfrog Group <${fallbackFrom}>`;
+        response = await post();
+        if (!response.ok) {
+          const fallbackError = await response.text();
+          console.error(`[email] Failed to send email to ${to} (status ${response.status}) using fallback from="${payload.from}": ${fallbackError}`);
+          return false;
+        }
+      } else {
+        console.error(`[email] Failed to send email to ${to} (status ${response.status}) using from="${payload.from}": ${errorData}`);
+        return false;
+      }
     }
 
-    console.log(`[email] Email sent to ${to}: ${subject}`);
+    console.log(`[email] Email sent to ${to}: ${subject} (from ${payload.from})`);
     return true;
   } catch (error) {
     console.error("[email] Error sending email:", error);
@@ -60,27 +212,149 @@ async function sendEmail(to: string, subject: string, html: string, attachments?
   }
 }
 
+// Markers that sendEmail() swaps for the uploaded branding logos (inline cid
+// images) when they are configured; the text between the markers is the
+// fallback shown when no logo has been uploaded.
+const HEADER_BRAND_START = "<!--BX_HEADER_BRAND-->";
+const HEADER_BRAND_END = "<!--/BX_HEADER_BRAND-->";
+const FOOTER_BRAND_START = "<!--BX_FOOTER_BRAND-->";
+const FOOTER_BRAND_END = "<!--/BX_FOOTER_BRAND-->";
+
 function emailWrapper(body: string): string {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background: #1a1a2e; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
-        <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Bullex Trading Platform</h1>
-        <p style="color: #94a3b8; margin: 8px 0 0; font-size: 14px;">Commodity Trading Platform</p>
+        ${HEADER_BRAND_START}<h1 style="color: #ffffff; margin: 0; font-size: 24px;">Bullfrog Group</h1>${HEADER_BRAND_END}
       </div>
       <div style="border: 1px solid #e2e8f0; border-top: none; padding: 32px; border-radius: 0 0 8px 8px;">
         ${body}
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
         <p style="color: #94a3b8; font-size: 12px; margin: 0;">
-          This is an automated message from Bullex Commodity Trading Platform. Please do not reply to this email.
+          This is an automated message from Bullfrog Group, sent via the Bullex Trading Platform. Please do not reply to this email.
         </p>
       </div>
-      <div style="background: #990000; padding: 24px 16px; text-align: center; border-radius: 0 0 8px 8px; margin-top: 12px;">
-        <p style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 0.5px; line-height: 1.3;">
-          Bullex is a proprietary platform of Bullfrog Group.
-        </p>
+      <div style="background: #ffffff; border: 1px solid #e2e8f0; padding: 20px 16px; text-align: center; border-radius: 8px; margin-top: 12px;">
+        ${FOOTER_BRAND_START}<p style="color: #990000; margin: 0; font-size: 16px; font-weight: 900; letter-spacing: 0.5px; line-height: 1.3;">
+          Bullex is a proprietary trading platform of Bullfrog Group.
+        </p>${FOOTER_BRAND_END}
       </div>
     </div>
   `;
+}
+
+// Email-optimised logo images live in Object Storage under fixed names
+// (branding/email-header-logo.png = Bullfrog, branding/email-footer-logo.png =
+// Bullex). If a fixed object is missing, the corresponding admin-uploaded
+// document logo (secondary = header, primary = footer) is used instead.
+const EMAIL_LOGO_CACHE = new Map<string, { buffer: Buffer; kind: "png" | "jpg" } | null>();
+
+// Called when admin branding assets change so emails pick up new logos
+// without a restart.
+export function clearEmailLogoCache(): void {
+  EMAIL_LOGO_CACHE.clear();
+}
+
+async function getEmailLogo(fixedName: string, settingsSlot: "header" | "footer"): Promise<{ buffer: Buffer; kind: "png" | "jpg" } | null> {
+  if (EMAIL_LOGO_CACHE.has(fixedName)) return EMAIL_LOGO_CACHE.get(fixedName) ?? null;
+  let logo: { buffer: Buffer; kind: "png" | "jpg" } | null = null;
+  try {
+    const buffer = await getObjectBuffer("branding", fixedName);
+    logo = { buffer, kind: fixedName.endsWith(".png") ? "png" : "jpg" };
+  } catch {
+    try {
+      const logos = await getBrandingLogos();
+      const fallback = settingsSlot === "header" ? logos.header : logos.footer;
+      if (fallback) logo = { buffer: fallback.buffer, kind: fallback.kind };
+    } catch {
+      logo = null;
+    }
+  }
+  EMAIL_LOGO_CACHE.set(fixedName, logo);
+  return logo;
+}
+
+// Swaps the wrapper's brand markers for the branding logos, delivered as
+// inline (cid) attachments: Bullfrog logo in the header, Bullex logo in the
+// footer. When a logo is not available, the text fallback stays.
+async function applyEmailBranding(html: string): Promise<{ html: string; inlineAttachments: any[] }> {
+  const inlineAttachments: any[] = [];
+  let out = html;
+  try {
+    const [header, footer] = await Promise.all([
+      getEmailLogo("email-header-logo.png", "header"),
+      getEmailLogo("email-footer-logo.png", "footer"),
+    ]);
+    const swap = (start: string, end: string, replacement: string) => {
+      const s = out.indexOf(start);
+      const e = out.indexOf(end);
+      if (s === -1 || e === -1 || e < s) return false;
+      out = out.slice(0, s) + replacement + out.slice(e + end.length);
+      return true;
+    };
+    if (header) {
+      const img = `<img src="cid:bullfrog-logo" alt="Bullfrog Group" style="max-width: 220px; max-height: 70px; display: inline-block; vertical-align: middle;" />`;
+      if (swap(HEADER_BRAND_START, HEADER_BRAND_END, img)) {
+        inlineAttachments.push({
+          filename: `bullfrog-logo.${header.kind === "png" ? "png" : "jpg"}`,
+          content: header.buffer.toString("base64"),
+          content_id: "bullfrog-logo",
+        });
+      }
+    }
+    if (footer) {
+      const img = `<img src="cid:bullex-logo" alt="Bullex" style="max-width: 360px; max-height: 117px; display: inline-block; vertical-align: middle;" />`;
+      if (swap(FOOTER_BRAND_START, FOOTER_BRAND_END, img)) {
+        inlineAttachments.push({
+          filename: `bullex-logo.${footer.kind === "png" ? "png" : "jpg"}`,
+          content: footer.buffer.toString("base64"),
+          content_id: "bullex-logo",
+        });
+      }
+    }
+  } catch (error) {
+    console.error("[email] Failed to load branding logos (sending with text branding):", error);
+  }
+  // Strip any leftover markers so raw comments never reach the recipient.
+  out = out
+    .replaceAll(HEADER_BRAND_START, "")
+    .replaceAll(HEADER_BRAND_END, "")
+    .replaceAll(FOOTER_BRAND_START, "")
+    .replaceAll(FOOTER_BRAND_END, "");
+  return { html: out, inlineAttachments };
+}
+
+export async function sendMeetingInviteEmail(
+  to: string,
+  meetUrl: string,
+  opts?: { recipientName?: string; senderName?: string; note?: string },
+): Promise<boolean> {
+  const recipientName = opts?.recipientName?.trim();
+  const senderName = opts?.senderName?.trim() || "The Bullex team";
+  const note = opts?.note?.trim();
+  const safeUrl = esc(meetUrl);
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">You're invited to a Google Meet</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${recipientName ? esc(recipientName) : "valued client"},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      ${esc(senderName)} has invited you to a video meeting on Google Meet.
+    </p>
+    ${note ? `<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0;"><p style="color: #475569; margin: 0; line-height: 1.6; white-space: pre-wrap;">${esc(note)}</p></div>` : ""}
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${safeUrl}" target="_blank" rel="noopener noreferrer"
+         style="display: inline-block; background: #990000; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 700; font-size: 15px;">
+        Join the meeting
+      </a>
+    </div>
+    <p style="color: #475569; line-height: 1.6; font-size: 14px;">
+      Or open this link in your browser:<br />
+      <a href="${safeUrl}" style="color: #2563eb; word-break: break-all;">${safeUrl}</a>
+    </p>
+    <p style="color: #475569; line-height: 1.6; font-size: 14px;">
+      If you have any questions or need to reschedule, simply reply to this email or contact us at
+      <a href="mailto:docs@bullfrog-group.com" style="color: #2563eb;">docs@bullfrog-group.com</a>.
+    </p>
+  `;
+  return sendEmail(to, "Your Google Meet invitation – Bullex Trading Platform", emailWrapper(body), undefined, undefined, "docs@bullfrog-group.com");
 }
 
 export async function sendKycConfirmationEmail(
@@ -105,7 +379,7 @@ export async function sendKycConfirmationEmail(
     </p>
     <p style="color: #475569; line-height: 1.6;">
       If you have any questions, please contact our team at
-      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
+      <a href="mailto:docs@bullfrog-group.com" style="color: #2563eb;">docs@bullfrog-group.com</a>.
     </p>
   `;
   return sendEmail(to, `KYC Application Submitted – ${companyName}`, emailWrapper(body));
@@ -137,7 +411,7 @@ export async function sendKycSubmittedAdminEmail(
       <tr><td style="color: #64748b; padding: 8px 12px;">Submitted At</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${esc(submittedAt)}</td></tr>
     </table>
     <p style="color: #475569; line-height: 1.6;">
-      Log in to the admin panel at <a href="mailto:team@bullex.tech" style="color: #2563eb;">Bullex Admin</a> to take action on this application.
+      Log in to the admin panel at <a href="mailto:docs@bullfrog-group.com" style="color: #2563eb;">Bullex Admin</a> to take action on this application.
     </p>
   `;
   return sendEmail(adminEmail, `New KYC Application – ${companyName}`, emailWrapper(body));
@@ -218,14 +492,14 @@ export async function sendKycApprovalEmail(
         <a href="${escapeHtml(clientPortalSetupUrl)}" style="display: inline-block; background: #1d4ed8; color: #ffffff; text-decoration: none; padding: 10px 20px; font-weight: 600; font-size: 14px; border-radius: 6px;">Set Your Password &amp; Access Portal</a>
       </p>
       <p style="color: #64748b; margin: 12px 0 0; font-size: 12px;">
-        This link expires in 72 hours. If it expires, contact <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a> to request a new one.
+        This link expires in 72 hours. If it expires, contact <a href="mailto:docs@bullfrog-group.com" style="color: #2563eb;">docs@bullfrog-group.com</a> to request a new one.
       </p>
     </div>
   ` : clientUsername ? `
     <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="color: #1e40af; margin: 0; font-weight: 600;">Client Portal Access</p>
       <p style="color: #475569; margin: 8px 0 0; font-size: 14px;">
-        Your username is <strong>${escapeHtml(clientUsername)}</strong>. Please contact <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a> to receive your secure login link.
+        Your username is <strong>${escapeHtml(clientUsername)}</strong>. Please contact <a href="mailto:docs@bullfrog-group.com" style="color: #2563eb;">docs@bullfrog-group.com</a> to receive your secure login link.
       </p>
     </div>
   ` : "";
@@ -252,11 +526,11 @@ export async function sendKycApprovalEmail(
     ${credentialsBlock}
     <p style="color: #475569; line-height: 1.6;">
       You may now participate in commodity trades on the platform. For any trade inquiries, please contact our trade desk at
-      <a href="mailto:trade@bullex.tech" style="color: #2563eb;">trade@bullex.tech</a>.
+      <a href="mailto:trade@bullfrog-group.com" style="color: #2563eb;">trade@bullfrog-group.com</a>.
     </p>
     <p style="color: #475569; line-height: 1.6;">
       If you have any questions, please contact our team at
-      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
+      <a href="mailto:docs@bullfrog-group.com" style="color: #2563eb;">docs@bullfrog-group.com</a>.
     </p>
   `;
   return sendEmail(to, `KYC Application Approved – ${companyName}`, emailWrapper(body));
@@ -289,7 +563,7 @@ export async function sendKycRejectionEmail(
     `}
     <p style="color: #475569; line-height: 1.6;">
       You may submit a new application after addressing the issues noted above. If you believe this decision was made in error or need further clarification, please contact our team at
-      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
+      <a href="mailto:docs@bullfrog-group.com" style="color: #2563eb;">docs@bullfrog-group.com</a>.
     </p>
   `;
   return sendEmail(to, `KYC Application Rejected – ${companyName}`, emailWrapper(body));
@@ -339,7 +613,7 @@ export async function sendChangeRequestApprovedEmail(
     </div>
     <p style="color: #475569; line-height: 1.6;">
       If you have any questions, please contact our team at
-      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
+      <a href="mailto:docs@bullfrog-group.com" style="color: #2563eb;">docs@bullfrog-group.com</a>.
     </p>
   `;
   return sendEmail(to, `KYC Change Request Approved – ${companyName}`, emailWrapper(body));
@@ -389,7 +663,7 @@ export async function sendChangeRequestRejectedEmail(
     </div>
     <p style="color: #475569; line-height: 1.6;">
       If you have any questions, please contact our team at
-      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
+      <a href="mailto:docs@bullfrog-group.com" style="color: #2563eb;">docs@bullfrog-group.com</a>.
     </p>
   `;
   return sendEmail(to, `KYC Change Request Rejected – ${companyName}`, emailWrapper(body));
@@ -508,7 +782,7 @@ export async function sendSignaturePendingEmail(
     </div>
     <p style="color: #475569; line-height: 1.6;">
       For any trade inquiries, please contact our trade desk at
-      <a href="mailto:trade@bullex.tech" style="color: #2563eb;">trade@bullex.tech</a>.
+      <a href="mailto:trade@bullfrog-group.com" style="color: #2563eb;">trade@bullfrog-group.com</a>.
     </p>
   `;
   return sendEmail(to, `Action Required: ${fullType} (${docType}) – ${docTitle}`, emailWrapper(body));
@@ -558,10 +832,80 @@ export async function sendAmendmentRequestedEmail(
     </p>
     <p style="color: #475569; line-height: 1.6;">
       For any trade inquiries, please contact our trade desk at
-      <a href="mailto:trade@bullex.tech" style="color: #2563eb;">trade@bullex.tech</a>.
+      <a href="mailto:trade@bullfrog-group.com" style="color: #2563eb;">trade@bullfrog-group.com</a>.
     </p>
   `;
   return sendEmail(to, `Amendment Requested: ${fullType} (${docType}) – ${docTitle}`, emailWrapper(body));
+}
+
+// Sent to the team member who prepared a document once an admin has reviewed it,
+// telling them whether it was approved (now available in their My Documents
+// section, ready to sign & send) or rejected (returned for amendment).
+export async function sendDocumentReviewDecisionEmail(
+  to: string,
+  recipientName: string,
+  docType: string,
+  docTitle: string,
+  approved: boolean,
+  notes?: string,
+): Promise<boolean> {
+  const docTypeLabels: Record<string, string> = {
+    DEAL_RECAP: "Deal Recap",
+    FCO: "Full Corporate Offer",
+    SCO: "Soft Corporate Offer",
+    ICPO: "Irrevocable Corporate Purchase Order",
+    SPA: "Sales & Purchase Agreement",
+    LOI: "Letter of Intent",
+    POP: "Proof of Product",
+    POF: "Proof of Funds",
+    BCL: "Bank Comfort Letter",
+    NCNDA: "Non-Circumvention Non-Disclosure Agreement",
+  };
+  const fullType = docTypeLabels[docType] || docType;
+  const decisionBlock = approved
+    ? `
+    <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #065f46; margin: 0; font-weight: 600;">Approved</p>
+      <p style="color: #047857; margin: 8px 0 0; font-size: 14px;">
+        This document has been approved by an administrator and is now available in
+        the <strong>My Documents</strong> section of your team portal. You can apply
+        your signature and send it to the buyer or seller.
+      </p>
+    </div>`
+    : `
+    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #991b1b; margin: 0; font-weight: 600;">Returned for Amendment</p>
+      <p style="color: #b91c1c; margin: 8px 0 0; font-size: 14px;">
+        This document was not approved and has been returned for amendment. Please
+        review the notes below, update the document in your team portal, and resubmit
+        it for approval.
+      </p>
+      ${notes && notes.trim() ? `<p style="color: #7f1d1d; margin: 12px 0 0; font-size: 14px;"><strong>Admin notes:</strong> ${esc(notes)}</p>` : ""}
+    </div>`;
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Document ${approved ? "Approved" : "Returned for Amendment"}</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${esc(recipientName)},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      A trade document you prepared on the Bullex Trading Platform has been reviewed:
+    </p>
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+        <tr><td style="color: #64748b; padding: 6px 0; width: 120px;">Document Type:</td><td style="color: #1e293b; font-weight: 600;">${esc(fullType)} (${esc(docType)})</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Title:</td><td style="color: #1e293b; font-weight: 600;">${esc(docTitle)}</td></tr>
+        <tr><td style="color: #64748b; padding: 6px 0;">Reviewed:</td><td style="color: #1e293b; font-weight: 600;">${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</td></tr>
+      </table>
+    </div>
+    ${decisionBlock}
+    <p style="color: #475569; line-height: 1.6;">
+      For any trade inquiries, please contact our trade desk at
+      <a href="mailto:trade@bullfrog-group.com" style="color: #2563eb;">trade@bullfrog-group.com</a>.
+    </p>
+  `;
+  return sendEmail(
+    to,
+    `Document ${approved ? "Approved" : "Returned for Amendment"}: ${fullType} (${docType}) – ${docTitle}`,
+    emailWrapper(body),
+  );
 }
 
 export async function sendDocumentEmail(
@@ -571,7 +915,13 @@ export async function sendDocumentEmail(
   docTitle: string,
   role: "Buyer" | "Seller" | "Party A" | "Party B",
   pdfFilePath: string,
-  ccEmail?: string
+  ccEmail?: string,
+  customMessage?: string,
+  docxFilePath?: string,
+  // Additional related documents to attach in the SAME email (e.g. the bank
+  // drafts derived from an SPA). Each entry's PDF is attached alongside the
+  // main document; unreadable files are skipped with a log, never failing the send.
+  extraPdfDocs?: { docType: string; docTitle: string; pdfFilePath: string }[]
 ): Promise<boolean> {
   const docTypeLabels: Record<string, string> = {
     DEAL_RECAP: "Deal Recap",
@@ -596,9 +946,17 @@ export async function sendDocumentEmail(
     return false;
   }
 
+  const messageBlock = customMessage && customMessage.trim()
+    ? `<div style="background: #f8fafc; border-left: 4px solid #990000; border-radius: 4px; padding: 16px; margin: 16px 0;">
+        <p style="color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px;">Message from Bullfrog Group</p>
+        <p style="color: #1e293b; line-height: 1.6; margin: 0; white-space: pre-wrap;">${esc(customMessage.trim())}</p>
+      </div>`
+    : "";
+
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">Trade Document Issued</h2>
     <p style="color: #475569; line-height: 1.6;">Dear ${esc(recipientName)},</p>
+    ${messageBlock}
     <p style="color: #475569; line-height: 1.6;">
       Please find attached the following trade document issued via the Bullex Trading Platform:
     </p>
@@ -611,18 +969,44 @@ export async function sendDocumentEmail(
       </table>
     </div>
     <p style="color: #475569; line-height: 1.6;">
-      The PDF document is attached to this email. Please review the document carefully and contact our trade desk if you have any questions.
+      ${docxFilePath
+        ? "The PDF and editable DOCX documents are attached to this email."
+        : "The PDF document is attached to this email."}
+      Please review the document carefully and contact our trade desk if you have any questions.
     </p>
     <p style="color: #475569; line-height: 1.6;">
       For any trade inquiries, please contact our trade desk at
-      <a href="mailto:trade@bullex.tech" style="color: #2563eb;">trade@bullex.tech</a>.
+      <a href="mailto:trade@bullfrog-group.com" style="color: #2563eb;">trade@bullfrog-group.com</a>.
     </p>
   `;
 
+  const safeName = docTitle.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_");
   const attachments: EmailAttachment[] = [{
-    filename: `${docType}_${docTitle.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_")}.pdf`,
+    filename: `${docType}_${safeName}.pdf`,
     content: pdfBase64,
   }];
+
+  // When a DOCX is requested, delivery is all-or-nothing: callers promise both
+  // formats, so never silently send a PDF-only email if the DOCX is unreadable.
+  if (docxFilePath) {
+    try {
+      const docxBase64 = fs.readFileSync(docxFilePath).toString("base64");
+      attachments.push({ filename: `${docType}_${safeName}.docx`, content: docxBase64 });
+    } catch (err) {
+      console.error("[email] Failed to read DOCX for attachment:", err);
+      return false;
+    }
+  }
+
+  for (const extra of extraPdfDocs || []) {
+    try {
+      const extraBase64 = fs.readFileSync(extra.pdfFilePath).toString("base64");
+      const extraSafe = extra.docTitle.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_");
+      attachments.push({ filename: `${extra.docType}_${extraSafe}.pdf`, content: extraBase64 });
+    } catch (err) {
+      console.error(`[email] Failed to read extra attachment (${extra.docType}):`, err);
+    }
+  }
 
   const ccList = ccEmail ? [ccEmail] : undefined;
   return sendEmail(to, `${fullType} (${docType}) – ${docTitle}`, emailWrapper(body), attachments, ccList);
@@ -649,7 +1033,7 @@ export async function sendKycOnboardingInviteEmail(
     </p>
     <p style="color: #475569; line-height: 1.6;">
       If you have any questions about the process, please contact our team at
-      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
+      <a href="mailto:docs@bullfrog-group.com" style="color: #2563eb;">docs@bullfrog-group.com</a>.
     </p>
   `;
   return sendEmail(to, "Bullex – KYC Onboarding Invitation", emailWrapper(body));
@@ -675,7 +1059,7 @@ export async function sendRegistrationApprovalEmail(
     </div>
     <p style="color: #475569; line-height: 1.6;">
       For any questions, please contact our team at
-      <a href="mailto:trade@bullex.tech" style="color: #2563eb;">trade@bullex.tech</a>.
+      <a href="mailto:trade@bullfrog-group.com" style="color: #2563eb;">trade@bullfrog-group.com</a>.
     </p>
   `;
   return sendEmail(to, `Registration Approved – ${companyName}`, emailWrapper(body));
@@ -707,7 +1091,7 @@ export async function sendRegistrationRejectionEmail(
     `}
     <p style="color: #475569; line-height: 1.6;">
       If you believe this was in error or would like to discuss further, please contact us at
-      <a href="mailto:trade@bullex.tech" style="color: #2563eb;">trade@bullex.tech</a>.
+      <a href="mailto:trade@bullfrog-group.com" style="color: #2563eb;">trade@bullfrog-group.com</a>.
     </p>
   `;
   return sendEmail(to, `Registration Update – ${companyName}`, emailWrapper(body));
@@ -733,7 +1117,7 @@ export async function sendRegistrationConfirmationEmail(
     </div>
     <p style="color: #475569; line-height: 1.6;">
       If you have any questions, please contact our team at
-      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
+      <a href="mailto:docs@bullfrog-group.com" style="color: #2563eb;">docs@bullfrog-group.com</a>.
     </p>
   `;
   return sendEmail(to, `Registration Received – ${companyName}`, emailWrapper(body));
@@ -790,7 +1174,7 @@ export async function sendEnquiryCreatedNotification(enquiry: {
   additionalInfo?: string | null;
   createdAt: Date;
 }): Promise<boolean> {
-  const TRADE_EMAIL = "trade@bullex.tech";
+  const TRADE_EMAIL = "trade@bullfrog-group.com";
   const sideLabel = enquiry.side === "sell" ? "SELL" : "BUY";
   const body = `
     <h2 style="color: #1e293b; margin: 0 0 16px;">New Trade Enquiry Submitted</h2>
@@ -831,7 +1215,7 @@ export async function sendEnquiryStatusNotification(enquiry: {
   email?: string | null;
   validity?: string | null;
 }, newStatus: string): Promise<boolean> {
-  const TRADE_EMAIL = "trade@bullex.tech";
+  const TRADE_EMAIL = "trade@bullfrog-group.com";
   const sideLabel = enquiry.side === "sell" ? "SELL" : "BUY";
 
   const statusStyles: Record<string, { bg: string; border: string; text: string; label: string }> = {
@@ -882,7 +1266,7 @@ export async function sendEnquiryClientResponseNotification(enquiry: {
   loadingPort?: string | null;
   incoterms?: string | null;
 }, clientResponse: string, clientCompany: string): Promise<boolean> {
-  const TRADE_EMAIL = "trade@bullex.tech";
+  const TRADE_EMAIL = "trade@bullfrog-group.com";
   const sideLabel = enquiry.side === "sell" ? "SELL" : "BUY";
 
   const accepted = clientResponse === "accepted";
@@ -997,6 +1381,33 @@ export async function sendTeamKycAdminNotification(
   return sendEmail(to, `New Team KYC Application — ${fullName}`, emailWrapper(body));
 }
 
+export async function sendTeamKycUpdateNotification(
+  to: string,
+  fullName: string,
+  applicantEmail: string,
+  eventTitle: string,
+  eventDetail: string | null,
+  occurredAt: string
+): Promise<boolean> {
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Team KYC Update — ${esc(eventTitle)}</h2>
+    <p style="color: #475569; line-height: 1.6;">An update has been made to a team onboarding application.</p>
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 24px 0;">
+      <p style="color: #1d4ed8; margin: 0; font-weight: 700; font-size: 16px;">${esc(fullName)}</p>
+      <p style="color: #3b82f6; margin: 6px 0 0; font-size: 14px;">${esc(applicantEmail)}</p>
+    </div>
+    <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+      <tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Update</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(eventTitle)}</td></tr>
+      ${eventDetail ? `<tr><td style="color: #64748b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">Details</td><td style="color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${esc(eventDetail)}</td></tr>` : ""}
+      <tr><td style="color: #64748b; padding: 8px 12px;">When</td><td style="color: #1e293b; padding: 8px 12px; font-weight: 600;">${esc(occurredAt)}</td></tr>
+    </table>
+    <div style="background: #fefce8; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; margin: 16px 0;">
+      <p style="color: #92400e; margin: 0; font-size: 13px;">Log in to the Bullex admin panel and open Team KYC Applications to review this update.</p>
+    </div>
+  `;
+  return sendEmail(to, `Team KYC Update — ${eventTitle} — ${fullName}`, emailWrapper(body));
+}
+
 export async function sendTeamKycConfirmation(
   to: string,
   fullName: string
@@ -1074,7 +1485,7 @@ export async function sendTeamMemberWelcomeEmail(
 
     <p style="color: #475569; line-height: 1.6;">
       Please complete any pending document signatures sent to you separately, and reach out to
-      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a> with any questions
+      <a href="mailto:docs@bullfrog-group.com" style="color: #2563eb;">docs@bullfrog-group.com</a> with any questions
       about access, training or your first steps on the platform.
     </p>
 
@@ -1112,11 +1523,47 @@ export async function sendTeamMemberPasswordResetLinkEmail(
     </p>
     <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:14px;margin:18px 0;color:#92400e;font-size:13px;line-height:1.55;">
       <strong>Security notice:</strong> If you did not expect this reset, you may ignore this email — the link will expire automatically.
-      For any concerns, contact <a href="mailto:team@bullex.tech" style="color:#92400e;">team@bullex.tech</a>.
+      For any concerns, contact <a href="mailto:docs@bullfrog-group.com" style="color:#92400e;">docs@bullfrog-group.com</a>.
     </div>
     <p style="color:#475569;margin:24px 0 0;">Regards,<br/><strong>Bullfrog Group — Bullex Team</strong></p>
   `;
-  return sendEmail(to, "Bullex — Reset Your Password", emailWrapper(body));
+  return sendEmail(to, "Bullex — Reset Your Password", emailWrapper(body), undefined, undefined, "docs@bullfrog-group.com");
+}
+
+export async function sendClientPasswordResetLinkEmail(
+  to: string,
+  fullName: string,
+  username: string,
+  resetUrl: string,
+  expiryHours: number,
+): Promise<boolean> {
+  const safeName = escapeHtml(fullName || "Client");
+  const safeUser = escapeHtml(username);
+  const safeUrl = escapeHtml(resetUrl);
+  const body = `
+    <h2 style="color: #1e293b; margin: 0 0 16px;">Reset Your Bullex Client Password</h2>
+    <p style="color: #475569; line-height: 1.6;">Dear ${safeName},</p>
+    <p style="color: #475569; line-height: 1.6;">
+      A Bullfrog Group administrator has initiated a password reset for your Bullex Client Portal account
+      (username: <strong>${safeUser}</strong>). Click the secure link below to set a new password.
+      The link expires in <strong>${esc(expiryHours)} hour${expiryHours === 1 ? "" : "s"}</strong> and can be used only once.
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${safeUrl}" style="display:inline-block;padding:12px 28px;background:#990000;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;letter-spacing:0.05em;text-transform:uppercase;border-radius:4px;">
+        Set New Password
+      </a>
+    </div>
+    <p style="color: #64748b; line-height: 1.6; font-size: 12px;">
+      If the button doesn't work, copy and paste this URL into your browser:<br/>
+      <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;color:#334155;">${safeUrl}</span>
+    </p>
+    <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:14px;margin:18px 0;color:#92400e;font-size:13px;line-height:1.55;">
+      <strong>Security notice:</strong> If you did not expect this reset, ignore this email and contact
+      <a href="mailto:docs@bullfrog-group.com" style="color:#92400e;">docs@bullfrog-group.com</a>.
+    </div>
+    <p style="color:#475569;margin:24px 0 0;">Regards,<br/><strong>Bullfrog Group — Bullex Team</strong></p>
+  `;
+  return sendEmail(to, "Bullex Client Portal — Reset Your Password", emailWrapper(body), undefined, undefined, "docs@bullfrog-group.com");
 }
 
 export async function sendTeamMemberPasswordChangedEmail(
@@ -1141,7 +1588,7 @@ export async function sendTeamMemberPasswordChangedEmail(
     </div>
     <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:14px;margin:18px 0;color:#92400e;font-size:13px;line-height:1.55;">
       <strong>Security notice:</strong> If you did not request this change, please contact
-      <a href="mailto:team@bullex.tech" style="color:#92400e;">team@bullex.tech</a> immediately.
+      <a href="mailto:docs@bullfrog-group.com" style="color:#92400e;">docs@bullfrog-group.com</a> immediately.
       For your safety, we recommend updating this password to one only you know after your next sign in.
     </div>
     <p style="color:#475569;margin:24px 0 0;">Regards,<br/><strong>Bullfrog Group — Bullex Team</strong></p>
@@ -1183,7 +1630,7 @@ export async function sendKycApplicationPdfEmail(
     ${safeMessage ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin:18px 0;color:#334155;font-size:14px;line-height:1.55;"><strong style="color:#1e293b;">Message:</strong><br/>${safeMessage}</div>` : ""}
     <p style="color: #475569; line-height: 1.6;">
       If you have any questions, please contact our team at
-      <a href="mailto:team@bullex.tech" style="color: #2563eb;">team@bullex.tech</a>.
+      <a href="mailto:docs@bullfrog-group.com" style="color: #2563eb;">docs@bullfrog-group.com</a>.
     </p>
   `;
 
@@ -1221,7 +1668,7 @@ export async function sendBlankKycApplicationPdfEmail(
     <h2 style="color: #1e293b; margin: 0 0 16px;">Bullex KYC Application Form</h2>
     <p style="color: #475569; line-height: 1.6;">Dear ${safeName},</p>
     <p style="color: #475569; line-height: 1.6;">
-      Please find attached the <strong>Bullex KYC Application Form</strong>${safeSender ? `, sent by ${safeSender}` : ""}. Kindly complete every section in block capitals and return the signed form, along with the requested supporting documents, to <a href="mailto:team@bullex.tech" style="color:#2563eb;">team@bullex.tech</a>.
+      Please find attached the <strong>Bullex KYC Application Form</strong>${safeSender ? `, sent by ${safeSender}` : ""}. Kindly complete every section in block capitals and return the signed form, along with the requested supporting documents, to <a href="mailto:docs@bullfrog-group.com" style="color:#2563eb;">docs@bullfrog-group.com</a>.
     </p>
     ${safeMessage ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin:18px 0;color:#334155;font-size:14px;line-height:1.55;"><strong style="color:#1e293b;">Message:</strong><br/>${safeMessage}</div>` : ""}
     <p style="color: #475569; line-height: 1.6;">
@@ -1256,7 +1703,7 @@ export async function sendEnquiryOnboardingInviteEmail(to: string, enquiryUrl: s
     </p>
     <p style="color: #475569; line-height: 1.6;">
       For any questions, please contact our trade desk at
-      <a href="mailto:trade@bullex.tech" style="color: #2563eb;">trade@bullex.tech</a>.
+      <a href="mailto:trade@bullfrog-group.com" style="color: #2563eb;">trade@bullfrog-group.com</a>.
     </p>
   `;
   return sendEmail(to, "Bullex – Trade Enquiry Invitation", emailWrapper(body));

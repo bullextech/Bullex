@@ -24,14 +24,17 @@ import type {
   KycApplication,
   Document,
   TradeEnquiry,
+  Deal,
 } from "@shared/schema";
 import { isEnquiryStatusPending } from "@shared/schema";
 
-const LIVE_PRICES: { name: string; price: string; change: number }[] = [
-  { name: "WTI Crude", price: "$82.51", change: 1.2 },
-  { name: "Gold Spot", price: "$2,316", change: 0.4 },
-  { name: "Copper LME", price: "$4.56/lb", change: 0.9 },
-];
+interface MarketPrice {
+  symbol: string;
+  label: string;
+  unit: string;
+  price: number;
+  changePct: number | null;
+}
 
 function formatMoney(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -99,13 +102,15 @@ export default function Dashboard() {
   const { data: kycs, isLoading: kl } = useQuery<KycApplication[]>({ queryKey: ["/api/kyc"] });
   const { data: docs, isLoading: dl } = useQuery<Document[]>({ queryKey: ["/api/documents"] });
   const { data: enquiries, isLoading: el } = useQuery<TradeEnquiry[]>({ queryKey: ["/api/trade-enquiries"] });
+  const { data: marketPrices } = useQuery<MarketPrice[]>({ queryKey: ["/api/market-prices"], refetchInterval: 60_000, staleTime: 55_000 });
+  const { data: pipelineDeals } = useQuery<Deal[]>({ queryKey: ["/api/deals"] });
 
   const isLoading = tl || kl || dl || el;
 
   const totalVolume = trades?.reduce((s, t) => s + t.totalValue, 0) || 0;
   const activeShipments = trades?.filter((t) => t.status === "execution").length || 0;
   const activeEnquiries = enquiries?.filter((e) => isEnquiryStatusPending(e.status)).length || 0;
-  const letterOfCredit = docs?.filter((d) => ["POP", "POF", "BCL", "LOI"].includes((d.documentType || "").toUpperCase())).length || 0;
+  const letterOfCredit = docs?.filter((d) => ["POP", "POF", "BCL", "LOI"].includes((d.docType || "").toUpperCase())).length || 0;
 
   const recentDeals = (trades || []).slice(0, 5);
   const recentKyc = (kycs || []).slice(0, 5);
@@ -116,6 +121,10 @@ export default function Dashboard() {
     ...pendingEnq.slice(0, 3).map((e) => ({ id: `enq-${e.id}`, label: `Enquiry ${e.enquiryRef} · ${e.product}`, href: "/trade-enquiries" })),
   ].slice(0, 5);
   const liveShipments = trades?.filter((t) => t.status === "execution").slice(0, 3) || [];
+  const approvedTfrs = (pipelineDeals || [])
+    .filter((d) => d.tfrApprovedAt)
+    .sort((a, b) => new Date(b.tfrApprovedAt!).getTime() - new Date(a.tfrApprovedAt!).getTime())
+    .slice(0, 5);
 
   return (
     <div className="overflow-y-auto h-full bg-background">
@@ -207,6 +216,33 @@ export default function Dashboard() {
           </Card>
         </div>
 
+        {/* Approved TFRs (digital approval stamps) */}
+        <Card className="rounded-none border border-border shadow-none">
+          <CardContent className="p-5">
+            <SectionHeader title="Approved TFRs" action={<SectionLinkButton href="/deal-pipeline" label="Deal Pipeline" />} />
+            {approvedTfrs.length > 0 ? (
+              <div className="border border-border overflow-x-auto">
+                <div className="min-w-[560px]">
+                  <div className="grid grid-cols-[0.9fr_1fr_1.2fr_0.9fr_1.1fr] gap-2 px-3 py-2.5 bullex-header-dark text-[10px] font-bold uppercase tracking-wider">
+                    <div>Deal Ref</div><div>Trade Ref</div><div>Addressed To</div><div>Approved By</div><div>Approval Time Stamp</div>
+                  </div>
+                  {approvedTfrs.map((d) => (
+                    <div key={d.id} className="grid grid-cols-[0.9fr_1fr_1.2fr_0.9fr_1.1fr] gap-2 px-3 py-3 border-t border-border text-sm items-center" data-testid={`approved-tfr-row-${d.dealRef}`}>
+                      <div className="font-mono text-xs">{d.dealRef}</div>
+                      <div className="font-mono text-xs">{d.tradeRef || "—"}</div>
+                      <div className="truncate text-xs">{d.tfrManualDetails?.addressedToName || "—"}</div>
+                      <div className="text-xs">{d.tfrApprovedBy || "Admin"}</div>
+                      <div className="font-mono text-[11px]">{d.tfrApprovedAt ? new Date(d.tfrApprovedAt).toLocaleString() : "—"}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="border border-border py-10 text-center text-sm text-muted-foreground" data-testid="approved-tfrs-empty">No approved TFRs yet</div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Pending Actions + Active Shipments + Live Prices */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <Card className="rounded-none border border-border shadow-none">
@@ -263,22 +299,30 @@ export default function Dashboard() {
 
           <Card className="rounded-none border border-border shadow-none">
             <CardContent className="p-5 h-full flex flex-col">
-              <SectionHeader title="Live Prices" action={<SectionLinkButton href="/products" label="All" />} />
+              <SectionHeader title="Live Prices" action={<SectionLinkButton href="/live-prices" label="All" />} />
               <ul className="space-y-3 flex-1" data-testid="live-prices-list">
-                {LIVE_PRICES.map((p) => (
-                  <li key={p.name} className="flex items-center justify-between gap-3 text-sm" data-testid={`price-${p.name.toLowerCase().replace(/\s+/g, "-")}`}>
-                    <span className="text-foreground">{p.name}</span>
-                    <span className="flex items-center gap-2">
-                      <span className="font-mono font-semibold text-foreground">{p.price}</span>
-                      <span className={`font-mono text-xs font-semibold ${p.change >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                        {p.change >= 0 ? "+" : ""}{p.change.toFixed(1)}%
+                {(marketPrices ?? []).slice(0, 5).map((p) => (
+                  <li key={p.symbol} className="flex items-center justify-between gap-3 text-sm" data-testid={`price-${p.symbol}`}>
+                    <span className="text-foreground truncate">{p.label}</span>
+                    <span className="flex items-center gap-2 shrink-0">
+                      <span className="font-mono font-semibold text-foreground">
+                        {p.price >= 100 ? p.price.toLocaleString("en-US", { maximumFractionDigits: 2 }) : p.price.toFixed(2)}
+                        <span className="ml-1 text-[10px] font-normal text-muted-foreground">{p.unit}</span>
                       </span>
+                      {p.changePct != null && (
+                        <span className={`font-mono text-xs font-semibold ${p.changePct >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                          {p.changePct >= 0 ? "+" : ""}{p.changePct.toFixed(1)}%
+                        </span>
+                      )}
                     </span>
                   </li>
                 ))}
+                {!marketPrices && (
+                  <li className="text-sm text-muted-foreground">Loading market data…</li>
+                )}
               </ul>
               <div className="mt-4">
-                <Link href="/products">
+                <Link href="/live-prices">
                   <Button variant="outline" size="sm" className="w-full h-8 rounded-none text-[11px] border-border">All Prices →</Button>
                 </Link>
               </div>

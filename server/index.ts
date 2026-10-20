@@ -65,7 +65,17 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        // Redact bearer-style secrets and credentials before logging so that
+        // reset tokens, raw passwords, and similar sensitive values are never
+        // written to application logs or console output.
+        const REDACTED_KEYS = new Set([
+          "resetUrl", "token", "password", "clientPassword",
+          "resetToken", "setupToken", "secret",
+        ]);
+        const sanitized = JSON.stringify(capturedJsonResponse, (key, value) =>
+          REDACTED_KEYS.has(key) ? "[REDACTED]" : value
+        );
+        logLine += ` :: ${sanitized}`;
       }
 
       log(logLine);
@@ -75,9 +85,11 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
-  await registerRoutes(httpServer, app);
-
+// One-time data maintenance that runs once the server is already accepting
+// connections. These routines touch the database, so they must NOT block the
+// initial port bind — otherwise a slow database during a deploy promote would
+// stall the health-check probe and fail the deployment.
+async function runStartupMaintenance() {
   // Backfill participant IDs for any pre-existing approved KYC clients / team members.
   try {
     const { storage } = await import("./storage");
@@ -87,6 +99,18 @@ app.use((req, res, next) => {
     }
   } catch (e: any) {
     console.error("[participant-id] backfill failed:", e?.message || e);
+  }
+
+  // Backfill Banking-module bank accounts from pre-existing approved KYC
+  // applications (new approvals sync automatically; this covers older ones).
+  try {
+    const { backfillBankAccountsFromApprovedKyc } = await import("./bank-sync");
+    const created = await backfillBankAccountsFromApprovedKyc();
+    if (created) {
+      log(`[bank-accounts] backfilled ${created} account(s) from approved KYC`);
+    }
+  } catch (e: any) {
+    console.error("[bank-accounts] backfill from approved KYC failed:", e?.message || e);
   }
 
   // Migrate any plaintext passwords stored before bcrypt was introduced.
@@ -115,6 +139,64 @@ app.use((req, res, next) => {
   } catch (e: any) {
     console.error("[enquiry-data] blank-commodity scan failed:", e?.message || e);
   }
+
+  // Prune the generated_docs/ file cache (age + size budget) so it can never
+  // again grow until the workspace snapshot is too large to publish. Downloads
+  // regenerate pruned files on demand from the document content in the DB.
+  try {
+    const { pruneGeneratedDocsCache } = await import("./documentFileGenerator");
+    const runPrune = () => {
+      const { deleted, freedBytes } = pruneGeneratedDocsCache();
+      if (deleted > 0) {
+        log(`[docs-cache] pruned ${deleted} cached file(s), freed ${(freedBytes / (1024 * 1024)).toFixed(1)} MB`);
+      }
+    };
+    runPrune();
+    const timer = setInterval(runPrune, 24 * 60 * 60 * 1000); // daily
+    timer.unref(); // never keep the process alive just for pruning
+  } catch (e: any) {
+    console.error("[docs-cache] prune setup failed:", e?.message || e);
+  }
+
+  // One-time backfill: flag legacy hand-edited TFRs (edited before the
+  // contentManuallyEdited flag existed) so a details save still requires the
+  // rebuild confirmation instead of silently discarding their manual edits.
+  try {
+    const { backfillTfrManualEditFlags } = await import("./routes");
+    const result = await backfillTfrManualEditFlags();
+    if (!result.skipped) {
+      log(`[tfr-backfill] checked ${result.checked} editable TFR(s), flagged ${result.flagged} as manually edited`);
+    }
+  } catch (e: any) {
+    console.error("[tfr-backfill] legacy manual-edit backfill failed:", e?.message || e);
+  }
+
+  // Associate historical trade blocks with their logical commodity parents.
+  // This is data-only and idempotent: no block number, hash, predecessor, proof,
+  // or mined payload is modified.
+  try {
+    const { storage } = await import("./storage");
+    const result = await storage.backfillProductDealBlocks();
+    if (result.linksCreated || result.parentsCreated) {
+      log(
+        `[product-blocks] linked ${result.linksCreated} historical deal block(s) under ${result.parentsCreated} new commodity parent(s)`,
+      );
+    }
+  } catch (e: any) {
+    console.error("[product-blocks] historical association backfill failed:", e?.message || e);
+  }
+
+  // Start the live AIS vessel-position feed (inert without AISSTREAM_API_KEY).
+  try {
+    const { startAisFeed } = await import("./ais");
+    startAisFeed();
+  } catch (e: any) {
+    console.error("[ais] failed to start feed:", e?.message || e);
+  }
+}
+
+(async () => {
+  await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -152,6 +234,9 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+      // Run database maintenance AFTER the port is open so deploy health
+      // checks are never blocked by slow startup queries.
+      void runStartupMaintenance();
     },
   );
 })();

@@ -7,7 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   Building2,
   FileText,
@@ -32,6 +41,8 @@ import {
   Send,
   Pencil,
   MessageSquare,
+  Plus,
+  Lock,
 } from "lucide-react";
 import { useClientAuth } from "@/hooks/use-client-auth";
 import ClientLogin from "./client-login";
@@ -77,6 +88,9 @@ interface ClientEnquiry {
   producer: string | null;
   quantity: string | null;
   unit: string | null;
+  packing: string | null;
+  coSellerName: string | null;
+  coBuyerName: string | null;
   loadingPort: string | null;
   incoterms: string | null;
   validity: string | null;
@@ -85,6 +99,7 @@ interface ClientEnquiry {
   clientResponse: string | null;
   clientRespondedBy: string | null;
   clientRespondedAt: string | null;
+  submittedByClientId: string | null;
   createdAt: string;
 }
 
@@ -102,6 +117,7 @@ interface ClientDocument {
   sentTo: string | null;
   docxPath: string | null;
   pdfPath: string | null;
+  lpgStsReview?: { required: boolean; cleared: boolean };
   createdAt: string;
 }
 
@@ -325,7 +341,7 @@ const enquiryStatusLabels: Record<string, string> = {
   cancelled: "Closed",
 };
 
-function EnquiryCard({ enquiry }: { enquiry: ClientEnquiry }) {
+function EnquiryCard({ enquiry, isOwn }: { enquiry: ClientEnquiry; isOwn: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const { toast } = useToast();
   const created = new Date(enquiry.createdAt).toLocaleDateString("en-GB", {
@@ -374,6 +390,11 @@ function EnquiryCard({ enquiry }: { enquiry: ClientEnquiry }) {
                 <Badge variant="outline" className={`text-[10px] ${enquiryStatusColors[enquiry.status] || ""}`}>
                   {enquiryStatusLabels[enquiry.status] || enquiry.status}
                 </Badge>
+                {isOwn && (
+                  <Badge variant="outline" className="text-[10px] border-primary/40 text-primary" data-testid={`badge-own-enquiry-${enquiry.id}`}>
+                    Issued by you
+                  </Badge>
+                )}
                 {hasResponded && (
                   <Badge
                     className={`text-[10px] font-bold ${enquiry.clientResponse === "accepted" ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}
@@ -423,6 +444,33 @@ function EnquiryCard({ enquiry }: { enquiry: ClientEnquiry }) {
                   </div>
                 </div>
               )}
+              {enquiry.packing && (
+                <div className="flex items-start gap-2">
+                  <Info className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Packing</p>
+                    <p className="text-xs font-medium">{enquiry.packing}</p>
+                  </div>
+                </div>
+              )}
+              {enquiry.coSellerName && (
+                <div className="flex items-start gap-2">
+                  <Building2 className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Co-Seller (joint)</p>
+                    <p className="text-xs font-medium">{enquiry.coSellerName}</p>
+                  </div>
+                </div>
+              )}
+              {enquiry.coBuyerName && (
+                <div className="flex items-start gap-2">
+                  <Building2 className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Co-Buyer (joint)</p>
+                    <p className="text-xs font-medium">{enquiry.coBuyerName}</p>
+                  </div>
+                </div>
+              )}
               {enquiry.loadingPort && (
                 <div className="flex items-start gap-2">
                   <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
@@ -467,7 +515,17 @@ function EnquiryCard({ enquiry }: { enquiry: ClientEnquiry }) {
             )}
 
             <div className="border-t pt-4 mt-2">
-              {hasResponded ? (
+              {isOwn ? (
+                <div className="flex items-center gap-3 p-3 rounded-md bg-muted/40 border">
+                  <SearchCheck className="w-5 h-5 text-primary flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold">You issued this {enquiry.side === "sell" ? "sell" : "buy"} enquiry</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      The Bullex trade desk is sourcing a counterparty. You'll be notified when there's an update.
+                    </p>
+                  </div>
+                </div>
+              ) : hasResponded ? (
                 <div className={`flex items-center gap-3 p-3 rounded-md ${enquiry.clientResponse === "accepted" ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"}`}>
                   {enquiry.clientResponse === "accepted" ? (
                     <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
@@ -521,6 +579,7 @@ const docTypeLabels: Record<string, string> = {
   FCO: "Full Corporate Offer",
   SCO: "Soft Corporate Offer",
   DEAL_RECAP: "Deal Recap",
+  PI: "Proforma Invoice",
   ICPO: "Purchase Order",
   SPA: "Sales & Purchase Agreement",
   LC: "Letter of Credit",
@@ -553,6 +612,10 @@ function ClientDocumentCard({ doc }: { doc: ClientDocument }) {
   const created = new Date(doc.createdAt).toLocaleDateString("en-GB", {
     day: "2-digit", month: "short", year: "numeric",
   });
+  // The client receives only this server-derived projection. Reviewer
+  // identities, decisions, notes, fingerprints, and reserved metadata remain
+  // admin-only.
+  const lpgStsBlocked = doc.lpgStsReview?.required === true && doc.lpgStsReview.cleared !== true;
 
   return (
     <>
@@ -571,6 +634,12 @@ function ClientDocumentCard({ doc }: { doc: ClientDocument }) {
                     <Send className="w-3 h-3 mr-0.5" />
                     Awaiting Response
                   </Badge>
+                  {lpgStsBlocked && (
+                    <Badge className="text-[10px] bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200" data-testid={`badge-client-lpg-sts-blocked-${doc.id}`}>
+                      <Lock className="w-3 h-3 mr-0.5" />
+                      Clearance required
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {docTypeLabels[doc.docType] || doc.docType}
@@ -595,7 +664,8 @@ function ClientDocumentCard({ doc }: { doc: ClientDocument }) {
                 size="sm"
                 className="bg-green-600 hover:bg-green-700 text-white"
                 onClick={() => respondMutation.mutate({ response: "accepted" })}
-                disabled={respondMutation.isPending}
+                disabled={respondMutation.isPending || lpgStsBlocked}
+                title={lpgStsBlocked ? "Blocked pending administrator LPG STS clearance" : undefined}
                 data-testid={`button-accept-doc-${doc.id}`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
@@ -612,6 +682,12 @@ function ClientDocumentCard({ doc }: { doc: ClientDocument }) {
               </Button>
             </div>
           </div>
+          {lpgStsBlocked && (
+            <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100" role="alert" data-testid={`notice-client-lpg-sts-blocked-${doc.id}`}>
+              <p className="font-medium flex items-center gap-2"><Lock className="w-4 h-4" />Acceptance is blocked pending LPG STS review</p>
+              <p className="mt-1 text-xs">An administrator must clear every transaction-specific review point for this exact document content. You may still request an amendment.</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -654,8 +730,510 @@ function ClientDocumentCard({ doc }: { doc: ClientDocument }) {
   );
 }
 
+const COMMODITY_OPTIONS = [
+  "Iron Ore", "Bauxite", "Manganese Ore",
+  "Copper Cathode", "Copper Concentrate", "Aluminium Ingots",
+  "Gasoil 10ppm", "Gasoil 50ppm", "LHC", "HSFO", "HSGO",
+  "Petcoke – Anode Grade", "Petcoke – Fuel Grade",
+  "NPK",
+];
+
+const INCOTERM_OPTIONS = ["FOB", "CIF", "CFR", "FCA", "EXW", "DAP", "DDP"];
+
+function IssueEnquiryDialog({ companyName }: { companyName: string | null }) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [product, setProduct] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [unit, setUnit] = useState("MT");
+  const [packing, setPacking] = useState("");
+  const [price, setPrice] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [incoterms, setIncoterms] = useState("");
+  const [loadingPort, setLoadingPort] = useState("");
+  const [validity, setValidity] = useState("");
+  const [specifications, setSpecifications] = useState("");
+  const [additionalInfo, setAdditionalInfo] = useState("");
+  const [coPartyName, setCoPartyName] = useState("");
+  const [coPartyAddress, setCoPartyAddress] = useState("");
+  const [coPartyContact, setCoPartyContact] = useState("");
+
+  const reset = () => {
+    setSide("buy"); setProduct(""); setQuantity(""); setUnit("MT"); setPacking("");
+    setPrice(""); setCurrency("USD"); setIncoterms(""); setLoadingPort("");
+    setValidity(""); setSpecifications(""); setAdditionalInfo("");
+    setCoPartyName(""); setCoPartyAddress(""); setCoPartyContact("");
+  };
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/client/enquiries", {
+        side, product, quantity, unit, packing, price, currency,
+        incoterms, loadingPort, validity, specifications, additionalInfo,
+        coPartyName, coPartyAddress, coPartyContact,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client/enquiries"] });
+      toast({ title: "Enquiry submitted", description: "The Bullex trade desk has been notified." });
+      reset();
+      setOpen(false);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to submit enquiry", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+      <Button size="sm" onClick={() => setOpen(true)} data-testid="button-issue-enquiry">
+        <Plus className="w-3.5 h-3.5 mr-1.5" />
+        Issue Enquiry
+      </Button>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <SearchCheck className="w-5 h-5 text-primary" />
+            Issue a Buy / Sell Enquiry
+          </DialogTitle>
+          <DialogDescription>
+            You ({companyName || "your organisation"}) are the {side === "buy" ? "buyer" : "seller"} on this enquiry. The Bullex trade desk will source the counterparty.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Enquiry Type</Label>
+              <Select value={side} onValueChange={(v) => setSide(v as "buy" | "sell")}>
+                <SelectTrigger data-testid="select-enquiry-side"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="buy">Buy — I want to purchase</SelectItem>
+                  <SelectItem value="sell">Sell — I want to sell</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Commodity</Label>
+              <Select value={product} onValueChange={setProduct}>
+                <SelectTrigger data-testid="select-enquiry-product"><SelectValue placeholder="Select commodity" /></SelectTrigger>
+                <SelectContent>
+                  {COMMODITY_OPTIONS.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5 col-span-2">
+              <Label className="text-xs">Quantity</Label>
+              <Input value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="e.g. 50,000" data-testid="input-enquiry-quantity" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Unit</Label>
+              <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="MT" data-testid="input-enquiry-unit" />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Packing <span className="text-muted-foreground">(optional)</span></Label>
+            <Input value={packing} onChange={(e) => setPacking(e.target.value)} placeholder="e.g. In Bulk / 50kg PP bags / Jumbo bags" data-testid="input-enquiry-packing" />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">{side === "buy" ? "Co-Buyer" : "Co-Seller"} <span className="text-muted-foreground">(optional — second company acting jointly as {side === "buy" ? "buyer" : "seller"} with you)</span></Label>
+            <Input value={coPartyName} onChange={(e) => setCoPartyName(e.target.value)} placeholder="Joint company name" data-testid="input-enquiry-co-party-name" />
+            <Input value={coPartyAddress} onChange={(e) => setCoPartyAddress(e.target.value)} placeholder="Joint company address" data-testid="input-enquiry-co-party-address" />
+            <Input value={coPartyContact} onChange={(e) => setCoPartyContact(e.target.value)} placeholder="Joint company contact person" data-testid="input-enquiry-co-party-contact" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5 col-span-2">
+              <Label className="text-xs">Target Price <span className="text-muted-foreground">(optional)</span></Label>
+              <Input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="e.g. 95 / MT" data-testid="input-enquiry-price" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Currency</Label>
+              <Input value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder="USD" data-testid="input-enquiry-currency" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Incoterms <span className="text-muted-foreground">(optional)</span></Label>
+              <Select value={incoterms} onValueChange={setIncoterms}>
+                <SelectTrigger data-testid="select-enquiry-incoterms"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>
+                  {INCOTERM_OPTIONS.map((i) => (<SelectItem key={i} value={i}>{i}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">{side === "buy" ? "Discharge / Delivery Port" : "Loading Port"} <span className="text-muted-foreground">(optional)</span></Label>
+              <Input value={loadingPort} onChange={(e) => setLoadingPort(e.target.value)} placeholder="Port" data-testid="input-enquiry-port" />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Validity <span className="text-muted-foreground">(optional)</span></Label>
+            <Input value={validity} onChange={(e) => setValidity(e.target.value)} placeholder="e.g. 30 days" data-testid="input-enquiry-validity" />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Specifications <span className="text-muted-foreground">(optional)</span></Label>
+            <Textarea value={specifications} onChange={(e) => setSpecifications(e.target.value)} rows={2} placeholder="Grade, purity, moisture, etc." data-testid="textarea-enquiry-specifications" />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Additional Information <span className="text-muted-foreground">(optional)</span></Label>
+            <Textarea value={additionalInfo} onChange={(e) => setAdditionalInfo(e.target.value)} rows={2} placeholder="Any other details for the trade desk" data-testid="textarea-enquiry-additional" />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => { setOpen(false); reset(); }} data-testid="button-cancel-enquiry">Cancel</Button>
+            <Button
+              onClick={() => createMutation.mutate()}
+              disabled={!product || createMutation.isPending}
+              data-testid="button-submit-enquiry"
+            >
+              {createMutation.isPending ? "Submitting..." : "Submit Enquiry"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const CLIENT_DOC_TYPES: { value: string; label: string }[] = [
+  { value: "LOI", label: "Purchase Letter of Intent" },
+  { value: "FCO", label: "Full Corporate Offer" },
+  { value: "SCO", label: "Soft Corporate Offer" },
+  { value: "DEAL_RECAP", label: "Deal Recap" },
+  { value: "ICPO", label: "Irrevocable Corporate Purchase Order" },
+  { value: "SPA", label: "Sales & Purchase Agreement" },
+  { value: "LC", label: "Letter of Credit" },
+  { value: "POP", label: "Proof of Product" },
+  { value: "POF", label: "Proof of Funds" },
+  { value: "BCL", label: "Bank Comfort Letter" },
+  { value: "NCNDA", label: "Non-Circumvention Non-Disclosure" },
+  { value: "BL", label: "Bill of Lading" },
+  { value: "COO", label: "Certificate of Origin" },
+  { value: "COA", label: "Certificate of Quality" },
+  { value: "COW", label: "Certificate of Weight" },
+  { value: "CI", label: "Commercial Invoice" },
+  { value: "ICA", label: "International Commission Agreement" },
+];
+
+const genStatusBadge: Record<string, { label: string; cls: string }> = {
+  pending_review: { label: "Under Trade Desk Review", cls: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
+  draft: { label: "Draft", cls: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200" },
+  approved: { label: "Approved", cls: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+  sent: { label: "Sent", cls: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
+  accepted: { label: "Accepted", cls: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+  rejected: { label: "Rejected", cls: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+};
+
+function ClientGeneratedDocCard({ doc }: { doc: ClientDocument }) {
+  const created = new Date(doc.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const badge = genStatusBadge[doc.status] || { label: doc.status, cls: "bg-gray-100 text-gray-800" };
+  return (
+    <Card className="border" data-testid={`card-generated-doc-${doc.id}`}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <FileText className="w-4 h-4 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-sm truncate" data-testid={`text-generated-title-${doc.id}`}>{doc.title}</span>
+                <Badge variant="secondary" className="text-[10px]">{doc.docType}</Badge>
+                <Badge className={`text-[10px] ${badge.cls}`} data-testid={`badge-generated-status-${doc.id}`}>{badge.label}</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {doc.enquiryRef && <>Enquiry {doc.enquiryRef} · </>}{created}
+              </p>
+            </div>
+          </div>
+          {(doc.pdfPath || doc.docxPath) && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 flex-shrink-0"
+              onClick={() => window.open(`/api/client/documents/${doc.id}/download`, "_blank")}
+              title="Download"
+              data-testid={`button-download-generated-${doc.id}`}
+            >
+              <Download className="w-4 h-4 text-blue-600" />
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ClientDocumentGenerator({
+  enquiries,
+  kycData,
+}: {
+  enquiries: ClientEnquiry[];
+  kycData: KycData | undefined;
+}) {
+  const { toast } = useToast();
+  const acceptedEnquiries = enquiries.filter((e) => e.status === "accepted");
+
+  const [enquiryId, setEnquiryId] = useState("");
+  const [docType, setDocType] = useState("");
+  const [title, setTitle] = useState("");
+  const [buyerName, setBuyerName] = useState("");
+  const [buyerAddress, setBuyerAddress] = useState("");
+  const [buyerContact, setBuyerContact] = useState("");
+  const [buyerBank, setBuyerBank] = useState("");
+  const [buyerSwift, setBuyerSwift] = useState("");
+  const [sellerName, setSellerName] = useState("");
+  const [sellerAddress, setSellerAddress] = useState("");
+  const [sellerContact, setSellerContact] = useState("");
+  const [sellerBank, setSellerBank] = useState("");
+  const [sellerSwift, setSellerSwift] = useState("");
+  const [commodity, setCommodity] = useState("");
+  const [origin, setOrigin] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [loadingPort, setLoadingPort] = useState("");
+  const [dischargePort, setDischargePort] = useState("");
+  const [price, setPrice] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [incoterm, setIncoterm] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [qualitySpecs, setQualitySpecs] = useState("");
+  const [validity, setValidity] = useState("");
+  const [reviewContent, setReviewContent] = useState<string | null>(null);
+
+  const selectedEnquiry = acceptedEnquiries.find((e) => e.id === enquiryId);
+
+  const resetFields = () => {
+    setTitle(""); setBuyerName(""); setBuyerAddress(""); setBuyerContact("");
+    setBuyerBank(""); setBuyerSwift(""); setSellerName(""); setSellerAddress("");
+    setSellerContact(""); setSellerBank(""); setSellerSwift(""); setCommodity("");
+    setOrigin(""); setQuantity(""); setLoadingPort(""); setDischargePort("");
+    setPrice(""); setCurrency("USD"); setIncoterm(""); setPaymentTerms("");
+    setQualitySpecs(""); setValidity(""); setReviewContent(null);
+  };
+
+  const applyPrefill = (id: string, type: string) => {
+    const e = acceptedEnquiries.find((x) => x.id === id) as any;
+    if (!e) return;
+    setBuyerName(e.buyerName || "");
+    setBuyerAddress(e.buyerAddress || "");
+    setBuyerContact(e.buyerContact || "");
+    setSellerName(e.sellerName || e.producer || "");
+    setSellerAddress(e.sellerAddress || "");
+    setSellerContact(e.sellerContact || "");
+    setCommodity(e.product || "");
+    setOrigin(e.origin || "");
+    setQuantity(e.quantity ? `${e.quantity} ${e.unit || "MT"}`.trim() : "");
+    setLoadingPort(e.loadingPort || "");
+    setDischargePort(e.dischargePort || "");
+    setPrice(e.price || "");
+    setCurrency(e.currency || "USD");
+    setIncoterm(e.incoterms || "");
+    setPaymentTerms(e.paymentTerms || "");
+    setQualitySpecs(e.specifications || "");
+    setValidity(e.validity || "");
+    const label = CLIENT_DOC_TYPES.find((d) => d.value === type)?.label || type;
+    setTitle(`${label} — ${e.enquiryRef}`);
+    setReviewContent(null);
+  };
+
+  const onSelectEnquiry = (id: string) => {
+    setEnquiryId(id);
+    if (docType) applyPrefill(id, docType);
+  };
+  const onSelectDocType = (type: string) => {
+    setDocType(type);
+    if (enquiryId) applyPrefill(enquiryId, type);
+  };
+
+  const buildPayload = () => ({
+    docType,
+    title,
+    enquiryRef: selectedEnquiry?.enquiryRef,
+    buyerDetails: { name: buyerName, address: buyerAddress, contact: buyerContact, bank: buyerBank, swift: buyerSwift },
+    sellerDetails: { name: sellerName, address: sellerAddress, contact: sellerContact, bank: sellerBank, swift: sellerSwift },
+    productDetails: {
+      commodity, origin, quantity, loadingPort, dischargePort,
+      price, currency, incoterm, paymentTerms, qualitySpecs, validity,
+    },
+  });
+
+  const previewMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/documents/preview", buildPayload());
+      return res.json();
+    },
+    onSuccess: (result: { content: string }) => {
+      if (!result.content) {
+        toast({ title: "Preview failed", description: "Document content could not be generated.", variant: "destructive" });
+        return;
+      }
+      setReviewContent(result.content);
+    },
+    onError: (err: Error) => toast({ title: "Preview failed", description: err.message, variant: "destructive" }),
+  });
+
+  const generateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/documents", { ...buildPayload(), editedContent: reviewContent });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client/generated-documents"] });
+      toast({ title: "Document submitted", description: "Sent to the Bullex trade desk for review." });
+      setEnquiryId(""); setDocType(""); resetFields();
+    },
+    onError: (err: Error) => toast({ title: "Failed to generate", description: err.message, variant: "destructive" }),
+  });
+
+  const canPreview = !!enquiryId && !!docType && !!title.trim();
+
+  if (acceptedEnquiries.length === 0) {
+    return (
+      <Card className="border">
+        <CardContent className="p-8 text-center">
+          <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">No accepted enquiries yet.</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Once an enquiry is accepted, you can generate trade documents against it here.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border" data-testid="card-client-doc-generator">
+      <CardContent className="p-5 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Accepted Enquiry</Label>
+            <Select value={enquiryId} onValueChange={onSelectEnquiry}>
+              <SelectTrigger data-testid="select-doc-enquiry"><SelectValue placeholder="Select an accepted enquiry" /></SelectTrigger>
+              <SelectContent>
+                {acceptedEnquiries.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>{e.enquiryRef} — {e.product}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Document Type</Label>
+            <Select value={docType} onValueChange={onSelectDocType}>
+              <SelectTrigger data-testid="select-doc-type"><SelectValue placeholder="Select a document" /></SelectTrigger>
+              <SelectContent>
+                {CLIENT_DOC_TYPES.map((d) => (
+                  <SelectItem key={d.value} value={d.value}>{d.label} ({d.value})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {enquiryId && docType && (
+          <>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Document Title</Label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} data-testid="input-doc-title" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-2">
+              <p className="md:col-span-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-1">Buyer</p>
+              <Input value={buyerName} onChange={(e) => setBuyerName(e.target.value)} placeholder="Buyer name" data-testid="input-buyer-name" />
+              <Input value={buyerContact} onChange={(e) => setBuyerContact(e.target.value)} placeholder="Buyer contact (name — email)" data-testid="input-buyer-contact" />
+              <Input value={buyerAddress} onChange={(e) => setBuyerAddress(e.target.value)} placeholder="Buyer address" data-testid="input-buyer-address" />
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={buyerBank} onChange={(e) => setBuyerBank(e.target.value)} placeholder="Buyer bank" data-testid="input-buyer-bank" />
+                <Input value={buyerSwift} onChange={(e) => setBuyerSwift(e.target.value)} placeholder="SWIFT" data-testid="input-buyer-swift" />
+              </div>
+
+              <p className="md:col-span-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-2">Seller</p>
+              <Input value={sellerName} onChange={(e) => setSellerName(e.target.value)} placeholder="Seller name" data-testid="input-seller-name" />
+              <Input value={sellerContact} onChange={(e) => setSellerContact(e.target.value)} placeholder="Seller contact (name — email)" data-testid="input-seller-contact" />
+              <Input value={sellerAddress} onChange={(e) => setSellerAddress(e.target.value)} placeholder="Seller address" data-testid="input-seller-address" />
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={sellerBank} onChange={(e) => setSellerBank(e.target.value)} placeholder="Seller bank" data-testid="input-seller-bank" />
+                <Input value={sellerSwift} onChange={(e) => setSellerSwift(e.target.value)} placeholder="SWIFT" data-testid="input-seller-swift" />
+              </div>
+
+              <p className="md:col-span-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-2">Commodity & Terms</p>
+              <Input value={commodity} onChange={(e) => setCommodity(e.target.value)} placeholder="Commodity" data-testid="input-commodity" />
+              <Input value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder="Origin" data-testid="input-origin" />
+              <Input value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="Quantity" data-testid="input-quantity" />
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Price" data-testid="input-price" />
+                <Input value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder="Currency" data-testid="input-currency" />
+              </div>
+              <Input value={loadingPort} onChange={(e) => setLoadingPort(e.target.value)} placeholder="Loading port" data-testid="input-loading-port" />
+              <Input value={dischargePort} onChange={(e) => setDischargePort(e.target.value)} placeholder="Discharge port" data-testid="input-discharge-port" />
+              <Input value={incoterm} onChange={(e) => setIncoterm(e.target.value)} placeholder="Incoterm" data-testid="input-incoterm" />
+              <Input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="Payment terms" data-testid="input-payment-terms" />
+              <Input value={validity} onChange={(e) => setValidity(e.target.value)} placeholder="Validity" data-testid="input-validity" />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Quality / Specifications</Label>
+              <Textarea value={qualitySpecs} onChange={(e) => setQualitySpecs(e.target.value)} rows={2} data-testid="textarea-quality-specs" />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => previewMutation.mutate()}
+                disabled={!canPreview || previewMutation.isPending}
+                data-testid="button-preview-doc"
+              >
+                <FileText className="w-3.5 h-3.5 mr-1.5" />
+                {previewMutation.isPending ? "Generating…" : "Preview"}
+              </Button>
+              {reviewContent !== null && (
+                <Button
+                  size="sm"
+                  onClick={() => generateMutation.mutate()}
+                  disabled={generateMutation.isPending}
+                  data-testid="button-generate-doc"
+                >
+                  <Send className="w-3.5 h-3.5 mr-1.5" />
+                  {generateMutation.isPending ? "Submitting…" : "Submit to Trade Desk"}
+                </Button>
+              )}
+            </div>
+
+            {reviewContent !== null && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Review &amp; Edit Document</Label>
+                <Textarea
+                  value={reviewContent}
+                  onChange={(e) => setReviewContent(e.target.value)}
+                  rows={16}
+                  className="font-mono text-xs"
+                  data-testid="textarea-review-content"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  This document will be submitted to the Bullex trade desk for review — it is not finalised until the desk approves it.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ClientPortal() {
-  const { authenticated, loading, username, companyName, logout } = useClientAuth();
+  const { authenticated, loading, username, companyName, kycId, logout } = useClientAuth();
 
   const { data: trades, isLoading: tradesLoading } = useQuery<Trade[]>({
     queryKey: ["/api/client/trades"],
@@ -691,6 +1269,16 @@ export default function ClientPortal() {
     queryKey: ["/api/client/documents"],
     queryFn: async () => {
       const res = await fetch("/api/client/documents", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    enabled: authenticated,
+  });
+
+  const { data: generatedDocs } = useQuery<ClientDocument[]>({
+    queryKey: ["/api/client/generated-documents"],
+    queryFn: async () => {
+      const res = await fetch("/api/client/generated-documents", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
@@ -883,7 +1471,7 @@ export default function ClientPortal() {
                 <Package className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                 <p className="text-sm text-muted-foreground">No trades found for your organisation yet.</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Contact <a href="mailto:trade@bullex.tech" className="text-primary hover:underline">trade@bullex.tech</a> to initiate a trade.
+                  Contact <a href="mailto:trade@bullfrog-group.com" className="text-primary hover:underline">trade@bullfrog-group.com</a> to initiate a trade.
                 </p>
               </CardContent>
             </Card>
@@ -891,13 +1479,36 @@ export default function ClientPortal() {
         </div>
 
         <div className="mb-8">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-4 flex items-center gap-2" data-testid="text-enquiries-heading">
-            <SearchCheck className="w-4 h-4" />
-            Product Enquiries
+          <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-4 flex items-center gap-2" data-testid="text-generate-docs-heading">
+            <FileText className="w-4 h-4" />
+            Generate Trade Documents
           </h3>
           <p className="text-xs text-muted-foreground mb-4">
-            Trade enquiries matching your registered products
-            {kycData?.products ? ` (${kycData.products})` : kycData?.category ? ` (${kycData.category})` : ""}
+            Select one of your accepted enquiries and generate any trade document. Submitted documents are
+            sent to the Bullex trade desk for review before they become official.
+          </p>
+          <ClientDocumentGenerator enquiries={enquiries || []} kycData={kycData} />
+
+          {generatedDocs && generatedDocs.length > 0 && (
+            <div className="mt-4 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Your Submitted Documents</p>
+              {generatedDocs.map((doc) => (
+                <ClientGeneratedDocCard key={doc.id} doc={doc} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4 gap-3">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2" data-testid="text-enquiries-heading">
+              <SearchCheck className="w-4 h-4" />
+              Product Enquiries
+            </h3>
+            <IssueEnquiryDialog companyName={companyName} />
+          </div>
+          <p className="text-xs text-muted-foreground mb-4">
+            Enquiries you've issued and enquiries shared with you by the Bullex trade desk.
           </p>
           {enquiriesLoading ? (
             <div className="space-y-3">
@@ -907,16 +1518,16 @@ export default function ClientPortal() {
           ) : enquiries && enquiries.length > 0 ? (
             <div className="space-y-3">
               {enquiries.map((enquiry) => (
-                <EnquiryCard key={enquiry.id} enquiry={enquiry} />
+                <EnquiryCard key={enquiry.id} enquiry={enquiry} isOwn={!!kycId && enquiry.submittedByClientId === kycId} />
               ))}
             </div>
           ) : (
             <Card className="border">
               <CardContent className="p-8 text-center">
                 <SearchCheck className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">No product enquiries matching your registered products.</p>
+                <p className="text-sm text-muted-foreground">No enquiries yet.</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Enquiries for products you deal in will appear here automatically.
+                  Use <span className="font-medium">Issue Enquiry</span> to submit a buy or sell enquiry to the Bullex trade desk.
                 </p>
               </CardContent>
             </Card>

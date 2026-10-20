@@ -11,11 +11,11 @@ import {
   Truck,
   Shield,
 } from "lucide-react";
-import mineralsDivisionImg from "@assets/products/minerals-division.png";
-import metalsDivisionImg from "@assets/products/metals-division.png";
-import energyDivisionImg from "@assets/products/energy-products-division.png";
-import petroDivisionImg from "@assets/products/petrochemicals-division.png";
-import fertilizersDivisionImg from "@assets/products/fertilizers-division.png";
+import mineralsDivisionImg from "@assets/products/minerals-division.webp";
+import metalsDivisionImg from "@assets/products/metals-division.webp";
+import energyDivisionImg from "@assets/products/energy-products-division.webp";
+import petroDivisionImg from "@assets/products/petrochemicals-division.webp";
+import fertilizersDivisionImg from "@assets/products/fertilizers-division.webp";
 
 const divisions = [
   {

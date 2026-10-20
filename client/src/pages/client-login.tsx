@@ -103,7 +103,7 @@ export default function ClientLogin() {
             </form>
 
             <p className="text-[10px] text-muted-foreground text-center mt-6">
-              Login credentials are provided upon KYC approval. Contact <a href="mailto:team@bullex.tech" className="text-primary hover:underline">team@bullex.tech</a> for assistance.
+              Login credentials are provided upon KYC approval. Contact <a href="mailto:docs@bullfrog-group.com" className="text-primary hover:underline">docs@bullfrog-group.com</a> for assistance.
             </p>
           </CardContent>
         </Card>

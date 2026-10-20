@@ -81,6 +81,7 @@ export default function TeamKYC() {
   // Pre-fill from invite URL params (?name=&email=&position=&department=&ref=invite)
   const params = new URLSearchParams(window.location.search);
   const inviteRef = params.get("ref") === "invite";
+  const invitedByTeamMemberId = params.get("invitedBy") || "";
   const initForm = {
     ...empty,
     fullName: params.get("name") || "",
@@ -164,7 +165,7 @@ export default function TeamKYC() {
       const res = await fetch("/api/team-kyc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, declarationAgreed }),
+        body: JSON.stringify({ ...form, declarationAgreed, invitedByTeamMemberId: invitedByTeamMemberId || undefined }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -172,12 +173,18 @@ export default function TeamKYC() {
       }
       const created = await res.json();
       const appId = created.id;
+      // The server issues a single-use upload token at application creation.
+      // All subsequent file uploads for this application must present it in the
+      // X-Upload-Token header so only the submitter can attach files.
+      const uploadToken: string | undefined = created.uploadToken;
 
       // Step 2: Upload photo if provided
       if (photoFile && appId) {
         const fd = new FormData();
         fd.append("photo", photoFile);
-        const photoRes = await fetch(`/api/team-kyc/${appId}/photo`, { method: "PATCH", body: fd });
+        const photoHeaders: Record<string, string> = {};
+        if (uploadToken) photoHeaders["X-Upload-Token"] = uploadToken;
+        const photoRes = await fetch(`/api/team-kyc/${appId}/photo`, { method: "PATCH", headers: photoHeaders, body: fd });
         if (!photoRes.ok) {
           const photoErr = await photoRes.json().catch(() => ({}));
           console.warn("[KYC] photo upload failed:", photoErr.message);
@@ -195,7 +202,9 @@ export default function TeamKYC() {
         const fd = new FormData();
         fd.append("file", doc.file);
         fd.append("docType", doc.docType);
-        const docRes = await fetch(`/api/team-kyc/${appId}/documents`, { method: "POST", body: fd });
+        const docHeaders: Record<string, string> = {};
+        if (uploadToken) docHeaders["X-Upload-Token"] = uploadToken;
+        const docRes = await fetch(`/api/team-kyc/${appId}/documents`, { method: "POST", headers: docHeaders, body: fd });
         if (!docRes.ok) {
           const docErr = await docRes.json().catch(() => ({}));
           docErrors.push(`${doc.file.name}: ${docErr.message || "failed"}`);

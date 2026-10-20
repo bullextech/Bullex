@@ -26,6 +26,14 @@ import { storage, pool } from "../storage";
 import { sanitizeEnquiryChangeFields } from "../routes";
 import { generateKycAmendmentHash, mineBlock, GENESIS_HASH } from "../blockchain";
 
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as any).code === "23505"
+  );
+}
+
 const RUN = Date.now().toString(36);
 
 // Track everything we create so cleanup is deterministic and complete.
@@ -33,8 +41,46 @@ const createdEnquiryIds: string[] = [];
 const createdChangeRequestIds: string[] = [];
 const mintedBlockNumbers: number[] = [];
 
-before(() => {
+async function applyEnquiryAmendmentWithBlock(
+  changeRequestId: string,
+  enquiry: { id: string; enquiryRef: string; product: string },
+  fields: Record<string, unknown>,
+) {
+  // The block number/hash are computed INSIDE the storage transaction under
+  // the blockchain advisory lock, so concurrent block producers serialize and
+  // the old recompute-and-retry loop is no longer needed.
+  let mintedNumber = 0;
+  const updated = await storage.approveAndApplyEnquiryChangeRequest(changeRequestId, "approved in test", {
+    genesisHash: GENESIS_HASH,
+    dataId: enquiry.id,
+    dataSummary: `${enquiry.enquiryRef} | Amendment: product`,
+    buildBlockFn: (previousHash, blockNumber) => {
+      mintedNumber = blockNumber;
+      const timestampIso = new Date().toISOString();
+      const amendmentHash = generateKycAmendmentHash(
+        enquiry.enquiryRef,
+        enquiry.product,
+        fields,
+        timestampIso,
+      );
+      const { hash, nonce } = mineBlock(blockNumber, previousHash, timestampIso, amendmentHash);
+      return { hash, nonce, timestamp: new Date(timestampIso) };
+    },
+  });
+  mintedBlockNumbers.push(mintedNumber);
+  return { updated, blockNumber: mintedNumber };
+}
+
+// Cross-process suite mutex: this suite mints/deletes blockchain blocks, which
+// moves the chain tip under any concurrently running chain-sensitive suite.
+// Hold a session-level advisory lock so chain-touching suites serialize.
+const CHAIN_TEST_MUTEX_KEY = 792215002;
+let chainMutexClient: Awaited<ReturnType<typeof pool.connect>> | null = null;
+
+before(async () => {
   assert.ok(process.env.DATABASE_URL, "DATABASE_URL must be set to run amendment tests");
+  chainMutexClient = await pool.connect();
+  await chainMutexClient.query("SELECT pg_advisory_lock($1)", [CHAIN_TEST_MUTEX_KEY]);
 });
 
 after(async () => {
@@ -46,6 +92,10 @@ after(async () => {
   }
   for (const id of createdEnquiryIds) {
     await storage.deleteTradeEnquiry(id);
+  }
+  if (chainMutexClient) {
+    await chainMutexClient.query("SELECT pg_advisory_unlock($1)", [CHAIN_TEST_MUTEX_KEY]);
+    chainMutexClient.release();
   }
   await pool.end();
 });
@@ -133,29 +183,10 @@ test("a valid commodity amendment is applied to the enquiry end-to-end", async (
   assert.equal(changeReq.status, "pending");
 
   // Approve + apply through storage, mirroring what the status route does: mint
-  // an amendment block in the same transaction as the field update.
-  const latestBlock = await storage.getLatestBlock();
-  const previousHash = latestBlock?.hash || GENESIS_HASH;
-  const blockNumber = (latestBlock?.blockNumber || 0) + 1;
-  const timestampIso = new Date().toISOString();
-  const amendmentHash = generateKycAmendmentHash(
-    enquiry.enquiryRef,
-    enquiry.product,
-    sanitized.fields,
-    timestampIso,
-  );
-  const { hash: blockHash, nonce } = mineBlock(blockNumber, previousHash, timestampIso, amendmentHash);
-
-  const updated = await storage.approveAndApplyEnquiryChangeRequest(changeReq.id, "approved in test", {
-    blockNumber,
-    hash: blockHash,
-    previousHash,
-    nonce,
-    timestamp: new Date(timestampIso),
-    dataId: enquiry.id,
-    dataSummary: `${enquiry.enquiryRef} | Amendment: product`,
-  });
-  mintedBlockNumbers.push(blockNumber);
+  // an amendment block in the same transaction as the field update. The helper
+  // retries on unique-constraint violations (concurrent tests racing for the
+  // same block number) exactly as kyc-amendment.test.ts does.
+  const { updated } = await applyEnquiryAmendmentWithBlock(changeReq.id, enquiry, sanitized.fields);
 
   // The trimmed commodity is now live on the enquiry, and it is never blank.
   assert.equal(updated.product, "Manganese Ore");

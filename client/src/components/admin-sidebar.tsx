@@ -10,6 +10,7 @@ import {
   Users,
   Cloud,
   ClipboardList,
+  ClipboardCheck,
   Briefcase,
   BarChart3,
   Bell,
@@ -20,9 +21,12 @@ import {
   TrendingUp,
   MessageSquare,
   GitMerge,
+  UserPlus,
+  Contact as ContactIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
+import { prefetchHandlers } from "@/lib/route-prefetch";
 
 export const PLATFORM_MODULES = [
   { id: "dashboard",      title: "Dashboard",        url: "/dashboard",       icon: LayoutDashboard, description: "Platform overview, metrics & summary" },
@@ -32,10 +36,10 @@ export const PLATFORM_MODULES = [
   { id: "kyc-admin",      title: "KYC & Compliance", url: "/kyc-admin",       icon: ShieldCheck,     description: "Client KYC reviews & approvals" },
   { id: "enquiries",      title: "Enquiries",        url: "/trade-enquiries", icon: SearchCheck,     description: "Trade enquiry management" },
   { id: "trading",        title: "Deal Desk",        url: "/trading",         icon: Link2,           description: "Trade execution & deal management" },
-  { id: "deals",          title: "Deal Pipeline",    url: "/deals",           icon: GitMerge,        description: "Automated enquiry matching & deal cascade" },
+  { id: "matching",       title: "Deal Desk Matching", url: "/matching",      icon: GitMerge,        description: "Pair instruments & propose anonymized matches for review" },
   { id: "documents",      title: "Documents",        url: "/documents",       icon: FileText,        description: "Document generation & management" },
   { id: "doc-templates",  title: "Doc. Templates",   url: "/doc-templates",   icon: FileCog,         description: "Document template library" },
-  { id: "vault",          title: "Vault",            url: "/vault",           icon: FolderOpen,      description: "Document vault & file storage" },
+  { id: "vault",          title: "DocuVault",        url: "/vault",           icon: FolderOpen,      description: "DocuVault — deal document repository" },
   { id: "shipments",      title: "Shipments",        url: "/shipments",       icon: Ship,            description: "Shipment tracking & logistics" },
   { id: "qa-reports",     title: "QA Reports",       url: "/qa-reports",      icon: FlaskConical,    description: "Quality assurance & inspection reports" },
   { id: "banking",        title: "Banking & LC",     url: "/banking",         icon: Banknote,        description: "Banking & letters of credit" },
@@ -43,18 +47,23 @@ export const PLATFORM_MODULES = [
   { id: "blockchain",     title: "Blockchain",       url: "/blockchain",      icon: Layers,          description: "Blockchain ledger & verification" },
   { id: "registrations",  title: "Registrations",    url: "/registrations",   icon: Users,           description: "Client registration applications" },
   { id: "tasks",          title: "Task Board",       url: "/tasks",           icon: ClipboardList,   description: "Team task tracking & progress" },
+  { id: "checklists",     title: "Checklists",       url: "/checklists",      icon: ClipboardCheck,  description: "Procurement due-diligence checklists" },
+  { id: "contacts",       title: "Contacts",         url: "/contacts",        icon: ContactIcon,     description: "Visiting cards & business contacts" },
+  { id: "team-network",   title: "My Team",          url: "/my-team",         icon: UserPlus,        description: "Add team members you can send documents to" },
 ];
 
 const SECTIONS: Array<{ label: string; ids: string[] }> = [
   { label: "Overview",   ids: ["dashboard", "analytics", "notifications", "chat"] },
-  { label: "Trading",    ids: ["kyc-admin", "enquiries", "trading", "deals"] },
+  { label: "Trading",    ids: ["kyc-admin", "enquiries", "trading", "matching"] },
   { label: "Documents",  ids: ["documents", "doc-templates", "vault"] },
-  { label: "Operations", ids: ["shipments", "qa-reports"] },
+  { label: "Operations", ids: ["shipments", "qa-reports", "checklists", "contacts", "team-network"] },
   { label: "Finance",    ids: ["banking", "live-prices"] },
 ];
 
 const adminOnlyItems = [
+  { id: "deal-pipeline", title: "Deal Pipeline", url: "/deal-pipeline", icon: GitMerge },
   { id: "team-members", title: "Team", url: "/team", icon: Users },
+  { id: "team-performance", title: "Team Performance", url: "/team-performance", icon: BarChart3 },
   { id: "db-backup", title: "DB Backup", url: "/db-backup", icon: Cloud },
 ];
 
@@ -69,8 +78,13 @@ export function AdminSidebar() {
   const unreadCount = unread?.count || 0;
 
   const moduleById = Object.fromEntries(PLATFORM_MODULES.map(m => [m.id, m]));
+  // Team-member-only modules: even admins must NOT see these (admins have their
+  // own management surfaces). Visibility depends solely on the assigned module.
+  const teamOnlyModules = new Set(["team-network"]);
   const isVisible = (id: string) =>
-    role === "admin" || (allowedModules ?? []).includes(id);
+    teamOnlyModules.has(id)
+      ? role === "team" && (allowedModules ?? []).includes(id)
+      : role === "admin" || (allowedModules ?? []).includes(id);
 
   const sections = SECTIONS
     .map(s => ({ label: s.label, items: s.ids.map(id => moduleById[id]).filter(m => m && isVisible(m.id)) }))
@@ -88,6 +102,7 @@ export function AdminSidebar() {
       <Link
         key={item.url}
         href={safeHref}
+        {...prefetchHandlers(safeHref)}
         data-testid={`link-sidebar-${item.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
         className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors w-full ${
           active

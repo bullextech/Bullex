@@ -1,0 +1,65 @@
+name: Windows clean install
+
+on:
+  push:
+    branches: [verification/windows-clean-install]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clean-install:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20.20.0
+          architecture: x64
+          # No shared npm cache or registry override.
+      - name: Verify fresh Windows installs
+        run: |
+          New-Item -ItemType Directory -Force generated-artifacts/windows | Out-Null
+          Start-Transcript -Path generated-artifacts/windows/verification.txt
+          try {
+            Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, OSArchitecture
+            Write-Output "Runner image: $env:ImageOS $env:ImageVersion"
+            git --version
+            node --version
+            npm.cmd --version
+            node -e "if(process.platform !== 'win32' || process.arch !== 'x64') process.exit(1)"
+            if ($LASTEXITCODE -ne 0) { throw "A native Windows x64 Node runtime is required" }
+            $manifests = @('package.json', 'package-lock.json', 'artifacts/mockup-sandbox/package.json', 'artifacts/mockup-sandbox/package-lock.json')
+            $before = @{}
+            foreach ($file in $manifests) {
+              $before[$file] = (Get-FileHash $file -Algorithm SHA256).Hash
+              Write-Output "$file SHA256 $($before[$file])"
+            }
+            & node scripts/check-clean-install.mjs 2>&1 | Tee-Object -FilePath generated-artifacts/windows/clean-install.txt
+            if ($LASTEXITCODE -ne 0) { throw "Clean-install verification failed with exit $LASTEXITCODE" }
+            foreach ($file in $manifests) {
+              if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $before[$file]) {
+                throw "$file changed in the working checkout"
+              }
+            }
+            Write-Output "Working manifests and locks unchanged."
+          } finally {
+            Stop-Transcript
+            # Keep failure diagnostics, never upload installed packages or caches.
+            Get-ChildItem $env:TEMP -Directory -Filter 'css-clean-install-*' | ForEach-Object {
+              Get-ChildItem $_.FullName -File -Filter '*.log' | Copy-Item -Destination generated-artifacts/windows
+            }
+          }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: windows-clean-install-evidence
+          path: generated-artifacts/windows/
+          retention-days: 14

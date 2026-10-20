@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import heroPoster from "@assets/hero-ship-sunshine.png";
+import heroPoster from "@assets/hero-ship-sunshine.webp";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { MarketTicker } from "@/components/market-ticker";
 import {
   Shield,
   Link2,
@@ -115,7 +116,7 @@ export default function Home() {
     const bgRef = getVideoRef(bgSlot);
     if (bgRef.current) {
       bgRef.current.src = heroVideos[nextIndex];
-      bgRef.current.muted = true;
+      bgRef.current.muted = heroMuted;
       bgRef.current.currentTime = 0;
       bgRef.current.play().catch(() => {});
     }
@@ -131,7 +132,20 @@ export default function Home() {
   };
 
   useEffect(() => {
-    videoRefA.current?.play().catch(() => {});
+    // React does not reliably apply the `muted` attribute as a DOM property on
+    // <video>, so browsers treat the element as unmuted and BLOCK autoplay,
+    // leaving only the poster visible. Set muted imperatively before play().
+    [videoRefA, videoRefB].forEach((r) => {
+      if (r.current) r.current.muted = true;
+    });
+    const v = videoRefA.current;
+    if (!v) return;
+    const tryPlay = () => v.play().catch(() => {});
+    tryPlay();
+    if (v.readyState < 2) {
+      v.addEventListener("canplay", tryPlay, { once: true });
+      return () => v.removeEventListener("canplay", tryPlay);
+    }
   }, []);
 
   useEffect(() => {
@@ -164,6 +178,9 @@ export default function Home() {
 
   return (
     <div className="overflow-y-auto h-full">
+
+      {/* ── LIVE MARKET TICKER ── */}
+      <MarketTicker />
 
       {/* ── HERO VIDEO SECTION ── */}
       <div
@@ -423,7 +440,7 @@ export default function Home() {
                   <div className="bg-white/10 p-3 rounded-sm"><Mail className="h-6 w-6 text-white/80" /></div>
                   <div>
                     <div className="font-bold text-sm uppercase tracking-wider mb-1">Direct Desk</div>
-                    <div className="text-white/70 text-sm">trade@bullex.tech</div>
+                    <div className="text-white/70 text-sm">trade@bullfrog-group.com</div>
                   </div>
                 </div>
               </div>

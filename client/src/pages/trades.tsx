@@ -39,12 +39,13 @@ import {
   Trash2,
   Loader2,
   Paperclip,
-  LineChart,
 } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, uploadFormData } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import type { Trade, Block, TradeDocument, KycApplication } from "@shared/schema";
+import { sortClientDetails } from "@shared/client-sorting";
+import { trackEvent } from "@/lib/analytics";
 
 const stageDefinitions = [
   {
@@ -149,7 +150,9 @@ export default function Trading() {
     pricePerUnit: "",
     currency: "USD",
     buyerName: "",
+    buyerKycId: null as string | null,
     sellerName: "Bullfrog Group",
+    sellerKycId: null as string | null,
     origin: "",
     destination: "",
     incoterm: "CIF",
@@ -180,6 +183,17 @@ export default function Trading() {
           break;
         }
       }
+      const isBuySide = prefillEnquiry.side === "buy";
+      const prefillClientKycId = (prefillEnquiry as any).submittedByClientId || (prefillEnquiry as any).assignedToClientId || null;
+      const prefillClientKyc = prefillClientKycId ? (approvedClients.find((c) => c.id === prefillClientKycId) ?? null) : null;
+      const prefillBuyerKycId = isBuySide ? prefillClientKycId : null;
+      const prefillSellerKycId = !isBuySide ? prefillClientKycId : null;
+      const prefillBuyerName = isBuySide
+        ? (prefillClientKyc?.companyName || prefillEnquiry.createdBy || "")
+        : "";
+      const prefillSellerName = !isBuySide
+        ? (prefillClientKyc?.companyName || prefillEnquiry.createdBy || "")
+        : "Bullfrog Group";
       setForm({
         commodityCategory: matchedCategory,
         commodity: matchedCommodity || prefillEnquiry.product,
@@ -187,8 +201,10 @@ export default function Trading() {
         unit: prefillEnquiry.unit || "MT",
         pricePerUnit: "",
         currency: "USD",
-        buyerName: prefillEnquiry.side === "buy" ? (prefillEnquiry.createdBy || "") : "",
-        sellerName: prefillEnquiry.side === "sell" ? (prefillEnquiry.createdBy || "") : "Bullfrog Group",
+        buyerName: prefillBuyerName,
+        buyerKycId: prefillBuyerKycId,
+        sellerName: prefillSellerName,
+        sellerKycId: prefillSellerKycId,
         origin: prefillEnquiry.loadingPort || "",
         destination: "",
         incoterm: prefillEnquiry.incoterms || "CIF",
@@ -233,7 +249,7 @@ export default function Trading() {
     queryKey: ["/api/kyc"],
   });
 
-  const approvedClients = kycApplications?.filter((a) => a.status === "approved") || [];
+  const approvedClients = sortClientDetails(kycApplications?.filter((a) => a.status === "approved") || []);
 
   const { data: tradeFiles } = useQuery<TradeDocument[]>({
     queryKey: ["/api/trades", expandedTrade, "files"],
@@ -252,13 +268,15 @@ export default function Trading() {
       return res.json();
     },
     onSuccess: () => {
+      trackEvent("trade_created", { location: "trade_desk" });
       queryClient.invalidateQueries({ queryKey: ["/api/trades"] });
       queryClient.invalidateQueries({ queryKey: ["/api/blocks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       setShowNewTrade(false);
       setForm({
         commodityCategory: "", commodity: "", quantity: "", unit: "MT",
-        pricePerUnit: "", currency: "USD", buyerName: "", sellerName: "Bullfrog Group",
+        pricePerUnit: "", currency: "USD", buyerName: "", buyerKycId: null,
+        sellerName: "Bullfrog Group", sellerKycId: null,
         origin: "", destination: "", incoterm: "CIF",
       });
       toast({ title: "Pre-Deal Created", description: "Trade initiated at Pre-Deal stage. Complete mandatory documents and advance to Deal to record on blockchain." });
@@ -305,11 +323,7 @@ export default function Trading() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("documentKey", documentKey);
-      const res = await fetch(`/api/trades/${tradeId}/files/upload`, { method: "POST", body: formData });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Upload failed");
-      }
+      const res = await uploadFormData(`/api/trades/${tradeId}/files/upload`, formData);
       return res.json();
     },
     onSuccess: () => {
@@ -404,14 +418,6 @@ export default function Trading() {
                 <p className="text-white/60 text-sm leading-snug mt-1">
                   Every stage requires mandatory documents before advancing — transparency, compliance, immutable verification.
                 </p>
-                <a
-                  href="/trading-terminal"
-                  data-testid="link-open-trading-terminal"
-                  className="inline-flex items-center gap-2 mt-3 rounded bg-[#0084be] hover:bg-[#006a99] text-white px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-colors"
-                >
-                  <LineChart className="w-3.5 h-3.5" />
-                  Open Trading Terminal
-                </a>
               </div>
             </div>
             <div className="grid grid-cols-4 gap-3">
@@ -555,12 +561,22 @@ export default function Trading() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Buyer *</label>
-                    <Select value={form.buyerName} onValueChange={(v) => setForm({ ...form, buyerName: v })}>
+                    <Select
+                      value={form.buyerKycId ?? (form.buyerName === "Bullfrog Group" ? "__bullfrog__" : "")}
+                      onValueChange={(v) => {
+                        if (v === "__bullfrog__") {
+                          setForm({ ...form, buyerName: "Bullfrog Group", buyerKycId: null });
+                        } else {
+                          const client = approvedClients.find((c) => c.id === v);
+                          setForm({ ...form, buyerName: client?.companyName ?? "", buyerKycId: v });
+                        }
+                      }}
+                    >
                       <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-buyer"><SelectValue placeholder="Select buyer..." /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Bullfrog Group">Bullfrog Group</SelectItem>
+                        <SelectItem value="__bullfrog__">Bullfrog Group</SelectItem>
                         {approvedClients.map((client) => (
-                          <SelectItem key={client.id} value={client.companyName}>{client.companyName}</SelectItem>
+                          <SelectItem key={client.id} value={client.id}>{client.companyName}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -570,12 +586,22 @@ export default function Trading() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-primary">Seller</label>
-                    <Select value={form.sellerName} onValueChange={(v) => setForm({ ...form, sellerName: v })}>
+                    <Select
+                      value={form.sellerKycId ?? (form.sellerName === "Bullfrog Group" ? "__bullfrog__" : "")}
+                      onValueChange={(v) => {
+                        if (v === "__bullfrog__") {
+                          setForm({ ...form, sellerName: "Bullfrog Group", sellerKycId: null });
+                        } else {
+                          const client = approvedClients.find((c) => c.id === v);
+                          setForm({ ...form, sellerName: client?.companyName ?? "", sellerKycId: v });
+                        }
+                      }}
+                    >
                       <SelectTrigger className="rounded-none h-11 border-border" data-testid="select-seller"><SelectValue placeholder="Select seller..." /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Bullfrog Group">Bullfrog Group</SelectItem>
+                        <SelectItem value="__bullfrog__">Bullfrog Group</SelectItem>
                         {approvedClients.map((client) => (
-                          <SelectItem key={client.id} value={client.companyName}>{client.companyName}</SelectItem>
+                          <SelectItem key={client.id} value={client.id}>{client.companyName}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

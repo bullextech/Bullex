@@ -17,9 +17,27 @@ import {
   Handshake,
   Ship,
   CreditCard,
-  Eye,
 } from "lucide-react";
-import type { Trade, TradeDocument } from "@shared/schema";
+import type { Trade, TradeDocument, Document as GeneratedDoc } from "@shared/schema";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FileSignature, Eye } from "lucide-react";
+import { productImageRules, genericProductImage as imgGeneric } from "@/lib/product-images";
+
+function detectBlockProduct(docs: GeneratedDoc[]): { img: string; name: string | null } {
+  // Pull candidate product text from each doc: explicit Commodity/Product
+  // lines in the rendered content first, then the doc title as fallback.
+  const candidates: string[] = [];
+  for (const d of docs) {
+    const contentMatches = Array.from((d.content || "").matchAll(/(?:commodity|product)\s*(?:name)?\s*[:\-]\s*([^\n]+)/gi));
+    for (const m of contentMatches) candidates.push(m[1]);
+    candidates.push(d.title);
+  }
+  for (const text of candidates) {
+    const rule = productImageRules.find((r) => r.test.test(text));
+    if (rule) return { img: rule.img, name: rule.name };
+  }
+  return { img: imgGeneric, name: null };
+}
 
 const stageConfig: Record<string, { label: string; icon: typeof ClipboardCheck; color: string }> = {
   pre_deal: { label: "Pre-Deal", icon: ClipboardCheck, color: "text-sky-600" },
@@ -67,12 +85,17 @@ const docKeyToStage: Record<string, string> = {
 export default function Vault() {
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
+  const [openBlockKey, setOpenBlockKey] = useState<string | null>(null);
+  const [viewDoc, setViewDoc] = useState<GeneratedDoc | null>(null);
 
   const { data: tradeDocs, isLoading: docsLoading } = useQuery<TradeDocument[]>({
     queryKey: ["/api/trade-documents"],
   });
   const { data: trades, isLoading: tradesLoading } = useQuery<Trade[]>({
     queryKey: ["/api/trades"],
+  });
+  const { data: generatedDocs } = useQuery<GeneratedDoc[]>({
+    queryKey: ["/api/documents"],
   });
 
   const isLoading = docsLoading || tradesLoading;
@@ -136,10 +159,10 @@ export default function Vault() {
               </div>
               <div className="min-w-0">
                 <h1 className="text-xl md:text-2xl font-serif font-bold leading-tight" data-testid="text-vault-title">
-                  Document Vault
+                  DocuVault
                 </h1>
                 <p className="text-white/60 text-sm leading-snug mt-1">
-                  Secure repository of all trade pipeline documents — archived for compliance and audit.
+                  Central repository of all deal documents — filed by reference number, archived for compliance and audit.
                 </p>
               </div>
             </div>
@@ -166,6 +189,238 @@ export default function Vault() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {(() => {
+          // DocuVault: one square block per deal reference number; every
+          // generated document created with that reference lands in the same
+          // block automatically. Reference resolution is chain-level (walk
+          // parentDocId to the chain root, pick the chain's first enquiry
+          // ref / deal recap number / trade ref); referenceless chains fall
+          // back to a block titled after the chain's root document.
+          const gDocs = generatedDocs || [];
+          if (gDocs.length === 0) return null;
+          const byId = new Map(gDocs.map((d) => [d.id, d]));
+          const rootKeyOf = (doc: GeneratedDoc): string => {
+            let cur = doc;
+            const seen = new Set<string>([cur.id]);
+            while (cur.parentDocId) {
+              if (seen.has(cur.parentDocId)) return Array.from(seen).sort()[0]; // cycle guard
+              const parent = byId.get(cur.parentDocId);
+              if (!parent) return cur.parentDocId; // invisible ancestor = synthetic root
+              cur = parent;
+              seen.add(cur.id);
+            }
+            return cur.id;
+          };
+          const chains = new Map<string, GeneratedDoc[]>();
+          for (const d of gDocs) {
+            const rk = rootKeyOf(d);
+            chains.set(rk, [...(chains.get(rk) || []), d]);
+          }
+          const blocks = new Map<string, { label: string; hasRef: boolean; items: GeneratedDoc[]; latest: number }>();
+          for (const [rk, members] of Array.from(chains.entries())) {
+            const oldestFirst = members.slice().sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+            const ref = oldestFirst.map((m) => m.enquiryRef || m.dealRecapNumber || m.tradeRef).find(Boolean);
+            const key = ref ? `REF:${ref}` : `DOC:${rk}`;
+            const label = ref || (byId.get(rk) || oldestFirst[0]).title;
+            const b = blocks.get(key) || { label, hasRef: !!ref, items: [], latest: 0 };
+            for (const m of members) {
+              b.items.push(m);
+              b.latest = Math.max(b.latest, new Date(m.createdAt).getTime());
+            }
+            blocks.set(key, b);
+          }
+          const ordered = Array.from(blocks.entries()).sort((a, b) => b[1].latest - a[1].latest);
+          const testKey = (key: string) => key.replace(/[^a-zA-Z0-9_-]+/g, "-");
+          const openBlock = openBlockKey ? blocks.get(openBlockKey) : null;
+          return (
+            <div className="mb-10">
+              <div className="mb-6">
+                <h2 className="text-2xl font-serif font-bold text-foreground" data-testid="text-docuvault-title">
+                  Deal Reference Blocks
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Every document generated under a reference number is filed in its block automatically
+                </p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {ordered.map(([key, block]) => {
+                  const product = detectBlockProduct(block.items);
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setOpenBlockKey(key)}
+                      className="aspect-square rounded-none border border-border bg-card hover:border-primary hover:shadow-md transition-all flex flex-col overflow-hidden text-left group"
+                      data-testid={`docuvault-block-${testKey(key)}`}
+                    >
+                      <div className="relative w-full flex-1 min-h-0 overflow-hidden">
+                        <img
+                          src={product.img}
+                          alt={product.name || "Trade commodity"}
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                        {product.name && (
+                          <span className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[9px] uppercase tracking-wider px-1.5 py-0.5">
+                            {product.name}
+                          </span>
+                        )}
+                        <span className="absolute bottom-1.5 right-1.5 bg-black/60 text-white text-[10px] px-1.5 py-0.5 flex items-center gap-1">
+                          <FolderOpen className="w-3 h-3" />
+                          {block.items.length}
+                        </span>
+                      </div>
+                      <div className="w-full p-2.5 border-t border-border bg-card">
+                        <div className={`text-sm font-bold truncate ${block.hasRef ? "font-mono text-primary" : ""}`} title={block.label}>
+                          {block.label}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground/70 truncate">
+                          {Array.from(new Set(block.items.map((d) => d.docType))).join(" · ")}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <Dialog open={!!openBlock} onOpenChange={(open) => { if (!open) setOpenBlockKey(null); }}>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2" data-testid="text-docuvault-dialog-title">
+                      <FolderOpen className="w-5 h-5 text-primary" />
+                      <span className={openBlock?.hasRef ? "font-mono" : ""}>{openBlock?.label}</span>
+                      <Badge variant="secondary" className="text-[10px]">{openBlock?.items.length || 0} documents</Badge>
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-2">
+                    {(openBlock?.items || [])
+                      .slice()
+                      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                      .map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between gap-3 p-3 rounded-md bg-muted" data-testid={`docuvault-doc-${doc.id}`}>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <FileCheck className="w-4 h-4 text-primary flex-shrink-0" />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium truncate">{doc.title}</span>
+                                <Badge variant="secondary" className="text-[10px]">{doc.docType}</Badge>
+                                {(doc.buyerSignature || doc.sellerSignature) && (
+                                  <Badge className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                    <FileSignature className="w-3 h-3 mr-0.5" />
+                                    Signed
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                <span className="capitalize">{doc.status.replace(/_/g, " ")}</span>
+                                {" "}&middot;{" "}
+                                {new Date(doc.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setViewDoc(doc)}
+                              title="View document"
+                              data-testid={`docuvault-view-${doc.id}`}
+                            >
+                              <Eye className="w-4 h-4 text-primary" />
+                            </Button>
+                            {doc.docxPath && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => window.open(`/api/documents/${doc.id}/download/docx`, "_blank")}
+                                title="Download DOCX"
+                                data-testid={`docuvault-docx-${doc.id}`}
+                              >
+                                <Download className="w-4 h-4 text-blue-600" />
+                              </Button>
+                            )}
+                            {doc.pdfPath && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => window.open(`/api/documents/${doc.id}/download/pdf`, "_blank")}
+                                title="Download PDF"
+                                data-testid={`docuvault-pdf-${doc.id}`}
+                              >
+                                <FileText className="w-4 h-4 text-red-600" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Dialog open={!!viewDoc} onOpenChange={(open) => { if (!open) setViewDoc(null); }}>
+                <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 flex-wrap" data-testid="text-docuvault-view-title">
+                      <FileCheck className="w-5 h-5 text-primary" />
+                      <span>{viewDoc?.title}</span>
+                      {viewDoc && <Badge variant="secondary" className="text-[10px]">{viewDoc.docType}</Badge>}
+                      {viewDoc && (viewDoc.buyerSignature || viewDoc.sellerSignature) && (
+                        <Badge className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          <FileSignature className="w-3 h-3 mr-0.5" />
+                          Signed
+                        </Badge>
+                      )}
+                    </DialogTitle>
+                  </DialogHeader>
+                  {viewDoc && (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                        <span className="capitalize">Status: {viewDoc.status.replace(/_/g, " ")}</span>
+                        <span>&middot;</span>
+                        <span>Created {new Date(viewDoc.createdAt).toLocaleString()}</span>
+                        {(viewDoc.enquiryRef || viewDoc.dealRecapNumber || viewDoc.tradeRef) && (
+                          <>
+                            <span>&middot;</span>
+                            <span className="font-mono">{viewDoc.enquiryRef || viewDoc.dealRecapNumber || viewDoc.tradeRef}</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="p-4 rounded-md bg-muted whitespace-pre-wrap text-sm max-h-[50vh] overflow-y-auto" data-testid="text-docuvault-view-content">
+                        {viewDoc.content || "No content available for this document."}
+                      </div>
+                      <div className="flex items-center justify-end gap-2">
+                        {viewDoc.docxPath && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => window.open(`/api/documents/${viewDoc.id}/download/docx`, "_blank")}
+                            data-testid="btn-docuvault-view-docx"
+                          >
+                            <Download className="w-4 h-4 text-blue-600" />
+                            Download DOCX
+                          </Button>
+                        )}
+                        {viewDoc.pdfPath && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => window.open(`/api/documents/${viewDoc.id}/download/pdf`, "_blank")}
+                            data-testid="btn-docuvault-view-pdf"
+                          >
+                            <FileText className="w-4 h-4 text-red-600" />
+                            Download PDF
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+            </div>
+          );
+        })()}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-2xl font-serif font-bold text-foreground" data-testid="text-vault-registry">
@@ -296,20 +551,11 @@ export default function Vault() {
                                     variant="outline"
                                     size="sm"
                                     className="h-7 rounded-none text-xs gap-1"
-                                    onClick={() => window.open(`/api/trade-documents/${doc.id}/view`, "_blank")}
-                                    data-testid={`btn-view-${doc.id}`}
-                                  >
-                                    <Eye className="w-3 h-3" />
-                                    View
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 w-7 p-0"
                                     onClick={() => window.open(`/api/trade-documents/${doc.id}/download`, "_blank")}
                                     data-testid={`btn-download-vault-${doc.id}`}
                                   >
-                                    <Download className="w-3.5 h-3.5" />
+                                    <Download className="w-3 h-3" />
+                                    Download
                                   </Button>
                                 </div>
                               </div>

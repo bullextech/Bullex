@@ -7,17 +7,53 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Pencil, Save } from "lucide-react";
+import { Landmark, Loader2, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAmendMode, formatAmendCountdown } from "@/hooks/use-amend-mode";
 
 export type AmendField = {
   key: string;
   label: string;
-  type?: "text" | "textarea" | "email" | "tel" | "select";
+  type?: "text" | "textarea" | "email" | "tel" | "select" | "bank-list";
   options?: string[];
   colSpan?: 1 | 2;
 };
+
+type AmendBankEntry = {
+  bankName: string;
+  bankBranch: string;
+  bankAddress: string;
+  accountName: string;
+  accountNumber: string;
+  swiftCode: string;
+  bankAccountCurrency: string;
+  bankOfficerName: string;
+  bankOfficerEmail: string;
+};
+
+const EMPTY_BANK: AmendBankEntry = {
+  bankName: "",
+  bankBranch: "",
+  bankAddress: "",
+  accountName: "",
+  accountNumber: "",
+  swiftCode: "",
+  bankAccountCurrency: "",
+  bankOfficerName: "",
+  bankOfficerEmail: "",
+};
+
+const BANK_FIELDS: { key: keyof AmendBankEntry; label: string; type?: "email" }[] = [
+  { key: "bankName", label: "Bank Name" },
+  { key: "bankBranch", label: "Branch" },
+  { key: "bankAddress", label: "Bank Address" },
+  { key: "accountName", label: "Account Name" },
+  { key: "accountNumber", label: "Account Number" },
+  { key: "swiftCode", label: "SWIFT Code" },
+  { key: "bankAccountCurrency", label: "Currency" },
+  { key: "bankOfficerName", label: "Bank Officer Name" },
+  { key: "bankOfficerEmail", label: "Bank Officer Email", type: "email" },
+];
 
 export type AmendSection = {
   title: string;
@@ -42,18 +78,28 @@ export function AmendDialog({
   const { unlocked, remainingMs, requestUnlock } = useAmendMode();
   const [values, setValues] = useState<Record<string, any>>(initialValues);
 
-  useEffect(() => { if (open) setValues(initialValues); }, [open, initialValues]);
+  // `initialValues` is assembled inline by several parent pages, so its object
+  // identity changes whenever amend mode's countdown ticks. Reset only when the
+  // dialog opens or switches records; otherwise every keystroke is wiped out.
+  useEffect(() => {
+    if (open) setValues(initialValues);
+  }, [open, endpoint]);
 
   const saveMutation = useMutation({
     mutationFn: async (payload: Record<string, any>) => {
       const res = await apiRequest("PATCH", endpoint, payload);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       invalidateKeys.forEach((key) => {
         queryClient.invalidateQueries({ queryKey: Array.isArray(key) ? key : [key] });
       });
-      toast({ title: "Amendment saved", description: "Record has been updated." });
+      toast({
+        title: "Amendment saved",
+        description: data?.reapprovalRequired
+          ? "Identity details changed. The record is now pending and must be screened again."
+          : "Record has been updated.",
+      });
       onOpenChange(false);
     },
     onError: (err: Error) => {
@@ -67,25 +113,43 @@ export function AmendDialog({
       for (const f of section.fields) {
         const oldVal = initialValues[f.key] ?? null;
         const newVal = values[f.key] ?? null;
-        const oldStr = oldVal === null || oldVal === undefined ? "" : String(oldVal);
-        const newStr = newVal === null || newVal === undefined ? "" : String(newVal);
-        if (oldStr !== newStr) out[f.key] = newVal === "" ? null : newVal;
+        const oldStr = f.type === "bank-list"
+          ? JSON.stringify(Array.isArray(oldVal) ? oldVal : [])
+          : oldVal === null || oldVal === undefined ? "" : String(oldVal);
+        const newStr = f.type === "bank-list"
+          ? JSON.stringify(Array.isArray(newVal) ? newVal : [])
+          : newVal === null || newVal === undefined ? "" : String(newVal);
+        if (oldStr !== newStr) {
+          out[f.key] = f.type === "bank-list"
+            ? (Array.isArray(newVal) ? newVal : [])
+            : newVal === "" ? null : newVal;
+        }
       }
     }
     return out;
   };
 
   const handleSave = () => {
-    if (!unlocked) { requestUnlock(handleSave); return; }
     const changes = diff();
     if (Object.keys(changes).length === 0) {
       toast({ title: "No changes", description: "Modify at least one field to save." });
+      return;
+    }
+    // Pass the already-computed payload through the unlock callback. Calling
+    // handleSave again would reuse the pre-unlock `unlocked` closure and reopen
+    // the password prompt instead of saving.
+    if (!unlocked) {
+      requestUnlock(() => saveMutation.mutate(changes));
       return;
     }
     saveMutation.mutate(changes);
   };
 
   const setField = (key: string, val: any) => setValues((v) => ({ ...v, [key]: val }));
+  const updateBank = (fieldKey: string, index: number, key: keyof AmendBankEntry, value: string) => {
+    const banks: AmendBankEntry[] = Array.isArray(values[fieldKey]) ? values[fieldKey] : [];
+    setField(fieldKey, banks.map((bank, i) => i === index ? { ...bank, [key]: value } : bank));
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!saveMutation.isPending) onOpenChange(o); }}>
@@ -110,11 +174,67 @@ export function AmendDialog({
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {section.fields.map((f) => (
-                  <div key={f.key} className={f.colSpan === 2 || f.type === "textarea" ? "sm:col-span-2" : ""}>
+                  <div key={f.key} className={f.colSpan === 2 || f.type === "textarea" || f.type === "bank-list" ? "sm:col-span-2" : ""}>
                     <Label htmlFor={`amend-${f.key}`} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                       {f.label}
                     </Label>
-                    {f.type === "textarea" ? (
+                    {f.type === "bank-list" ? (
+                      <div className="mt-2 space-y-3" data-testid={`amend-bank-list-${f.key}`}>
+                        {(Array.isArray(values[f.key]) ? values[f.key] : []).map((bank: AmendBankEntry, index: number) => (
+                          <div key={index} className="border border-border bg-muted/20 p-3 space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2">
+                                <Landmark className="w-4 h-4 text-primary" />
+                                <span className="text-xs font-bold uppercase tracking-wider">Additional Bank {index + 2}</span>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 text-xs text-destructive hover:text-destructive"
+                                onClick={() => {
+                                  const banks: AmendBankEntry[] = Array.isArray(values[f.key]) ? values[f.key] : [];
+                                  setField(f.key, banks.filter((_: AmendBankEntry, i: number) => i !== index));
+                                }}
+                                data-testid={`button-remove-amend-bank-${index}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                              </Button>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {BANK_FIELDS.map((bankField) => (
+                                <div key={bankField.key} className={bankField.key === "bankAddress" ? "sm:col-span-2" : ""}>
+                                  <Label htmlFor={`amend-${f.key}-${index}-${bankField.key}`} className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                    {bankField.label}
+                                  </Label>
+                                  <Input
+                                    id={`amend-${f.key}-${index}-${bankField.key}`}
+                                    type={bankField.type ?? "text"}
+                                    value={bank?.[bankField.key] ?? ""}
+                                    onChange={(e) => updateBank(f.key, index, bankField.key, e.target.value)}
+                                    className="mt-1"
+                                    data-testid={`amend-bank-${index}-${bankField.key}`}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="rounded-none h-9 text-xs font-bold uppercase tracking-wider"
+                          onClick={() => {
+                            const banks: AmendBankEntry[] = Array.isArray(values[f.key]) ? values[f.key] : [];
+                            setField(f.key, [...banks, { ...EMPTY_BANK }]);
+                          }}
+                          data-testid="button-add-amend-bank"
+                        >
+                          <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Another Bank
+                        </Button>
+                      </div>
+                    ) : f.type === "textarea" ? (
                       <Textarea
                         id={`amend-${f.key}`}
                         value={values[f.key] ?? ""}

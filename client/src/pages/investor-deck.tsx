@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   Shield, ChevronLeft, ChevronRight, Printer, Maximize2,
   FileWarning, ShieldCheck, FileText, Coins, Boxes, Database,
@@ -436,8 +435,8 @@ const slides: Slide[] = [
           <Title>Let's build the future of commodity trade</Title>
           <div className="grid sm:grid-cols-3 gap-5 mt-12 w-full max-w-3xl">
             {[
-              { icon: Mail, t: "Investor relations", d: "team@bullex.tech" },
-              { icon: Mail, t: "Trade desk", d: "trade@bullex.tech" },
+              { icon: Mail, t: "Investor relations", d: "docs@bullfrog-group.com" },
+              { icon: Mail, t: "Trade desk", d: "trade@bullfrog-group.com" },
               { icon: Phone, t: "Phone", d: "+971 58 541 6399" },
             ].map((x) => (
               <div key={x.t} className="rounded-xl p-6 border" style={{ background: C.panel, borderColor: C.line }}>
@@ -472,6 +471,11 @@ const printCss = `
   }
 }
 .deck-print { display: none; }
+@keyframes deck-slide-in {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.deck-slide-enter { animation: deck-slide-in 0.35s ease-out both; }
 `;
 
 export default function InvestorDeck() {
@@ -533,18 +537,9 @@ export default function InvestorDeck() {
           <div className="absolute top-6 left-6 md:left-10 z-10">
             <Meta index={current} total={total} tag={slide.tag} />
           </div>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={current}
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
-              className="absolute inset-0"
-            >
-              {slide.render()}
-            </motion.div>
-          </AnimatePresence>
+          <div key={current} className="absolute inset-0 deck-slide-enter">
+            {slide.render()}
+          </div>
 
           {/* click zones */}
           <button aria-label="Previous" onClick={() => go(-1)} className="absolute left-0 top-0 h-full w-[18%] cursor-w-resize" style={{ background: "transparent" }} data-testid="zone-prev" />

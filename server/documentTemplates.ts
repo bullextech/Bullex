@@ -1,14 +1,54 @@
 import type { Trade } from "@shared/schema";
+import { lpgPurposeForDocument } from "@shared/lpg-format";
+import type { LpgStsData } from "@shared/lpg-sts";
+import { renderLpgStsSpa } from "./lpg-sts-template";
 
 export interface PartyDetails {
   name?: string;
   address?: string;
   contact?: string;
+  // Person-in-charge name (e.g. from an LOI's "Attention (PIC)"); when set,
+  // the SPA renders it on the PIC line instead of the contact email.
+  pic?: string;
   bank?: string;
   swift?: string;
+  // Optional joint second company acting together with the primary party
+  // (co-seller/co-buyer). Rendered alongside the primary on documents.
+  coName?: string;
+  coAddress?: string;
+  coContact?: string;
+}
+
+export interface SpaAddendumAmendment {
+  category: string;
+  clauseNumber: string;
+  description: string;
+  existingProvision?: string;
+  amendedProvision: string;
+}
+
+export interface SpaAddendumData {
+  addendumNumber: string;
+  effectiveDate: string;
+  originalSpaNumber: string;
+  originalSpaDate: string;
+  amendments: SpaAddendumAmendment[];
+}
+
+export interface ProformaInvoiceData {
+  invoiceNumber?: string;
+  spaNumber?: string;
+  invoiceDate?: string;
+  validUntil?: string;
+  deliveryTerm?: string;
+  shipmentWindow?: string;
+  packing?: string;
+  totalAmount?: string;
 }
 
 export interface ProductDetails {
+  spaVariant?: "standard" | "lpg-sts";
+  lpgSts?: LpgStsData;
   commodity?: string;
   origin?: string;
   quantity?: string;
@@ -90,26 +130,151 @@ export interface ProductDetails {
   agentSwift?: string;
   // Transaction Feasibility Report — flexible key/value map of all TFR fields
   tfrData?: Record<string, string>;
+  // FOB Procedure (EN590) — flexible key/value map of all procedure fields
+  fobData?: Record<string, string>;
+  // DLC Draft MT700 — flexible key/value map of all SWIFT MT700 fields
+  dlcData?: Record<string, string>;
+  // Performance Bank Guarantee Draft MT760 — flexible key/value map of all SWIFT MT760 fields
+  pbgData?: Record<string, string>;
+  // Proforma Invoice — commercial terms inherited from an approved SPA.
+  piData?: ProformaInvoiceData;
+  // SPA Addendum — selected clause amendments linked to an existing SPA.
+  addendumData?: SpaAddendumData;
+}
+
+// SWIFT-structure sanitization shared by the MT700/MT760 draft templates:
+// braces open/close message blocks, ":NN:" starts a new field tag and "-}"
+// terminates block 4 — user input must never carry these.
+function swiftCleanLine(s: string): string {
+  return String(s).replace(/[{}]/g, "").replace(/[\r\n\u0000-\u001f]+/g, " ").trim();
+}
+function swiftCleanBlock(s: string): string {
+  return String(s)
+    .split(/\r\n?|\n/)
+    .filter(l => !/^\s*(:\d{2}[A-Z]?:|-\})/.test(l))
+    .map(l => l.replace(/[{}]/g, "").replace(/[\u0000-\u001f]/g, ""))
+    .join("\n")
+    .trim();
 }
 
 const today = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
 const v = (val?: string, fallback = "_______________") => val?.trim() || fallback;
 
+// Renders a party's company name, joining a joint second company when present
+// ("Primary Co jointly with Second Co"). Falls back like v() when both blank.
+function partyName(p?: PartyDetails, fallback?: string): string {
+  const primary = p?.name?.trim() || fallback?.trim() || "";
+  const co = p?.coName?.trim() || "";
+  if (primary && co) return `${primary} jointly with ${co}`;
+  return v(primary || co);
+}
+
+// Renders a per-party field (address/contact) for a possibly-joint party:
+// both values present → "primary / co"; otherwise whichever exists.
+function partyField(primary?: string, co?: string): string {
+  const a = (primary || "").trim();
+  const b = (co || "").trim();
+  if (a && b) return `${a} / ${b}`;
+  return v(a || b);
+}
+
+// Joint second company rendered as its OWN labeled block, immediately after
+// the primary party's block (never merged into the primary party's lines).
+// Labels are prefixed ("Co-Seller Company") so parsers can round-trip them
+// without colliding with the primary "Company:" labels. Returns "" when the
+// party has no joint co-company.
+function coPartyBlock(label: "Co-Seller" | "Co-Buyer", p?: PartyDetails): string {
+  const co = p?.coName?.trim();
+  if (!co) return "";
+  return `
+
+${label.toUpperCase()} DETAILS (JOINT ${label === "Co-Seller" ? "SELLER" : "BUYER"})
+${label} Company: ${co}
+${label} Address: ${v(p?.coAddress)}
+${label} Contact: ${v(p?.coContact)}`;
+}
+
 function tradeBlock(trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails): string {
   const cur = product?.currency || trade?.currency || "USD";
   return `Commodity: ${v(product?.commodity, trade?.commodity)}
 Quantity: ${v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined)}
+Packing: ${v(product?.packing)}
 Origin: ${v(product?.origin, trade?.origin)}
 Unit Price: ${cur} ${v(product?.price, trade ? trade.pricePerUnit.toLocaleString() : undefined)}
 Currency: ${cur}
 Incoterm: ${v(product?.incoterm, trade?.incoterm)}
-Buyer: ${v(buyer?.name, trade?.buyerName)}
-Seller: ${v(seller?.name, trade?.sellerName)}`;
+Buyer: ${v(buyer?.name, trade?.buyerName)}${buyer?.coName?.trim() ? `\nCo-Buyer: ${buyer.coName.trim()}` : ""}
+Seller: ${v(seller?.name, trade?.sellerName)}${seller?.coName?.trim() ? `\nCo-Seller: ${seller.coName.trim()}` : ""}`;
+}
+
+// Parse the enquiry spec blob (one spec per line in the form
+// `Parameter: Specification (Rejection: X) [Method: Y]`) into structured rows
+// [parameter, specification, rejection, testMethod]. Uses the same end-anchored
+// token rules as the enquiry/document editors: strip `[Method: …]` first, then
+// `(Rejection: …)`, then split the remainder on the first colon. Lines that are
+// already pipe-delimited are passed through; unstructured lines fall back to a
+// single readable row (whole text in the Parameter column).
+export function parseSpecBlobRows(blob?: string): [string, string, string, string][] {
+  const raw = (blob || "").trim();
+  if (!raw) return [];
+  const cell = (s: string) => (s || "").replace(/\|/g, "/").trim();
+  const rows: [string, string, string, string][] = [];
+  for (const lineRaw of raw.split("\n")) {
+    const line = lineRaw.trim();
+    if (!line) continue;
+    if (line.includes("|")) {
+      const c = line.split("|").map((x) => x.trim());
+      if (c.filter(Boolean).length === 0) continue;
+      rows.push([cell(c[0] || ""), cell(c[1] || ""), cell(c[2] || ""), cell(c[3] || "")]);
+      continue;
+    }
+    let rest = line;
+    let testMethod = "";
+    let rejection = "";
+    const methodMatch = rest.match(/\s*\[Method:\s*([\s\S]*?)\]\s*$/i);
+    if (methodMatch) {
+      testMethod = methodMatch[1].trim();
+      rest = rest.replace(/\s*\[Method:\s*[\s\S]*?\]\s*$/i, "").trim();
+    }
+    const rejMatch = rest.match(/\s*\(Rejection:\s*([\s\S]*?)\)\s*$/i);
+    if (rejMatch) {
+      rejection = rejMatch[1].trim();
+      rest = rest.replace(/\s*\(Rejection:\s*[\s\S]*?\)\s*$/i, "").trim();
+    }
+    let parameter = rest;
+    let specification = "";
+    const colonIdx = rest.indexOf(":");
+    if (colonIdx > -1) {
+      parameter = rest.slice(0, colonIdx).trim();
+      specification = rest.slice(colonIdx + 1).trim();
+    }
+    rows.push([cell(parameter), cell(specification), cell(rejection), cell(testMethod)]);
+  }
+  return rows;
+}
+
+// Build a pipe-delimited spec table block (header + one row per spec) that the
+// generic DOCX/PDF builders render as a real bordered table.
+export function specTable(product?: ProductDetails): string {
+  const header = "Parameter | Specification | Rejection | Test Method";
+  const rows = parseSpecBlobRows(product?.qualitySpecs);
+  if (rows.length === 0) {
+    return `${header}\n_______________ | _______________ | _______________ | _______________`;
+  }
+  const lines = [header];
+  for (const [a, b, c, d] of rows) {
+    // Grade markers survive the existing four-column downstream parser, while
+    // separating the two independently specified LPG grades in output.
+    if (a === "Propane grade" && rows.some(r => r[0] === "n-Butane grade")) {
+      lines.push("", "Quality Specifications:", header);
+    }
+    lines.push(`${a || "-"} | ${b || "-"} | ${c || "-"} | ${d || "-"}`);
+  }
+  return lines.join("\n");
 }
 
 function qualityBlock(product?: ProductDetails): string {
-  if (!product?.qualitySpecs) return `Quality Specifications: _______________`;
-  return `Quality Specifications:\n${product.qualitySpecs}`;
+  return `Quality Specifications:\n${specTable(product)}`;
 }
 
 function deliveryBlock(trade?: Trade, product?: ProductDetails): string {
@@ -132,7 +297,8 @@ Performance Bond: 2% of contract value`;
 function inspectionBlock(product?: ProductDetails): string {
   const agency = product?.analysisAgency?.trim();
   const contact = product?.analysisAgencyContact?.trim();
-  const agencyName = agency || "SGS / Bureau Veritas";
+  const dualGradeLpg = product?.qualitySpecs?.includes("n-Butane grade:") && product?.qualitySpecs?.includes("Propane grade:");
+  const agencyName = agency || (dualGradeLpg ? "SGS or its appointed representative agent or affiliated company" : "SGS / Bureau Veritas");
   let block = `INSPECTION & ANALYSIS
 Analysis Agency: ${agencyName}`;
   if (contact) block += `\nAgency Contact: ${contact}`;
@@ -152,7 +318,7 @@ Company: ${v(buyer?.name, trade?.buyerName)}
 Address: ${v(buyer?.address)}
 Contact: ${v(buyer?.contact)}
 Bank: ${v(buyer?.bank)}
-SWIFT/BIC: ${v(buyer?.swift)}`;
+SWIFT/BIC: ${v(buyer?.swift)}${coPartyBlock("Co-Buyer", buyer)}`;
 }
 
 function sellerBlock(seller?: PartyDetails, trade?: Trade): string {
@@ -161,7 +327,7 @@ Company: ${v(seller?.name, trade?.sellerName)}
 Address: ${v(seller?.address)}
 Contact: ${v(seller?.contact)}
 Bank: ${v(seller?.bank)}
-SWIFT/BIC: ${v(seller?.swift)}`;
+SWIFT/BIC: ${v(seller?.swift)}${coPartyBlock("Co-Seller", seller)}`;
 }
 
 const templates: Record<string, (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => string> = {
@@ -179,7 +345,12 @@ const templates: Record<string, (trade?: Trade, buyer?: PartyDetails, seller?: P
     return `TRANSACTION FEASIBILITY REPORT
 
 Date: ${today()}
-Reference: ${trade?.tradeRef || g("reference")}
+Reference: ${trade?.tradeRef || g("reference")}${t.basisDocuments && String(t.basisDocuments).trim() ? `
+Basis Documents: ${String(t.basisDocuments).trim()}` : ""}
+
+To: ${g("addressedToName")}
+Address: ${g("addressedToAddress")}
+Attn.: ${g("addressedToAttn", "Trade Finance Department")}
 
 1. EXECUTIVE SUMMARY
 
@@ -353,12 +524,168 @@ ${cb(t.recommendation, ["Proceed Immediately", "Proceed Subject to Conditions", 
 
 Conditions Precedent (if applicable):
 ${g("conditionsPrecedent", "—")}
+${t.additionalDetails ? `
+12. ADDITIONAL DETAILS
 
+${String(t.additionalDetails).trim()}
+` : ""}
 Prepared By: ${g("preparedBy")}
 Date: ${g("preparedDate", today())}
 Approved By: ${g("approvedBy")}
 Date: ${g("approvedDate")}
 `;
+  },
+
+  FOB_PROCEDURE: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const f = product?.fobData || {};
+    const g = (key: string, fb = "_______________") => {
+      const val = f[key];
+      return (val !== undefined && String(val).trim()) ? String(val).trim() : fb;
+    };
+    const isExport = (f.direction || "").toLowerCase().startsWith("export");
+    const prod = g("product", "Diesel EN590 / AGO 10ppm");
+    const terminal = g("terminal", "Nargis Terminal");
+    const location = g("location", "Mersin, Turkey");
+    const inspector = g("inspectionAgency", "SGS / Saybolt");
+
+    const header = `${isExport ? "FOB EXPORT (SELL) PROCEDURE" : "FOB IMPORT (BUY) PROCEDURE"}
+${"=".repeat(50)}
+
+Date: ${today()}
+Reference: ${g("reference", trade?.tradeRef || "_______________")}
+Transaction Side: ${isExport ? "Export / Seller" : "Import / Buyer"}
+Product: ${prod}
+Terminal: ${terminal}
+Terminal Location: ${location}
+Tank Number: ${g("tankNumber")}
+Quantity: ${g("quantity")}
+Price Basis: ${g("price")}
+Buyer: ${g("buyer", buyer?.name || trade?.buyerName)}
+Seller: ${g("seller", seller?.name || trade?.sellerName)}
+Inspection Agency: ${inspector}
+Payment Instrument: ${g("paymentInstrument", "Irrevocable LC / SBLC / MT103")}`;
+
+    const importBody = `PROCEDURAL STEPS
+We hereby agree to purchase ${prod} on an FOB Tank / FOB Terminal basis at ${terminal}. In order to complete the transaction, we request you to follow the steps mentioned below. Please be advised that all steps are mandatory to follow to complete the transaction.
+
+STEP ONE - PRODUCT DUE DILIGENCE DOCUMENTS
+The Buyer shall obtain and verify the following from the Seller:
+[ ] Terminal Storage Agreement (TSA)
+[ ] Product Ownership Declaration
+[ ] Product Passport / Specification Sheet
+[ ] Latest Quality Report issued by ${inspector} as Inspection Agency
+[ ] Tank Details - Tank Number, Tank Capacity, Product Quantity Available, Terminal Location
+[ ] Authorisation from the Terminal allowing the Seller to dispose of the product
+
+STEP TWO - SPA EXECUTION
+Execute a Sales and Purchase Agreement (SPA) containing:
+[ ] Product specification
+[ ] Quantity
+[ ] Price formula
+[ ] FOB point
+[ ] Incoterms 2020 FOB provisions
+[ ] Inspection procedure
+[ ] Transfer procedure
+[ ] Payment terms
+[ ] Title transfer clause
+[ ] Arbitration clause (ICC preferred)
+
+STEP THREE - LATEST PROOF OF PRODUCT
+The Seller provides:
+[ ] Fresh Tank Storage Receipt
+[ ] Product Passport
+[ ] Tank Certificate
+[ ] Latest SGS Report
+[ ] Authority to Verify (ATV)
+The Buyer verifies directly with the terminal and the inspection company.
+
+STEP FOUR - DIP TEST / QUANTITY VERIFICATION
+The Buyer appoints an accredited inspector (${inspector}) who conducts:
+[ ] Tank dipping
+[ ] Sampling
+[ ] Quantity measurement
+[ ] Quality verification
+The Buyer receives the Quantity Report and the Quality Report.
+
+STEP FIVE - PAYMENT
+Upon satisfactory verification, the Buyer pays in accordance with the SPA.
+If the product belongs to a different company, the Seller must provide an Authorisation to Sell and Collect (ATSC) from the original owner. The original owner must authenticate the Seller's bank account (for receipt of payment) to the Buyer's official email, with a copy to the Seller and the tank/terminal owner, indicating their no objection to transfer of payment to the Seller's account, and must attach a board resolution or power of attorney (if applicable) indicating irrevocable authority to send the email for this transaction.
+The Terminal Owner must issue a Conditional Release of Product Certificate to the Buyer indicating ownership details, the Seller's details, product, value and storage details, irrevocably confirming their ability, readiness and acceptance to transfer ownership of the cargo to the Buyer against proof of successful transfer of funds by MT103 to the Seller's account.
+[ ] Ownership-transfer documentation executed
+[ ] Terminal acknowledges the Buyer (or its nominated company) as new owner and issues a new Ownership Certificate in its favour
+
+STEP SIX - LIFTING OF PRODUCT
+[ ] Buyer nominates vessel, barge, tank trucks or pipeline transfer
+[ ] Terminal issues loading authorisation`;
+
+    const exportBody = `TRANSACTION PROCEDURE
+We hereby agree to sell ${prod} on an FOB Tank / FOB Terminal basis at ${terminal}, ${location}. To complete the transaction, the Buyer must follow the transaction procedure as per below:
+
+STEP ONE - BUYER'S KYC
+The Buyer shall prepare and be able to submit:
+[ ] Certificate of Incorporation / Company Registration
+[ ] Tax Registration and Signatory Authority
+[ ] Financial Capability / Proof of Funds / Bank's confirmation to issue LC or Bank Guarantee
+
+STEP TWO - OFFER AND SPA EXECUTION
+The Seller issues and executes:
+[ ] Soft Corporate Offer (SCO) or Full Corporate Offer (FCO)
+[ ] Sales and Purchase Agreement (specification, quantity, price formula, FOB point)
+[ ] Incoterms 2020 FOB provisions
+[ ] Inspection and transfer procedure
+[ ] Payment terms and title-transfer clause
+[ ] Arbitration clause (ICC preferred)
+[ ] Product Passport / Specification Sheet
+[ ] Quality Report issued by ${inspector} as Inspection Agency
+[ ] Tank details (number, capacity, quantity, location)
+[ ] Terminal authorisation to dispose of the product
+If the product is owned by a third party, obtain an Authorisation to Sell and Collect (ATSC) from the original owner.
+
+STEP THREE - PROOF OF PRODUCT
+The Seller issues to the Buyer:
+[ ] Fresh Tank Storage Receipt
+[ ] Product Passport
+[ ] Tank Certificate
+[ ] Latest SGS Report
+[ ] Authority to Verify (ATV) so the Buyer can confirm with the terminal
+
+STEP FOUR - PAYMENT SECURITY
+Before permitting the dip test or any transfer, the Seller shall secure:
+[ ] Buyer's Irrevocable LC / SBLC or Bank Payment Undertaking, received and verified
+[ ] Agreement on the Terminal Conditional Release Certificate mechanism
+
+STEP FIVE - DIP TEST AND QUANTITY VERIFICATION
+The Seller facilitates the Buyer's inspector (${inspector}):
+[ ] Grant the inspector tank access
+[ ] Tank dipping and sampling
+[ ] Quantity and quality verification
+[ ] Joint Quantity and Quality Reports issued
+
+STEP SIX - PAYMENT AND TITLE TRANSFER
+If the product belongs to a third party, the Seller shall provide the ATSC from the original owner; the original owner authenticates the Seller's bank account by official email to the Buyer (copied to the Seller and the terminal owner) confirming no objection to payment.
+[ ] Terminal issues a Conditional Release of Product Certificate to the Buyer
+[ ] Payment received by MT103 to the authenticated account
+[ ] Ownership-transfer documentation executed
+[ ] Terminal issues a new Ownership Certificate in the Buyer's favour
+
+STEP SEVEN - LOADING AND DELIVERY
+Against confirmed payment:
+[ ] Receive the Buyer's vessel, barge or truck nomination
+[ ] Terminal issues loading authorisation
+[ ] Loading commences`;
+
+    const common = `${isExport ? "SELLER" : "BUYER"}
+Company: ${isExport ? v(seller?.name, g("seller")) : v(buyer?.name, g("buyer"))}
+Name: _______________
+Title: _______________
+
+The digital signature, date and time of signing, and IP address of the signing party are captured electronically and appended below upon execution.`;
+
+    return `${header}
+
+${isExport ? exportBody : importBody}
+
+${common}`;
   },
 
   SCO: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
@@ -372,12 +699,12 @@ Reference: ${trade?.tradeRef || "_______________"}
 TO:
 Company: ${v(buyer?.name, trade?.buyerName)}
 Address: ${v(buyer?.address)}
-Attention: ${v(buyer?.contact)}
+Attention: ${v(buyer?.contact)}${coPartyBlock("Co-Buyer", buyer)}
 
 FROM (SELLER):
 Company: ${v(seller?.name, trade?.sellerName)}
 Address: ${v(seller?.address)}
-Attention: ${v(seller?.contact)}
+Attention: ${v(seller?.contact)}${coPartyBlock("Co-Seller", seller)}
 
 ${"─".repeat(50)}
 
@@ -391,9 +718,12 @@ ${"─".repeat(60)}
 04  │ Incoterms                   │ ${v(product?.incoterm, trade?.incoterm)}
 05  │ Delivery Period             │ ${v(product?.laycan)}
 06  │ Price                       │ ${cur} ${v(product?.price, trade?.pricePerUnit?.toString())} per MT
-07  │ Quality Specifications      │ ${v(product?.qualitySpecs)}
+07  │ Quality Specifications      │ See Quality Specifications table below
 08  │ Payment Terms               │ ${v(product?.paymentTerms)}
 09  │ Inspection                  │ ${v(product?.analysisAgency, "SGS, Intertek or Bureau Veritas")}
+
+Quality Specifications
+${specTable(product)}
 
 ${"─".repeat(50)}
 
@@ -404,7 +734,7 @@ Upon acceptance of this SCO by the Buyer, both parties agree to proceed with the
 ${"─".repeat(50)}
 
 AUTHORISED SIGNATORY
-For and on behalf of: ${v(seller?.name, trade?.sellerName)}
+For and on behalf of: ${partyName(seller, trade?.sellerName)}
 Name: _______________
 Title: _______________
 Date: ${today()}
@@ -430,9 +760,9 @@ ${"─".repeat(70)}
  Effective Date                │ Date of last authorized signature
 ${"─".repeat(70)}
  Seller                        │ ${v(seller?.name, trade?.sellerName)}
-${"─".repeat(70)}
+${"─".repeat(70)}${seller?.coName?.trim() ? `\n Co-Seller                     │ ${seller.coName.trim()}\n${"─".repeat(70)}` : ""}
  Buyer                         │ ${v(buyer?.name, trade?.buyerName)}
-${"─".repeat(70)}
+${"─".repeat(70)}${buyer?.coName?.trim() ? `\n Co-Buyer                      │ ${buyer.coName.trim()}\n${"─".repeat(70)}` : ""}
  Legal Model of Contract       │ Sales and Purchase Agreement (SPA)
 ${"─".repeat(70)}
  Recap Validity                │ ${recapVal}
@@ -449,11 +779,13 @@ ${"─".repeat(70)}
 ${"─".repeat(70)}
  Country of Origin             │ ${v(product?.origin, trade?.origin)}
 ${"─".repeat(70)}
- Quality / Specification       │ ${product?.qualitySpecs?.trim() || "As per Annex 1 – Product Specifications"}
+ Quality / Specification       │ As per Annexure I - Product Specifications
 ${"─".repeat(70)}
  Delivery Basis                │ ${v(product?.deliveryBasis, product?.incoterm || trade?.incoterm)}
 ${"─".repeat(70)}
  Contractual Quantity          │ ${v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined)}
+${"─".repeat(70)}
+ Packing                       │ ${v(product?.packing)}
 ${"─".repeat(70)}
 
 
@@ -486,7 +818,7 @@ ${"─".repeat(70)}
 
 
 For and on behalf of the Seller:          For and on behalf of the Buyer:
-${v(seller?.name, trade?.sellerName).padEnd(42)}${v(buyer?.name, trade?.buyerName)}
+${partyName(seller, trade?.sellerName).padEnd(42)}${partyName(buyer, trade?.buyerName)}
 
 Name: ${v(seller?.contact).padEnd(36)}Name: ${v(buyer?.contact)}
 Authorised Signatory: _______________     Authorised Signatory: _______________
@@ -499,15 +831,11 @@ Signature & Stamp:                        Signature & Stamp:
 
 
 ${"═".repeat(70)}
-⬛ ANNEXURE I – COMMODITY SPECIFICATIONS
+ANNEXURE I - COMMODITY SPECIFICATIONS
 ${"═".repeat(70)}
 
-${"═".repeat(70)}
- Sr. No. │ Parameters                  │ Details
-${"═".repeat(70)}
- 08      │ Commodity                   │ ${v(product?.qualitySpecs)}
-         │ Specifications              │
-${"═".repeat(70)}
+PRODUCT SPECIFICATION
+${specTable(product)}
 ${product?.specialNote ? `\nSPECIAL NOTES\n${product.specialNote}\n` : ""}
 `;
   },
@@ -548,15 +876,19 @@ DOCUMENTATION
 - Commercial Invoice
 - Packing List
 - Insurance Certificate (CIF terms)
+${product?.docsForPayment?.trim() ? `\nDocuments for Payment: ${product.docsForPayment.trim()}` : ""}
+${product?.contractConfirmation?.trim() ? `\nContract Confirmation: ${product.contractConfirmation.trim()}` : ""}
+${product?.otherTerms?.trim() ? `\nOTHER TERMS & CONDITIONS\nOther Terms: ${product.otherTerms.trim()}` : ""}
+${product?.compliance?.trim() ? `\nCOMPLIANCE\nCompliance: ${product.compliance.trim()}` : ""}
 
 VALIDITY
-This FCO is valid for five (5) working days from the date of issuance.
+${product?.validity?.trim() ? `Offer Validity: ${product.validity.trim()}` : "This FCO is valid for five (5) working days from the date of issuance."}
 ${specialNoteBlock(product)}
 
 AUTHORISED SIGNATORY
 Name: _______________
 Title: _______________
-Company: ${v(seller?.name, trade?.sellerName)}
+Company: ${partyName(seller, trade?.sellerName)}
 Date: ${today()}
 Signature: _______________`,
 
@@ -578,13 +910,13 @@ ${sellerBlock(seller, trade)}
 COMMODITY DETAILS
 ${tradeBlock(trade, buyer, seller, product)}
 
-${qualityBlock(product)}
+${qualityBlock(product)}${(product?.contractConfirmation || "").trim() ? `\nContract Confirmation: ${(product!.contractConfirmation || "").trim()}` : ""}
 
 DELIVERY TERMS
 ${deliveryBlock(trade, product)}
 
 PAYMENT TERMS
-${paymentBlock(product)}
+${paymentBlock(product)}${(product?.docsForPayment || "").trim() ? `\nDocuments for Payment: ${(product!.docsForPayment || "").trim()}` : ""}${(product?.otherTerms || "").trim() ? `\n\nOTHER TERMS & CONDITIONS\n${(product!.otherTerms || "").trim()}` : ""}${(product?.compliance || "").trim() ? `\n\nCOMPLIANCE\n${(product!.compliance || "").trim()}` : ""}
 
 BUYER'S UNDERTAKING
 1. The Buyer confirms readiness, willingness, and ability to purchase the above commodity.
@@ -608,11 +940,159 @@ ${specialNoteBlock(product)}
 AUTHORISED SIGNATORY
 Name: _______________
 Title: _______________
-Company: ${v(buyer?.name, trade?.buyerName)}
+Company: ${partyName(buyer, trade?.buyerName)}
 Date: ${today()}
 Signature: _______________`,
 
+  ADDENDUM: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const data = product?.addendumData;
+    const amendments = data?.amendments || [];
+    const originalSpaNumber = data?.originalSpaNumber || product?.dealRecapNumber || trade?.tradeRef || "_______________";
+    const originalSpaDate = data?.originalSpaDate || "_______________";
+    const addendumNumber = data?.addendumNumber || "1";
+    const effectiveDate = data?.effectiveDate || today();
+    const sellerName = v(seller?.name, trade?.sellerName);
+    const sellerAddress = v(seller?.address);
+    const buyerName = v(buyer?.name, trade?.buyerName);
+    const buyerAddress = v(buyer?.address);
+    const commodity = v(product?.commodity, trade?.commodity);
+    const categoryLabel = (category: string) => ({
+      commercial_terms: "COMMERCIAL TERMS",
+      price: "PRICE",
+      payment_terms: "PAYMENT TERMS",
+      delivery: "DELIVERY / SHIPMENT",
+      documentation: "DOCUMENTATION",
+      entity: "SELLER / NOMINATED / RECEIVING ENTITY",
+      banking: "BANKING ARRANGEMENTS",
+      governing_law: "GOVERNING LAW AND DISPUTE RESOLUTION",
+      specific_clause: "SPECIFIC CLAUSE",
+      custom_clause: "CUSTOM CLAUSE",
+    }[category] || category.replace(/_/g, " ").toUpperCase());
+    const cleanTableCell = (value?: string) =>
+      (value || "—").replace(/\|/g, "/").replace(/\r?\n+/g, "; ").trim() || "—";
+    const cleanNarrative = (value?: string) =>
+      (value || "").replace(/\|/g, "/").replace(/\r?\n/g, "\n").trim();
+
+    const selectedSections = amendments.map((amendment, index) => {
+      const number = index + 2;
+      const existing = amendment.existingProvision?.trim()
+        ? `\nExisting Provision:\n“${cleanNarrative(amendment.existingProvision)}”\n`
+        : "";
+      return `${number}. AMENDMENT TO ${categoryLabel(amendment.category)} — CLAUSE ${cleanNarrative(amendment.clauseNumber)}
+
+The Parties agree that Clause ${cleanNarrative(amendment.clauseNumber)} of the Original SPA concerning ${cleanNarrative(amendment.description)} is amended as follows:
+${existing}
+The relevant provision shall be deleted and replaced, supplemented and/or clarified by the following:
+
+“${cleanNarrative(amendment.amendedProvision)}”
+
+This amendment shall take effect on ${effectiveDate}.`;
+    }).join("\n\n");
+
+    const commercialCategories = new Set([
+      "commercial_terms", "price", "payment_terms", "delivery",
+      "documentation", "entity", "banking",
+    ]);
+    const commercialAmendments = amendments.filter((item) => commercialCategories.has(item.category));
+    const annexA = commercialAmendments.length ? `
+
+ANNEXURE A
+REVISED COMMERCIAL TERMS
+
+Commercial Term | Original SPA | Amended Term | Effective Date
+${commercialAmendments.map((item) =>
+  `${cleanTableCell(item.description)} | ${cleanTableCell(item.existingProvision)} | ${cleanTableCell(item.amendedProvision)} | ${cleanTableCell(effectiveDate)}`
+).join("\n")}
+` : "";
+    const annexB = `
+
+ANNEXURE B
+CLAUSE-BY-CLAUSE AMENDMENTS
+
+Original SPA Clause | Existing Provision | Amended Provision | Effective Date
+${amendments.map((item) =>
+  `Clause ${cleanTableCell(item.clauseNumber)} | ${cleanTableCell(item.existingProvision)} | ${cleanTableCell(item.amendedProvision)} | ${cleanTableCell(effectiveDate)}`
+).join("\n")}`;
+    const standardStart = amendments.length + 2;
+
+    return `ADDENDUM NO. ${addendumNumber} TO SALE AND PURCHASE AGREEMENT NO. ${originalSpaNumber}
+
+This Addendum No. ${addendumNumber} (“Addendum”) is made and entered into on ${effectiveDate},
+
+BY AND BETWEEN:
+
+${sellerName}, having its registered office at ${sellerAddress}, hereinafter referred to as the “Seller”;
+
+AND
+
+${buyerName}, having its registered office at ${buyerAddress}, hereinafter referred to as the “Buyer”.
+
+The Seller and Buyer are individually referred to as a “Party” and collectively as the “Parties”.
+
+RECITALS
+
+A. The Parties entered into a Sale and Purchase Agreement dated ${originalSpaDate}, bearing reference number ${originalSpaNumber} (the “Original SPA”), concerning the sale and purchase of ${commodity}.
+
+B. The Parties have mutually agreed to amend, supplement and/or clarify the provisions selected below.
+
+C. The Parties wish to record those amendments in this Addendum without altering any other provision of the Original SPA.
+
+NOW, THEREFORE, IT IS AGREED AS FOLLOWS:
+
+1. PURPOSE OF THE ADDENDUM
+
+This Addendum forms an integral part of the Original SPA and shall be read together with it.
+
+Except as expressly amended or supplemented by this Addendum, all terms, conditions, representations, warranties, obligations and provisions of the Original SPA remain unchanged and in full force and effect.
+
+${selectedSections}
+
+${standardStart}. EFFECTIVE DATE
+
+This Addendum becomes effective on ${effectiveDate} upon execution by duly authorised representatives of both Parties.
+
+${standardStart + 1}. NO NOVATION AND CONTINUING VALIDITY
+
+Unless expressly stated otherwise, this Addendum amends and supplements the Original SPA and does not constitute a novation, rescission or termination. All rights and obligations accrued before the Effective Date remain unaffected.
+
+In the event of any inconsistency between this Addendum and the Original SPA, this Addendum prevails only to the extent of that inconsistency.
+
+${standardStart + 2}. COUNTERPARTS AND ELECTRONIC SIGNATURE
+
+This Addendum may be executed in counterparts. Electronic signatures, digitally signed copies and scanned counterparts exchanged electronically shall, to the extent permitted by applicable law, have the same legal effect as originals.
+
+${standardStart + 3}. ENTIRE AGREEMENT, CONFIDENTIALITY AND AUTHORITY
+
+This Addendum, together with the Original SPA and its duly executed annexures, schedules and prior amendments, constitutes the entire agreement concerning the subject matter amended herein.
+
+The confidentiality obligations in the Original SPA apply equally to this Addendum. Each Party represents that it has full authority to enter into this Addendum and that its signatory is duly authorised to bind it.
+
+IN WITNESS WHEREOF, the Parties have executed this Addendum through their duly authorised representatives.
+
+FOR AND ON BEHALF OF THE SELLER
+
+Legal Name: ${sellerName}
+Address: ${sellerAddress}
+Name: __________________________
+Title: __________________________
+Signature: ______________________
+Date: ___________________________
+Company Seal: ___________________
+
+FOR AND ON BEHALF OF THE BUYER
+
+Legal Name: ${buyerName}
+Address: ${buyerAddress}
+Name: __________________________
+Title: __________________________
+Signature: ______________________
+Date: ___________________________
+Company Seal: ___________________${annexA}${annexB}
+`;
+  },
+
   SPA: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    if (product?.spaVariant === "lpg-sts") return renderLpgStsSpa(trade, buyer, seller, product);
     const spaNum = product?.dealRecapNumber || trade?.tradeRef || "_______________";
     const curDate = today();
     const commodity = v(product?.commodity, trade?.commodity);
@@ -624,20 +1104,26 @@ Signature: _______________`,
     const cur = product?.currency || trade?.currency || "USD";
     const incoterm = v(product?.incoterm, trade?.incoterm);
     const paymentTerms = product?.paymentTerms?.trim() || "Irrevocable, Transferable, Confirmed Documentary Letter of Credit (DLC), payable at sight, issued from a prime international bank";
-    const qualitySpecs = v(product?.qualitySpecs);
     const laycan = v(product?.laycan);
     const sName = v(seller?.name, trade?.sellerName);
     const sAddr = v(seller?.address);
-    const sPic = v(seller?.contact);
+    const sPic = v(seller?.pic, seller?.contact);
     const bName = v(buyer?.name, trade?.buyerName);
     const bAddr = v(buyer?.address);
-    const bPic = v(buyer?.contact);
+    const bPic = v(buyer?.pic, buyer?.contact);
     const sellerBankName = v(seller?.bank);
     const sellerSwift = v(seller?.swift);
     const buyerBankName = v(buyer?.bank);
     const buyerSwift = v(buyer?.swift);
     const govLaw = v(product?.governingLaw, "Dubai, UAE");
     const arbitration = v(product?.governingLaw, "Dubai International Arbitration Centre (DIAC)");
+    // Optional terms carried over from a parent LOI; only rendered when present so
+    // the standard SPA (e.g. derived from a Deal Recap) is unaffected.
+    const contractConfirmation = (product?.contractConfirmation || "").trim();
+    const docsForPayment = (product?.docsForPayment || "").trim();
+    const otherTerms = (product?.otherTerms || "").trim();
+    const compliance = (product?.compliance || "").trim();
+    const specialNote = (product?.specialNote || "").trim();
 
     return `SALES AND PURCHASE AGREEMENT (SPA)
 ${"=".repeat(60)}
@@ -651,17 +1137,17 @@ SELLER
 Name of Company: ${sName}
 Address: ${sAddr}
 PIC: ${sPic}
-Email: ${seller?.contact || "_______________"}
+Email: ${seller?.contact || "_______________"}${coPartyBlock("Co-Seller", seller)}
 
-(hereinafter referred to as the Seller, which expression unless repugnant to the context shall mean and include its permitted assigns, successors, representatives, administrators and executors)
+(hereinafter ${seller?.coName?.trim() ? "jointly and severally " : ""}referred to as the Seller, which expression unless repugnant to the context shall mean and include its permitted assigns, successors, representatives, administrators and executors)
 
 BUYER
 Name of Company: ${bName}
 Address: ${bAddr}
 PIC: ${bPic}
-Email: ${buyer?.contact || "_______________"}
+Email: ${buyer?.contact || "_______________"}${coPartyBlock("Co-Buyer", buyer)}
 
-(hereinafter referred to as the Buyer, which expression unless repugnant to the context shall mean and include its permitted assigns, successors, representatives, administrators and executors)
+(hereinafter ${buyer?.coName?.trim() ? "jointly and severally " : ""}referred to as the Buyer, which expression unless repugnant to the context shall mean and include its permitted assigns, successors, representatives, administrators and executors)
 
 WHEREAS the Seller with full corporate authority, makes an irrevocable firm commitment to deliver the Commodity on ${incoterm} basis and hereby certifies, represents and warrants, that it can fulfill the requirement of this Contract and provide the Commodity in accordance with the below mentioned mutually agreed terms and conditions;
 
@@ -719,7 +1205,8 @@ Reference to any legislation, legislative provision, enactment, rules, includes 
 
 Article 3. Name of Commodity and Specifications
 Commodity: ${commodity}
-Specifications: ${qualitySpecs}
+Specifications:
+${specTable(product)}${contractConfirmation ? `\n3.1 Cargo Confirmation: ${contractConfirmation}` : ""}
 
 Article 4. Quantity
 Total: ${quantity} Metric Tons per month (+/- 10% Buyers option)
@@ -733,7 +1220,7 @@ Article 6. Origin and Delivery
 6.3 Port of Discharge: ${dischargePort}
 
 Article 7. Packing
-Commodity shall be packed and marked in accordance with internationally accepted norms and standards applicable to the commodity.
+${product?.packing?.trim() ? `Packing: ${product.packing.trim()}\n` : ""}Commodity shall be packed and marked in accordance with internationally accepted norms and standards applicable to the commodity.
 
 Article 8. Shipment
 8.1 Latest date of shipment: ${laycan}
@@ -782,7 +1269,7 @@ Article 17. Documents to be Presented
 17.1.4 Certificate of Weight in 1 original and 3 copies issued by SGS at Loading Port certifying actual surveyed weight of cargo onboard vessel.
 17.1.5 Certificate of Origin in 1 original and 3 copies issued by any Chamber of Commerce in ${origin}.
 17.1.6 Cargo Manifest.
-17.1.7 Packing List.
+17.1.7 Packing List.${docsForPayment ? `\n17.2 Additional Documents for Payment (as agreed by the Parties): ${docsForPayment}` : ""}
 
 Article 18. Taxes
 Any export fees, taxes, duties, tariffs or other charges levied on the shipment in the country where the Commodity is loaded shall be to the sole account of the Seller. Any import fees, taxes, duties, tariffs or other charges in the country where the Commodity is unloaded shall be to the sole account of the Buyer.
@@ -836,7 +1323,7 @@ Article 25. Miscellaneous
 25.8 Counterparts: This Contract is executed in two counterparts both of which, taken together, shall be deemed to constitute the same instrument.
 25.9 Waiver: The failure by a Party to enforce any of its rights under the Contract will not constitute a waiver of those rights.
 25.10 Severance: If any provision of this Contract is prohibited or unenforceable in any jurisdiction, that provision shall be ineffective to the extent of the prohibition without invalidating the remaining provisions.
-25.11 Persons signing Contract: Each person who signs this Contract on behalf of a Party warrants that they are duly authorized by that Party to do so and that they bind that Party by their actions.
+25.11 Persons signing Contract: Each person who signs this Contract on behalf of a Party warrants that they are duly authorized by that Party to do so and that they bind that Party by their actions.${otherTerms ? `\n25.12 Other Terms and Conditions: ${otherTerms}` : ""}${compliance ? `\n25.13 Compliance: ${compliance}` : ""}${specialNote ? `\n\nSPECIAL NOTES\n${specialNote}` : ""}
 
 Article 26. Electronic Signatures and Digital Execution
 26.1 The Parties expressly agree that this Agreement and all related transaction documents, amendments, notices, invoices, shipping documents, banking communications, and commercial correspondence may be executed, transmitted, and stored electronically.
@@ -891,7 +1378,7 @@ Issued to Seller
   ${v(seller?.address)}
 
   Attention (PIC)
-  ${v(seller?.contact)}
+  ${v(seller?.contact)}${coPartyBlock("Co-Seller", seller)}
 
                      Ref
   ${refLine}
@@ -912,7 +1399,7 @@ Issued by Buyer
   ${v(buyer?.address)}
 
   Attention (PIC)
-  ${v(buyer?.contact)}
+  ${v(buyer?.contact)}${coPartyBlock("Co-Buyer", buyer)}
 
 
 ${"═".repeat(70)}
@@ -924,45 +1411,37 @@ ${"─".repeat(70)}
 ${"─".repeat(70)}
  03      │ Quantity                    │ ${v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined)}
 ${"─".repeat(70)}
- 04      │ Incoterms Terms             │ ${v(product?.incoterm, trade?.incoterm)}
+ 04      │ Packing                     │ ${v(product?.packing)}
 ${"─".repeat(70)}
- 05      │ Delivery period             │ ${v(product?.laycan)}
+ 05      │ Incoterms Terms             │ ${v(product?.incoterm, trade?.incoterm)}
 ${"─".repeat(70)}
- 06      │ Price                       │ ${cur} ${v(product?.price, trade ? trade.pricePerUnit.toLocaleString() : undefined)}
+ 06      │ Delivery period             │ ${v(product?.laycan)}
 ${"─".repeat(70)}
- 07      │ Contract Confirmation       │ ${v(product?.contractConfirmation, "Subject to Producer's Confirmation of cargo")}
+ 07      │ Price                       │ ${cur} ${v(product?.price, trade ? trade.pricePerUnit.toLocaleString() : undefined)}
 ${"─".repeat(70)}
-${(() => {
-  const specs = (product?.qualitySpecs || "").trim();
-  if (!specs) {
-    return ` 08      │ Commodity                   │ _______________\n         │ Specifications              │`;
-  }
-  const lines = specs.split("\n").map(l => l.trim()).filter(Boolean);
-  const out: string[] = [];
-  out.push(` 08      │ Commodity                   │ ${lines[0] || ""}`);
-  out.push(`         │ Specifications              │${lines[1] ? " " + lines[1] : ""}`);
-  for (let i = 2; i < lines.length; i++) {
-    out.push(`         │                             │ ${lines[i]}`);
-  }
-  return out.join("\n");
-})()}
+ 08      │ Contract Confirmation       │ ${v(product?.contractConfirmation, "Subject to Producer's Confirmation of cargo")}
 ${"─".repeat(70)}
- 09      │ Payment Terms               │ ${v(product?.paymentTerms, "By DLC against 2% Performance Bond")}
+ 09      │ Commodity Specifications    │ As per Commodity Specifications table below
 ${"─".repeat(70)}
- 10      │ Documents for Payment       │ ${v(product?.docsForPayment)}
+  10      │ Payment Terms               │ ${v(product?.paymentTerms, "By DLC against 2% Performance Bond")}
 ${"─".repeat(70)}
- 11      │ Other terms & conditions    │ ${v(product?.otherTerms)}
+  11      │ Documents for Payment       │ ${v(product?.docsForPayment)}
 ${"─".repeat(70)}
- 12      │ Compliance                  │ ${v(product?.compliance)}
+  12      │ Other terms & conditions    │ ${v(product?.otherTerms)}
+${"─".repeat(70)}
+  13      │ Compliance                  │ ${v(product?.compliance)}
 ${"═".repeat(70)}
-${product?.specialNote ? `\nSPECIAL NOTES\n${product.specialNote}\n` : ""}
+
+COMMODITY SPECIFICATIONS
+${specTable(product)}
+${(product?.loadingPort?.trim() || product?.dischargePort?.trim()) ? `\nLOGISTICS\nLoading Port: ${v(product?.loadingPort, trade?.origin)}\nDischarge Port: ${v(product?.dischargePort, trade?.destination)}\n` : ""}${product?.specialNote ? `\nSPECIAL NOTES\n${product.specialNote}\n` : ""}
 
 
 We look forward to hearing from you within the stipulated LOI Validity
 and look forward to a long term and mutually fruitful association.
 
 With warm regards,
-${v(buyer?.name, trade?.buyerName)}
+${partyName(buyer, trade?.buyerName)}
 
 
 `;
@@ -983,10 +1462,7 @@ COMMODITY DETAILS
 ${tradeBlock(trade, buyer, seller, product)}
 
 PRODUCT SPECIFICATIONS
-${product?.qualitySpecs ? product.qualitySpecs : `Grade/Quality: _______________
-Chemical Composition: _______________
-Moisture Content: _______________
-Packaging: _______________`}
+${specTable(product)}
 
 DELIVERY TERMS
 ${deliveryBlock(trade, product)}
@@ -1016,7 +1492,7 @@ ${specialNoteBlock(product)}
 AUTHORISED SIGNATORY
 Name: _______________
 Title: _______________
-Company: ${v(seller?.name, trade?.sellerName)}
+Company: ${partyName(seller, trade?.sellerName)}
 Date: ${today()}
 Signature: _______________`,
 
@@ -1064,7 +1540,7 @@ ${specialNoteBlock(product)}
 AUTHORISED SIGNATORY
 Name: _______________
 Title: _______________
-Company: ${v(buyer?.name, trade?.buyerName)}
+Company: ${partyName(buyer, trade?.buyerName)}
 Date: ${today()}
 Signature: _______________`,
 
@@ -1117,6 +1593,355 @@ Date: ${today()}
 
 Signature & Bank Seal: _______________`,
 
+  CRC: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const cur = product?.currency || trade?.currency || "USD";
+    const commodity = v(product?.commodity, trade?.commodity);
+    const origin = v(product?.origin, trade?.origin);
+    const quantity = v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined);
+    const contractNo = v(trade?.tradeRef);
+    const spaNo = v(product?.dealRecapNumber ?? undefined);
+    const bName = v(buyer?.name, trade?.buyerName);
+    const bAddr = v(buyer?.address);
+    const sName = v(seller?.name, trade?.sellerName);
+    const sBank = v(seller?.bank);
+    const sSwift = v(seller?.swift);
+    const sAddr = v(seller?.address);
+    const inspection = v(product?.analysisAgency);
+    const govLaw = product?.governingLaw?.trim();
+    return `CONDITIONAL RELEASE CERTIFICATE
+${"=".repeat(60)}
+(Issued by Terminal Owner / Tank Owner)
+
+Certificate No.: _______________
+Date of Issue: ${today()}
+Reference Contract No.: ${contractNo}
+SPA No.: ${spaNo}
+Commercial Invoice No.: _______________
+
+BUYER (TO)
+Company Name: ${bName}
+Address: ${bAddr}
+Country: _______________
+
+SELLER / PRODUCT OWNER (CC)
+Company Name: ${sName}
+Financing Bank (if applicable): _______________
+Independent Inspection Company: ${inspection}
+
+SUBJECT
+Conditional Release of Product Held in Storage
+
+Dear Sir/Madam,
+
+Pursuant to the written instructions received from the Product Owner/Seller and in accordance with the above-referenced Sale and Purchase Agreement ("SPA"), we hereby issue this Conditional Release of Product Certificate confirming that the below-described cargo is presently held under our custody and has been allocated exclusively for delivery to the Buyer identified herein.
+
+1. PRODUCT INFORMATION
+Product: ${commodity}
+Origin: ${origin}
+Quantity: ${quantity}
+Unit (MT / BBL / CBM): _______________
+Tank Number(s): _______________
+Terminal: _______________
+Storage Location: _______________
+
+2. COMMERCIAL DETAILS
+Contract Number: ${contractNo}
+SPA Number: ${spaNo}
+Commercial Invoice Number: _______________
+Unit Price: ${cur} _______________ per MT
+Quantity: ${quantity}
+Total Contract Value: ${cur} _______________
+Provisional Payment Percentage: _______ %
+Provisional Payment Value: ${cur} _______________
+Balance Payment: ${cur} _______________
+Final Contract Value: ${cur} _______________
+
+The Terminal Owner acknowledges that all payments relating to the above-mentioned transaction shall be remitted exclusively to the above-designated bank account of the Seller unless otherwise instructed by the Seller in writing and accepted by the Buyer. The Terminal Owner shall recognize payment as duly effected only upon written confirmation from the Seller and/or the Seller's designated receiving bank.
+
+2A. SELLER'S BANKING DETAILS
+Payment Reference: Contract No. / SPA No. / Commercial Invoice No.
+Currency: ${cur}
+Correspondent Bank (if applicable): _______________
+IBAN / Account Number: _______________
+SWIFT/BIC Code: ${sSwift}
+Bank Address: _______________
+Seller's Bank: ${sBank}
+Beneficiary Address: ${sAddr}
+Beneficiary Name: ${sName}
+
+3. CONFIRMATION OF CUSTODY
+We hereby certify that the above-mentioned cargo is physically stored within our terminal facilities and is presently held under our custody on behalf of the Seller/Product Owner.
+The cargo has been specifically allocated against the above-mentioned Contract and SPA for delivery to the Buyer.
+
+4. CONDITIONAL RESERVATION OF CARGO
+Upon confirmation by the Seller and/or its designated receiving bank that the Provisional Payment in the amount of ${cur} _______________ has been duly received in accordance with the Commercial Invoice and SPA, the following shall apply:
+- The above-mentioned cargo shall be irrevocably reserved and earmarked exclusively for the Buyer.
+- The cargo shall not be sold, transferred, pledged, assigned, or otherwise encumbered in favor of any third party without the Buyer's prior written consent, except where required by law or a court order.
+- The transaction shall become binding upon the Seller and Buyer in accordance with the terms of the SPA, subject to the fulfilment of the remaining contractual obligations.
+
+5. TRANSFER OF OWNERSHIP
+Upon confirmation by the Seller and/or its designated receiving bank of receipt of the Final Balance Payment in accordance with the SPA and Commercial Invoice, and upon written release instructions from the Seller, the Terminal Owner shall record the Buyer as the lawful cargo owner in the terminal's custody records.
+
+6. REPRESENTATIONS
+The Terminal Owner confirms that:
+- the Terminal Owner has no unpaid storage or handling charges giving rise to any lien over the cargo as of the date of this certificate;
+- to the best of the Terminal Owner's knowledge and based on its records, no notice of any third-party claim, attachment, seizure, or encumbrance affecting the cargo has been received.
+
+7. INSPECTION RIGHTS
+The Buyer shall have the right to appoint an independent inspection company to conduct:
+☐ Dip Test
+☐ Tank Gauging
+☐ Quantity Verification
+☐ Sampling
+☐ Quality Inspection
+subject to terminal operating procedures and prior appointment.
+
+8. DELIVERY
+Upon completion of the Final Payment and receipt of the Seller's written delivery instructions (or as otherwise provided in the SPA), the Terminal Owner shall release the cargo in accordance with the Buyer's loading or transfer instructions.
+
+9. VALIDITY
+This Certificate shall remain valid until:
+- completion of the transaction;
+- cancellation of the SPA by mutual agreement;
+- written withdrawal jointly authorized by the Seller and Buyer; or
+- replacement by a subsequent certificate.
+
+9A. IRREVOCABLE CARGO ALLOCATION CLAUSE
+Upon confirmation of receipt of the Provisional Payment by the Seller's designated bank, the cargo identified in this Certificate shall be irrevocably allocated to the Buyer and shall not be substituted, exchanged, blended or reallocated without the Buyer's prior written consent.
+
+9B. NON-DIVERSION AND NON-ENCUMBRANCE UNDERTAKING
+The Terminal Owner undertakes that while this Certificate remains valid, the cargo shall not be released, diverted, transferred, pledged, hypothecated or otherwise encumbered in favour of any third party except pursuant to the SPA, the Buyer's written instructions after transfer of ownership, or a final order of a competent court.
+
+9C. RECOGNITION OF BUYER'S RIGHTS
+Where the Buyer has financed the purchase through a bank or financial institution, the Terminal Owner shall recognize written instructions issued by such financing bank or its duly appointed security agent after ownership has transferred to the Buyer, subject to evidence of such financing arrangement.
+
+9D. ASSIGNMENT OF TITLE
+Following confirmation of the Final Payment and transfer of ownership, the Buyer shall be entitled to assign, pledge, transfer or otherwise deal with its ownership rights in the cargo, and the Terminal Owner shall recognize such assignment upon receipt of appropriate documentary evidence.
+
+9E. TERMINAL REGISTER AMENDMENT
+Following transfer of ownership, the Terminal Owner shall amend its custody and register records to reflect the Buyer as the lawful owner of the cargo and shall issue confirmation of such amendment upon the Buyer's request.
+
+9F. BANK PAYMENT CONFIRMATION
+The Seller's designated bank shall promptly notify the Seller and, where applicable, the Terminal Owner of receipt of the Provisional Payment and Final Payment. The Terminal Owner may rely upon such written confirmation for the purposes of cargo allocation and ownership registration.
+
+9G. GOVERNING LAW AND DISPUTE RESOLUTION
+This Certificate shall be governed by the law specified in the Sale and Purchase Agreement${govLaw ? ` (${govLaw})` : ""}. Any dispute relating solely to this Certificate shall be resolved in accordance with the dispute resolution mechanism contained in the SPA. Where the SPA is subject to ICC Arbitration, this Certificate shall be interpreted consistently with those provisions.
+
+10. GOVERNING STATEMENT
+This Certificate is issued solely in the Terminal Owner's capacity as custodian of the cargo. It confirms the storage status, allocation, and intended release procedure based on the Seller's written instructions and the SPA. Except as expressly stated herein, it does not amend the contractual rights and obligations of the Buyer and Seller under the SPA.
+
+AUTHORIZED BY
+For and on behalf of the Terminal Owner / Tank Owner
+Company Name: _______________
+Authorized Signatory: _______________
+Designation: _______________
+Date: ${today()}
+Signature: _______________
+Company Seal: _______________`;
+  },
+
+  HC: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const commodity = v(product?.commodity, trade?.commodity);
+    const origin = v(product?.origin, trade?.origin);
+    const quantity = v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined);
+    const grade = v(product?.qualitySpecs);
+    const poName = v(seller?.name, trade?.sellerName);
+    const poAddr = v(seller?.address);
+    const govLaw = product?.governingLaw?.trim();
+    return `HOLDING CERTIFICATE
+${"=".repeat(60)}
+(Issued by Terminal Owner / Tank Owner)
+
+Certificate No.: _______________
+Date of Issue: ${today()}
+
+HOLDING CERTIFICATE OF PRODUCT IN STORAGE
+
+To Whom It May Concern,
+
+This is to certify that _______________ ("Terminal Owner/Tank Owner"), the lawful operator and custodian of the storage facilities described below, hereby confirms that the petroleum product identified in this certificate is currently held in our storage facility on behalf of the Product Owner identified herein.
+
+1. TERMINAL DETAILS
+Terminal Owner / Tank Owner: _______________
+Terminal Name: _______________
+Terminal Address: _______________
+Country: _______________
+
+2. PRODUCT OWNER
+Company Name: ${poName}
+Registered Address: ${poAddr}
+
+3. PRODUCT DETAILS
+Product: ${commodity}
+Grade / Specification: ${grade}
+Origin: ${origin}
+Quantity: ${quantity}
+Unit (Metric Tons (MT) / Barrels / Cubic Meters): _______________
+Tank Number(s): _______________
+Storage Location: _______________
+
+4. CONFIRMATION OF HOLDING
+We hereby certify that the above-mentioned product is presently stored within our terminal facilities and is being held in custody on behalf of the above-named Product Owner.
+The quantity stated herein is based upon our operational storage records as of the date of this certificate.
+
+5. CONFIRMATION REGARDING LIENS AND ENCUMBRANCES
+Based upon our storage records and to the best of our knowledge:
+- the Terminal Owner has no possessory lien, storage lien, security interest, or retention right over the above-mentioned product arising from unpaid terminal charges or other obligations;
+- the product is not subject to any claim, attachment, seizure, or encumbrance recorded in our terminal records;
+- the Terminal Owner has not received notice of any third-party claim adversely affecting custody of the above-mentioned product.
+Accordingly, the Terminal Owner confirms that the product is being held solely on behalf of the Product Owner identified above.
+
+6. AVAILABILITY
+The above-mentioned product is available in storage and shall remain under the custody of the Terminal Owner pending lawful written instructions from the Product Owner or any person duly authorized by the Product Owner, subject to:
+- applicable laws and regulations;
+- terminal operating procedures;
+- payment of future storage and handling charges, if any;
+- compliance with contractual obligations.
+
+7. INSPECTION
+The product may be made available for inspection, dip test, sampling and quantity verification by an independent inspection company upon receipt of proper written authorization from the Product Owner and subject to terminal scheduling and safety procedures.
+
+8. VALIDITY
+This certificate is issued solely for evidentiary purposes regarding the custody and storage status of the above-mentioned product as of the date of issue.
+Unless withdrawn or superseded in writing, this certificate shall remain valid for _____ (__) calendar days from the date of issuance.
+
+8A. REPRESENTATIONS AND WARRANTIES
+The Terminal Owner represents that it is the lawful operator/custodian of the storage facility, has authority to issue this Certificate, and that the information contained herein is true and correct to the best of its knowledge as of the date of issue.
+
+8B. NO LIEN AND NON-ENCUMBRANCE UNDERTAKING
+The Terminal Owner confirms that neither it nor, to the best of its knowledge, any third party has any registered lien, pledge, security interest or encumbrance over the cargo recorded in its custody records and undertakes not to create or permit any such interest while this Certificate remains valid.
+
+8C. IRREVOCABLE CUSTODY UNDERTAKING
+The Terminal Owner shall continue to hold the cargo exclusively for the account of the Product Owner, or its lawful transferee, and shall not release the cargo except upon valid written instructions from the entitled party or pursuant to a final order of a competent authority.
+
+8D. RECOGNITION OF FINANCING BANK
+Where the Product Owner has assigned rights in the cargo to a financing bank or security agent, and satisfactory evidence of such assignment is provided, the Terminal Owner shall recognize such secured party for custody and release purposes.
+
+8E. INSPECTION AND VERIFICATION
+The Terminal Owner shall provide reasonable access for independent inspectors to perform dip testing, gauging, sampling and quantity verification in accordance with terminal procedures.
+
+8F. SANCTIONS AND COMPLIANCE
+The Terminal Owner confirms that its performance under this Certificate is subject to applicable sanctions laws, anti-money laundering regulations and mandatory legal requirements.
+
+8G. GOVERNING LAW AND DISPUTE RESOLUTION
+This Certificate shall be governed by the governing law specified in the applicable storage agreement or, where incorporated into a Sale and Purchase Agreement, by the governing law of that agreement${govLaw ? ` (${govLaw})` : ""}. Disputes shall be resolved in accordance with the dispute resolution provisions of the relevant agreement, including ICC arbitration where applicable.
+
+9. DISCLAIMER
+This Certificate may be relied upon by the Product Owner, Buyer, financing banks, confirming banks and independent inspection companies solely for the purpose of verifying custody and storage status, subject to its terms.
+This Holding Certificate:
+- does not constitute evidence of ownership or transfer of title;
+- does not amend or replace any storage agreement or terminal contract;
+- does not constitute a guarantee of payment, financing, or delivery;
+- shall not be construed as creating any obligation on the part of the Terminal Owner beyond its obligations as custodian under applicable agreements and law.
+
+AUTHORIZED SIGNATORY
+For and on behalf of Terminal Owner / Tank Owner
+Company Name: _______________
+Authorized Representative: _______________
+Designation: _______________
+Date: ${today()}
+Signature: _______________
+Company Seal: _______________`;
+  },
+
+  DTA: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const commodity = v(product?.commodity, trade?.commodity);
+    const origin = v(product?.origin, trade?.origin);
+    const quantity = v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined);
+    const buyerName = v(buyer?.name, trade?.buyerName);
+    const buyerAddr = v(buyer?.address);
+    const sellerName = v(seller?.name, trade?.sellerName);
+    return `DIP TEST AUTHORIZATION CERTIFICATE
+${"=".repeat(60)}
+(On Terminal / Tank Owner / Cargo Owner letterhead)
+
+Reference No.: _______________
+Date: ${today()}
+
+TO
+Buyer
+Company Name: ${buyerName}
+Authorized Representative: _______________
+Address: ${buyerAddr}
+Email: _______________
+Phone: _______________
+
+CC
+Terminal Owner / Terminal Operator
+Company: _______________
+Email: _______________
+
+Seller
+Company: ${sellerName}
+Email: _______________
+
+Independent Inspection Company
+Company: _______________
+Email: _______________
+
+SUBJECT
+Authorization for Dip Test, Quantity Verification, Sampling and Inspection of ${commodity}
+
+Dear Sir/Madam,
+
+We, _______________, being the lawful Tank Owner/Custodian of the storage tank(s) described below, hereby confirm that the Seller has advised us that the below-mentioned product is allocated for the proposed sale transaction.
+
+Accordingly, we hereby authorize the Buyer and/or its duly appointed representatives to conduct a Dip Test, witness tank gauging, collect representative samples (where permitted), and observe quantity verification of the cargo under the supervision of the Terminal Operator and the Independent Inspection Company.
+
+PRODUCT DETAILS
+Product: ${commodity}
+Origin: ${origin}
+Quantity: ${quantity}
+Tank Number(s): _______________
+Storage Terminal: _______________
+Terminal Location: _______________
+
+SCOPE OF AUTHORIZATION
+The Buyer and/or its nominated representatives are authorized to:
+- Conduct dip measurement of the above storage tank(s).
+- Witness tank gauging.
+- Observe quantity verification.
+- Witness sampling procedures.
+- Receive sealed samples through the appointed Independent Inspection Company (subject to terminal regulations).
+- Review tank calibration tables and relevant operational records necessary for quantity verification.
+- Attend the inspection on the agreed inspection date and time.
+
+INSPECTION
+The inspection shall be conducted jointly by:
+- Tank Owner Representative
+- Terminal Representative
+- Buyer's Representative
+- Seller's Representative (optional)
+- Independent Inspection Company
+
+CONDITIONS
+- This authorization is issued solely for inspection purposes and does not constitute transfer of ownership of the cargo.
+- Entry into the terminal shall remain subject to: terminal safety regulations; security clearance; valid identification; PPE requirements; applicable port and terminal procedures.
+- All sampling and quantity verification shall be performed only by or under the supervision of the appointed Independent Inspection Company.
+- Any laboratory testing shall be conducted only on officially sealed samples.
+- The inspection findings shall be documented in the official inspection report issued by the Independent Inspection Company.
+- This authorization shall remain valid until _______________ unless revoked in writing.
+
+CARGO STATUS
+The Tank Owner confirms that the above cargo is presently stored in the identified storage tank(s) and is available for inspection in accordance with terminal operational procedures.
+No representation is made by the Tank Owner regarding the commercial sale contract between Buyer and Seller.
+
+CONTACT FOR SCHEDULING
+Name: _______________
+Position: _______________
+Telephone: _______________
+Email: _______________
+
+AUTHORIZATION
+For and on behalf of Tank Owner
+Company Name: _______________
+Authorized Signatory: _______________
+Position: _______________
+Date: ${today()}
+Signature: _______________
+Company Seal: _______________`;
+  },
+
   NCNDA: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
     const partyA = v(seller?.name);
     const partyAAddress = v(seller?.address);
@@ -1124,6 +1949,8 @@ Signature & Bank Seal: _______________`,
     const partyB = v(buyer?.name);
     const partyBAddress = v(buyer?.address);
     const partyBContact = v(buyer?.contact);
+    const partyACoBlock = coPartyBlock("Co-Seller", seller);
+    const partyBCoBlock = coPartyBlock("Co-Buyer", buyer);
     const effectiveDate = product?.validity?.trim() || today();
     const governingLaw = product?.governingLaw?.trim() || "_______________";
     const jurisdiction = product?.recapValidity?.trim() || "_______________";
@@ -1133,11 +1960,11 @@ ${"=".repeat(70)}
 
 This Mutual Non-Circumvention Non-Disclosure Agreement ("Agreement") is made on ${effectiveDate} ("Effective Date") by and between,
 
-1. ${partyA}, a company incorporated under the laws of ${governingLaw}, having its registered office at ${partyAAddress}, represented by its authorised signatory, ${partyAContact} (hereinafter referred to as "Party A", which expression, unless it be repugnant to the context or meaning thereof, shall be deemed to mean and include its successors and assigns) of the one part;
+1. ${partyA}, a company incorporated under the laws of ${governingLaw}, having its registered office at ${partyAAddress}, represented by its authorised signatory, ${partyAContact} (hereinafter referred to as "Party A", which expression, unless it be repugnant to the context or meaning thereof, shall be deemed to mean and include its successors and assigns) of the one part;${partyACoBlock ? `${partyACoBlock}\n` : ""}
 
 AND
 
-2. ${partyB}, a company incorporated and registered under applicable laws, having its registered office at ${partyBAddress}, represented by its authorised signatory, ${partyBContact} (hereinafter referred to as "Party B", which expression shall, unless it be repugnant to the context or meaning thereof, mean and include its successors and permitted assigns) of the other part.
+2. ${partyB}, a company incorporated and registered under applicable laws, having its registered office at ${partyBAddress}, represented by its authorised signatory, ${partyBContact} (hereinafter referred to as "Party B", which expression shall, unless it be repugnant to the context or meaning thereof, mean and include its successors and permitted assigns) of the other part.${partyBCoBlock ? `${partyBCoBlock}\n` : ""}
 
 "Party A" and "Party B" are collectively referred to as "Parties" and individually as "Party".
 
@@ -1755,6 +2582,84 @@ Date: ${dateStr}
 Signature & Stamp: _______________`;
   },
 
+  PI: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const pi = product?.piData || {};
+    const sellerName = v(seller?.name, trade?.sellerName);
+    const sellerAddr = v(seller?.address);
+    const sellerContact = v(seller?.contact);
+    const sellerBank = v(seller?.bank);
+    const sellerSwift = v(seller?.swift);
+    const buyerName = v(buyer?.name, trade?.buyerName);
+    const buyerAddr = v(buyer?.address);
+    const buyerContact = v(buyer?.contact);
+    const commodity = v(product?.commodity, trade?.commodity);
+    const quantity = v(product?.quantity, trade ? `${trade.quantity.toLocaleString()} ${trade.unit}` : undefined);
+    const origin = v(product?.origin, trade?.origin);
+    const pol = v(product?.loadingPort, trade?.origin);
+    const pod = v(product?.dischargePort, trade?.destination);
+    const unitPrice = v(product?.price, trade ? `${trade.pricePerUnit}` : undefined);
+    const currency = product?.currency || trade?.currency || "USD";
+    const paymentTerms = v(product?.paymentTerms);
+    const spaNumber = pi.spaNumber || product?.dealRecapNumber || "_______________";
+    const invoiceNo = pi.invoiceNumber || `PI-${spaNumber}`;
+    const dateStr = pi.invoiceDate || today();
+    const qtyNum = parseFloat(((quantity || "").match(/[\d,]+(?:\.\d+)?/)?.[0] || "").replace(/,/g, ""));
+    const priceNum = parseFloat(((unitPrice || "").match(/[\d,]+(?:\.\d+)?/)?.[0] || "").replace(/,/g, ""));
+    const computedTotal = Number.isFinite(qtyNum) && Number.isFinite(priceNum)
+      ? (qtyNum * priceNum).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : "";
+    const totalAmount = pi.totalAmount || computedTotal || "_______________";
+    return `PROFORMA INVOICE
+${"=".repeat(40)}
+
+Invoice No.: ${invoiceNo}
+Invoice Date: ${dateStr}
+SPA Reference: ${spaNumber}
+Valid Until: ${pi.validUntil || "30 days from invoice date"}
+
+SELLER (BENEFICIARY)
+Company: ${sellerName}
+Address: ${sellerAddr}
+Contact: ${sellerContact}
+Bank: ${sellerBank}
+SWIFT: ${sellerSwift}
+
+BUYER (APPLICANT)
+Company: ${buyerName}
+Address: ${buyerAddr}
+Contact: ${buyerContact}
+
+COMMERCIAL TERMS
+SPA Reference: ${spaNumber}
+Delivery Term: ${pi.deliveryTerm || product?.incoterm || "_______________"}
+
+SHIPMENT DETAILS
+Shipment Window: ${pi.shipmentWindow || product?.laycan || "_______________"}
+Port of Loading: ${pol}
+Port of Discharge: ${pod}
+Country of Origin: ${origin}
+Packing: ${pi.packing || product?.packing || "_______________"}
+
+DESCRIPTION OF GOODS
+| Commodity | Quantity (MT) | Unit Price (${currency}/MT) | Total Amount (${currency}) |
+| ${commodity} | ${quantity} | ${currency} ${unitPrice}/MT | ${currency} ${totalAmount} |
+
+Tolerance: ${product?.validity || "As per SPA"}
+
+TOTAL PROFORMA VALUE: ${currency} ${totalAmount}
+
+Payment Terms: ${paymentTerms}
+
+This Proforma Invoice is issued under SPA ${spaNumber} and is subject to the terms and conditions of that agreement.
+
+FOR AND ON BEHALF OF ${sellerName}
+Authorised Signatory
+Name: _______________
+Title: _______________
+Date: ${dateStr}
+Signature & Stamp: _______________`;
+  },
+
   LC: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => `LETTER OF CREDIT (LC)
 ${"=".repeat(40)}
 
@@ -1774,12 +2679,12 @@ Address: _______________
 APPLICANT (BUYER)
 Company: ${v(buyer?.name, trade?.buyerName)}
 Address: ${v(buyer?.address)}
-Contact: ${v(buyer?.contact)}
+Contact: ${v(buyer?.contact)}${coPartyBlock("Co-Buyer", buyer)}
 
 BENEFICIARY (SELLER)
 Company: ${v(seller?.name, trade?.sellerName)}
 Address: ${v(seller?.address)}
-Contact: ${v(seller?.contact)}
+Contact: ${v(seller?.contact)}${coPartyBlock("Co-Seller", seller)}
 
 ADVISING BANK
 Bank Name: ${v(seller?.bank)}
@@ -2134,11 +3039,308 @@ Position: ${v(product?.agentDesignation)}
 Signature: _______________
 Date: _______________`;
   },
+
+  DLC_MT700: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const d = product?.dlcData || {};
+    const MULTILINE_KEYS = new Set(["goodsDescription", "productSpecification", "documentsRequired", "additionalConditions"]);
+    const g = (key: string, fb = "____") => {
+      const raw = d[key];
+      if (raw === undefined || !String(raw).trim()) return fb;
+      return MULTILINE_KEYS.has(key) ? swiftCleanBlock(raw) : swiftCleanLine(raw);
+    };
+    const currency = g("currency", "USD");
+    const goodsDefault = [
+      `${g("quantity", product?.quantity || "____")} OF ${g("commodity", product?.commodity || "____").toUpperCase()}`,
+      `OF ${g("origin", product?.origin || "____").toUpperCase()} ORIGIN.`,
+    ].join("\n");
+    const goods = g("goodsDescription", goodsDefault);
+    const applicantName = g("applicantName", buyer?.name || "____");
+    const applicantAddress = g("applicantAddress", buyer?.address || "____");
+    const beneficiaryName = g("beneficiaryName", seller?.name || "____");
+    const beneficiaryAddress = g("beneficiaryAddress", seller?.address || "____");
+
+    return `DRAFT - SWIFT MT700
+
+DOCUMENTARY CREDIT
+
+STATUS: DRAFT FOR ISSUING BANK REVIEW
+
+SWIFT MESSAGE
+
+{1:F01${g("issuingBankBic", "[ISSUING BANK BIC]")}0000000000}
+{2:I700${g("beneficiaryBankBic", "[BENEFICIARY BANK BIC]")}N}
+{3:{108:${g("bankReference", "[BANK REFERENCE]")}}}
+{4:
+
+:27:1/1
+:40A:IRREVOCABLE
+:20:${g("creditNumber", "[DOCUMENTARY CREDIT NUMBER]")}
+:31C:${g("dateOfIssue", "[DATE OF ISSUE]")}
+:40E:UCP LATEST VERSION
+:31D:${g("expiryDate", "[EXPIRY DATE]")} ${g("placeOfExpiry", "[PLACE OF EXPIRY]")}
+
+:50:${applicantName}
+${applicantAddress}
+${g("applicantCountry", "[COUNTRY]")}
+
+:59:${beneficiaryName}
+${beneficiaryAddress}
+${g("beneficiaryCountry", "[COUNTRY]")}
+
+:32B:${currency}${g("amount", "[AMOUNT]")}
+:39A:${g("tolerance", "[TOLERANCE]")}
+
+:41A:${g("beneficiaryBankBic", "[BENEFICIARY BANK BIC]")}
+BY PAYMENT
+
+:42C:DRAFTS AT ${g("draftsAt", "SIGHT")}
+:42A:${g("draweeBankBic", "[DRAWEE BANK BIC]")}
+
+:43P:${g("partialShipments", "NOT ALLOWED")}
+:43T:${g("transshipment", "ALLOWED")}
+
+:44A:${g("placeOfReceipt", "[PLACE OF TAKING IN CHARGE / RECEIPT]")}
+:44E:${g("portOfLoading", "[PORT / PLACE OF LOADING]")}
+:44F:${g("portOfDischarge", "[PORT / PLACE OF DISCHARGE]")}
+:44B:${g("finalDestination", "[PLACE OF FINAL DESTINATION]")}
+
+:44C:${g("latestShipmentDate", "[LATEST DATE OF SHIPMENT]")}
+
+:45A:
+${goods}
+
+${g("productSpecification", "PRODUCT SPECIFICATION:\n[AS PER CONTRACT]")}
+
+PRICE: ${currency} ${g("pricePerUnit", "[PRICE]")} PER METRIC TON
+DELIVERY TERM: ${g("deliveryTerm", "[CFR/CIF/FOB] [PORT]")}
+TOTAL CREDIT AMOUNT: ${currency} ${g("amount", "[AMOUNT]")}
+
+:46A:
+${g("documentsRequired", `1. SIGNED COMMERCIAL INVOICE IN 3 ORIGINALS.
+
+2. FULL SET OF CLEAN ON BOARD OCEAN BILLS OF LADING
+MADE OUT TO ORDER OF THE ISSUING BANK, MARKED
+"FREIGHT ${g("freightMark", "PREPAID")}" AND NOTIFYING THE
+APPLICANT.
+
+3. CERTIFICATE OF ORIGIN ISSUED BY THE COMPETENT
+AUTHORITY IN THE COUNTRY OF ORIGIN, IN 1 ORIGINAL AND
+2 COPIES.
+
+4. CERTIFICATE OF ANALYSIS ISSUED BY SGS, BUREAU VERITAS,
+INTERTEK OR ANOTHER INTERNATIONAL INSPECTION COMPANY
+ACCEPTABLE TO THE APPLICANT.
+
+5. CERTIFICATE OF WEIGHT ISSUED BY AN INDEPENDENT
+INSPECTION COMPANY.
+
+6. PACKING LIST / WEIGHT LIST IN 3 COPIES, WHERE
+APPLICABLE.
+
+7. CERTIFICATE OF QUALITY CONFIRMING COMPLIANCE WITH
+THE CONTRACTUAL PRODUCT SPECIFICATION.
+
+8. EXPORT CUSTOMS DECLARATION OR EQUIVALENT EXPORT
+CUSTOMS DOCUMENT ISSUED BY THE COMPETENT CUSTOMS
+AUTHORITY OF THE COUNTRY OF ORIGIN.
+
+9. BENEFICIARY'S CERTIFICATE CONFIRMING THAT THE GOODS
+ARE OF THE STATED ORIGIN AND THAT THE SHIPMENT
+COMPLIES WITH THE TERMS OF THE UNDERLYING SPA.
+
+10. INSURANCE POLICY / CERTIFICATE COVERING NOT LESS
+THAN 110 PERCENT OF THE INVOICE VALUE, IN THE CURRENCY
+OF THE CREDIT, ENDORSED IN BLANK AND COVERING THE
+RISKS SPECIFIED IN THE CONTRACT, APPLICABLE FOR CIF
+SHIPMENTS.`)}
+
+:47A:
+${g("additionalConditions", `1. ALL DOCUMENTS MUST INDICATE THE DOCUMENTARY CREDIT
+NUMBER.
+
+2. DOCUMENTS MUST NOT CONTAIN ANY MATERIAL
+DISCREPANCY WITH THE TERMS OF THIS CREDIT.
+
+3. THIRD PARTY DOCUMENTS ARE ACCEPTABLE EXCEPT
+COMMERCIAL INVOICES AND DRAFTS.
+
+4. CHARTER PARTY BILLS OF LADING ARE ${g("charterPartyBl", "NOT")} ACCEPTABLE.
+
+5. PART SHIPMENTS ARE ${g("partialShipments", "NOT ALLOWED")}.
+
+6. TRANSSHIPMENT IS ${g("transshipment", "ALLOWED")}.
+
+7. DOCUMENTS ISSUED OR SIGNED ELECTRONICALLY ARE
+ACCEPTABLE PROVIDED THEY ARE AUTHENTICATED AND
+COMPLY WITH THE REQUIREMENTS OF THE ISSUING BANK.
+
+8. MINOR TYPOGRAPHICAL ERRORS THAT DO NOT AFFECT THE
+IDENTITY, QUANTITY, QUALITY, PRICE OR OTHER MATERIAL
+TERMS OF THE GOODS SHALL NOT CONSTITUTE A DISCREPANCY.
+
+9. ALL DOCUMENTS SHALL BE PRESENTED WITHIN ${g("presentationDays", "21")} DAYS
+AFTER THE DATE OF SHIPMENT BUT WITHIN THE VALIDITY OF
+THE CREDIT.
+
+10. THIS CREDIT IS SUBJECT TO UCP 600, ICC PUBLICATION
+NO. 600.`)}
+
+:71B:
+ALL BANKING CHARGES OUTSIDE THE ISSUING BANK ARE FOR
+ACCOUNT OF THE BENEFICIARY UNLESS OTHERWISE AGREED.
+
+:48:
+DOCUMENTS TO BE PRESENTED WITHIN ${g("presentationDays", "21")} DAYS AFTER DATE
+OF SHIPMENT BUT WITHIN THE VALIDITY OF THE CREDIT.
+
+:49:${g("confirmationInstructions", "WITHOUT")}
+
+:78:
+UPON RECEIPT OF DOCUMENTS COMPLYING WITH THE TERMS AND
+CONDITIONS OF THIS DOCUMENTARY CREDIT, WE SHALL EFFECT
+PAYMENT IN ACCORDANCE WITH THE PAYMENT INSTRUCTIONS
+CONTAINED HEREIN.
+
+DOCUMENTS ARE TO BE FORWARDED TO:
+
+${g("issuingBankName", "[ISSUING BANK NAME]")}
+${g("issuingBankAddress", "[ISSUING BANK ADDRESS]")}
+${g("issuingBankDepartment", "DOCUMENTS DEPARTMENT")}
+
+IN ${g("setsCount", "ONE")} SET(S).
+
+:72:
+PLEASE ADVISE BENEFICIARY WITHOUT ADDING YOUR
+CONFIRMATION UNLESS OTHERWISE AUTHORIZED.
+-}
+{5:{CHK:[BANK GENERATED CHECKSUM]}}`;
+  },
+
+  PBG_MT760: (trade?: Trade, buyer?: PartyDetails, seller?: PartyDetails, product?: ProductDetails) => {
+    const p = product?.pbgData || {};
+    const MULTILINE_KEYS = new Set(["underlyingTransaction", "guaranteeText"]);
+    const g = (key: string, fb = "____") => {
+      const raw = p[key];
+      if (raw === undefined || !String(raw).trim()) return fb;
+      return MULTILINE_KEYS.has(key) ? swiftCleanBlock(raw) : swiftCleanLine(raw);
+    };
+    const currency = g("currency", "USD");
+    const amount = g("guaranteeAmount", "[GUARANTEE AMOUNT]");
+    const applicantName = g("applicantName", buyer?.name || "[APPLICANT NAME]");
+    const beneficiaryName = g("beneficiaryName", seller?.name || "[BENEFICIARY NAME]");
+    const issuingBankName = g("issuingBankName", "[ISSUING BANK NAME]");
+    const issuingBankBic = g("issuingBankBic", "[ISSUING BANK BIC]");
+    const expiryDate = g("expiryDate", "[EXPIRY DATE]");
+    const underlyingDefault = [
+      `THIS GUARANTEE IS ISSUED IN CONNECTION WITH SALE AND`,
+      `PURCHASE AGREEMENT NO. ${g("spaNumber", "[SPA NUMBER]")} DATED ${g("spaDate", "[SPA DATE]")}`,
+      `FOR THE SALE AND PURCHASE OF ${g("quantity", product?.quantity || "[QUANTITY]").toUpperCase()} OF`,
+      `${g("commodity", product?.commodity || "[COMMODITY]").toUpperCase()} OF ${g("origin", product?.origin || "[ORIGIN]").toUpperCase()} ORIGIN FOR DELIVERY`,
+      `TO ${g("destination", "[DESTINATION]").toUpperCase()}.`,
+    ].join("\n");
+    const underlying = g("underlyingTransaction", underlyingDefault);
+
+    return `DRAFT - SWIFT MT760
+
+IRREVOCABLE PERFORMANCE GUARANTEE
+
+STATUS: DRAFT FOR ISSUING BANK REVIEW
+
+SWIFT MESSAGE
+
+{1:F01${issuingBankBic === "[ISSUING BANK BIC]" ? "[ISSUINGBANKBIC]" : issuingBankBic}0000000000}
+{2:I760${g("beneficiaryBankBic", "[BENEFICIARYBANKBIC]")}N}
+{3:{108:${g("bankReference", "[BANK REFERENCE]")}}}
+{4:
+
+:15A:
+:20:${g("guaranteeNumber", "[GUARANTEE NUMBER]")}
+:30:${g("dateOfIssue", "[DATE OF ISSUE]")}
+:22D:DGAR
+:40C:URDG
+:23B:IRREVOCABLE
+
+:50:${applicantName}
+${g("applicantAddress", buyer?.address || "[REGISTERED ADDRESS]")}
+${g("applicantCountry", "[COUNTRY]")}
+
+:59:${beneficiaryName}
+${g("beneficiaryAddress", seller?.address || "[REGISTERED ADDRESS]")}
+${g("beneficiaryCountry", "[COUNTRY]")}
+
+:32B:${currency}${amount}
+
+:71D:ALL BANKING CHARGES OUTSIDE THE ISSUING BANK
+ARE FOR ACCOUNT OF THE APPLICANT.
+
+:77U:
+${g("guaranteeText", `WE, ${issuingBankName}, AT THE REQUEST AND FOR
+THE ACCOUNT OF ${applicantName.toUpperCase()}, HEREBY ISSUE OUR
+IRREVOCABLE AND UNCONDITIONAL PERFORMANCE GUARANTEE
+IN FAVOUR OF ${beneficiaryName.toUpperCase()} FOR AN AMOUNT NOT
+EXCEEDING ${currency} ${amount} (${g("currencyInWords", "UNITED STATES DOLLARS")}
+${g("amountInWords", "[AMOUNT IN WORDS]")} ONLY).
+
+${underlying}
+
+WE IRREVOCABLY UNDERTAKE TO PAY THE BENEFICIARY, UPON
+RECEIPT OF A COMPLYING DEMAND, ANY AMOUNT UP TO THE
+GUARANTEED AMOUNT IN RESPECT OF THE APPLICANT'S FAILURE
+TO PERFORM ITS CONTRACTUAL OBLIGATIONS UNDER THE
+UNDERLYING CONTRACT.
+
+ANY DEMAND SHALL STATE THAT THE APPLICANT HAS FAILED
+TO PERFORM ITS CONTRACTUAL OBLIGATIONS, QUOTE THIS
+GUARANTEE NUMBER AND SPECIFY THE AMOUNT CLAIMED.
+
+THE DEMAND SHALL BE PRESENTED THROUGH THE BENEFICIARY'S
+BANK BY AUTHENTICATED SWIFT MESSAGE TO ${issuingBankBic}.
+
+NO JUDGMENT, ARBITRAL AWARD OR PRIOR LEGAL ACTION
+AGAINST THE APPLICANT SHALL BE REQUIRED AS A CONDITION
+FOR PAYMENT UNDER THIS GUARANTEE.
+
+OUR OBLIGATION UNDER THIS GUARANTEE IS INDEPENDENT OF
+THE UNDERLYING CONTRACT AND SHALL NOT BE AFFECTED BY
+ANY DISPUTE BETWEEN THE APPLICANT AND THE BENEFICIARY.
+
+PARTIAL AND MULTIPLE DEMANDS ARE PERMITTED PROVIDED
+THAT THE AGGREGATE AMOUNT PAID UNDER THIS GUARANTEE
+DOES NOT EXCEED THE GUARANTEED AMOUNT.
+
+ANY PAYMENT MADE UNDER THIS GUARANTEE SHALL REDUCE
+THE AVAILABLE GUARANTEED AMOUNT ACCORDINGLY.
+
+THIS GUARANTEE IS SUBJECT TO THE ICC UNIFORM RULES FOR
+DEMAND GUARANTEES, ICC PUBLICATION NO. 758 (URDG 758).
+
+THIS GUARANTEE IS NON-TRANSFERABLE.
+
+THE GUARANTEE SHALL BECOME EFFECTIVE UPON ITS
+AUTHENTICATED ISSUANCE BY THE ISSUING BANK.`)}
+
+:31E:${expiryDate}
+
+THIS GUARANTEE SHALL EXPIRE AT THE COUNTERS OF THE
+ISSUING BANK ON ${expiryDate}. ANY DEMAND MUST BE
+RECEIVED BY THE ISSUING BANK ON OR BEFORE THE EXPIRY
+DATE.
+
+:72:
+PLEASE ADVISE BENEFICIARY UPON AUTHENTICATION.
+PLEASE CONFIRM RECEIPT THROUGH AUTHENTICATED SWIFT
+CHANNELS.
+-}
+{5:{CHK:[BANK GENERATED CHECKSUM]}}`;
+  },
 };
 
 export function generateDocumentContent(docType: string, trade?: Trade, buyerDetails?: PartyDetails, sellerDetails?: PartyDetails, productDetails?: ProductDetails): string {
   if (!Object.prototype.hasOwnProperty.call(templates, docType)) return "";
   const templateFn = templates[docType as keyof typeof templates];
   if (!templateFn) return "";
-  return templateFn(trade, buyerDetails, sellerDetails, productDetails);
+  const product = productDetails && (docType === "LOI" || docType === "FCO")
+    ? { ...productDetails, specialNote: lpgPurposeForDocument(productDetails.specialNote || "", docType) }
+    : productDetails;
+  return templateFn(trade, buyerDetails, sellerDetails, product);
 }
